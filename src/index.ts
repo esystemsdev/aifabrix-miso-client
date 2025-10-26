@@ -211,3 +211,6 @@ export { RoleService } from './services/role.service';
 export { LoggerService } from './services/logger.service';
 export { RedisService } from './services/redis.service';
 export { HttpClient } from './utils/http-client';
+
+// Export utilities
+export { loadConfig } from './utils/config-loader';

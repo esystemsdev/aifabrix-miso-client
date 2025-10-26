@@ -2,21 +2,12 @@
  * Example usage of MisoClient SDK
  */
 
-import { MisoClient } from './src/index';
+import { MisoClient, loadConfig } from '../src/index';
 
 async function example() {
-  // Initialize the client
-  const client = new MisoClient({
-    controllerUrl: 'https://controller.aifabrix.ai',
-    environment: 'dev',
-    applicationKey: 'example-app',
-    redis: {
-      host: process.env.REDIS_HOST || 'localhost',
-      port: 6379,
-      password: process.env.REDIS_PASSWORD
-    },
-    logLevel: 'debug'
-  });
+  // Initialize the client with auto-loaded configuration
+  // Environment variables are automatically loaded with sensible defaults
+  const client = new MisoClient(loadConfig());
 
   try {
     // Initialize connection
