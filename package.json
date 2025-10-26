@@ -1,6 +1,6 @@
 {
   "name": "@aifabrix/miso-client",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "AI Fabrix Client SDK for authentication, authorization, and logging",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
