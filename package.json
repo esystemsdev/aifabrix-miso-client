@@ -1,0 +1,60 @@
+{
+  "name": "@aifabrix/miso-client",
+  "version": "1.0.0",
+  "description": "AI Fabrix Client SDK for authentication, authorization, and logging",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "aifabrix",
+    "miso",
+    "client",
+    "authentication",
+    "authorization",
+    "logging",
+    "keycloak",
+    "redis"
+  ],
+  "author": "AI Fabrix Team",
+  "license": "MIT",
+  "dependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
+    "axios": "^1.6.2",
+    "dotenv": "^17.2.3",
+    "ioredis": "^5.3.2",
+    "jsonwebtoken": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.8",
+    "@types/node": "^20.10.4",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "jest": "^29.7.0",
+    "prettier": "^3.1.0",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.3.3"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/esystemsdev/aifabrix-miso-client.git"
+  },
+  "bugs": {
+    "url": "https://github.com/esystemsdev/aifabrix-miso-client/issues"
+  },
+  "homepage": "https://github.com/esystemsdev/aifabrix-miso-client"
+}

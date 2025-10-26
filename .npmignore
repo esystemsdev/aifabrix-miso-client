@@ -1,0 +1,30 @@
+# Source files
+src/
+tests/
+examples/
+
+# Development files
+jest.config.js
+tsconfig.json
+.eslintrc*
+.prettierrc*
+
+# Documentation (keep only README.md)
+docs/
+
+# Development dependencies
+node_modules/
+
+# Build artifacts (keep dist/)
+*.log
+*.tmp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
