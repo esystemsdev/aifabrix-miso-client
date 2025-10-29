@@ -15,6 +15,10 @@ const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 jest.mock('../../src/services/redis.service');
 const MockedRedisService = RedisService as jest.MockedClass<typeof RedisService>;
 
+// Mock jsonwebtoken
+jest.mock('jsonwebtoken');
+const jwt = require('jsonwebtoken');
+
 describe('LoggerService', () => {
   let loggerService: LoggerService;
   let mockHttpClient: jest.Mocked<HttpClient>;
@@ -24,15 +28,15 @@ describe('LoggerService', () => {
   beforeEach(() => {
     config = {
       controllerUrl: 'https://controller.aifabrix.ai',
-      environment: 'dev',
-      applicationKey: 'test-app',
-      applicationId: 'test-app-id-123',
+      clientId: 'ctrl-dev-test-app',
+      clientSecret: 'test-secret',
       logLevel: 'debug'
     };
 
     mockHttpClient = {
-      post: jest.fn()
+      request: jest.fn()
     } as any;
+    (mockHttpClient as any).config = config; // Add config to httpClient for access
 
     mockRedisService = {
       isConnected: jest.fn(),
@@ -42,7 +46,7 @@ describe('LoggerService', () => {
     MockedHttpClient.mockImplementation(() => mockHttpClient);
     MockedRedisService.mockImplementation(() => mockRedisService);
 
-    loggerService = new LoggerService(config, mockRedisService);
+    loggerService = new LoggerService(mockHttpClient, mockRedisService);
   });
 
   afterEach(() => {
@@ -57,59 +61,55 @@ describe('LoggerService', () => {
       await loggerService.error('Test error', { userId: '123' });
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"level":"error"')
       );
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"message":"Test error"')
       );
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
-        expect.stringContaining('"environment":"dev"')
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"environment":"unknown"')
       );
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
-        expect.stringContaining('"application":"test-app"')
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"application":"ctrl-dev-test-app"')
       );
-      expect(mockHttpClient.post).not.toHaveBeenCalled();
+      expect(mockHttpClient.request).not.toHaveBeenCalled();
     });
 
     it('should fallback to HTTP when Redis fails', async () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(false);
-      mockHttpClient.post.mockResolvedValue({});
+      mockHttpClient.request.mockResolvedValue({});
 
       await loggerService.error('Test error', { userId: '123' });
 
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/logs',
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'POST',
+        '/api/logs',
         expect.objectContaining({
           level: 'error',
           message: 'Test error',
-          environment: 'dev',
-          application: 'test-app',
-          applicationId: 'test-app-id-123',
           context: { userId: '123' }
-        }),
-        expect.any(Object)
+        })
       );
     });
 
     it('should use HTTP when Redis not connected', async () => {
       mockRedisService.isConnected.mockReturnValue(false);
-      mockHttpClient.post.mockResolvedValue({});
+      mockHttpClient.request.mockResolvedValue({});
 
       await loggerService.error('Test error');
 
-      expect(mockHttpClient.post).toHaveBeenCalledWith(
-        '/logs',
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'POST',
+        '/api/logs',
         expect.objectContaining({
           level: 'error',
-          message: 'Test error',
-          applicationId: 'test-app-id-123'
-        }),
-        expect.any(Object)
+          message: 'Test error'
+        })
       );
       expect(mockRedisService.rpush).not.toHaveBeenCalled();
     });
@@ -123,19 +123,19 @@ describe('LoggerService', () => {
       await loggerService.audit('user.created', 'users', { userId: '123' });
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"level":"audit"')
       );
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"message":"Audit: user.created on users"')
       );
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"action":"user.created"')
       );
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"resource":"users"')
       );
     });
@@ -149,11 +149,11 @@ describe('LoggerService', () => {
       await loggerService.info('Test info');
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"level":"info"')
       );
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"message":"Test info"')
       );
     });
@@ -167,19 +167,20 @@ describe('LoggerService', () => {
       await loggerService.debug('Test debug');
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"level":"debug"')
       );
     });
 
     it('should not log debug message when logLevel is not debug', async () => {
       const configWithoutDebug = { ...config, logLevel: 'info' as const };
-      const loggerWithoutDebug = new LoggerService(configWithoutDebug, mockRedisService);
+      (mockHttpClient as any).config = configWithoutDebug;
+      const loggerWithoutDebug = new LoggerService(mockHttpClient, mockRedisService);
 
       await loggerWithoutDebug.debug('Test debug');
 
       expect(mockRedisService.rpush).not.toHaveBeenCalled();
-      expect(mockHttpClient.post).not.toHaveBeenCalled();
+      expect(mockHttpClient.request).not.toHaveBeenCalled();
     });
   });
 
@@ -193,14 +194,14 @@ describe('LoggerService', () => {
       const afterTime = new Date().toISOString();
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringMatching(new RegExp(`"timestamp":"${beforeTime.split('T')[0]}`))
       );
     });
 
     it('should handle HTTP fallback errors gracefully', async () => {
       mockRedisService.isConnected.mockReturnValue(false);
-      mockHttpClient.post.mockRejectedValue(new Error('HTTP error'));
+      mockHttpClient.request.mockRejectedValue(new Error('HTTP error'));
 
       // Should not throw
       await expect(loggerService.error('Test error')).resolves.toBeUndefined();
@@ -215,7 +216,7 @@ describe('LoggerService', () => {
       await loggerService.error('Test error', { userId: '123' }, 'Stack trace here');
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"stackTrace":"Stack trace here"')
       );
     });
@@ -227,7 +228,7 @@ describe('LoggerService', () => {
       await loggerService.info('Test', { data: 'value', correlationId: 'corr-123' });
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"correlationId":"corr-123"')
       );
     });
@@ -239,7 +240,7 @@ describe('LoggerService', () => {
       await loggerService.info('Test', { data: 'value', userId: 'user-123' });
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"userId":"user-123"')
       );
     });
@@ -251,7 +252,7 @@ describe('LoggerService', () => {
       await loggerService.info('Test', { password: 'secret123', username: 'john' });
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('***MASKED***')
       );
     });
@@ -264,7 +265,7 @@ describe('LoggerService', () => {
       await loggerService.info('Test', { password: 'secret123' });
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"password":"secret123"')
       );
     });
@@ -276,7 +277,7 @@ describe('LoggerService', () => {
       await loggerService.info('Test', { data: 'value' });
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"data":"value"')
       );
     });
@@ -338,7 +339,7 @@ describe('LoggerService', () => {
       await chain.info('Test message');
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"userKey":"value"')
       );
     });
@@ -369,7 +370,7 @@ describe('LoggerService', () => {
       await chain.error('Error occurred', 'Stack trace');
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"action":"test"')
       );
     });
@@ -382,8 +383,245 @@ describe('LoggerService', () => {
       await chain.audit('action', 'resource');
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        'logs:dev:test-app',
+        'logs:ctrl-dev-test-app',
         expect.stringContaining('"userId":"123"')
+      );
+    });
+
+    it('should support withToken method and extract JWT context', async () => {
+      jwt.decode.mockReturnValue({
+        sub: 'user-123',
+        applicationId: 'app-456',
+        sessionId: 'session-789',
+        roles: ['admin', 'user']
+      });
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withToken('valid-jwt-token');
+      await chain.info('Test with token');
+
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"userId":"user-123"')
+      );
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"sessionId":"session-789"')
+      );
+    });
+
+    it('should handle JWT decode failure in withToken', async () => {
+      jwt.decode.mockImplementation(() => {
+        throw new Error('Invalid token');
+      });
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withToken('invalid-token');
+      await chain.info('Test with invalid token');
+
+      // Should still log without JWT context
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"message":"Test with invalid token"')
+      );
+    });
+
+    it('should extract userId from different JWT claim formats', async () => {
+      jwt.decode.mockReturnValue({
+        user_id: 'user-456', // Alternative format
+        app_id: 'app-789'
+      });
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withToken('token-with-user_id');
+      await chain.info('Test');
+
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"userId":"user-456"')
+      );
+    });
+
+    it('should extract roles from realm_access in JWT', async () => {
+      jwt.decode.mockReturnValue({
+        sub: 'user-123',
+        realm_access: {
+          roles: ['admin', 'manager']
+        }
+      });
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withToken('token-with-realm-access');
+      await chain.info('Test');
+
+      // JWT roles/permissions are extracted but not directly added to log entry
+      // They're available in jwtContext but logged via userId which we can verify
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"userId":"user-123"')
+      );
+    });
+
+    it('should extract permissions from scope in JWT', async () => {
+      jwt.decode.mockReturnValue({
+        sub: 'user-123',
+        scope: 'read:users write:posts'
+      });
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withToken('token-with-scope');
+      await chain.info('Test');
+
+      // JWT permissions from scope are extracted but not directly in log entry
+      // Verify userId is extracted correctly
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"userId":"user-123"')
+      );
+    });
+
+    it('should handle null decoded JWT gracefully', async () => {
+      jwt.decode.mockReturnValue(null);
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withToken('token-returns-null');
+      await chain.info('Test');
+
+      expect(mockRedisService.rpush).toHaveBeenCalled();
+    });
+
+    it('should extract sessionId from sid claim', async () => {
+      jwt.decode.mockReturnValue({
+        sub: 'user-123',
+        sid: 'session-from-sid'
+      });
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withToken('token-with-sid');
+      await chain.info('Test');
+
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"sessionId":"session-from-sid"')
+      );
+    });
+
+    it('should handle empty roles and permissions arrays in JWT', async () => {
+      jwt.decode.mockReturnValue({
+        sub: 'user-123',
+        roles: [],
+        permissions: []
+      });
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withToken('token-empty-arrays');
+      await chain.info('Test');
+
+      expect(mockRedisService.rpush).toHaveBeenCalled();
+    });
+
+    it('should support withPerformance and include metrics', async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withPerformance();
+      await chain.info('Test with performance');
+
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"performance"')
+      );
+    });
+
+    it('should support withoutMasking method', async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withoutMasking();
+      chain.addContext('password', 'secret');
+      chain.addContext('apiKey', 'key123');
+      await chain.info('Test');
+
+      const rpushCall = mockRedisService.rpush.mock.calls.find((call: any[]) =>
+        call && call[1] && typeof call[1] === 'string' && call[1].includes('password')
+      );
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        expect(rpushCall[1]).toContain('"password":"secret"');
+        expect(rpushCall[1]).not.toContain('***MASKED***');
+      }
+    });
+
+    it('should handle HTTP error in chain methods gracefully', async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      mockHttpClient.request.mockRejectedValue(new Error('HTTP error'));
+
+      const chain = loggerService.withContext({ test: 'data' });
+      await expect(chain.error('Test error')).resolves.toBeUndefined();
+    });
+
+    it('should handle Redis error and fallback to HTTP', async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      // Make rpush return false (not throw) to trigger HTTP fallback
+      mockRedisService.rpush.mockResolvedValue(false);
+      mockHttpClient.request.mockResolvedValue({}); // HTTP fallback should succeed
+
+      const chain = loggerService.withContext({ test: 'data' });
+      await expect(chain.info('Test')).resolves.toBeUndefined();
+      expect(mockHttpClient.request).toHaveBeenCalled();
+    });
+
+    it('should handle Redis failure and HTTP error gracefully', async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      // Make rpush return false (not throw) to trigger HTTP fallback
+      mockRedisService.rpush.mockResolvedValue(false);
+      mockHttpClient.request.mockRejectedValue(new Error('HTTP error'));
+
+      const chain = loggerService.withContext({ test: 'data' });
+      // HTTP error is caught and silently swallowed to avoid infinite logging loops
+      await expect(chain.info('Test')).resolves.toBeUndefined();
+    });
+
+    it('should handle Redis rejection', async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockRejectedValue(new Error('Redis error'));
+
+      const chain = loggerService.withContext({ test: 'data' });
+      // If Redis throws, error propagates immediately
+      await expect(chain.info('Test')).rejects.toThrow('Redis error');
+    });
+
+    it('should combine multiple chain methods', async () => {
+      jwt.decode.mockReturnValue({ sub: 'user-123' });
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService
+        .withContext({ action: 'test' })
+        .withToken('token-123')
+        .addUser('user-456')
+        .addCorrelation('corr-789');
+      await chain.info('Test with multiple chain methods');
+
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        'logs:ctrl-dev-test-app',
+        expect.stringContaining('"action":"test"')
       );
     });
   });

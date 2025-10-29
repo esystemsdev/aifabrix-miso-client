@@ -7,10 +7,12 @@ import { RoleService } from './services/role.service';
 import { PermissionService } from './services/permission.service';
 import { LoggerService } from './services/logger.service';
 import { RedisService } from './services/redis.service';
+import { HttpClient } from './utils/http-client';
 import { MisoClientConfig, UserInfo } from './types/config.types';
 
 export class MisoClient {
   private config: MisoClientConfig;
+  private httpClient: HttpClient;
   private redis: RedisService;
   private auth: AuthService;
   private roles: RoleService;
@@ -20,11 +22,12 @@ export class MisoClient {
 
   constructor(config: MisoClientConfig) {
     this.config = config;
+    this.httpClient = new HttpClient(config);
     this.redis = new RedisService(config.redis);
-    this.auth = new AuthService(config, this.redis);
-    this.roles = new RoleService(config, this.redis);
-    this.permissions = new PermissionService(config, this.redis);
-    this.logger = new LoggerService(config, this.redis);
+    this.auth = new AuthService(this.httpClient, this.redis);
+    this.roles = new RoleService(this.httpClient, this.redis);
+    this.permissions = new PermissionService(this.httpClient, this.redis);
+    this.logger = new LoggerService(this.httpClient, this.redis);
   }
 
   /**
@@ -62,6 +65,33 @@ export class MisoClient {
   // ==================== AUTHENTICATION METHODS ====================
 
   /**
+   * Extract Bearer token from request headers
+   * Supports common request object patterns (Express, Fastify, Next.js)
+   */
+  getToken(req: { headers: { authorization?: string } }): string | null {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return null;
+    }
+
+    // Support "Bearer <token>" format
+    if (authHeader.startsWith('Bearer ')) {
+      return authHeader.substring(7);
+    }
+
+    // If no Bearer prefix, assume the whole header is the token
+    return authHeader;
+  }
+
+  /**
+   * Get environment token using client credentials
+   * This is called automatically by HttpClient but can be called manually
+   */
+  async getEnvironmentToken(): Promise<string> {
+    return this.auth.getEnvironmentToken();
+  }
+
+  /**
    * Initiate login flow by redirecting to controller
    * Returns the login URL for browser redirect or manual navigation
    */
@@ -81,6 +111,13 @@ export class MisoClient {
    */
   async getUser(token: string): Promise<UserInfo | null> {
     return this.auth.getUser(token);
+  }
+
+  /**
+   * Get user information from GET /api/auth/user endpoint
+   */
+  async getUserInfo(token: string): Promise<UserInfo | null> {
+    return this.auth.getUserInfo(token);
   }
 
   /**

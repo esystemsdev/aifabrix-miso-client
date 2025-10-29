@@ -5,6 +5,7 @@
 import { HttpClient } from '../utils/http-client';
 import { RedisService } from './redis.service';
 import { MisoClientConfig, PermissionResult } from '../types/config.types';
+import jwt from 'jsonwebtoken';
 
 export class PermissionService {
   private httpClient: HttpClient;
@@ -12,34 +13,40 @@ export class PermissionService {
   private config: MisoClientConfig;
   private permissionTTL: number;
 
-  constructor(config: MisoClientConfig, redis: RedisService) {
-    this.config = config;
+  constructor(httpClient: HttpClient, redis: RedisService) {
+    this.config = httpClient.config;
     this.redis = redis;
-    this.httpClient = new HttpClient(config);
-    this.permissionTTL = config.cache?.permissionTTL || 900; // 15 minutes default
+    this.httpClient = httpClient;
+    this.permissionTTL = this.config.cache?.permissionTTL || 900; // 15 minutes default
+  }
+
+  /**
+   * Extract userId from JWT token without making API call
+   */
+  private extractUserIdFromToken(token: string): string | null {
+    try {
+      const decoded = jwt.decode(token) as Record<string, unknown> | null;
+      if (!decoded) return null;
+      
+      // Try common JWT claim fields for user ID
+      return (decoded.sub || decoded.userId || decoded.user_id || decoded.id) as string | null;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
    * Get user permissions with Redis caching
+   * Optimized to extract userId from token first to check cache before API call
    */
   async getPermissions(token: string): Promise<string[]> {
     try {
-      // First get user info to extract userId
-      const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
-        'POST',
-        '/auth/validate',
-        token
-      );
+      // Extract userId from token to check cache first (avoids API call on cache hit)
+      let userId = this.extractUserIdFromToken(token);
+      const cacheKey = userId ? `permissions:${userId}` : null;
 
-      if (!userInfo.user?.id) {
-        return [];
-      }
-
-      const userId = userInfo.user.id;
-      const cacheKey = `permissions:${userId}:${this.config.environment}:${this.config.applicationKey}`;
-
-      // Check Redis cache first
-      if (this.redis.isConnected()) {
+      // Check Redis cache first if we have userId
+      if (cacheKey && this.redis.isConnected()) {
         const cachedPermissions = await this.redis.get(cacheKey);
         if (cachedPermissions) {
           try {
@@ -52,19 +59,34 @@ export class PermissionService {
         }
       }
 
+      // Cache miss or no userId in token - fetch from controller
+      // If we don't have userId, get it from validate endpoint
+      if (!userId) {
+        const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
+          'POST',
+          '/api/auth/validate',
+          token
+        );
+        userId = userInfo.user?.id || null;
+        if (!userId) {
+          return [];
+        }
+      }
+
       // Cache miss - fetch from controller
       const permissionResult = await this.httpClient.authenticatedRequest<PermissionResult>(
         'GET',
-        '/auth/permissions',
+        '/api/auth/permissions', // Backend knows app/env from client token
         token
       );
 
       const permissions = permissionResult.permissions || [];
 
-      // Cache the result in Redis
+      // Cache the result in Redis (use userId-based key)
+      const finalCacheKey = `permissions:${userId}`;
       if (this.redis.isConnected()) {
         await this.redis.set(
-          cacheKey,
+          finalCacheKey,
           JSON.stringify({ permissions, timestamp: Date.now() }),
           this.permissionTTL
         );
@@ -110,7 +132,7 @@ export class PermissionService {
       // Get user info to extract userId
       const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
         'POST',
-        '/auth/validate',
+        '/api/auth/validate',
         token
       );
 
@@ -119,12 +141,12 @@ export class PermissionService {
       }
 
       const userId = userInfo.user.id;
-      const cacheKey = `permissions:${userId}:${this.config.environment}:${this.config.applicationKey}`;
+      const cacheKey = `permissions:${userId}`;
 
-      // Fetch fresh permissions from controller
+      // Fetch fresh permissions from controller using refresh endpoint
       const permissionResult = await this.httpClient.authenticatedRequest<PermissionResult>(
         'GET',
-        '/auth/permissions',
+        '/api/auth/permissions/refresh',
         token
       );
 
@@ -155,7 +177,7 @@ export class PermissionService {
       // Get user info to extract userId
       const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
         'POST',
-        '/auth/validate',
+        '/api/auth/validate',
         token
       );
 
@@ -164,7 +186,7 @@ export class PermissionService {
       }
 
       const userId = userInfo.user.id;
-      const cacheKey = `permissions:${userId}:${this.config.environment}:${this.config.applicationKey}`;
+      const cacheKey = `permissions:${userId}`;
 
       // Clear from Redis cache
       if (this.redis.isConnected()) {

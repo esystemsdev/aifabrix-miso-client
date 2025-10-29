@@ -91,15 +91,45 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 
 ## 🚀 Quick Start
 
-Get your application secured in 6 steps.
+Get your application secured in 30 seconds.
 
-### Step 1: Set Up Your Environment
+### Step 1: Install
 
-**What you need:**
-- Keycloak running for authentication
-- AI Fabrix Miso Controller running
+```bash
+npm install @aifabrix/miso-client
+```
 
-**First time setting up?** Use the [AI Fabrix Builder Quick Start](https://github.com/esystemsdev/aifabrix-builder/blob/main/docs/QUICK-START.md):
+### Step 2: Create `.env`
+
+```bash
+MISO_CLIENTID=ctrl-dev-my-app
+MISO_CLIENTSECRET=your-secret
+MISO_CONTROLLER_URL=http://localhost:3000
+REDIS_HOST=localhost
+```
+
+### Step 3: Use It
+
+```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+const client = new MisoClient(loadConfig());
+await client.initialize();
+
+const isValid = await client.auth.validateToken(token);
+```
+
+**That's it!** You now have authentication, roles, and logging.
+
+→ [Full Getting Started Guide](docs/getting-started.md)
+
+---
+
+### Infrastructure Setup
+
+**First time?** You'll need Keycloak and Miso Controller running.
+
+Use the [AI Fabrix Builder](https://github.com/esystemsdev/aifabrix-builder/blob/main/docs/QUICK-START.md):
 
 ```bash
 # Start infrastructure (Postgres, Redis)
@@ -118,48 +148,30 @@ aifabrix run miso-controller
 
 → [Infrastructure Guide](https://github.com/esystemsdev/aifabrix-builder/blob/main/docs/INFRASTRUCTURE.md)
 
-**Already have Keycloak and Controller?** Skip to Step 2.
+**Already have Keycloak and Controller?** Use the Quick Start above.
 
 ---
 
-### Step 2: Install Miso Client
-
-```bash
-npm install @aifabrix/miso-client
-```
-
-**What you get:**
-- Authentication with Keycloak
-- Role-based access control (RBAC)
-- Centralized logging
-- Redis caching for performance
-
----
-
-### Step 3: Activate Authentication
+## 📚 Documentation
 
 **What happens:** Your app validates user tokens from Keycloak.
 
 ```typescript
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
-// Create client
-const client = new MisoClient({
-  controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'dev',
-  applicationKey: 'my-app',
-  applicationId: 'my-app-id-123',
-});
-
+// Create client (loads from .env automatically)
+const client = new MisoClient(loadConfig());
 await client.initialize();
 
-// Validate token from request
-const token = req.headers.authorization?.replace('Bearer ', '');
-const isValid = await client.validateToken(token);
+// Get token from request (helper method)
+const token = client.getToken(req);
 
-if (isValid) {
-  const user = await client.getUser(token);
-  console.log('User:', user);
+if (token) {
+  const isValid = await client.validateToken(token);
+  if (isValid) {
+    const user = await client.getUser(token);
+    console.log('User:', user);
+  }
 }
 ```
 
@@ -174,18 +186,13 @@ if (isValid) {
 **What happens:** Check user roles to control access. Roles are cached in Redis for performance.
 
 ```typescript
-// Build on Step 3 - add Redis for caching
-const client = new MisoClient({
-  controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'dev',
-  applicationKey: 'my-app',
-  applicationId: 'my-app-id-123',
-  redis: { host: 'localhost', port: 6379 }, // Add Redis
-});
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
+// Build on Step 3 - add Redis in .env file
+const client = new MisoClient(loadConfig());
 await client.initialize();
 
-const token = req.headers.authorization?.replace('Bearer ', '');
+const token = client.getToken(req);
 
 // Check if user has role
 const isAdmin = await client.hasRole(token, 'admin');
@@ -200,28 +207,22 @@ if (isAdmin) {
 **Pro tip:** Without Redis, checks go to the controller. Add Redis to cache role lookups (15-minute default TTL).
 
 → [Complete RBAC example](examples/step-4-rbac.ts)  
-→ [RBAC Configuration](https://github.com/esystemsdev/aifabrix-builder/blob/main/docs/QUICK-START.md#step-3-create-your-app)
+→ [AI Fabrix Builder Quick Start](https://github.com/esystemsdev/aifabrix-builder/blob/main/docs/QUICK-START.md)
 
 ---
 
 ### Step 5: Activate Logging
 
-**What happens:** Application logs are sent to the Miso Controller with API key authentication.
+**What happens:** Application logs are sent to the Miso Controller with client token authentication.
 
 ```typescript
-// Add API key for logging
-const client = new MisoClient({
-  controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'dev',
-  applicationKey: 'my-app',
-  applicationId: 'my-app-id-123',
-  apiKey: 'dev-my-app-my-app-id-123-a1b2c3d4e5f6', // NEW: API key
-  redis: { host: 'localhost', port: 6379 },
-});
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
+// Client token is automatically managed - no API key needed
+const client = new MisoClient(loadConfig());
 await client.initialize();
 
-const token = req.headers.authorization?.replace('Bearer ', '');
+const token = client.getToken(req);
 const user = await client.getUser(token);
 
 // Log messages
@@ -230,9 +231,7 @@ await client.log.error('Operation failed', { error: err.message });
 await client.log.warn('Unusual activity', { details: '...' });
 ```
 
-**API key format:** `{environment}-{applicationKey}-{applicationId}-{randomString}`
-
-**What happens to logs?** They're sent to the Miso Controller for centralized monitoring and analysis.
+**What happens to logs?** They're sent to the Miso Controller for centralized monitoring and analysis. Client token is automatically included.
 
 → [Complete logging example](examples/step-5-logging.ts)  
 → [Logging Reference](docs/api-reference.md#logger-service)
@@ -244,23 +243,16 @@ await client.log.warn('Unusual activity', { details: '...' });
 **What happens:** Create audit trails for compliance and security monitoring.
 
 ```typescript
-// Complete configuration
-const client = new MisoClient({
-  controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'dev',
-  applicationKey: 'my-app',
-  applicationId: 'my-app-id-123',
-  apiKey: 'dev-my-app-my-app-id-123-a1b2c3d4e5f6',
-  redis: { host: 'localhost', port: 6379, password: 'optional' },
-  logLevel: 'info',
-  cache: { roleTTL: 900, permissionTTL: 900 },
-});
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
+// Complete configuration (all in .env)
+const client = new MisoClient(loadConfig());
 await client.initialize();
 
-const token = req.headers.authorization?.replace('Bearer ', '');
+const token = client.getToken(req);
 const isValid = await client.validateToken(token);
 const canEdit = await client.hasPermission(token, 'edit:content');
+const user = await client.getUser(token);
 
 // Audit: User actions
 await client.log.audit('user.login', 'authentication', {
@@ -296,11 +288,9 @@ await client.log.audit('access.denied', 'authorization', {
 ```typescript
 interface MisoClientConfig {
   controllerUrl: string;      // Required: Controller URL
-  environment: 'dev' | 'tst' | 'pro'; // Required: Environment
-  applicationKey: string;     // Required: App identifier
-  applicationId: string;      // Required: App GUID
-  apiKey?: string;            // Optional: For logging
-  redis?: RedisConfig;         // Optional: For caching
+  clientId: string;           // Required: Client ID (e.g., 'ctrl-dev-my-app')
+  clientSecret: string;       // Required: Client secret
+  redis?: RedisConfig;        // Optional: For caching
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
   cache?: {
     roleTTL?: number;         // Role cache TTL (default: 900s)
@@ -308,6 +298,8 @@ interface MisoClientConfig {
   };
 }
 ```
+
+**Recommended:** Use `loadConfig()` to load from `.env` file automatically.
 
 → [Complete Configuration Reference](docs/configuration.md)
 
@@ -337,15 +329,28 @@ The SDK consists of five core services:
 
 ---
 
-## 🌐 Environments
+## 🌐 Setup Your Application
 
-The SDK supports three environments:
+**First time setup?** Use the AI Fabrix Builder:
 
-- **`dev`** - Development environment
-- **`tst`** - Test environment  
-- **`pro`** - Production environment
+1. **Create your app:**
+   ```bash
+   aifabrix create myapp --port 3000 --database --language typescript
+   ```
 
-Each environment uses different controller endpoints and API keys.
+2. **Login to controller:**
+   ```bash
+   aifabrix login
+   ```
+
+3. **Register your application:**
+   ```bash
+   aifabrix app register myapp --environment dev
+   ```
+
+4. **Start development** and then deploy to Docker or Azure.
+
+→ [Full Quick Start Guide](https://github.com/esystemsdev/aifabrix-builder/blob/main/docs/QUICK-START.md)
 
 ---
 
@@ -362,10 +367,12 @@ Each environment uses different controller endpoints and API keys.
 **Add authentication middleware:**
 ```typescript
 app.use(async (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  const isValid = await client.validateToken(token);
-  if (isValid) {
-    req.user = await client.getUser(token);
+  const token = client.getToken(req);
+  if (token) {
+    const isValid = await client.validateToken(token);
+    if (isValid) {
+      req.user = await client.getUser(token);
+    }
   }
   next();
 });
@@ -374,22 +381,25 @@ app.use(async (req, res, next) => {
 **Protect routes by role:**
 ```typescript
 app.get('/admin', async (req, res) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
+  const token = client.getToken(req);
+  if (!token) return res.status(401).json({ error: 'Unauthorized' });
+  
   const isAdmin = await client.hasRole(token, 'admin');
   if (!isAdmin) return res.status(403).json({ error: 'Forbidden' });
+  
   // Admin only code
+  res.json({ message: 'Admin panel' });
 });
 ```
 
 **Use environment variables:**
 ```bash
-MISO_CONTROLLER_URL=https://controller.aifabrix.ai
-MISO_ENVIRONMENT=dev
-MISO_APPLICATION_KEY=my-app
-MISO_APPLICATION_ID=my-app-id-123
-MISO_API_KEY=dev-my-app-my-app-id-123-a1b2c3d4e5f6
+MISO_CLIENTID=ctrl-dev-my-app
+MISO_CLIENTSECRET=your-secret
+MISO_CONTROLLER_URL=http://localhost:3000
 REDIS_HOST=localhost
 REDIS_PORT=6379
+MISO_LOG_LEVEL=info
 ```
 
 ---
@@ -404,9 +414,9 @@ REDIS_PORT=6379
 → SDK falls back to controller-only mode (slower but works)  
 → Fix: `aifabrix up` to start Redis
 
-**"Invalid API key for logging"**  
-→ Check API key format: `{environment}-{applicationKey}-{applicationId}-{randomString}`  
-→ Verify key is configured in controller
+**"Client token fetch failed"**  
+→ Check `MISO_CLIENTID` and `MISO_CLIENTSECRET` are correct  
+→ Verify credentials are configured in controller
 
 **"Token validation fails"**  
 → Ensure Keycloak is running and configured correctly  

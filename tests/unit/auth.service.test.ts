@@ -15,6 +15,9 @@ const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 jest.mock('../../src/services/redis.service');
 const MockedRedisService = RedisService as jest.MockedClass<typeof RedisService>;
 
+// Mock axios for getEnvironmentToken
+jest.mock('axios');
+
 describe('AuthService', () => {
   let authService: AuthService;
   let mockHttpClient: jest.Mocked<HttpClient>;
@@ -24,22 +27,22 @@ describe('AuthService', () => {
   beforeEach(() => {
     config = {
       controllerUrl: 'https://controller.aifabrix.ai',
-      environment: 'dev',
-      applicationKey: 'test-app',
-      applicationId: 'test-app-id-123'
+      clientId: 'ctrl-dev-test-app',
+      clientSecret: 'test-secret'
     };
 
     mockHttpClient = {
       authenticatedRequest: jest.fn(),
-      post: jest.fn()
+      request: jest.fn()
     } as any;
+    (mockHttpClient as any).config = config; // Add config to httpClient for access
 
     mockRedisService = {} as any;
 
     MockedHttpClient.mockImplementation(() => mockHttpClient);
     MockedRedisService.mockImplementation(() => mockRedisService);
 
-    authService = new AuthService(config, mockRedisService);
+    authService = new AuthService(mockHttpClient, mockRedisService);
   });
 
   afterEach(() => {
@@ -50,10 +53,9 @@ describe('AuthService', () => {
     it('should generate correct login URL', () => {
       const loginUrl = authService.login('/dashboard');
 
-      expect(loginUrl).toContain('https://controller.aifabrix.ai/auth/login');
-      expect(loginUrl).toContain('environment=dev');
-      expect(loginUrl).toContain('application=test-app');
+      expect(loginUrl).toContain('https://controller.aifabrix.ai/api/auth/login');
       expect(loginUrl).toContain('redirect=%2Fdashboard');
+      // No longer includes environment/application - backend extracts from client credentials
     });
   });
 
@@ -69,7 +71,7 @@ describe('AuthService', () => {
       expect(result).toBe(true);
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'POST',
-        '/auth/validate',
+        '/api/auth/validate',
         'valid-token'
       );
     });
@@ -129,20 +131,23 @@ describe('AuthService', () => {
 
   describe('logout', () => {
     it('should call logout endpoint', async () => {
-      mockHttpClient.post.mockResolvedValue({});
+      mockHttpClient.request.mockResolvedValue({});
 
       await authService.logout();
 
-      expect(mockHttpClient.post).toHaveBeenCalledWith('/auth/logout', {
-        environment: 'dev',
-        application: 'test-app'
-      });
+      expect(mockHttpClient.request).toHaveBeenCalledWith('POST', '/api/auth/logout');
     });
 
     it('should throw error on failure', async () => {
-      mockHttpClient.post.mockRejectedValue(new Error('Logout failed'));
+      mockHttpClient.request.mockRejectedValue(new Error('Logout failed'));
 
       await expect(authService.logout()).rejects.toThrow('Logout failed');
+    });
+
+    it('should handle non-Error thrown values', async () => {
+      mockHttpClient.request.mockRejectedValue('String error');
+
+      await expect(authService.logout()).rejects.toThrow('Logout failed: Unknown error');
     });
   });
 
@@ -156,6 +161,87 @@ describe('AuthService', () => {
       const result = await authService.isAuthenticated('token');
 
       expect(result).toBe(true);
+    });
+  });
+
+  describe('getEnvironmentToken', () => {
+    let mockAxios: any;
+    let mockTempAxios: any;
+
+    beforeEach(() => {
+      mockAxios = require('axios');
+      mockTempAxios = {
+        post: jest.fn()
+      };
+      // Reset and setup axios.create mock
+      mockAxios.create.mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          return mockTempAxios;
+        }
+        return { post: jest.fn(), get: jest.fn(), put: jest.fn(), delete: jest.fn() };
+      });
+    });
+
+    it('should fetch and return environment token', async () => {
+      mockTempAxios.post.mockResolvedValue({
+        data: {
+          success: true,
+          token: 'env-token-123',
+          expiresIn: 3600,
+          expiresAt: new Date(Date.now() + 3600000).toISOString()
+        }
+      });
+
+      const result = await authService.getEnvironmentToken();
+
+      expect(result).toBe('env-token-123');
+      expect(mockTempAxios.post).toHaveBeenCalledWith('/api/auth/token');
+    });
+
+    it('should throw error on invalid response', async () => {
+      mockTempAxios.post.mockResolvedValue({
+        data: {
+          success: false
+        }
+      });
+
+      await expect(authService.getEnvironmentToken()).rejects.toThrow('Failed to get environment token');
+    });
+
+    it('should throw error on network failure', async () => {
+      mockTempAxios.post.mockRejectedValue(new Error('Network error'));
+
+      await expect(authService.getEnvironmentToken()).rejects.toThrow('Failed to get environment token');
+    });
+
+    it('should handle non-Error thrown values', async () => {
+      mockTempAxios.post.mockRejectedValue('String error');
+
+      await expect(authService.getEnvironmentToken()).rejects.toThrow('Failed to get environment token: Unknown error');
+    });
+  });
+
+  describe('getUserInfo', () => {
+    it('should return user info from GET endpoint', async () => {
+      const userInfo = { id: '123', username: 'testuser', email: 'test@example.com' };
+      mockHttpClient.authenticatedRequest.mockResolvedValue(userInfo);
+
+      const result = await authService.getUserInfo('valid-token');
+
+      expect(result).toEqual(userInfo);
+      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
+        'GET',
+        '/api/auth/user',
+        'valid-token'
+      );
+    });
+
+    it('should return null on error', async () => {
+      mockHttpClient.authenticatedRequest.mockRejectedValue(new Error('Network error'));
+
+      const result = await authService.getUserInfo('token');
+
+      expect(result).toBeNull();
     });
   });
 });

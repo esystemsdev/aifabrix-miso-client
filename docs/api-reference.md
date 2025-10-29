@@ -32,10 +32,16 @@ Creates a new MisoClient instance with the provided configuration.
 **Example:**
 
 ```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+// Recommended: Use loadConfig() to load from .env
+const client = new MisoClient(loadConfig());
+
+// Or manually:
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'dev',
-  applicationKey: 'my-app'
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: 'your-secret'
 });
 ```
 
@@ -89,8 +95,8 @@ Main configuration interface for the MisoClient.
 ```typescript
 interface MisoClientConfig {
   controllerUrl: string; // Required: AI Fabrix controller URL
-  environment: 'dev' | 'tst' | 'pro'; // Required: Environment
-  applicationKey: string; // Required: Application identifier
+  clientId: string; // Required: Client ID (e.g., 'ctrl-dev-my-app')
+  clientSecret: string; // Required: Client secret
   redis?: RedisConfig; // Optional: Redis configuration
   logLevel?: 'debug' | 'info' | 'warn' | 'error'; // Optional: Log level
   cache?: {

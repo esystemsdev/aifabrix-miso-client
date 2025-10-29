@@ -4,16 +4,12 @@
  * Basic token validation to verify user identity.
  */
 
-import { MisoClient } from '../src/index';
+import { MisoClient, loadConfig } from '../src/index';
 
 async function authenticationExample() {
-  // Create client with controller configuration
-  const client = new MisoClient({
-    controllerUrl: 'https://controller.aifabrix.ai',
-    environment: 'dev',
-    applicationKey: 'my-app',
-    applicationId: 'my-app-id-123',
-  });
+  // Create client - loads from .env automatically
+  // Or manually: new MisoClient({ controllerUrl, clientId, clientSecret })
+  const client = new MisoClient(loadConfig());
 
   try {
     // Initialize the client
@@ -21,7 +17,7 @@ async function authenticationExample() {
     console.log('✅ Client initialized successfully');
 
     // Get token from your application (e.g., from HTTP request header)
-    // In real usage: const token = req.headers.authorization?.replace('Bearer ', '');
+    // In real usage: const token = client.getToken(req);
     const token = 'your-jwt-token-here';
 
     // Validate the token

@@ -11,13 +11,19 @@ import { MisoClientConfig, RedisConfig } from '../types/config.types';
  */
 export function loadConfig(): MisoClientConfig {
   const config: MisoClientConfig = {
-    controllerUrl: process.env.CONTROLLER_URL || 'https://controller.aifabrix.ai',
-    environment: (process.env.ENVIRONMENT as 'dev' | 'tst' | 'pro') || 'dev',
-    applicationKey: process.env.APPLICATION_KEY || 'example-app',
-    applicationId: process.env.APPLICATION_ID || '',
-    apiKey: process.env.API_KEY,
-    logLevel: (process.env.LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'debug',
+    controllerUrl: process.env.MISO_CONTROLLER_URL || 'https://controller.aifabrix.ai',
+    clientId: process.env.MISO_CLIENTID || process.env.MISO_CLIENT_ID || '',
+    clientSecret: process.env.MISO_CLIENTSECRET || process.env.MISO_CLIENT_SECRET || '',
+    logLevel: (process.env.MISO_LOG_LEVEL as 'debug' | 'info' | 'warn' | 'error') || 'debug',
   };
+
+  // Validate required fields
+  if (!config.clientId) {
+    throw new Error('MISO_CLIENTID environment variable is required');
+  }
+  if (!config.clientSecret) {
+    throw new Error('MISO_CLIENTSECRET environment variable is required');
+  }
 
   // Optional Redis configuration
   const redisHost = process.env.REDIS_HOST;
@@ -41,4 +47,3 @@ export function loadConfig(): MisoClientConfig {
 
   return config;
 }
-

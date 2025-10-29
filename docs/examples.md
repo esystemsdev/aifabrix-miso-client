@@ -19,25 +19,23 @@ Practical examples demonstrating how to use the AI Fabrix Miso Client SDK in var
 
 ```typescript
 import express from 'express';
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 const app = express();
-const client = new MisoClient({
-  controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: process.env.MISO_ENVIRONMENT as any,
-  applicationKey: process.env.MISO_APPLICATION_KEY!
-});
+
+// Load configuration from .env file
+const client = new MisoClient(loadConfig());
 
 await client.initialize();
 
-// Authentication middleware
+// Simple authentication middleware
 export async function authMiddleware(
   req: express.Request,
   res: express.Response,
   next: express.NextFunction
 ) {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token = client.getToken(req);
 
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
@@ -70,11 +68,11 @@ app.get('/protected', authMiddleware, (req, res) => {
 ### Role-Based Authorization Middleware
 
 ```typescript
-// Role-based authorization middleware
+// Simple role-based authorization middleware
 export function requireRole(role: string) {
   return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     try {
-      const token = req.headers.authorization?.replace('Bearer ', '');
+      const token = client.getToken(req);
 
       if (!token) {
         return res.status(401).json({ error: 'No token provided' });
@@ -102,11 +100,11 @@ export function requireRole(role: string) {
   };
 }
 
-// Permission-based authorization middleware
+// Simple permission-based authorization middleware
 export function requirePermission(permission: string) {
   return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     try {
-      const token = req.headers.authorization?.replace('Bearer ', '');
+      const token = client.getToken(req);
 
       if (!token) {
         return res.status(401).json({ error: 'No token provided' });
@@ -148,21 +146,12 @@ app.delete('/posts/:id', authMiddleware, requirePermission('delete:posts'), (req
 
 ```typescript
 import express from 'express';
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 const app = express();
 app.use(express.json());
 
-const client = new MisoClient({
-  controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: process.env.MISO_ENVIRONMENT as any,
-  applicationKey: 'blog-app',
-  redis: {
-    host: process.env.REDIS_HOST || 'localhost',
-    port: parseInt(process.env.REDIS_PORT || '6379'),
-    password: process.env.REDIS_PASSWORD
-  }
-});
+const client = new MisoClient(loadConfig());
 
 await client.initialize();
 
@@ -219,7 +208,7 @@ app.listen(3000, () => {
 ```typescript
 // AuthContext.tsx
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { MisoClient, UserInfo } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, UserInfo } from '@aifabrix/miso-client';
 
 interface AuthContextType {
   user: UserInfo | null;
@@ -237,11 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [client] = useState(() => new MisoClient({
-    controllerUrl: process.env.REACT_APP_MISO_CONTROLLER_URL!,
-    environment: process.env.REACT_APP_MISO_ENVIRONMENT as any,
-    applicationKey: process.env.REACT_APP_MISO_APPLICATION_KEY!,
-  }));
+  const [client] = useState(() => new MisoClient(loadConfig()));
 
   useEffect(() => {
     const initAuth = async () => {
@@ -411,19 +396,15 @@ function App() {
 ```typescript
 // pages/api/posts.ts
 import { NextApiRequest, NextApiResponse } from 'next';
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
-const client = new MisoClient({
-  controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: process.env.MISO_ENVIRONMENT as any,
-  applicationKey: 'nextjs-blog'
-});
+const client = new MisoClient(loadConfig());
 
 await client.initialize();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token = client.getToken(req);
 
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
@@ -476,13 +457,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 ```typescript
 // middleware.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
-const client = new MisoClient({
-  controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: process.env.MISO_ENVIRONMENT as any,
-  applicationKey: 'nextjs-app'
-});
+const client = new MisoClient(loadConfig());
 
 await client.initialize();
 
@@ -537,18 +514,14 @@ export const config = {
 ```typescript
 // auth.guard.ts
 import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from '@nestjs/common';
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
   private client: MisoClient;
 
   constructor() {
-    this.client = new MisoClient({
-      controllerUrl: process.env.MISO_CONTROLLER_URL!,
-      environment: process.env.MISO_ENVIRONMENT as any,
-      applicationKey: 'nestjs-app'
-    });
+    this.client = new MisoClient(loadConfig());
     this.client.initialize();
   }
 
@@ -586,18 +559,14 @@ export class AuthGuard implements CanActivate {
 // role.guard.ts
 import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 @Injectable()
 export class RoleGuard implements CanActivate {
   private client: MisoClient;
 
   constructor(private reflector: Reflector) {
-    this.client = new MisoClient({
-      controllerUrl: process.env.MISO_CONTROLLER_URL!,
-      environment: process.env.MISO_ENVIRONMENT as any,
-      applicationKey: 'nestjs-app'
-    });
+    this.client = new MisoClient(loadConfig());
     this.client.initialize();
   }
 
@@ -679,7 +648,7 @@ export class PostsController {
 ```typescript
 // miso-plugin.ts
 import { FastifyPluginAsync, FastifyRequest } from 'fastify';
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 interface MisoPluginOptions {
   controllerUrl: string;
@@ -760,13 +729,9 @@ fastify.get('/posts', async (request, reply) => {
 
 ```typescript
 // job-processor.ts
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
-const client = new MisoClient({
-  controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: process.env.MISO_ENVIRONMENT as any,
-  applicationKey: 'job-processor'
-});
+const client = new MisoClient(loadConfig());
 
 await client.initialize();
 
@@ -845,13 +810,9 @@ setInterval(async () => {
 ### Comprehensive Error Handling
 
 ```typescript
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
-const client = new MisoClient({
-  controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: process.env.MISO_ENVIRONMENT as any,
-  applicationKey: 'error-handling-app'
-});
+const client = new MisoClient(loadConfig());
 
 await client.initialize();
 
@@ -900,7 +861,7 @@ app.post('/api/data', async (req, res) => {
   const errorHandler = new ErrorHandler();
 
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token = client.getToken(req);
 
     if (!token) {
       const response = await errorHandler.handleAuthError(new Error('No token provided'), {
@@ -944,7 +905,7 @@ app.post('/api/data', async (req, res) => {
 
 ```typescript
 // miso-client.test.ts
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 // Mock the HTTP client
 jest.mock('@aifabrix/miso-client', () => ({
@@ -1005,7 +966,7 @@ describe('MisoClient', () => {
 
 ```typescript
 // integration.test.ts
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 describe('MisoClient Integration', () => {
   let client: MisoClient;

@@ -38,9 +38,8 @@ describe('MisoClient', () => {
   beforeEach(() => {
     config = {
       controllerUrl: 'https://controller.aifabrix.ai',
-      environment: 'dev',
-      applicationKey: 'test-app',
-      applicationId: 'test-app-id-123',
+      clientId: 'ctrl-dev-test-app',
+      clientSecret: 'test-secret',
       redis: {
         host: 'localhost',
         port: 6379
@@ -88,10 +87,10 @@ describe('MisoClient', () => {
 
     it('should not allow modification of returned config', () => {
       const returnedConfig = client.getConfig();
-      returnedConfig.environment = 'pro';
+      returnedConfig.clientId = 'modified-client-id';
 
       const originalConfig = client.getConfig();
-      expect(originalConfig.environment).toBe('dev');
+      expect(originalConfig.clientId).toBe('ctrl-dev-test-app');
     });
   });
 
@@ -118,6 +117,52 @@ describe('MisoClient', () => {
 
     it('should provide logout method', () => {
       expect(typeof client.logout).toBe('function');
+    });
+
+    it('should provide getToken method', () => {
+      expect(typeof client.getToken).toBe('function');
+    });
+
+    it('should provide getEnvironmentToken method', () => {
+      expect(typeof client.getEnvironmentToken).toBe('function');
+    });
+
+    it('should provide getUserInfo method', () => {
+      expect(typeof client.getUserInfo).toBe('function');
+    });
+
+    it('should extract token from request headers', () => {
+      const req = {
+        headers: {
+          authorization: 'Bearer my-token-123'
+        }
+      };
+
+      const token = client.getToken(req as any);
+
+      expect(token).toBe('my-token-123');
+    });
+
+    it('should return null when no authorization header', () => {
+      const req = {
+        headers: {}
+      };
+
+      const token = client.getToken(req as any);
+
+      expect(token).toBeNull();
+    });
+
+    it('should handle token without Bearer prefix', () => {
+      const req = {
+        headers: {
+          authorization: 'my-token-123'
+        }
+      };
+
+      const token = client.getToken(req as any);
+
+      expect(token).toBe('my-token-123');
     });
   });
 

@@ -21,19 +21,18 @@ describe('ConfigLoader', () => {
   describe('loadConfig', () => {
     describe('default values', () => {
       it('should load configuration with defaults when env vars are not set', () => {
-        delete process.env.CONTROLLER_URL;
-        delete process.env.ENVIRONMENT;
-        delete process.env.APPLICATION_KEY;
-        delete process.env.APPLICATION_ID;
+        // Set required fields
+        process.env.MISO_CLIENTID = 'test-client-id';
+        process.env.MISO_CLIENTSECRET = 'test-secret';
+        delete process.env.MISO_CONTROLLER_URL;
         delete process.env.REDIS_HOST;
 
         const config = loadConfig();
 
         expect(config).toMatchObject({
           controllerUrl: 'https://controller.aifabrix.ai',
-          environment: 'dev',
-          applicationKey: 'example-app',
-          applicationId: '',
+          clientId: 'test-client-id',
+          clientSecret: 'test-secret',
           logLevel: 'debug',
         });
       });
@@ -41,40 +40,30 @@ describe('ConfigLoader', () => {
 
     describe('environment variables', () => {
       it('should load configuration from environment variables', () => {
-        process.env.CONTROLLER_URL = 'https://custom-controller.example.com';
-        process.env.ENVIRONMENT = 'pro';
-        process.env.APPLICATION_KEY = 'my-custom-app';
-        process.env.APPLICATION_ID = 'app-id-123';
-        process.env.API_KEY = 'prod-app-id-123-key';
-        process.env.LOG_LEVEL = 'error';
+        process.env.MISO_CONTROLLER_URL = 'https://custom-controller.example.com';
+        process.env.MISO_CLIENTID = 'ctrl-prod-my-custom-app';
+        process.env.MISO_CLIENTSECRET = 'secret-123';
+        process.env.MISO_LOG_LEVEL = 'error';
 
         const config = loadConfig();
 
         expect(config).toMatchObject({
           controllerUrl: 'https://custom-controller.example.com',
-          environment: 'pro',
-          applicationKey: 'my-custom-app',
-          applicationId: 'app-id-123',
-          apiKey: 'prod-app-id-123-key',
+          clientId: 'ctrl-prod-my-custom-app',
+          clientSecret: 'secret-123',
           logLevel: 'error',
-        });
-      });
-
-      it('should handle all three environment types', () => {
-        const environments = ['dev', 'tst', 'pro'] as const;
-
-        environments.forEach(env => {
-          process.env.ENVIRONMENT = env;
-          const config = loadConfig();
-          expect(config.environment).toBe(env);
         });
       });
 
       it('should handle all log levels', () => {
         const logLevels = ['debug', 'info', 'warn', 'error'] as const;
 
+        // Set required fields
+        process.env.MISO_CLIENTID = 'test-client-id';
+        process.env.MISO_CLIENTSECRET = 'test-secret';
+
         logLevels.forEach(level => {
-          process.env.LOG_LEVEL = level;
+          process.env.MISO_LOG_LEVEL = level;
           const config = loadConfig();
           expect(config.logLevel).toBe(level);
         });
@@ -82,6 +71,12 @@ describe('ConfigLoader', () => {
     });
 
     describe('Redis configuration', () => {
+      beforeEach(() => {
+        // Set required fields for all Redis tests
+        process.env.MISO_CLIENTID = 'test-client-id';
+        process.env.MISO_CLIENTSECRET = 'test-secret';
+      });
+
       it('should not include Redis config when REDIS_HOST is not set', () => {
         delete process.env.REDIS_HOST;
 
@@ -157,59 +152,5 @@ describe('ConfigLoader', () => {
         });
       });
     });
-
-    describe('environment configuration', () => {
-      it('should work with typical development environment', () => {
-        process.env.CONTROLLER_URL = 'http://localhost:3000';
-        process.env.ENVIRONMENT = 'dev';
-        process.env.APPLICATION_KEY = 'dev-app';
-        process.env.APPLICATION_ID = 'dev-app-123';
-        process.env.REDIS_HOST = 'localhost';
-
-        const config = loadConfig();
-
-        expect(config).toMatchObject({
-          controllerUrl: 'http://localhost:3000',
-          environment: 'dev',
-          applicationKey: 'dev-app',
-          applicationId: 'dev-app-123',
-        });
-        expect(config.redis?.host).toBe('localhost');
-      });
-
-      it('should work with typical production environment', () => {
-        process.env.CONTROLLER_URL = 'https://controller.aifabrix.ai';
-        process.env.ENVIRONMENT = 'pro';
-        process.env.APPLICATION_KEY = 'prod-app';
-        process.env.APPLICATION_ID = 'prod-app-456';
-        process.env.API_KEY = 'pro-prod-app-prod-app-456-abc123';
-        process.env.LOG_LEVEL = 'warn';
-        process.env.REDIS_HOST = 'prod-redis.example.com';
-        process.env.REDIS_PORT = '6379';
-        process.env.REDIS_PASSWORD = 'secure-password';
-        process.env.REDIS_DB = '1';
-        process.env.REDIS_KEY_PREFIX = 'prod:miso:';
-
-        const config = loadConfig();
-
-        expect(config).toMatchObject({
-          controllerUrl: 'https://controller.aifabrix.ai',
-          environment: 'pro',
-          applicationKey: 'prod-app',
-          applicationId: 'prod-app-456',
-          apiKey: 'pro-prod-app-prod-app-456-abc123',
-          logLevel: 'warn',
-        });
-
-        expect(config.redis).toMatchObject({
-          host: 'prod-redis.example.com',
-          port: 6379,
-          password: 'secure-password',
-          db: 1,
-          keyPrefix: 'prod:miso:',
-        });
-      });
-    });
   });
 });
-

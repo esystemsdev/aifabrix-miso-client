@@ -4,26 +4,12 @@
  * Complete example with authentication, RBAC, logging, and audit trails.
  */
 
-import { MisoClient } from '../src/index';
+import { MisoClient, loadConfig } from '../src/index';
 
 async function completeExample() {
-  const client = new MisoClient({
-    controllerUrl: 'https://controller.aifabrix.ai',
-    environment: 'dev',
-    applicationKey: 'my-app',
-    applicationId: 'my-app-id-123',
-    apiKey: 'dev-my-app-my-app-id-123-a1b2c3d4e5f6',
-    redis: {
-      host: 'localhost',
-      port: 6379,
-      password: 'your-redis-password',
-    },
-    logLevel: 'info',
-    cache: {
-      roleTTL: 900,      // 15 minutes
-      permissionTTL: 900, // 15 minutes
-    },
-  });
+  // Create client - loads from .env automatically
+  // All config (Redis, logLevel, cache) goes in .env file
+  const client = new MisoClient(loadConfig());
 
   try {
     await client.initialize();

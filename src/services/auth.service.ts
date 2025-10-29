@@ -11,10 +11,45 @@ export class AuthService {
   private redis: RedisService;
   private config: MisoClientConfig;
 
-  constructor(config: MisoClientConfig, redis: RedisService) {
-    this.config = config;
+  constructor(httpClient: HttpClient, redis: RedisService) {
+    this.config = httpClient.config;
     this.redis = redis;
-    this.httpClient = new HttpClient(config);
+    this.httpClient = httpClient;
+  }
+
+  /**
+   * Get environment token using client credentials
+   * This is called automatically by HttpClient, but can be called manually if needed
+   */
+  async getEnvironmentToken(): Promise<string> {
+    try {
+      // Use a temporary axios instance to avoid interceptor recursion
+      const axios = (await import('axios')).default;
+      const tempAxios = axios.create({
+        baseURL: this.config.controllerUrl,
+        timeout: 30000,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Id': this.config.clientId,
+          'X-Client-Secret': this.config.clientSecret
+        }
+      });
+
+      const response = await tempAxios.post<import('../types/config.types').ClientTokenResponse>(
+        '/api/auth/token'
+      );
+
+      if (response.data.success && response.data.token) {
+        return response.data.token;
+      }
+
+      throw new Error('Failed to get environment token: Invalid response');
+    } catch (error) {
+      throw new Error(
+        'Failed to get environment token: ' +
+          (error instanceof Error ? error.message : 'Unknown error')
+      );
+    }
   }
 
   /**
@@ -22,15 +57,8 @@ export class AuthService {
    * Returns the login URL for browser redirect or manual navigation
    */
   login(redirectUri: string): string {
-    const loginUrl =
-      `${this.config.controllerUrl}/auth/login?` +
-      `environment=${this.config.environment}&` +
-      `application=${this.config.applicationKey}&` +
-      `redirect=${encodeURIComponent(redirectUri)}`;
-
-    // In a browser environment, application should redirect to this URL
-    // In Node.js, application should handle URL appropriately
-    return loginUrl;
+    // Backend will extract environment and application from client token
+    return `${this.config.controllerUrl}/api/auth/login?redirect=${encodeURIComponent(redirectUri)}`;
   }
 
   /**
@@ -40,7 +68,7 @@ export class AuthService {
     try {
       const result = await this.httpClient.authenticatedRequest<AuthResult>(
         'POST',
-        '/auth/validate',
+        '/api/auth/validate', // Backend knows app/env from client token
         token
       );
 
@@ -58,7 +86,7 @@ export class AuthService {
     try {
       const result = await this.httpClient.authenticatedRequest<AuthResult>(
         'POST',
-        '/auth/validate',
+        '/api/auth/validate',
         token
       );
 
@@ -74,14 +102,30 @@ export class AuthService {
   }
 
   /**
+   * Get user information from GET /api/auth/user endpoint
+   */
+  async getUserInfo(token: string): Promise<UserInfo | null> {
+    try {
+      const user = await this.httpClient.authenticatedRequest<UserInfo>(
+        'GET',
+        '/api/auth/user',
+        token
+      );
+
+      return user;
+    } catch (error) {
+      // Failed to get user info, return null
+      return null;
+    }
+  }
+
+  /**
    * Logout user
    */
   async logout(): Promise<void> {
     try {
-      await this.httpClient.post('/auth/logout', {
-        environment: this.config.environment,
-        application: this.config.applicationKey
-      });
+      // Backend extracts app/env from client token
+      await this.httpClient.request('POST', '/api/auth/logout');
     } catch (error) {
       // Logout failed, re-throw error for application to handle
       throw new Error(

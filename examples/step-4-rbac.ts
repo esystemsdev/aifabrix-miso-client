@@ -4,20 +4,12 @@
  * Check user roles and enforce access control.
  */
 
-import { MisoClient } from '../src/index';
+import { MisoClient, loadConfig } from '../src/index';
 
 async function rbacExample() {
-  // Create client (same as Step 3)
-  const client = new MisoClient({
-    controllerUrl: 'https://controller.aifabrix.ai',
-    environment: 'dev',
-    applicationKey: 'my-app',
-    applicationId: 'my-app-id-123',
-    redis: {
-      host: 'localhost',
-      port: 6379,
-    },
-  });
+  // Create client - loads from .env automatically
+  // Redis config goes in .env: REDIS_HOST=localhost, REDIS_PORT=6379
+  const client = new MisoClient(loadConfig());
 
   try {
     await client.initialize();

@@ -37,15 +37,13 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
 1. **Verify Controller URL**:
 
    ```typescript
+   import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+   
    // Check if URL is correct
    console.log('Controller URL:', process.env.MISO_CONTROLLER_URL);
 
-   // Test connectivity
-   const client = new MisoClient({
-     controllerUrl: 'https://controller.aifabrix.ai', // Verify this URL
-     environment: 'dev',
-     applicationKey: 'test-app'
-   });
+   // Test connectivity - loadConfig() automatically loads from .env
+   const client = new MisoClient(loadConfig());
    ```
 
 2. **Test Network Connectivity**:
@@ -71,10 +69,10 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
 4. **Verify Environment Variables**:
 
    ```typescript
-   // Ensure environment variables are set
-   if (!process.env.MISO_CONTROLLER_URL) {
-     throw new Error('MISO_CONTROLLER_URL environment variable is not set');
-   }
+   import { loadConfig } from '@aifabrix/miso-client';
+   
+   // LoadConfig validates all required variables automatically
+   const config = loadConfig(); // Throws error if MISO_CLIENTID or MISO_CLIENTSECRET not set
    ```
 
 ### SSL/TLS Certificate Issues
@@ -213,12 +211,7 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
 
    ```typescript
    // Enable debug logging
-   const client = new MisoClient({
-     controllerUrl: process.env.MISO_CONTROLLER_URL!,
-     environment: 'dev',
-     applicationKey: 'debug-app',
-     logLevel: 'debug'
-   });
+   const client = new MisoClient(loadConfig());
    ```
 
 ## Redis Connection Issues

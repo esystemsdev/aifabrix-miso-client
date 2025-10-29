@@ -1,9 +1,10 @@
-# Configuration
+# Configuration Guide
 
 Complete guide to configuring the AI Fabrix Miso Client SDK.
 
 ## Table of Contents
 
+- [Why Use .env?](#why-use-env)
 - [Basic Configuration](#basic-configuration)
 - [Redis Configuration](#redis-configuration)
 - [Environment Variables](#environment-variables)
@@ -12,6 +13,62 @@ Complete guide to configuring the AI Fabrix Miso Client SDK.
 - [Advanced Configuration](#advanced-configuration)
 - [Configuration Examples](#configuration-examples)
 - [Best Practices](#best-practices)
+
+## Why Use .env?
+
+**Recommended approach:** Use environment variables in a `.env` file with `loadConfig()`.
+
+### The Simple Way (Recommended)
+
+```bash
+# .env file
+MISO_CLIENTID=ctrl-dev-my-app
+MISO_CLIENTSECRET=your-secret
+MISO_CONTROLLER_URL=http://localhost:3000
+REDIS_HOST=localhost
+```
+
+```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+// Automatically loads from .env - that's it!
+const client = new MisoClient(loadConfig());
+await client.initialize();
+```
+
+**Benefits:**
+- ✅ No configuration boilerplate
+- ✅ Easy environment switching (dev/test/prod)
+- ✅ Keeps secrets out of code
+- ✅ Standard practice across frameworks
+- ✅ Team-friendly
+- ✅ CI/CD ready
+
+### When to Use Manual Configuration
+
+Use manual configuration when:
+- You need dynamic configuration
+- Config comes from an external service
+- You're integrating with an existing config system
+- You have special requirements
+
+**Example:**
+
+```typescript
+const client = new MisoClient({
+  controllerUrl: 'https://controller.aifabrix.ai',
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: 'your-secret',
+  redis: {
+    host: 'localhost',
+    port: 6379,
+  },
+});
+```
+
+**Most developers use .env.** The rest of this guide covers both approaches.
+
+---
 
 ## Basic Configuration
 
@@ -22,10 +79,14 @@ The following configuration options are required for the MisoClient to function:
 ```typescript
 interface MisoClientConfig {
   controllerUrl: string; // Required: AI Fabrix controller URL
-  environment: 'dev' | 'tst' | 'pro'; // Required: Environment
-  applicationKey: string; // Required: Application identifier
-  applicationId: string; // Required: Application GUID
-  apiKey?: string; // Optional: API key for logging authentication
+  clientId: string; // Required: Client ID (e.g., 'ctrl-dev-my-app')
+  clientSecret: string; // Required: Client secret
+  redis?: RedisConfig; // Optional: Redis configuration for caching
+  logLevel?: 'debug' | 'info' | 'warn' | 'error'; // Optional: Logging level
+  cache?: {
+    roleTTL?: number; // Optional: Role cache TTL in seconds (default: 900)
+    permissionTTL?: number; // Optional: Permission cache TTL in seconds (default: 900)
+  };
 }
 ```
 
@@ -34,11 +95,17 @@ interface MisoClientConfig {
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'dev',
-  applicationKey: 'my-application',
-  applicationId: 'my-app-id-123',
-  apiKey: 'my-api-key-for-logging'
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: 'your-client-secret-here'
 });
+```
+
+**Recommended:** Use `loadConfig()` to load from `.env` automatically:
+
+```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+const client = new MisoClient(loadConfig());
 ```
 
 ### Configuration Details
@@ -53,46 +120,23 @@ const client = new MisoClient({
   - `https://miso.yourcompany.com`
   - `http://localhost:3000` (for development)
 
-#### `environment`
-
-- **Type**: `'dev' | 'tst' | 'pro'`
-- **Required**: Yes
-- **Description**: The environment your application is running in
-- **Values**:
-  - `'dev'` - Development environment
-  - `'tst'` - Test environment
-  - `'pro'` - Production environment
-
-#### `applicationKey`
+#### `clientId`
 
 - **Type**: `string`
 - **Required**: Yes
-- **Description**: Unique identifier for your application
+- **Description**: Client ID for authenticating with the controller
 - **Examples**:
-  - `'blog-app'`
-  - `'ecommerce-platform'`
-  - `'admin-dashboard'`
-
-#### `applicationId`
-
-- **Type**: `string`
-- **Required**: Yes
-- **Description**: Unique GUID identifier for your application instance
-- **Examples**:
-  - `'123e4567-e89b-12d3-a456-426614174000'`
-  - `'550e8400-e29b-41d4-a716-446655440000'`
-- **Security**: Used for API key validation and logging authentication
-
-#### `apiKey`
-
-- **Type**: `string`
-- **Required**: No
-- **Description**: API key for secure logging authentication
+  - `'ctrl-dev-my-app'`
+  - `'ctrl-pro-production-app'`
 - **Security**: Store in environment variables, never hardcode
-- **Format**: `{environment}-{applicationKey}-{applicationId}-{randomString}`
-- **Examples**:
-  - `'dev-myapp-123e4567-e89b-12d3-a456-426614174000-a1b2c3d4e5f6'`
-  - `'pro-ecommerce-550e8400-e29b-41d4-a716-446655440000-f6e5d4c3b2a1'`
+
+#### `clientSecret`
+
+- **Type**: `string`
+- **Required**: Yes
+- **Description**: Client secret for authenticating with the controller
+- **Security**: Store in environment variables, never hardcode
+- **Note**: The client token is automatically fetched and managed by the SDK
 
 ## Redis Configuration
 
@@ -180,10 +224,8 @@ const client = new MisoClient({
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'pro',
-  applicationKey: 'my-app',
-  applicationId: 'my-app-id-456',
-  apiKey: 'pro-my-app-my-app-id-456-a1b2c3d4e5f6',
+  clientId: 'ctrl-pro-my-app',
+  clientSecret: process.env.MISO_CLIENTSECRET,
   redis: {
     host: 'redis.example.com',
     port: 6379,
@@ -199,8 +241,8 @@ const client = new MisoClient({
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'pro',
-  applicationKey: 'my-app',
+  clientId: 'ctrl-pro-my-app',
+  clientSecret: process.env.MISO_CLIENTSECRET,
   redis: {
     host: 'redis-cluster.example.com',
     port: 6379,
@@ -219,12 +261,11 @@ You can configure the client using environment variables for better security and
 ```bash
 # Required
 MISO_CONTROLLER_URL=https://controller.aifabrix.ai
-MISO_ENVIRONMENT=dev
-MISO_APPLICATION_KEY=my-application
-MISO_APPLICATION_ID=my-app-id-123
+MISO_CLIENTID=ctrl-dev-my-app
+MISO_CLIENTSECRET=your-secret-here
 
-# Optional API Key for Logging
-MISO_API_KEY=dev-myapp-my-app-id-123-a1b2c3d4e5f6
+# Optional: Logging level
+MISO_LOG_LEVEL=info
 
 # Optional Redis
 REDIS_HOST=localhost
@@ -264,10 +305,8 @@ const client = new MisoClient({
 ```bash
 # .env.development
 MISO_CONTROLLER_URL=http://localhost:3000
-MISO_ENVIRONMENT=dev
-MISO_APPLICATION_KEY=dev-app
-MISO_APPLICATION_ID=dev-app-id-123
-MISO_API_KEY=dev-dev-app-dev-app-id-123-a1b2c3d4e5f6
+MISO_CLIENTID=ctrl-dev-my-app
+MISO_CLIENTSECRET=your-dev-secret
 REDIS_HOST=localhost
 REDIS_PORT=6379
 MISO_LOG_LEVEL=debug
@@ -278,10 +317,8 @@ MISO_LOG_LEVEL=debug
 ```bash
 # .env.test
 MISO_CONTROLLER_URL=https://test-controller.aifabrix.ai
-MISO_ENVIRONMENT=tst
-MISO_APPLICATION_KEY=test-app
-MISO_APPLICATION_ID=test-app-id-456
-MISO_API_KEY=tst-test-app-test-app-id-456-b2c3d4e5f6a1
+MISO_CLIENTID=ctrl-test-my-app
+MISO_CLIENTSECRET=your-test-secret
 REDIS_HOST=test-redis.example.com
 REDIS_PORT=6379
 REDIS_PASSWORD=test-password
@@ -293,10 +330,8 @@ MISO_LOG_LEVEL=info
 ```bash
 # .env.production
 MISO_CONTROLLER_URL=https://controller.aifabrix.ai
-MISO_ENVIRONMENT=pro
-MISO_APPLICATION_KEY=prod-app
-MISO_APPLICATION_ID=prod-app-id-789
-MISO_API_KEY=pro-prod-app-prod-app-id-789-c3d4e5f6a1b2
+MISO_CLIENTID=ctrl-pro-my-app
+MISO_CLIENTSECRET=your-prod-secret
 REDIS_HOST=prod-redis.example.com
 REDIS_PORT=6379
 REDIS_PASSWORD=secure-password
@@ -572,9 +607,8 @@ const client = new MisoClient(configs[environment]);
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'dev',
-  applicationKey: 'my-app',
-  applicationId: 'my-app-id-123'
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: process.env.MISO_CLIENTSECRET!
 });
 ```
 
@@ -583,10 +617,8 @@ const client = new MisoClient({
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'pro',
-  applicationKey: 'production-app',
-  applicationId: 'prod-app-id-789',
-  apiKey: 'pro-production-app-prod-app-id-789-a1b2c3d4e5f6',
+  clientId: 'ctrl-pro-my-app',
+  clientSecret: process.env.MISO_CLIENTSECRET!,
   redis: {
     host: 'redis.example.com',
     port: 6379,
@@ -605,12 +637,16 @@ const client = new MisoClient({
 #### Docker Configuration
 
 ```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+// Recommended: Use loadConfig() which reads from .env
+const client = new MisoClient(loadConfig());
+
+// Or manually:
 const client = new MisoClient({
   controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: process.env.MISO_ENVIRONMENT as any,
-  applicationKey: process.env.MISO_APPLICATION_KEY!,
-  applicationId: process.env.MISO_APPLICATION_ID!,
-  apiKey: process.env.MISO_API_KEY,
+  clientId: process.env.MISO_CLIENTID!,
+  clientSecret: process.env.MISO_CLIENTSECRET!,
   redis: {
     host: process.env.REDIS_HOST || 'redis',
     port: parseInt(process.env.REDIS_PORT || '6379'),
@@ -623,12 +659,16 @@ const client = new MisoClient({
 #### Kubernetes Configuration
 
 ```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+// Recommended: Use loadConfig() which reads from environment variables
+const client = new MisoClient(loadConfig());
+
+// Or manually:
 const client = new MisoClient({
   controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: process.env.MISO_ENVIRONMENT as any,
-  applicationKey: process.env.MISO_APPLICATION_KEY!,
-  applicationId: process.env.MISO_APPLICATION_ID!,
-  apiKey: process.env.MISO_API_KEY,
+  clientId: process.env.MISO_CLIENTID!,
+  clientSecret: process.env.MISO_CLIENTSECRET!,
   redis: {
     host: process.env.REDIS_SERVICE_HOST!,
     port: parseInt(process.env.REDIS_SERVICE_PORT!),
@@ -649,10 +689,8 @@ const client = new MisoClient({
    // ❌ Bad
    const client = new MisoClient({
      controllerUrl: 'https://controller.aifabrix.ai',
-     environment: 'pro',
-     applicationKey: 'my-app',
-     applicationId: 'my-app-id-123',
-     apiKey: 'hardcoded-api-key', // Never do this!
+     clientId: 'ctrl-pro-my-app',
+     clientSecret: 'hardcoded-secret', // Never do this!
      redis: {
        host: 'redis.example.com',
        port: 6379,
@@ -660,18 +698,20 @@ const client = new MisoClient({
      }
    });
 
-   // ✅ Good
+   // ✅ Good - Use loadConfig() or environment variables
+   const client = new MisoClient(loadConfig());
+   
+   // ✅ Good - Or manually from env vars
    const client = new MisoClient({
      controllerUrl: process.env.MISO_CONTROLLER_URL!,
-     environment: process.env.MISO_ENVIRONMENT as any,
-     applicationKey: process.env.MISO_APPLICATION_KEY!,
-     applicationId: process.env.MISO_APPLICATION_ID!,
-     apiKey: process.env.MISO_API_KEY,
+     clientId: process.env.MISO_CLIENTID!,
+     clientSecret: process.env.MISO_CLIENTSECRET!,
      redis: {
        host: process.env.REDIS_HOST!,
        port: parseInt(process.env.REDIS_PORT!),
        password: process.env.REDIS_PASSWORD
-     }
+     },
+     logLevel: process.env.MISO_LOG_LEVEL as any
    });
    ```
 
@@ -701,27 +741,27 @@ const client = new MisoClient({
      if (!config.controllerUrl) {
        throw new Error('MISO_CONTROLLER_URL is required');
      }
-     if (!config.applicationKey) {
-       throw new Error('MISO_APPLICATION_KEY is required');
+     if (!config.clientId) {
+       throw new Error('MISO_CLIENTID is required');
      }
-     if (!config.applicationId) {
-       throw new Error('MISO_APPLICATION_ID is required');
-     }
-     if (!['dev', 'tst', 'pro'].includes(config.environment)) {
-       throw new Error('MISO_ENVIRONMENT must be dev, tst, or pro');
+     if (!config.clientSecret) {
+       throw new Error('MISO_CLIENTSECRET is required');
      }
    }
 
-   const config = {
-     controllerUrl: process.env.MISO_CONTROLLER_URL!,
-     environment: process.env.MISO_ENVIRONMENT as any,
-     applicationKey: process.env.MISO_APPLICATION_KEY!,
-     applicationId: process.env.MISO_APPLICATION_ID!,
-     apiKey: process.env.MISO_API_KEY
-   };
-
+   // Recommended: Use loadConfig()
+   const config = loadConfig();
    validateConfig(config);
    const client = new MisoClient(config);
+   
+   // Or manually:
+   const manualConfig = {
+     controllerUrl: process.env.MISO_CONTROLLER_URL!,
+     clientId: process.env.MISO_CLIENTID!,
+     clientSecret: process.env.MISO_CLIENTSECRET!
+   };
+   validateConfig(manualConfig);
+   const client2 = new MisoClient(manualConfig);
    ```
 
 ### Performance Best Practices

@@ -40,10 +40,10 @@ export class LoggerService {
   private correlationCounter = 0;
   private performanceMetrics: Map<string, PerformanceMetrics> = new Map();
 
-  constructor(config: MisoClientConfig, redis: RedisService) {
-    this.config = config;
+  constructor(httpClient: HttpClient, redis: RedisService) {
+    this.config = httpClient.config;
     this.redis = redis;
-    this.httpClient = new HttpClient(config);
+    this.httpClient = httpClient;
   }
 
   /**
@@ -60,7 +60,9 @@ export class LoggerService {
     this.correlationCounter = (this.correlationCounter + 1) % 10000;
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
-    return `${this.config.applicationKey}-${timestamp}-${this.correlationCounter}-${random}`;
+    // Use clientId instead of applicationKey
+    const clientPrefix = this.config.clientId.substring(0, 10);
+    return `${clientPrefix}-${timestamp}-${this.correlationCounter}-${random}`;
   }
 
   /**
@@ -237,9 +239,9 @@ export class LoggerService {
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
-      environment: this.config.environment,
-      application: this.config.applicationKey,
-      applicationId: this.config.applicationId,
+      environment: 'unknown', // Backend extracts from client credentials
+      application: this.config.clientId, // Use clientId as application identifier
+      applicationId: options?.applicationId || '', // Optional from options
       message,
       context: enhancedContext,
       stackTrace,
@@ -252,7 +254,7 @@ export class LoggerService {
 
     // Try Redis first (if available)
     if (this.redis.isConnected()) {
-      const queueName = `logs:${this.config.environment}:${this.config.applicationKey}`;
+      const queueName = `logs:${this.config.clientId}`;
       const success = await this.redis.rpush(queueName, JSON.stringify(logEntry));
 
       if (success) {
@@ -260,14 +262,15 @@ export class LoggerService {
       }
     }
 
-    // Fallback to HTTP endpoint with API key
+    // Fallback to unified logging endpoint with client credentials
     try {
-      const headers: Record<string, string> = {};
-      if (this.config.apiKey) {
-        headers['x-api-key'] = this.config.apiKey;
-      }
-
-      await this.httpClient.post('/logs', logEntry, { headers });
+      // Backend extracts environment and application from client credentials
+      await this.httpClient.request('POST', '/api/logs', {
+        ...logEntry,
+        // Remove fields that backend extracts from credentials
+        environment: undefined,
+        application: undefined
+      });
     } catch (error) {
       // Failed to send log to controller
       // Silently fail to avoid infinite logging loops

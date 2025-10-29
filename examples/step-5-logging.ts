@@ -4,20 +4,11 @@
  * Send application logs to the AI Fabrix controller.
  */
 
-import { MisoClient } from '../src/index';
+import { MisoClient, loadConfig } from '../src/index';
 
 async function loggingExample() {
-  const client = new MisoClient({
-    controllerUrl: 'https://controller.aifabrix.ai',
-    environment: 'dev',
-    applicationKey: 'my-app',
-    applicationId: 'my-app-id-123',
-    apiKey: 'dev-my-app-my-app-id-123-a1b2c3d4e5f6', // Required for logging
-    redis: {
-      host: 'localhost',
-      port: 6379,
-    },
-  });
+  // Create client - loads from .env automatically
+  const client = new MisoClient(loadConfig());
 
   try {
     await client.initialize();
