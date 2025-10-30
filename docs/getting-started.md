@@ -103,7 +103,9 @@ When I started, I tried manual configuration. It was messy. With .env:
 - ✅ Team-friendly
 - ✅ CI/CD ready
 
-Need to configure manually? [Click here for advanced options](configuration.md#manual-configuration).
+→ [Environment configuration example](../examples/env-config-example.ts)  
+→ [Manual configuration example](../examples/manual-config-example.ts)  
+→ [Advanced configuration options](configuration.md#manual-configuration)
 
 ---
 
@@ -172,7 +174,8 @@ async function authMiddleware(req, res, next) {
 - ✅ User info is cached (faster next time)
 - ✅ Works with any framework
 
-→ [Complete authentication example](../examples/step-3-authentication.ts)
+→ [Complete authentication example](../examples/step-3-authentication.ts)  
+→ [Quick start example](../examples/usage.ts)
 
 ---
 
@@ -325,7 +328,7 @@ await client.log.audit('access.denied', 'authorization', {
 
 ---
 
-## 🔒 Step 8: Encryption & Caching (Optional)
+## 🔒 Step 7: Encryption & Caching (Optional)
 
 ### Encrypt Sensitive Data
 
@@ -435,6 +438,7 @@ app.get('/api/products/:id', async (req, res) => {
 
 **Note:** Roles and permissions are already cached automatically. This generic cache is for your application-specific data.
 
+→ [Complete encryption & caching example](../examples/step-7-encryption-cache.ts)  
 → [API Reference](api-reference.md#encryption-methods) - Full encryption API  
 → [Cache Methods](api-reference.md#cache-methods) - Full cache API
 

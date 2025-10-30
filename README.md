@@ -110,6 +110,8 @@ MISO_CONTROLLER_URL=http://localhost:3000
 REDIS_HOST=localhost
 ```
 
+→ [Environment configuration example](examples/env-config-example.ts)
+
 ### Step 3: Use It
 
 ```typescript
@@ -123,7 +125,9 @@ const isValid = await client.auth.validateToken(token);
 
 **That's it!** You now have authentication, roles, and logging.
 
-→ [Full Getting Started Guide](docs/getting-started.md)
+→ [Full Getting Started Guide](docs/getting-started.md)  
+→ [Environment configuration example](examples/env-config-example.ts)  
+→ [Manual configuration example](examples/manual-config-example.ts)
 
 ---
 
@@ -179,7 +183,8 @@ if (token) {
 
 **Where to get tokens?** Users authenticate via Keycloak, then your app receives JWTs in the `Authorization` header.
 
-→ [Complete authentication example](examples/step-3-authentication.ts)
+→ [Complete authentication example](examples/step-3-authentication.ts)  
+→ [Quick start example](examples/usage.ts)
 
 ---
 
@@ -285,7 +290,7 @@ await client.log.audit('access.denied', 'authorization', {
 
 ---
 
-### Encryption and Caching
+### Step 7: Encryption & Caching
 
 **What happens:** Use encryption for sensitive data and generic caching for improved performance.
 
@@ -317,8 +322,10 @@ if (user) {
 ENCRYPTION_KEY=your-32-byte-encryption-key
 ```
 
+→ [Complete encryption & caching example](examples/step-7-encryption-cache.ts)  
 → [API Reference](docs/api-reference.md#encryption-methods)  
 → [Cache Methods](docs/api-reference.md#cache-methods)
+
 
 ---
 
