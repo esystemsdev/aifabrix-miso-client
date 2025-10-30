@@ -7,6 +7,8 @@ import { RoleService } from './services/role.service';
 import { PermissionService } from './services/permission.service';
 import { LoggerService } from './services/logger.service';
 import { RedisService } from './services/redis.service';
+import { EncryptionService } from './services/encryption.service';
+import { CacheService } from './services/cache.service';
 import { HttpClient } from './utils/http-client';
 import { MisoClientConfig, UserInfo } from './types/config.types';
 
@@ -18,6 +20,8 @@ export class MisoClient {
   private roles: RoleService;
   private permissions: PermissionService;
   private logger: LoggerService;
+  private encryptionService?: EncryptionService;
+  private cacheService: CacheService;
   private initialized = false;
 
   constructor(config: MisoClientConfig) {
@@ -25,9 +29,24 @@ export class MisoClient {
     this.httpClient = new HttpClient(config);
     this.redis = new RedisService(config.redis);
     this.auth = new AuthService(this.httpClient, this.redis);
-    this.roles = new RoleService(this.httpClient, this.redis);
-    this.permissions = new PermissionService(this.httpClient, this.redis);
     this.logger = new LoggerService(this.httpClient, this.redis);
+    
+    // Initialize cache service with Redis support (used by roles and permissions)
+    this.cacheService = new CacheService(this.redis);
+    
+    // Initialize services that use cache
+    this.roles = new RoleService(this.httpClient, this.cacheService);
+    this.permissions = new PermissionService(this.httpClient, this.cacheService);
+    
+    // Initialize encryption service if key is provided (optional)
+    if (config.encryptionKey || process.env.ENCRYPTION_KEY) {
+      try {
+        this.encryptionService = new EncryptionService(config.encryptionKey);
+      } catch (error) {
+        // Encryption service not initialized if key is missing
+        // This is okay - encryption is optional
+      }
+    }
   }
 
   /**
@@ -222,6 +241,25 @@ export class MisoClient {
     return this.logger;
   }
 
+  // ==================== ENCRYPTION METHODS ====================
+
+  /**
+   * Get encryption service for data encryption/decryption
+   * Returns undefined if encryption key is not configured
+   */
+  get encryption(): EncryptionService | undefined {
+    return this.encryptionService;
+  }
+
+  // ==================== CACHE METHODS ====================
+
+  /**
+   * Get cache service for generic caching
+   */
+  get cache(): CacheService {
+    return this.cacheService;
+  }
+
   // ==================== UTILITY METHODS ====================
 
   /**
@@ -247,6 +285,8 @@ export { AuthService } from './services/auth.service';
 export { RoleService } from './services/role.service';
 export { LoggerService } from './services/logger.service';
 export { RedisService } from './services/redis.service';
+export { EncryptionService } from './services/encryption.service';
+export { CacheService } from './services/cache.service';
 export { HttpClient } from './utils/http-client';
 
 // Export utilities

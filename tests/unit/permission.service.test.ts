@@ -4,23 +4,23 @@
 
 import { PermissionService } from '../../src/services/permission.service';
 import { HttpClient } from '../../src/utils/http-client';
-import { RedisService } from '../../src/services/redis.service';
+import { CacheService } from '../../src/services/cache.service';
 import { MisoClientConfig } from '../../src/types/config.types';
 
 // Mock dependencies
 jest.mock('../../src/utils/http-client');
-jest.mock('../../src/services/redis.service');
+jest.mock('../../src/services/cache.service');
 jest.mock('jsonwebtoken');
 
 const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
-const MockedRedisService = RedisService as jest.MockedClass<typeof RedisService>;
+const MockedCacheService = CacheService as jest.MockedClass<typeof CacheService>;
 const jwt = require('jsonwebtoken');
 
 describe('PermissionService', () => {
   let permissionService: PermissionService;
   let config: MisoClientConfig;
   let mockHttpClient: jest.Mocked<HttpClient>;
-  let mockRedisService: jest.Mocked<RedisService>;
+  let mockCacheService: jest.Mocked<CacheService>;
 
   beforeEach(() => {
     config = {
@@ -35,17 +35,16 @@ describe('PermissionService', () => {
     } as any;
     (mockHttpClient as any).config = config; // Add config to httpClient for access
 
-    mockRedisService = {
-      isConnected: jest.fn(),
+    mockCacheService = {
       get: jest.fn(),
       set: jest.fn(),
       delete: jest.fn()
     } as any;
 
     MockedHttpClient.mockImplementation(() => mockHttpClient);
-    MockedRedisService.mockImplementation(() => mockRedisService);
+    MockedCacheService.mockImplementation(() => mockCacheService);
 
-    permissionService = new PermissionService(mockHttpClient, mockRedisService);
+    permissionService = new PermissionService(mockHttpClient, mockCacheService);
   });
 
   afterEach(() => {
@@ -53,27 +52,25 @@ describe('PermissionService', () => {
   });
 
   describe('getPermissions', () => {
-    it('should return cached permissions from Redis', async () => {
+    it('should return cached permissions from cache', async () => {
       const cachedPermissions = {
         permissions: ['read:users', 'write:posts'],
         timestamp: Date.now()
       };
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(JSON.stringify(cachedPermissions));
+      mockCacheService.get.mockResolvedValue(cachedPermissions);
       // Mock JWT decode to return userId - avoids validate API call
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
 
       const result = await permissionService.getPermissions('token');
 
       expect(result).toEqual(['read:users', 'write:posts']);
-      expect(mockRedisService.get).toHaveBeenCalledWith('permissions:123');
+      expect(mockCacheService.get).toHaveBeenCalledWith('permissions:123');
       // No HTTP client calls when userId extracted from token and cache hit
       expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
     });
 
     it('should fetch permissions from controller when cache miss', async () => {
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(null);
+      mockCacheService.get.mockResolvedValue(null);
       // Mock JWT decode to return userId - avoids validate API call
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
       mockHttpClient.authenticatedRequest.mockResolvedValue({
@@ -82,7 +79,7 @@ describe('PermissionService', () => {
         environment: 'dev',
         application: 'test-app'
       });
-      mockRedisService.set.mockResolvedValue(true);
+      mockCacheService.set.mockResolvedValue(true);
 
       const result = await permissionService.getPermissions('token');
 
@@ -94,15 +91,16 @@ describe('PermissionService', () => {
         '/api/auth/permissions',
         'token'
       );
-      expect(mockRedisService.set).toHaveBeenCalledWith(
+      expect(mockCacheService.set).toHaveBeenCalledWith(
         'permissions:123',
-        expect.stringContaining('"permissions":["read:users","write:posts"]'),
+        expect.objectContaining({ permissions: ['read:users', 'write:posts'] }),
         900
       );
     });
 
-    it('should handle Redis not connected', async () => {
-      mockRedisService.isConnected.mockReturnValue(false);
+    it('should handle cache miss gracefully', async () => {
+      mockCacheService.get.mockResolvedValue(null);
+      mockCacheService.set.mockResolvedValue(true);
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
       mockHttpClient.authenticatedRequest.mockResolvedValue({
@@ -115,13 +113,13 @@ describe('PermissionService', () => {
       const result = await permissionService.getPermissions('token');
 
       expect(result).toEqual(['read:users']);
-      expect(mockRedisService.get).not.toHaveBeenCalled();
-      expect(mockRedisService.set).not.toHaveBeenCalled();
+      expect(mockCacheService.get).toHaveBeenCalledWith('permissions:123');
+      expect(mockCacheService.set).toHaveBeenCalled();
     });
 
     it('should handle invalid cached data', async () => {
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue('invalid-json');
+      // CacheService handles JSON parsing, so invalid data becomes null
+      mockCacheService.get.mockResolvedValue(null);
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
       mockHttpClient.authenticatedRequest.mockResolvedValue({
@@ -130,7 +128,7 @@ describe('PermissionService', () => {
         environment: 'dev',
         application: 'test-app'
       });
-      mockRedisService.set.mockResolvedValue(true);
+      mockCacheService.set.mockResolvedValue(true);
 
       const result = await permissionService.getPermissions('token');
 
@@ -173,9 +171,8 @@ describe('PermissionService', () => {
 
   describe('hasPermission', () => {
     it('should return true when user has permission', async () => {
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({ permissions: ['read:users', 'write:posts'], timestamp: Date.now() })
+      mockCacheService.get.mockResolvedValue(
+        { permissions: ['read:users', 'write:posts'], timestamp: Date.now() }
       );
       // Mock JWT decode to return userId - avoids validate API call
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
@@ -187,9 +184,8 @@ describe('PermissionService', () => {
     });
 
     it('should return false when user does not have permission', async () => {
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({ permissions: ['read:users'], timestamp: Date.now() })
+      mockCacheService.get.mockResolvedValue(
+        { permissions: ['read:users'], timestamp: Date.now() }
       );
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
@@ -202,9 +198,8 @@ describe('PermissionService', () => {
 
   describe('hasAnyPermission', () => {
     it('should return true when user has any of the permissions', async () => {
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({ permissions: ['read:users', 'write:posts'], timestamp: Date.now() })
+      mockCacheService.get.mockResolvedValue(
+        { permissions: ['read:users', 'write:posts'], timestamp: Date.now() }
       );
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
@@ -218,9 +213,8 @@ describe('PermissionService', () => {
     });
 
     it('should return false when user has none of the permissions', async () => {
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({ permissions: ['read:users'], timestamp: Date.now() })
+      mockCacheService.get.mockResolvedValue(
+        { permissions: ['read:users'], timestamp: Date.now() }
       );
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
@@ -236,13 +230,10 @@ describe('PermissionService', () => {
 
   describe('hasAllPermissions', () => {
     it('should return true when user has all permissions', async () => {
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({
-          permissions: ['read:users', 'write:posts', 'delete:users'],
-          timestamp: Date.now()
-        })
-      );
+      mockCacheService.get.mockResolvedValue({
+        permissions: ['read:users', 'write:posts', 'delete:users'],
+        timestamp: Date.now()
+      });
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
 
@@ -255,9 +246,8 @@ describe('PermissionService', () => {
     });
 
     it('should return false when user is missing some permissions', async () => {
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({ permissions: ['read:users'], timestamp: Date.now() })
+      mockCacheService.get.mockResolvedValue(
+        { permissions: ['read:users'], timestamp: Date.now() }
       );
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
@@ -283,8 +273,7 @@ describe('PermissionService', () => {
           environment: 'dev',
           application: 'test-app'
         });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.set.mockResolvedValue(true);
+      mockCacheService.set.mockResolvedValue(true);
 
       const result = await permissionService.refreshPermissions('token');
 
@@ -294,9 +283,9 @@ describe('PermissionService', () => {
         '/api/auth/permissions/refresh',
         'token'
       );
-      expect(mockRedisService.set).toHaveBeenCalledWith(
+      expect(mockCacheService.set).toHaveBeenCalledWith(
         'permissions:123',
-        expect.stringContaining('"permissions":["read:users","write:posts"]'),
+        expect.objectContaining({ permissions: ['read:users', 'write:posts'] }),
         900
       );
     });
@@ -323,23 +312,22 @@ describe('PermissionService', () => {
   });
 
   describe('clearPermissionsCache', () => {
-    it('should clear cached permissions from Redis', async () => {
+    it('should clear cached permissions from cache', async () => {
       mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '123' } });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.delete.mockResolvedValue(true);
+      mockCacheService.delete.mockResolvedValue(true);
 
       await permissionService.clearPermissionsCache('token');
 
-      expect(mockRedisService.delete).toHaveBeenCalledWith('permissions:123');
+      expect(mockCacheService.delete).toHaveBeenCalledWith('permissions:123');
     });
 
-    it('should handle Redis not connected', async () => {
+    it('should handle cache delete failure gracefully', async () => {
       mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '123' } });
-      mockRedisService.isConnected.mockReturnValue(false);
+      mockCacheService.delete.mockResolvedValue(false);
 
       await permissionService.clearPermissionsCache('token');
 
-      expect(mockRedisService.delete).not.toHaveBeenCalled();
+      expect(mockCacheService.delete).toHaveBeenCalledWith('permissions:123');
     });
 
     it('should handle user validation failure', async () => {
@@ -347,7 +335,7 @@ describe('PermissionService', () => {
 
       await permissionService.clearPermissionsCache('token');
 
-      expect(mockRedisService.delete).not.toHaveBeenCalled();
+      expect(mockCacheService.delete).not.toHaveBeenCalled();
     });
 
     it('should handle errors gracefully', async () => {
@@ -356,23 +344,22 @@ describe('PermissionService', () => {
       await expect(permissionService.clearPermissionsCache('token')).resolves.not.toThrow();
     });
 
-    it('should handle Redis delete failure gracefully', async () => {
+    it('should handle cache delete error gracefully', async () => {
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.delete.mockRejectedValue(new Error('Redis delete failed'));
+      mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '123' } });
+      mockCacheService.delete.mockRejectedValue(new Error('Cache delete failed'));
 
       await expect(permissionService.clearPermissionsCache('token')).resolves.not.toThrow();
     });
 
     it('should extract userId from validate API when clearing cache', async () => {
       mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '456' } });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.delete.mockResolvedValue(true);
+      mockCacheService.delete.mockResolvedValue(true);
 
       await permissionService.clearPermissionsCache('token');
 
-      expect(mockRedisService.delete).toHaveBeenCalledWith('permissions:456');
+      expect(mockCacheService.delete).toHaveBeenCalledWith('permissions:456');
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'POST',
         '/api/auth/validate',
@@ -382,22 +369,20 @@ describe('PermissionService', () => {
 
     it('should handle different user IDs from validate API when clearing cache', async () => {
       mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '789' } });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.delete.mockResolvedValue(true);
+      mockCacheService.delete.mockResolvedValue(true);
 
       await permissionService.clearPermissionsCache('token');
 
-      expect(mockRedisService.delete).toHaveBeenCalledWith('permissions:789');
+      expect(mockCacheService.delete).toHaveBeenCalledWith('permissions:789');
     });
 
     it('should always use validate API to get userId for clearing cache', async () => {
       mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '999' } });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.delete.mockResolvedValue(true);
+      mockCacheService.delete.mockResolvedValue(true);
 
       await permissionService.clearPermissionsCache('token');
 
-      expect(mockRedisService.delete).toHaveBeenCalledWith('permissions:999');
+      expect(mockCacheService.delete).toHaveBeenCalledWith('permissions:999');
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'POST',
         '/api/auth/validate',
@@ -409,8 +394,7 @@ describe('PermissionService', () => {
   describe('extractUserIdFromToken edge cases', () => {
     it('should extract userId from id field when sub is not present', async () => {
       jwt.decode.mockReturnValue({ id: 'user-from-id' });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(null);
+      mockCacheService.get.mockResolvedValue(null);
       mockHttpClient.authenticatedRequest.mockResolvedValue({
         userId: 'user-from-id',
         permissions: ['read:test'],
@@ -421,13 +405,12 @@ describe('PermissionService', () => {
       const result = await permissionService.getPermissions('token');
 
       expect(result).toEqual(['read:test']);
-      expect(mockRedisService.get).toHaveBeenCalledWith('permissions:user-from-id');
+      expect(mockCacheService.get).toHaveBeenCalledWith('permissions:user-from-id');
     });
 
     it('should handle JWT decode returning empty object', async () => {
       jwt.decode.mockReturnValue({});
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(null);
+      mockCacheService.get.mockResolvedValue(null);
       mockHttpClient.authenticatedRequest
         .mockResolvedValueOnce({ user: { id: '123' } })
         .mockResolvedValueOnce({
@@ -444,37 +427,35 @@ describe('PermissionService', () => {
 
     it('should handle permissions array in response correctly', async () => {
       jwt.decode.mockReturnValue({ sub: '123' });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(null);
+      mockCacheService.get.mockResolvedValue(null);
       mockHttpClient.authenticatedRequest.mockResolvedValue({
         userId: '123',
         permissions: ['perm1', 'perm2', 'perm3'],
         environment: 'dev',
         application: 'test-app'
       });
-      mockRedisService.set.mockResolvedValue(true);
+      mockCacheService.set.mockResolvedValue(true);
 
       const result = await permissionService.getPermissions('token');
 
       expect(result).toEqual(['perm1', 'perm2', 'perm3']);
-      expect(mockRedisService.set).toHaveBeenCalledWith(
+      expect(mockCacheService.set).toHaveBeenCalledWith(
         'permissions:123',
-        expect.stringContaining('"permissions":["perm1","perm2","perm3"]'),
+        expect.objectContaining({ permissions: ['perm1', 'perm2', 'perm3'] }),
         900
       );
     });
 
     it('should handle empty permissions array', async () => {
       jwt.decode.mockReturnValue({ sub: '123' });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(null);
+      mockCacheService.get.mockResolvedValue(null);
       mockHttpClient.authenticatedRequest.mockResolvedValue({
         userId: '123',
         permissions: [],
         environment: 'dev',
         application: 'test-app'
       });
-      mockRedisService.set.mockResolvedValue(true);
+      mockCacheService.set.mockResolvedValue(true);
 
       const result = await permissionService.getPermissions('token');
 
@@ -485,9 +466,8 @@ describe('PermissionService', () => {
   describe('permission checking edge cases', () => {
     it('should handle empty permissions array in hasPermission', async () => {
       jwt.decode.mockReturnValue({ sub: '123' });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({ permissions: [], timestamp: Date.now() })
+      mockCacheService.get.mockResolvedValue(
+        { permissions: [], timestamp: Date.now() }
       );
 
       const result = await permissionService.hasPermission('token', 'read:users');
@@ -497,13 +477,10 @@ describe('PermissionService', () => {
 
     it('should handle permission check with multiple matching permissions', async () => {
       jwt.decode.mockReturnValue({ sub: '123' });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({
-          permissions: ['read:users', 'write:users', 'delete:users'],
-          timestamp: Date.now()
-        })
-      );
+      mockCacheService.get.mockResolvedValue({
+        permissions: ['read:users', 'write:users', 'delete:users'],
+        timestamp: Date.now()
+      });
 
       const result = await permissionService.hasPermission('token', 'write:users');
 
@@ -512,13 +489,10 @@ describe('PermissionService', () => {
 
     it('should handle hasAnyPermission with empty array input', async () => {
       jwt.decode.mockReturnValue({ sub: '123' });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({
-          permissions: ['read:users'],
-          timestamp: Date.now()
-        })
-      );
+      mockCacheService.get.mockResolvedValue({
+        permissions: ['read:users'],
+        timestamp: Date.now()
+      });
 
       const result = await permissionService.hasAnyPermission('token', []);
 
@@ -527,13 +501,10 @@ describe('PermissionService', () => {
 
     it('should handle hasAllPermissions with empty array input', async () => {
       jwt.decode.mockReturnValue({ sub: '123' });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({
-          permissions: ['read:users'],
-          timestamp: Date.now()
-        })
-      );
+      mockCacheService.get.mockResolvedValue({
+        permissions: ['read:users'],
+        timestamp: Date.now()
+      });
 
       const result = await permissionService.hasAllPermissions('token', []);
 
@@ -542,13 +513,10 @@ describe('PermissionService', () => {
 
     it('should handle hasAllPermissions with exact match', async () => {
       jwt.decode.mockReturnValue({ sub: '123' });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({
-          permissions: ['read:users', 'write:users'],
-          timestamp: Date.now()
-        })
-      );
+      mockCacheService.get.mockResolvedValue({
+        permissions: ['read:users', 'write:users'],
+        timestamp: Date.now()
+      });
 
       const result = await permissionService.hasAllPermissions('token', [
         'read:users',
@@ -560,13 +528,10 @@ describe('PermissionService', () => {
 
     it('should handle hasAllPermissions with one permission missing', async () => {
       jwt.decode.mockReturnValue({ sub: '123' });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.get.mockResolvedValue(
-        JSON.stringify({
-          permissions: ['read:users'],
-          timestamp: Date.now()
-        })
-      );
+      mockCacheService.get.mockResolvedValue({
+        permissions: ['read:users'],
+        timestamp: Date.now()
+      });
 
       const result = await permissionService.hasAllPermissions('token', [
         'read:users',
@@ -589,8 +554,7 @@ describe('PermissionService', () => {
           environment: 'dev',
           application: 'test-app'
         });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.set.mockResolvedValue(true);
+      mockCacheService.set.mockResolvedValue(true);
 
       const result = await permissionService.refreshPermissions('token');
 
@@ -612,8 +576,7 @@ describe('PermissionService', () => {
           environment: 'dev',
           application: 'test-app'
         });
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.set.mockResolvedValue(false);
+      mockCacheService.set.mockResolvedValue(false);
 
       const result = await permissionService.refreshPermissions('token');
 
@@ -631,7 +594,7 @@ describe('PermissionService', () => {
       };
       (mockHttpClient as any).config = configWithoutTTL;
 
-      const service = new PermissionService(mockHttpClient, mockRedisService);
+      const service = new PermissionService(mockHttpClient, mockCacheService);
       expect(service).toBeDefined();
     });
 
@@ -644,7 +607,7 @@ describe('PermissionService', () => {
       };
       (mockHttpClient as any).config = configWithTTL;
 
-      const service = new PermissionService(mockHttpClient, mockRedisService);
+      const service = new PermissionService(mockHttpClient, mockCacheService);
       expect(service).toBeDefined();
     });
   });

@@ -23,6 +23,8 @@ By the end of this guide, you'll have:
 - ✅ Permission checking
 - ✅ Centralized logging
 - ✅ Audit trails for compliance
+- ✅ Data encryption (optional)
+- ✅ Generic caching (optional)
 
 ---
 
@@ -83,6 +85,9 @@ MISO_CONTROLLER_URL=http://localhost:3000
 # Optional - Redis for better performance (highly recommended)
 REDIS_HOST=localhost
 REDIS_PORT=6379
+
+# Optional - Encryption key for data encryption (32-byte key in hex/base64/raw string)
+ENCRYPTION_KEY=your-encryption-key-here
 
 # Optional - Logging configuration
 MISO_LOG_LEVEL=info
@@ -320,6 +325,121 @@ await client.log.audit('access.denied', 'authorization', {
 
 ---
 
+## 🔒 Step 8: Encryption & Caching (Optional)
+
+### Encrypt Sensitive Data
+
+**My problem:** I needed to encrypt sensitive data before storing it.
+
+**Before:** Implement encryption libraries, manage keys... 😴
+
+**Now:**
+
+```typescript
+// Check if encryption is available (requires ENCRYPTION_KEY in .env)
+if (client.encryption) {
+  // Encrypt sensitive data
+  const encrypted = client.encryption.encrypt('sensitive-information');
+  console.log('Encrypted:', encrypted);
+  
+  // Decrypt when needed
+  const decrypted = client.encryption.decrypt(encrypted);
+  console.log('Decrypted:', decrypted);
+}
+```
+
+**Real-world example - storing encrypted user preferences:**
+
+```typescript
+app.post('/save-preferences', authMiddleware, async (req, res) => {
+  const token = client.getToken(req);
+  const user = await client.getUser(token);
+  
+  if (client.encryption) {
+    // Encrypt sensitive preferences before storing
+    const encrypted = client.encryption.encrypt(JSON.stringify(req.body.preferences));
+    await database.saveUserPreferences(user.id, encrypted);
+  } else {
+    // Store unencrypted if encryption not configured
+    await database.saveUserPreferences(user.id, req.body.preferences);
+  }
+  
+  res.json({ message: 'Preferences saved' });
+});
+```
+
+**I love this because:**
+- ✅ AES-256-GCM encryption (military-grade security)
+- ✅ Easy to use - just encrypt/decrypt
+- ✅ Works with any string data
+
+### Generic Caching
+
+**My problem:** I needed to cache API responses and computed results.
+
+**Before:** Set up Redis manually, manage serialization... 😴
+
+**Now:**
+
+```typescript
+// Cache expensive computations
+const cacheKey = `user:${userId}:profile`;
+const cachedProfile = await client.cache.get<UserProfile>(cacheKey);
+
+if (cachedProfile) {
+  return cachedProfile; // Fast! From cache
+}
+
+// Compute or fetch expensive data
+const profile = await expensiveComputation(userId);
+
+// Cache for 10 minutes
+await client.cache.set(cacheKey, profile, 600);
+
+return profile;
+```
+
+**Real-world example - caching API responses:**
+
+```typescript
+app.get('/api/products/:id', async (req, res) => {
+  const cacheKey = `product:${req.params.id}`;
+  
+  // Check cache first
+  const cached = await client.cache.get<Product>(cacheKey);
+  if (cached) {
+    return res.json(cached); // Fast response from cache
+  }
+  
+  // Fetch from database
+  const product = await database.getProduct(req.params.id);
+  
+  // Cache for 5 minutes
+  await client.cache.set(cacheKey, product, 300);
+  
+  res.json(product);
+});
+```
+
+**What happens:**
+1. Check Redis cache first (if available)
+2. Fallback to in-memory cache if Redis is down
+3. Auto-expires after TTL
+4. Works with any data type (automatically serialized)
+
+**I love this because:**
+- ✅ Automatic Redis + memory fallback
+- ✅ Type-safe with TypeScript generics
+- ✅ No manual JSON serialization needed
+- ✅ Perfect for API response caching
+
+**Note:** Roles and permissions are already cached automatically. This generic cache is for your application-specific data.
+
+→ [API Reference](api-reference.md#encryption-methods) - Full encryption API  
+→ [Cache Methods](api-reference.md#cache-methods) - Full cache API
+
+---
+
 ## 🎉 You Did It!
 
 By now, you have:
@@ -400,6 +520,12 @@ A: Yes. Tokens are validated with Keycloak. Secrets are in .env (not in code). L
 
 **Q: Performance?**  
 A: With Redis caching, most checks take <1ms. Without Redis, ~50ms per check.
+
+**Q: How do I encrypt sensitive data?**  
+A: Set `ENCRYPTION_KEY` in your `.env` file, then use `client.encryption.encrypt()` and `decrypt()` methods. Uses AES-256-GCM encryption.
+
+**Q: Can I cache my own data?**  
+A: Yes! Use `client.cache.set()` and `get()` for generic caching. Automatically uses Redis if available, falls back to in-memory cache.
 
 ---
 

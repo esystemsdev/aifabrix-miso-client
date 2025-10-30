@@ -35,12 +35,12 @@ async function example() {
       console.log('Is admin:', isAdmin);
 
       // Log some events
-      client.log.info('User accessed application', {
+      await client.log.info('User accessed application', {
         userId: user?.id,
         username: user?.username
       });
 
-      client.log.audit('user.login', 'authentication', {
+      await client.log.audit('user.login', 'authentication', {
         userId: user?.id,
         ip: '192.168.1.1'
       });
@@ -50,7 +50,7 @@ async function example() {
     try {
       throw new Error('Something went wrong');
     } catch (error) {
-      client.log.error('Application error', {
+      await client.log.error('Application error', {
         error: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });

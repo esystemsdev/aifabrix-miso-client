@@ -14,6 +14,8 @@ async function manualConfigExample() {
       port: 6379,
     },
     logLevel: 'info',
+    // Optional: Encryption key (or set ENCRYPTION_KEY env var)
+    encryptionKey: 'your-encryption-key-here', // 32-byte key in hex/base64/raw string
   });
 
   try {

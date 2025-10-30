@@ -22,6 +22,9 @@ export interface MisoClientConfig {
   // Optional: Logging
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
   
+  // Optional: Encryption key (for EncryptionService)
+  encryptionKey?: string;
+  
   // Optional: Cache configuration
   cache?: {
     roleTTL?: number; // Default 15 minutes

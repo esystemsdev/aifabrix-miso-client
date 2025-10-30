@@ -1,21 +1,26 @@
 /**
- * Role service for user authorization with Redis caching
+ * Role service for completely authorization with caching
  */
 
 import { HttpClient } from '../utils/http-client';
-import { RedisService } from './redis.service';
+import { CacheService } from './cache.service';
 import { MisoClientConfig, RoleResult } from '../types/config.types';
 import jwt from 'jsonwebtoken';
 
+interface RoleCacheData {
+  roles: string[];
+  timestamp: number;
+}
+
 export class RoleService {
   private httpClient: HttpClient;
-  private redis: RedisService;
+  private cache: CacheService;
   private config: MisoClientConfig;
   private roleTTL: number;
 
-  constructor(httpClient: HttpClient, redis: RedisService) {
+  constructor(httpClient: HttpClient, cache: CacheService) {
     this.config = httpClient.config;
-    this.redis = redis;
+    this.cache = cache;
     this.httpClient = httpClient;
     this.roleTTL = this.config.cache?.roleTTL || 900; // 15 minutes default
   }
@@ -45,17 +50,11 @@ export class RoleService {
       let userId = this.extractUserIdFromToken(token);
       const cacheKey = userId ? `roles:${userId}` : null;
 
-      // Check Redis cache first if we have userId
-      if (cacheKey && this.redis.isConnected()) {
-        const cachedRoles = await this.redis.get(cacheKey);
-        if (cachedRoles) {
-          try {
-            const parsed = JSON.parse(cachedRoles);
-            return parsed.roles || [];
-          } catch (error) {
-            // eslint-disable-next-line no-console
-            console.warn('Failed to parse cached roles:', error);
-          }
+      // Check cache first if we have userId
+      if (cacheKey) {
+        const cached = await this.cache.get<RoleCacheData>(cacheKey);
+        if (cached) {
+          return cached.roles || [];
         }
       }
 
@@ -82,15 +81,13 @@ export class RoleService {
 
       const roles = roleResult.roles || [];
 
-      // Cache the result in Redis (use userId-based key)
+      // Cache the result (use userId-based key)
       const finalCacheKey = `roles:${userId}`;
-      if (this.redis.isConnected()) {
-        await this.redis.set(
-          finalCacheKey,
-          JSON.stringify({ roles, timestamp: Date.now() }),
-          this.roleTTL
-        );
-      }
+      await this.cache.set<RoleCacheData>(
+        finalCacheKey,
+        { roles, timestamp: Date.now() },
+        this.roleTTL
+      );
 
       return roles;
     } catch (error) {
@@ -153,13 +150,11 @@ export class RoleService {
       const roles = roleResult.roles || [];
 
       // Update cache with fresh data
-      if (this.redis.isConnected()) {
-        await this.redis.set(
-          cacheKey,
-          JSON.stringify({ roles, timestamp: Date.now() }),
-          this.roleTTL
-        );
-      }
+      await this.cache.set<RoleCacheData>(
+        cacheKey,
+        { roles, timestamp: Date.now() },
+        this.roleTTL
+      );
 
       return roles;
     } catch (error) {

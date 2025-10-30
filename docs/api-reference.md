@@ -10,6 +10,8 @@ Complete reference documentation for the AI Fabrix Miso Client SDK.
 - [Authorization Methods](#authorization-methods)
 - [Logging Methods](#logging-methods)
 - [Utility Methods](#utility-methods)
+- [Encryption Methods](#encryption-methods)
+- [Cache Methods](#cache-methods)
 - [Service Classes](#service-classes)
 - [Error Handling](#error-handling)
 
@@ -549,6 +551,137 @@ if (client.isRedisConnected()) {
 }
 ```
 
+## Encryption Methods
+
+### `encryption: EncryptionService | undefined`
+
+Gets the encryption service for data encryption/decryption. Returns `undefined` if encryption key is not configured.
+
+**Note:** Encryption service requires an encryption key to be configured via `ENCRYPTION_KEY` environment variable or `encryptionKey` in config.
+
+**Example:**
+
+```typescript
+if (client.encryption) {
+  const encrypted = client.encryption.encrypt('sensitive-data');
+  const decrypted = client.encryption.decrypt(encrypted);
+  console.log('Decrypted:', decrypted);
+}
+```
+
+### `encryption.encrypt(plaintext: string): string`
+
+Encrypts plaintext using AES-256-GCM encryption.
+
+**Parameters:**
+
+- `plaintext` - The plaintext string to encrypt
+
+**Returns:** Base64-encoded encrypted string
+
+**Example:**
+
+```typescript
+const encrypted = client.encryption!.encrypt('my-secret-data');
+console.log('Encrypted:', encrypted);
+```
+
+### `encryption.decrypt(encryptedText: string): string`
+
+Decrypts a base64-encoded encrypted string.
+
+**Parameters:**
+
+- `encryptedText` - Base64-encoded encrypted string
+
+**Returns:** Decrypted plaintext string
+
+**Example:**
+
+```typescript
+const decrypted = client.encryption!.decrypt(encrypted);
+console.log('Decrypted:', decrypted);
+```
+
+## Cache Methods
+
+### `cache: CacheService`
+
+Gets the cache service for generic caching with Redis support and in-memory fallback.
+
+**Example:**
+
+```typescript
+// Store value in cache
+await client.cache.set('my-key', { data: 'value' }, 300); // 300 seconds TTL
+
+// Retrieve from cache
+const value = await client.cache.get<{ data: string }>('my-key');
+```
+
+### `cache.get<T>(key: string): Promise<T | null>`
+
+Gets a cached value by key. Checks Redis first, then falls back to memory cache.
+
+**Parameters:**
+
+- `key` - Cache key
+
+**Returns:** Promise resolving to cached value or `null` if not found or expired
+
+**Example:**
+
+```typescript
+const value = await client.cache.get<string>('my-key');
+if (value) {
+  console.log('Cached value:', value);
+}
+```
+
+### `cache.set<T>(key: string, value: T, ttl: number): Promise<boolean>`
+
+Sets a value in cache with TTL. Stores in both Redis (if available) and memory cache.
+
+**Parameters:**
+
+- `key` - Cache key
+- `value` - Value to cache (will be JSON serialized)
+- `ttl` - Time to live in seconds
+
+**Returns:** Promise resolving to `true` if successful, `false` otherwise
+
+**Example:**
+
+```typescript
+await client.cache.set('user:123', { name: 'John', age: 30 }, 600); // 10 minutes
+```
+
+### `cache.delete(key: string): Promise<boolean>`
+
+Deletes a value from cache. Removes from both Redis and memory cache.
+
+**Parameters:**
+
+- `key` - Cache key
+
+**Returns:** Promise resolving to `true` if deleted from at least one cache, `false` otherwise
+
+**Example:**
+
+```typescript
+await client.cache.delete('user:123');
+```
+
+### `cache.clear(): Promise<void>`
+
+Clears all cache entries from memory cache. Note: Redis keys are not cleared (use RedisService directly for pattern-based deletion).
+
+**Example:**
+
+```typescript
+await client.cache.clear();
+```
+
 ## Service Classes
 
 The SDK exports individual service classes for advanced usage:
@@ -592,6 +725,48 @@ import { HttpClient } from '@aifabrix/miso-client';
 
 const httpClient = new HttpClient(config);
 ```
+
+### EncryptionService
+
+```typescript
+import { EncryptionService } from '@aifabrix/miso-client';
+
+const encryptionService = new EncryptionService('your-encryption-key');
+const encrypted = encryptionService.encrypt('sensitive-data');
+const decrypted = encryptionService.decrypt(encrypted);
+```
+
+**Methods:**
+
+- `encrypt(plaintext: string): string` - Encrypts plaintext using AES-256-GCM
+- `decrypt(encryptedText: string): string` - Decrypts encrypted text
+
+**Key Formats Supported:**
+
+- Raw string (will be hashed with SHA-256 to derive 32-byte key)
+- Hex string (64 hex characters = 32 bytes)
+- Base64 string (must decode to exactly 32 bytes)
+
+### CacheService
+
+```typescript
+import { CacheService, RedisService } from '@aifabrix/miso-client';
+
+const redisService = new RedisService(redisConfig);
+await redisService.connect();
+
+const cacheService = new CacheService(redisService);
+await cacheService.set('key', { data: 'value' }, 300); // 300 seconds TTL
+const value = await cacheService.get<{ data: string }>('key');
+```
+
+**Methods:**
+
+- `get<T>(key: string): Promise<T | null>` - Get cached value
+- `set<T>(key: string, value: T, ttl: number): Promise<boolean>` - Set value with TTL
+- `delete(key: string): Promise<boolean>` - Delete from cache
+- `clear(): Promise<void>` - Clear memory cache
+- `destroy(): void` - Cleanup resources
 
 ## Error Handling
 

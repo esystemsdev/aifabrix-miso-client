@@ -26,6 +26,7 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 - API key authentication
 - Token revocation support
 - Secure token storage
+- Data encryption/decryption (AES-256-GCM)
 
 ### 📊 Compliance & Audit
 
@@ -51,6 +52,7 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 
 **Intelligent Caching**
 - Redis-based role and permission caching
+- Generic cache service with Redis and in-memory fallback
 - Configurable cache TTL (default: 15 minutes)
 - Automatic cache invalidation
 - Fallback to controller when Redis unavailable
@@ -283,6 +285,43 @@ await client.log.audit('access.denied', 'authorization', {
 
 ---
 
+### Encryption and Caching
+
+**What happens:** Use encryption for sensitive data and generic caching for improved performance.
+
+```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+const client = new MisoClient(loadConfig());
+await client.initialize();
+
+// Encryption (requires ENCRYPTION_KEY in .env or config.encryptionKey)
+if (client.encryption) {
+  const encrypted = client.encryption.encrypt('sensitive-data');
+  const decrypted = client.encryption.decrypt(encrypted);
+  console.log('Decrypted:', decrypted);
+}
+
+// Generic caching (automatically uses Redis if available, falls back to memory)
+await client.cache.set('user:123', { name: 'John', age: 30 }, 600); // 10 minutes TTL
+const user = await client.cache.get<{ name: string; age: number }>('user:123');
+if (user) {
+  console.log('Cached user:', user);
+}
+```
+
+**Configuration:**
+
+```bash
+# Add to .env
+ENCRYPTION_KEY=your-32-byte-encryption-key
+```
+
+→ [API Reference](docs/api-reference.md#encryption-methods)  
+→ [Cache Methods](docs/api-reference.md#cache-methods)
+
+---
+
 ## 🔧 Configuration
 
 ```typescript
@@ -292,6 +331,7 @@ interface MisoClientConfig {
   clientSecret: string;       // Required: Client secret
   redis?: RedisConfig;        // Optional: For caching
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
+  encryptionKey?: string;     // Optional: Encryption key (or use ENCRYPTION_KEY env var)
   cache?: {
     roleTTL?: number;         // Role cache TTL (default: 900s)
     permissionTTL?: number;   // Permission cache TTL (default: 900s)

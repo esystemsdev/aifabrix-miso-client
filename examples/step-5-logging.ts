@@ -56,9 +56,9 @@ async function loggingExample() {
 
 async function performOperation() {
   // Your application logic
+  // This is a placeholder for any operation that might fail
+  throw new Error('Operation failed');
 }
-
-let someCondition = false;
 
 export { loggingExample };
 

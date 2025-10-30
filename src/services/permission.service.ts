@@ -1,21 +1,26 @@
 /**
- * Permission service for user authorization with Redis caching
+ * Permission service for user authorization with caching
  */
 
 import { HttpClient } from '../utils/http-client';
-import { RedisService } from './redis.service';
+import { CacheService } from './cache.service';
 import { MisoClientConfig, PermissionResult } from '../types/config.types';
 import jwt from 'jsonwebtoken';
 
+interface PermissionCacheData {
+  permissions: string[];
+  timestamp: number;
+}
+
 export class PermissionService {
   private httpClient: HttpClient;
-  private redis: RedisService;
+  private cache: CacheService;
   private config: MisoClientConfig;
   private permissionTTL: number;
 
-  constructor(httpClient: HttpClient, redis: RedisService) {
+  constructor(httpClient: HttpClient, cache: CacheService) {
     this.config = httpClient.config;
-    this.redis = redis;
+    this.cache = cache;
     this.httpClient = httpClient;
     this.permissionTTL = this.config.cache?.permissionTTL || 900; // 15 minutes default
   }
@@ -36,7 +41,7 @@ export class PermissionService {
   }
 
   /**
-   * Get user permissions with Redis caching
+   * Get user permissions with caching
    * Optimized to extract userId from token first to check cache before API call
    */
   async getPermissions(token: string): Promise<string[]> {
@@ -45,17 +50,11 @@ export class PermissionService {
       let userId = this.extractUserIdFromToken(token);
       const cacheKey = userId ? `permissions:${userId}` : null;
 
-      // Check Redis cache first if we have userId
-      if (cacheKey && this.redis.isConnected()) {
-        const cachedPermissions = await this.redis.get(cacheKey);
-        if (cachedPermissions) {
-          try {
-            const parsed = JSON.parse(cachedPermissions);
-            return parsed.permissions || [];
-          } catch (error) {
-            // eslint-disable-next-line no-console
-            console.warn('Failed to parse cached permissions:', error);
-          }
+      // Check cache first if we have userId
+      if (cacheKey) {
+        const cached = await this.cache.get<PermissionCacheData>(cacheKey);
+        if (cached) {
+          return cached.permissions || [];
         }
       }
 
@@ -82,15 +81,13 @@ export class PermissionService {
 
       const permissions = permissionResult.permissions || [];
 
-      // Cache the result in Redis (use userId-based key)
+      // Cache the result (use userId-based key)
       const finalCacheKey = `permissions:${userId}`;
-      if (this.redis.isConnected()) {
-        await this.redis.set(
-          finalCacheKey,
-          JSON.stringify({ permissions, timestamp: Date.now() }),
-          this.permissionTTL
-        );
-      }
+      await this.cache.set<PermissionCacheData>(
+        finalCacheKey,
+        { permissions, timestamp: Date.now() },
+        this.permissionTTL
+      );
 
       return permissions;
     } catch (error) {
@@ -153,13 +150,11 @@ export class PermissionService {
       const permissions = permissionResult.permissions || [];
 
       // Update cache with fresh data
-      if (this.redis.isConnected()) {
-        await this.redis.set(
-          cacheKey,
-          JSON.stringify({ permissions, timestamp: Date.now() }),
-          this.permissionTTL
-        );
-      }
+      await this.cache.set<PermissionCacheData>(
+        cacheKey,
+        { permissions, timestamp: Date.now() },
+        this.permissionTTL
+      );
 
       return permissions;
     } catch (error) {
@@ -188,10 +183,8 @@ export class PermissionService {
       const userId = userInfo.user.id;
       const cacheKey = `permissions:${userId}`;
 
-      // Clear from Redis cache
-      if (this.redis.isConnected()) {
-        await this.redis.delete(cacheKey);
-      }
+      // Clear from cache
+      await this.cache.delete(cacheKey);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Failed to clear permissions cache:', error);

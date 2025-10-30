@@ -83,6 +83,7 @@ interface MisoClientConfig {
   clientSecret: string; // Required: Client secret
   redis?: RedisConfig; // Optional: Redis configuration for caching
   logLevel?: 'debug' | 'info' | 'warn' | 'error'; // Optional: Logging level
+  encryptionKey?: string; // Optional: Encryption key for EncryptionService
   cache?: {
     roleTTL?: number; // Optional: Role cache TTL in seconds (default: 900)
     permissionTTL?: number; // Optional: Permission cache TTL in seconds (default: 900)
@@ -209,9 +210,8 @@ interface RedisConfig {
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'dev',
-  applicationKey: 'my-app',
-  applicationId: 'my-app-id-123',
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: 'your-secret',
   redis: {
     host: 'localhost',
     port: 6379
@@ -274,8 +274,8 @@ REDIS_PASSWORD=your-redis-password
 REDIS_DB=0
 REDIS_KEY_PREFIX=miso:
 
-# Optional Logging
-MISO_LOG_LEVEL=info
+# Optional Encryption
+ENCRYPTION_KEY=your-encryption-key
 ```
 
 ### Loading Configuration from Environment
@@ -283,10 +283,8 @@ MISO_LOG_LEVEL=info
 ```typescript
 const client = new MisoClient({
   controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: process.env.MISO_ENVIRONMENT as 'dev' | 'tst' | 'pro',
-  applicationKey: process.env.MISO_APPLICATION_KEY!,
-  applicationId: process.env.MISO_APPLICATION_ID!,
-  apiKey: process.env.MISO_API_KEY,
+  clientId: process.env.MISO_CLIENTID!,
+  clientSecret: process.env.MISO_CLIENTSECRET!,
   redis: {
     host: process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDIS_PORT || '6379'),
@@ -294,7 +292,8 @@ const client = new MisoClient({
     db: parseInt(process.env.REDIS_DB || '0'),
     keyPrefix: process.env.REDIS_KEY_PREFIX || 'miso:'
   },
-  logLevel: process.env.MISO_LOG_LEVEL as any
+  logLevel: process.env.MISO_LOG_LEVEL as any,
+  encryptionKey: process.env.ENCRYPTION_KEY
 });
 ```
 
@@ -378,8 +377,8 @@ interface CacheConfig {
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'pro',
-  applicationKey: 'secure-app',
+  clientId: 'ctrl-pro-secure-app',
+  clientSecret: 'your-secret',
   cache: {
     roleTTL: 300, // 5 minutes
     permissionTTL: 300 // 5 minutes
@@ -392,8 +391,8 @@ const client = new MisoClient({
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'dev',
-  applicationKey: 'dev-app',
+  clientId: 'ctrl-dev-app',
+  clientSecret: 'your-secret',
   cache: {
     roleTTL: 1800, // 30 minutes
     permissionTTL: 1800 // 30 minutes
@@ -406,8 +405,8 @@ const client = new MisoClient({
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'pro',
-  applicationKey: 'my-app',
+  clientId: 'ctrl-pro-my-app',
+  clientSecret: 'your-secret',
   cache: {
     roleTTL: 600, // 10 minutes for roles
     permissionTTL: 300 // 5 minutes for permissions
@@ -456,8 +455,8 @@ type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'dev',
-  applicationKey: 'dev-app',
+  clientId: 'ctrl-dev-app',
+  clientSecret: 'your-secret',
   logLevel: 'debug'
 });
 ```
@@ -467,8 +466,8 @@ const client = new MisoClient({
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: 'pro',
-  applicationKey: 'prod-app',
+  clientId: 'ctrl-pro-app',
+  clientSecret: 'your-secret',
   logLevel: 'warn'
 });
 ```
@@ -478,8 +477,8 @@ const client = new MisoClient({
 ```typescript
 const client = new MisoClient({
   controllerUrl: 'https://controller.aifabrix.ai',
-  environment: process.env.NODE_ENV === 'production' ? 'pro' : 'dev',
-  applicationKey: 'my-app',
+  clientId: process.env.MISO_CLIENTID!,
+  clientSecret: process.env.MISO_CLIENTSECRET!,
   logLevel: process.env.NODE_ENV === 'production' ? 'warn' : 'debug'
 });
 ```
@@ -556,8 +555,8 @@ interface EnvironmentConfig {
 const configs: EnvironmentConfig = {
   dev: {
     controllerUrl: 'http://localhost:3000',
-    environment: 'dev',
-    applicationKey: 'dev-app',
+    clientId: 'ctrl-dev-app',
+    clientSecret: process.env.DEV_CLIENT_SECRET!,
     redis: {
       host: 'localhost',
       port: 6379
@@ -566,8 +565,8 @@ const configs: EnvironmentConfig = {
   },
   tst: {
     controllerUrl: 'https://test-controller.aifabrix.ai',
-    environment: 'tst',
-    applicationKey: 'test-app',
+    clientId: 'ctrl-test-app',
+    clientSecret: process.env.TEST_CLIENT_SECRET!,
     redis: {
       host: 'test-redis.example.com',
       port: 6379,
@@ -577,8 +576,8 @@ const configs: EnvironmentConfig = {
   },
   pro: {
     controllerUrl: 'https://controller.aifabrix.ai',
-    environment: 'pro',
-    applicationKey: 'prod-app',
+    clientId: 'ctrl-pro-app',
+    clientSecret: process.env.PROD_CLIENT_SECRET!,
     redis: {
       host: 'prod-redis.example.com',
       port: 6379,
@@ -815,14 +814,14 @@ const client = new MisoClient({
    export const misoConfig = {
      dev: {
        controllerUrl: 'http://localhost:3000',
-       environment: 'dev' as const,
-       applicationKey: 'dev-app',
+       clientId: 'ctrl-dev-app',
+       clientSecret: process.env.DEV_CLIENT_SECRET!,
        logLevel: 'debug' as const
      },
      pro: {
        controllerUrl: 'https://controller.aifabrix.ai',
-       environment: 'pro' as const,
-       applicationKey: 'prod-app',
+       clientId: 'ctrl-pro-app',
+       clientSecret: process.env.PROD_CLIENT_SECRET!,
        logLevel: 'warn' as const
      }
    };
@@ -847,15 +846,21 @@ const client = new MisoClient({
 
    const misoConfigSchema = z.object({
      controllerUrl: z.string().url(),
-     environment: z.enum(['dev', 'tst', 'pro']),
-     applicationKey: z.string().min(1),
+     clientId: z.string().min(1),
+     clientSecret: z.string().min(1),
      redis: z
        .object({
          host: z.string(),
          port: z.number().min(1).max(65535),
          password: z.string().optional()
        })
-       .optional()
+       .optional(),
+     logLevel: z.enum(['debug', 'info', 'warn', 'error']).optional(),
+     encryptionKey: z.string().optional(),
+     cache: z.object({
+       roleTTL: z.number().optional(),
+       permissionTTL: z.number().optional()
+     }).optional()
    });
 
    const config = misoConfigSchema.parse(process.env);

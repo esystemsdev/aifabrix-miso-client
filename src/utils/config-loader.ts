@@ -45,5 +45,10 @@ export function loadConfig(): MisoClientConfig {
     config.redis = redisConfig;
   }
 
+  // Optional encryption key
+  if (process.env.ENCRYPTION_KEY) {
+    config.encryptionKey = process.env.ENCRYPTION_KEY;
+  }
+
   return config;
 }

@@ -615,14 +615,20 @@ export class RoleGuard implements CanActivate {
 
 ```typescript
 // posts.controller.ts
-import { Controller, Get, Post, UseGuards, SetMetadata } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, SetMetadata, Request } from '@nestjs/common';
 import { AuthGuard } from './auth.guard';
 import { RoleGuard } from './role.guard';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 @Controller('posts')
 @UseGuards(AuthGuard)
 export class PostsController {
-  constructor(private readonly postsService: PostsService) {}
+  private readonly client: MisoClient;
+
+  constructor(private readonly postsService: PostsService) {
+    this.client = new MisoClient(loadConfig());
+    this.client.initialize();
+  }
 
   @Get()
   async findAll(@Request() req) {
@@ -652,8 +658,8 @@ import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 interface MisoPluginOptions {
   controllerUrl: string;
-  environment: 'dev' | 'tst' | 'pro';
-  applicationKey: string;
+  clientId: string;
+  clientSecret: string;
   redis?: {
     host: string;
     port: number;
@@ -703,8 +709,8 @@ const fastify = Fastify();
 
 await fastify.register(misoPlugin, {
   controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: process.env.MISO_ENVIRONMENT as any,
-  applicationKey: 'fastify-app'
+  clientId: process.env.MISO_CLIENTID!,
+  clientSecret: process.env.MISO_CLIENTSECRET!
 });
 
 fastify.get('/posts', async (request, reply) => {
@@ -935,8 +941,8 @@ describe('MisoClient', () => {
   beforeEach(() => {
     client = new MisoClient({
       controllerUrl: 'https://test.controller.com',
-      environment: 'dev',
-      applicationKey: 'test-app'
+      clientId: 'ctrl-test-app',
+      clientSecret: 'test-secret'
     });
   });
 
@@ -974,8 +980,8 @@ describe('MisoClient Integration', () => {
   beforeAll(async () => {
     client = new MisoClient({
       controllerUrl: process.env.TEST_MISO_CONTROLLER_URL!,
-      environment: 'dev',
-      applicationKey: 'test-app'
+      clientId: process.env.TEST_MISO_CLIENTID!,
+      clientSecret: process.env.TEST_MISO_CLIENTSECRET!
     });
     await client.initialize();
   });

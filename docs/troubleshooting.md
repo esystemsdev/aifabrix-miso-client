@@ -251,8 +251,8 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
    ```typescript
    const client = new MisoClient({
      controllerUrl: process.env.MISO_CONTROLLER_URL!,
-     environment: 'dev',
-     applicationKey: 'test-app',
+     clientId: process.env.MISO_CLIENTID!,
+     clientSecret: process.env.MISO_CLIENTSECRET!,
      redis: {
        host: 'localhost', // Verify host
        port: 6379, // Verify port
@@ -349,8 +349,8 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
    ```typescript
    const client = new MisoClient({
      controllerUrl: process.env.MISO_CONTROLLER_URL!,
-     environment: 'pro',
-     applicationKey: 'my-app',
+     clientId: process.env.MISO_CLIENTID!,
+     clientSecret: process.env.MISO_CLIENTSECRET!,
      redis: {
        host: process.env.REDIS_HOST!,
        port: parseInt(process.env.REDIS_PORT!),
@@ -438,19 +438,19 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
      if (!config.controllerUrl) {
        throw new Error('controllerUrl is required');
      }
-     if (!config.environment || !['dev', 'tst', 'pro'].includes(config.environment)) {
-       throw new Error('environment must be dev, tst, or pro');
+     if (!config.clientId) {
+       throw new Error('clientId is required');
      }
-     if (!config.applicationKey) {
-       throw new Error('applicationKey is required');
+     if (!config.clientSecret) {
+       throw new Error('clientSecret is required');
      }
      return true;
    }
 
    const config = {
      controllerUrl: process.env.MISO_CONTROLLER_URL!,
-     environment: process.env.MISO_ENVIRONMENT as any,
-     applicationKey: process.env.MISO_APPLICATION_KEY!
+     clientId: process.env.MISO_CLIENTID!,
+     clientSecret: process.env.MISO_CLIENTSECRET!
    };
 
    validateConfig(config);
@@ -463,11 +463,10 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
    // Log configuration (without sensitive data)
    console.log('Configuration:', {
      controllerUrl: process.env.MISO_CONTROLLER_URL,
-     environment: process.env.MISO_ENVIRONMENT,
-     applicationKey: process.env.MISO_APPLICATION_KEY,
+     clientId: process.env.MISO_CLIENTID,
      redisHost: process.env.REDIS_HOST,
      redisPort: process.env.REDIS_PORT
-     // Don't log passwords!
+     // Don't log passwords or secrets!
    });
    ```
 
@@ -486,20 +485,25 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
    ```typescript
    const client = new MisoClient({
      controllerUrl: process.env.MISO_CONTROLLER_URL || 'https://controller.aifabrix.ai',
-     environment: (process.env.MISO_ENVIRONMENT as any) || 'dev',
-     applicationKey: process.env.MISO_APPLICATION_KEY || 'default-app',
+     clientId: process.env.MISO_CLIENTID || '',
+     clientSecret: process.env.MISO_CLIENTSECRET || '',
      redis: {
        host: process.env.REDIS_HOST || 'localhost',
        port: parseInt(process.env.REDIS_PORT || '6379'),
        password: process.env.REDIS_PASSWORD
      }
    });
+   
+   // Validate required fields (loadConfig() does this automatically)
+   if (!client.getConfig().clientId || !client.getConfig().clientSecret) {
+     throw new Error('MISO_CLIENTID and MISO_CLIENTSECRET are required');
+   }
    ```
 
 2. **Validate Required Variables**:
 
    ```typescript
-   const requiredEnvVars = ['MISO_CONTROLLER_URL', 'MISO_ENVIRONMENT', 'MISO_APPLICATION_KEY'];
+   const requiredEnvVars = ['MISO_CONTROLLER_URL', 'MISO_CLIENTID', 'MISO_CLIENTSECRET'];
 
    for (const envVar of requiredEnvVars) {
      if (!process.env[envVar]) {
@@ -668,8 +672,8 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
 ```typescript
 const client = new MisoClient({
   controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  environment: 'dev',
-  applicationKey: 'debug-app',
+  clientId: process.env.MISO_CLIENTID!,
+  clientSecret: process.env.MISO_CLIENTSECRET!,
   logLevel: 'debug'
 });
 
@@ -757,8 +761,8 @@ async function testServices() {
    ```typescript
    const client = new MisoClient({
      controllerUrl: 'https://controller.aifabrix.ai',
-     environment: 'dev',
-     applicationKey: 'test-app'
+     clientId: 'ctrl-test-app',
+     clientSecret: 'test-secret'
    });
    ```
 
@@ -788,10 +792,10 @@ When reporting issues, please include:
    ```typescript
    console.log('Config:', {
      controllerUrl: config.controllerUrl,
-     environment: config.environment,
-     applicationKey: config.applicationKey,
+     clientId: config.clientId,
      redisHost: config.redis?.host,
      redisPort: config.redis?.port
+     // Don't log clientSecret!
    });
    ```
 
