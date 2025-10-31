@@ -50,5 +50,10 @@ export function loadConfig(): MisoClientConfig {
     config.encryptionKey = process.env.ENCRYPTION_KEY;
   }
 
+  // Optional API key for testing (bypasses OAuth2 authentication)
+  if (process.env.API_KEY) {
+    config.apiKey = process.env.API_KEY;
+  }
+
   return config;
 }

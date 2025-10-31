@@ -244,4 +244,151 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('API_KEY support for testing', () => {
+    beforeEach(() => {
+      config = {
+        controllerUrl: 'https://controller.aifabrix.ai',
+        clientId: 'ctrl-dev-test-app',
+        clientSecret: 'test-secret',
+        apiKey: 'test-api-key-123'
+      };
+      (mockHttpClient as any).config = config;
+      authService = new AuthService(mockHttpClient, mockRedisService);
+    });
+
+    describe('validateToken with API_KEY', () => {
+      it('should return true for matching API_KEY without calling controller', async () => {
+        const result = await authService.validateToken('test-api-key-123');
+
+        expect(result).toBe(true);
+        expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
+      });
+
+      it('should fall through to controller for non-matching token', async () => {
+        mockHttpClient.authenticatedRequest.mockResolvedValue({
+          authenticated: true,
+          user: { id: '123', username: 'testuser' }
+        });
+
+        const result = await authService.validateToken('different-token');
+
+        expect(result).toBe(true);
+        expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
+          'POST',
+          '/api/auth/validate',
+          'different-token'
+        );
+      });
+
+      it('should be case-sensitive', async () => {
+        mockHttpClient.authenticatedRequest.mockResolvedValue({
+          authenticated: false,
+          error: 'Invalid token'
+        });
+
+        const result = await authService.validateToken('TEST-API-KEY-123');
+
+        expect(result).toBe(false);
+        expect(mockHttpClient.authenticatedRequest).toHaveBeenCalled();
+      });
+    });
+
+    describe('getUser with API_KEY', () => {
+      it('should return null for matching API_KEY without calling controller', async () => {
+        const result = await authService.getUser('test-api-key-123');
+
+        expect(result).toBeNull();
+        expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
+      });
+
+      it('should fall through to controller for non-matching token', async () => {
+        const userInfo = { id: '123', username: 'testuser', email: 'test@example.com' };
+        mockHttpClient.authenticatedRequest.mockResolvedValue({
+          authenticated: true,
+          user: userInfo
+        });
+
+        const result = await authService.getUser('different-token');
+
+        expect(result).toEqual(userInfo);
+        expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
+          'POST',
+          '/api/auth/validate',
+          'different-token'
+        );
+      });
+    });
+
+    describe('getUserInfo with API_KEY', () => {
+      it('should return null for matching API_KEY without calling controller', async () => {
+        const result = await authService.getUserInfo('test-api-key-123');
+
+        expect(result).toBeNull();
+        expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
+      });
+
+      it('should fall through to controller for non-matching token', async () => {
+        const userInfo = { id: '123', username: 'testuser', email: 'test@example.com' };
+        mockHttpClient.authenticatedRequest.mockResolvedValue(userInfo);
+
+        const result = await authService.getUserInfo('different-token');
+
+        expect(result).toEqual(userInfo);
+        expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
+          'GET',
+          '/api/auth/user',
+          'different-token'
+        );
+      });
+    });
+
+    describe('isAuthenticated with API_KEY', () => {
+      it('should return true for matching API_KEY (delegates to validateToken)', async () => {
+        const result = await authService.isAuthenticated('test-api-key-123');
+
+        expect(result).toBe(true);
+        expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
+      });
+
+      it('should fall through to controller for non-matching token', async () => {
+        mockHttpClient.authenticatedRequest.mockResolvedValue({
+          authenticated: true,
+          user: { id: '123', username: 'testuser' }
+        });
+
+        const result = await authService.isAuthenticated('different-token');
+
+        expect(result).toBe(true);
+        expect(mockHttpClient.authenticatedRequest).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('validateToken without API_KEY (normal flow)', () => {
+    it('should call controller when API_KEY is not configured', async () => {
+      config = {
+        controllerUrl: 'https://controller.aifabrix.ai',
+        clientId: 'ctrl-dev-test-app',
+        clientSecret: 'test-secret'
+        // apiKey not set
+      };
+      (mockHttpClient as any).config = config;
+      authService = new AuthService(mockHttpClient, mockRedisService);
+
+      mockHttpClient.authenticatedRequest.mockResolvedValue({
+        authenticated: true,
+        user: { id: '123', username: 'testuser' }
+      });
+
+      const result = await authService.validateToken('some-token');
+
+      expect(result).toBe(true);
+      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
+        'POST',
+        '/api/auth/validate',
+        'some-token'
+      );
+    });
+  });
 });

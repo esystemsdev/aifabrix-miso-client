@@ -84,6 +84,7 @@ interface MisoClientConfig {
   redis?: RedisConfig; // Optional: Redis configuration for caching
   logLevel?: 'debug' | 'info' | 'warn' | 'error'; // Optional: Logging level
   encryptionKey?: string; // Optional: Encryption key for EncryptionService
+  apiKey?: string; // Optional: API key for testing (bypasses OAuth2 authentication)
   cache?: {
     roleTTL?: number; // Optional: Role cache TTL in seconds (default: 900)
     permissionTTL?: number; // Optional: Permission cache TTL in seconds (default: 900)
@@ -276,6 +277,9 @@ REDIS_KEY_PREFIX=miso:
 
 # Optional Encryption
 ENCRYPTION_KEY=your-encryption-key
+
+# Optional: API key for testing (bypasses OAuth2 authentication)
+API_KEY=your-test-api-key
 ```
 
 ### Loading Configuration from Environment
@@ -293,7 +297,8 @@ const client = new MisoClient({
     keyPrefix: process.env.REDIS_KEY_PREFIX || 'miso:'
   },
   logLevel: process.env.MISO_LOG_LEVEL as any,
-  encryptionKey: process.env.ENCRYPTION_KEY
+  encryptionKey: process.env.ENCRYPTION_KEY,
+  apiKey: process.env.API_KEY
 });
 ```
 
@@ -482,6 +487,69 @@ const client = new MisoClient({
   logLevel: process.env.NODE_ENV === 'production' ? 'warn' : 'debug'
 });
 ```
+
+## API Key Testing Support
+
+The SDK supports an optional `API_KEY` configuration that allows bypassing OAuth2 authentication for testing purposes. This is useful when you need to test your application without requiring a full Keycloak setup.
+
+### How It Works
+
+When `API_KEY` is configured:
+- Bearer tokens matching the API key will automatically validate without calling the controller
+- `validateToken()` returns `true` for matching API_KEY tokens without making HTTP requests
+- `getUser()` and `getUserInfo()` return `null` when using API_KEY (by design for testing scenarios)
+- Tokens that don't match the API key fall through to normal OAuth2 validation
+
+### Security Notice
+
+⚠️ **API_KEY is for testing only.** Do not use this in production environments. It bypasses all OAuth2/Keycloak authentication checks.
+
+### Configuration
+
+#### Using Environment Variables
+
+```bash
+# .env file
+API_KEY=test-api-key-123
+```
+
+#### Manual Configuration
+
+```typescript
+const client = new MisoClient({
+  controllerUrl: 'https://controller.aifabrix.ai',
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: 'your-secret',
+  apiKey: 'test-api-key-123' // Optional: for testing only
+});
+```
+
+### Usage Example
+
+```typescript
+// Set API_KEY in environment or config
+const client = new MisoClient(loadConfig()); // API_KEY loaded from .env
+
+// When testing with matching API key
+const isValid = await client.validateToken('test-api-key-123');
+// Returns: true (no controller call made)
+
+// When testing with non-matching token
+const isValid2 = await client.validateToken('different-token');
+// Falls through to normal OAuth2 validation
+
+// getUser/getUserInfo return null for API_KEY tokens (by design)
+const user = await client.getUser('test-api-key-123');
+// Returns: null (no controller call made)
+```
+
+### When to Use API_KEY
+
+- ✅ Unit and integration testing
+- ✅ Local development without Keycloak
+- ✅ CI/CD pipeline testing
+- ❌ Production environments
+- ❌ Real user authentication
 
 ## Advanced Configuration
 

@@ -18,6 +18,14 @@ export class AuthService {
   }
 
   /**
+   * Check if token matches configured API key for testing
+   * @private
+   */
+  private isApiKeyToken(token: string): boolean {
+    return this.config.apiKey !== undefined && token === this.config.apiKey;
+  }
+
+  /**
    * Get environment token using client credentials
    * This is called automatically by HttpClient, but can be called manually if needed
    */
@@ -63,8 +71,14 @@ export class AuthService {
 
   /**
    * Validate token with controller
+   * If API_KEY is configured and token matches, returns true without calling controller
    */
   async validateToken(token: string): Promise<boolean> {
+    // Check API_KEY bypass for testing
+    if (this.isApiKeyToken(token)) {
+      return true;
+    }
+
     try {
       const result = await this.httpClient.authenticatedRequest<AuthResult>(
         'POST',
@@ -81,8 +95,14 @@ export class AuthService {
 
   /**
    * Get user information from token
+   * If API_KEY is configured and token matches, returns null (by design for testing)
    */
   async getUser(token: string): Promise<UserInfo | null> {
+    // Check API_KEY bypass for testing - return null by design
+    if (this.isApiKeyToken(token)) {
+      return null;
+    }
+
     try {
       const result = await this.httpClient.authenticatedRequest<AuthResult>(
         'POST',
@@ -103,8 +123,14 @@ export class AuthService {
 
   /**
    * Get user information from GET /api/auth/user endpoint
+   * If API_KEY is configured and token matches, returns null (by design for testing)
    */
   async getUserInfo(token: string): Promise<UserInfo | null> {
+    // Check API_KEY bypass for testing - return null by design
+    if (this.isApiKeyToken(token)) {
+      return null;
+    }
+
     try {
       const user = await this.httpClient.authenticatedRequest<UserInfo>(
         'GET',

@@ -25,6 +25,9 @@ export interface MisoClientConfig {
   // Optional: Encryption key (for EncryptionService)
   encryptionKey?: string;
   
+  // Optional: API key for testing (bypasses OAuth2 authentication)
+  apiKey?: string;
+  
   // Optional: Cache configuration
   cache?: {
     roleTTL?: number; // Default 15 minutes

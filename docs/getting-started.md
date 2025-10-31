@@ -91,6 +91,9 @@ ENCRYPTION_KEY=your-encryption-key-here
 
 # Optional - Logging configuration
 MISO_LOG_LEVEL=info
+
+# Optional - API key for testing (bypasses OAuth2 - testing only!)
+# API_KEY=test-api-key-123
 ```
 
 **That's your entire configuration.** Copy your `MISO_CLIENTID` and `MISO_CLIENTSECRET` from your Miso Controller admin panel.
@@ -530,6 +533,9 @@ A: Set `ENCRYPTION_KEY` in your `.env` file, then use `client.encryption.encrypt
 
 **Q: Can I cache my own data?**  
 A: Yes! Use `client.cache.set()` and `get()` for generic caching. Automatically uses Redis if available, falls back to in-memory cache.
+
+**Q: How do I test without Keycloak?**  
+A: Set `API_KEY=test-api-key-123` in your `.env` file. Bearer tokens matching the API key will validate automatically without calling the controller. Note: This bypasses OAuth2 and is for testing only - never use in production.
 
 ---
 
