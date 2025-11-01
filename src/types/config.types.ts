@@ -90,3 +90,49 @@ export interface ClientTokenResponse {
   expiresIn: number;
   expiresAt: string; // ISO date string
 }
+
+/**
+ * RFC 7807-style structured error response
+ * Supports both camelCase (statusCode) and snake_case (status_code) for compatibility
+ */
+export interface ErrorResponse {
+  errors: string[];
+  type: string;
+  title: string;
+  statusCode: number;
+  instance?: string;
+}
+
+/**
+ * Type guard to check if data matches ErrorResponse structure
+ * Handles both camelCase (statusCode) and snake_case (status_code) field names
+ */
+export function isErrorResponse(data: unknown): data is ErrorResponse {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+
+  const obj = data as Record<string, unknown>;
+
+  // Check required fields
+  if (!Array.isArray(obj.errors) || !obj.errors.every(e => typeof e === 'string')) {
+    return false;
+  }
+
+  if (typeof obj.type !== 'string' || typeof obj.title !== 'string') {
+    return false;
+  }
+
+  // Support both camelCase and snake_case for statusCode
+  const statusCode = obj.statusCode ?? obj.status_code;
+  if (typeof statusCode !== 'number') {
+    return false;
+  }
+
+  // instance is optional
+  if (obj.instance !== undefined && typeof obj.instance !== 'string') {
+    return false;
+  }
+
+  return true;
+}

@@ -800,6 +800,105 @@ try {
 }
 ```
 
+### Structured Error Responses
+
+The SDK supports RFC 7807-style structured error responses. When the controller returns a structured error response, it is automatically parsed and made available through the `MisoClientError` class.
+
+#### ErrorResponse Interface
+
+```typescript
+interface ErrorResponse {
+  errors: string[];           // Array of error messages
+  type: string;               // Error type URI (e.g., "/Errors/Bad Input")
+  title: string;              // Human-readable title
+  statusCode: number;         // HTTP status code (supports both camelCase and snake_case)
+  instance?: string;          // Request instance URI (optional)
+}
+```
+
+#### MisoClientError Class
+
+All HTTP errors from the SDK are thrown as `MisoClientError`, which extends the standard `Error` class:
+
+```typescript
+class MisoClientError extends Error {
+  readonly errorResponse?: ErrorResponse;        // Structured error response (if available)
+  readonly errorBody?: Record<string, unknown>;  // Raw error body (for backward compatibility)
+  readonly statusCode?: number;                  // HTTP status code
+}
+```
+
+#### Accessing Structured Error Information
+
+```typescript
+try {
+  await client.validateToken(token);
+} catch (error) {
+  if (error instanceof MisoClientError && error.errorResponse) {
+    // Access structured error details
+    console.error('Error type:', error.errorResponse.type);
+    console.error('Error title:', error.errorResponse.title);
+    console.error('Errors:', error.errorResponse.errors);
+    console.error('Status code:', error.errorResponse.statusCode);
+    console.error('Instance:', error.errorResponse.instance);
+    
+    // Error message is automatically set to title or first error
+    console.error('Message:', error.message);
+  } else if (error instanceof MisoClientError) {
+    // Fallback to errorBody for non-structured errors (backward compatibility)
+    console.error('Error body:', error.errorBody);
+    console.error('Status code:', error.statusCode);
+  }
+}
+```
+
+#### Backward Compatibility
+
+The SDK maintains full backward compatibility. If a response doesn't match the structured error format, the error is still wrapped in `MisoClientError` with the `errorBody` property containing the raw response data:
+
+```typescript
+try {
+  await client.get('/api/endpoint');
+} catch (error) {
+  if (error instanceof MisoClientError) {
+    // Structured error (new format)
+    if (error.errorResponse) {
+      console.log('Structured errors:', error.errorResponse.errors);
+    }
+    // Non-structured error (old format)
+    else if (error.errorBody) {
+      console.log('Error body:', error.errorBody);
+    }
+    
+    // Status code is always available
+    console.log('Status:', error.statusCode);
+  }
+}
+```
+
+#### Field Name Compatibility
+
+The `statusCode` field supports both camelCase (`statusCode`) and snake_case (`status_code`) for compatibility with different response formats:
+
+```typescript
+// Both formats are supported:
+{
+  errors: ['Error message'],
+  type: '/Errors/Test',
+  title: 'Test Error',
+  statusCode: 400  // camelCase
+}
+
+// OR
+
+{
+  errors: ['Error message'],
+  type: '/Errors/Test',
+  title: 'Test Error',
+  status_code: 400  // snake_case
+}
+```
+
 ### HTTP Status Codes
 
 The SDK handles common HTTP status codes:
@@ -827,7 +926,9 @@ import {
   AuthResult,
   LogEntry,
   RoleResult,
-  PermissionResult
+  PermissionResult,
+  ErrorResponse,
+  MisoClientError
 } from '@aifabrix/miso-client';
 ```
 

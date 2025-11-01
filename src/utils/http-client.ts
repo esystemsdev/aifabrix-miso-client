@@ -9,7 +9,8 @@ import axios, {
   AxiosError,
   InternalAxiosRequestConfig
 } from 'axios';
-import { MisoClientConfig, ClientTokenResponse } from '../types/config.types';
+import { MisoClientConfig, ClientTokenResponse, ErrorResponse, isErrorResponse } from '../types/config.types';
+import { MisoClientError } from './errors';
 
 export class HttpClient {
   private axios: AxiosInstance;
@@ -56,6 +57,8 @@ export class HttpClient {
           this.clientToken = null;
           this.tokenExpiresAt = null;
         }
+        // Note: Don't convert to MisoClientError here - let the method handlers do it
+        // This preserves the original error for the try-catch blocks in each method
         return Promise.reject(error);
       }
     );
@@ -122,24 +125,162 @@ export class HttpClient {
     }
   }
 
+  /**
+   * Check if error is an AxiosError (supports both instanceof and isAxiosError property)
+   */
+  private isAxiosError(error: unknown): error is AxiosError {
+    if (error instanceof AxiosError) {
+      return true;
+    }
+    // Support for mocked errors in tests
+    if (typeof error === 'object' && error !== null && 'isAxiosError' in error) {
+      return (error as AxiosError).isAxiosError === true;
+    }
+    return false;
+  }
+
+  /**
+   * Parse error response from AxiosError
+   * Attempts to parse structured ErrorResponse, falls back to null if parsing fails
+   */
+  private parseErrorResponse(error: AxiosError, requestUrl?: string): ErrorResponse | null {
+    try {
+      // Check if response data exists
+      if (!error.response?.data) {
+        return null;
+      }
+
+      const data = error.response.data;
+
+      // If data is already an object, check if it matches ErrorResponse structure
+      if (typeof data === 'object' && data !== null) {
+        // Normalize statusCode field (support both camelCase and snake_case)
+        const normalized = { ...data } as Record<string, unknown>;
+        if (normalized.status_code && !normalized.statusCode) {
+          normalized.statusCode = normalized.status_code;
+        }
+
+        // Validate using type guard
+        if (isErrorResponse(normalized)) {
+          const errorResponse: ErrorResponse = {
+            errors: normalized.errors,
+            type: normalized.type,
+            title: normalized.title,
+            statusCode: normalized.statusCode,
+            instance: normalized.instance || requestUrl
+          };
+          return errorResponse;
+        }
+      }
+
+      // If data is a string, try to parse as JSON
+      if (typeof data === 'string') {
+        try {
+          const parsed = JSON.parse(data);
+          const normalized = parsed as Record<string, unknown>;
+          if (normalized.status_code && !normalized.statusCode) {
+            normalized.statusCode = normalized.status_code;
+          }
+          if (isErrorResponse(normalized)) {
+            const errorResponse: ErrorResponse = {
+              errors: normalized.errors,
+              type: normalized.type,
+              title: normalized.title,
+              statusCode: normalized.statusCode,
+              instance: normalized.instance || requestUrl
+            };
+            return errorResponse;
+          }
+        } catch {
+          // JSON parse failed, return null
+          return null;
+        }
+      }
+
+      return null;
+    } catch {
+      // Any parsing error, return null
+      return null;
+    }
+  }
+
+  /**
+   * Create MisoClientError from AxiosError
+   * Parses structured error response if available, falls back to errorBody
+   */
+  private createMisoClientError(error: AxiosError, requestUrl?: string): MisoClientError {
+    // Extract status code
+    const statusCode = error.response?.status;
+
+    // Try to parse structured error response
+    const errorResponse = this.parseErrorResponse(error, requestUrl);
+
+    // Extract errorBody for backward compatibility
+    let errorBody: Record<string, unknown> | undefined;
+    if (error.response?.data && typeof error.response.data === 'object') {
+      errorBody = error.response.data as Record<string, unknown>;
+    }
+
+    // Generate default message
+    let message = error.message || 'Request failed';
+    if (error.response) {
+      message = error.response.statusText || `Request failed with status code ${statusCode}`;
+    }
+
+    // Create MisoClientError (convert null to undefined)
+    return new MisoClientError(message, errorResponse || undefined, errorBody, statusCode);
+  }
+
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.axios.get<T>(url, config);
-    return response.data;
+    try {
+      const response = await this.axios.get<T>(url, config);
+      return response.data;
+    } catch (error) {
+      if (this.isAxiosError(error)) {
+        const requestUrl = error.config?.url || url;
+        throw this.createMisoClientError(error, requestUrl);
+      }
+      throw error;
+    }
   }
 
   async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.axios.post<T>(url, data, config);
-    return response.data;
+    try {
+      const response = await this.axios.post<T>(url, data, config);
+      return response.data;
+    } catch (error) {
+      if (this.isAxiosError(error)) {
+        const requestUrl = error.config?.url || url;
+        throw this.createMisoClientError(error, requestUrl);
+      }
+      throw error;
+    }
   }
 
   async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.axios.put<T>(url, data, config);
-    return response.data;
+    try {
+      const response = await this.axios.put<T>(url, data, config);
+      return response.data;
+    } catch (error) {
+      if (this.isAxiosError(error)) {
+        const requestUrl = error.config?.url || url;
+        throw this.createMisoClientError(error, requestUrl);
+      }
+      throw error;
+    }
   }
 
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const response = await this.axios.delete<T>(url, config);
-    return response.data;
+    try {
+      const response = await this.axios.delete<T>(url, config);
+      return response.data;
+    } catch (error) {
+      if (this.isAxiosError(error)) {
+        const requestUrl = error.config?.url || url;
+        throw this.createMisoClientError(error, requestUrl);
+      }
+      throw error;
+    }
   }
 
   // Generic method for all requests (uses client credentials)

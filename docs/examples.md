@@ -816,7 +816,7 @@ setInterval(async () => {
 ### Comprehensive Error Handling
 
 ```typescript
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, MisoClientError } from '@aifabrix/miso-client';
 
 const client = new MisoClient(loadConfig());
 
@@ -903,6 +903,199 @@ app.post('/api/data', async (req, res) => {
     res.status(response.status).json({ error: response.message });
   }
 });
+```
+
+### Handling Structured Errors
+
+The SDK provides structured error responses following RFC 7807. Here's how to handle them:
+
+#### Basic Structured Error Handling
+
+```typescript
+import { MisoClient, MisoClientError } from '@aifabrix/miso-client';
+
+const client = new MisoClient(loadConfig());
+await client.initialize();
+
+try {
+  const token = 'your-token';
+  const user = await client.getUser(token);
+} catch (error) {
+  if (error instanceof MisoClientError && error.errorResponse) {
+    // Structured error response available
+    console.error('Error Type:', error.errorResponse.type);
+    console.error('Error Title:', error.errorResponse.title);
+    console.error('Error Messages:', error.errorResponse.errors);
+    console.error('Status Code:', error.errorResponse.statusCode);
+    console.error('Instance URI:', error.errorResponse.instance);
+    
+    // Error message is automatically set from title or first error
+    console.error('Message:', error.message);
+  } else if (error instanceof MisoClientError) {
+    // Fallback for non-structured errors (backward compatibility)
+    console.error('Error Body:', error.errorBody);
+    console.error('Status Code:', error.statusCode);
+  }
+}
+```
+
+#### Express Route with Structured Error Handling
+
+```typescript
+import express from 'express';
+import { MisoClient, MisoClientError } from '@aifabrix/miso-client';
+
+const app = express();
+const client = new MisoClient(loadConfig());
+await client.initialize();
+
+app.get('/api/user', async (req, res) => {
+  try {
+    const token = client.getToken(req);
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    const user = await client.getUser(token);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    if (error instanceof MisoClientError) {
+      // Check for structured error response
+      if (error.errorResponse) {
+        // Use structured error details
+        return res.status(error.errorResponse.statusCode).json({
+          error: error.errorResponse.title,
+          errors: error.errorResponse.errors,
+          type: error.errorResponse.type,
+          instance: error.errorResponse.instance
+        });
+      } else {
+        // Fallback to status code and error body
+        const statusCode = error.statusCode || 500;
+        return res.status(statusCode).json({
+          error: error.message,
+          details: error.errorBody
+        });
+      }
+    }
+
+    // Unknown error
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+```
+
+#### Error Handler Utility with Structured Errors
+
+```typescript
+import { MisoClientError, ErrorResponse } from '@aifabrix/miso-client';
+
+class StructuredErrorHandler {
+  handleError(error: unknown, defaultMessage: string = 'An error occurred') {
+    if (error instanceof MisoClientError) {
+      // Structured error response
+      if (error.errorResponse) {
+        return {
+          statusCode: error.errorResponse.statusCode,
+          message: error.errorResponse.title,
+          errors: error.errorResponse.errors,
+          type: error.errorResponse.type,
+          instance: error.errorResponse.instance
+        };
+      }
+      
+      // Non-structured error (backward compatibility)
+      return {
+        statusCode: error.statusCode || 500,
+        message: error.message || defaultMessage,
+        errors: error.errorBody ? [String(error.errorBody)] : [defaultMessage]
+      };
+    }
+
+    // Generic error
+    return {
+      statusCode: 500,
+      message: error instanceof Error ? error.message : defaultMessage,
+      errors: [error instanceof Error ? error.message : defaultMessage]
+    };
+  }
+}
+
+// Usage
+const errorHandler = new StructuredErrorHandler();
+
+app.post('/api/data', async (req, res) => {
+  try {
+    const result = await processRequest(req);
+    res.json(result);
+  } catch (error) {
+    const errorResponse = errorHandler.handleError(error);
+    res.status(errorResponse.statusCode).json({
+      error: errorResponse.message,
+      errors: errorResponse.errors,
+      ...(errorResponse.type && { type: errorResponse.type }),
+      ...(errorResponse.instance && { instance: errorResponse.instance })
+    });
+  }
+});
+```
+
+#### Logging Structured Errors
+
+```typescript
+import { MisoClient, MisoClientError } from '@aifabrix/miso-client';
+
+const client = new MisoClient(loadConfig());
+await client.initialize();
+
+async function processWithErrorLogging<T>(
+  operation: () => Promise<T>,
+  context: Record<string, unknown>
+): Promise<T> {
+  try {
+    return await operation();
+  } catch (error) {
+    // Log structured error details
+    if (error instanceof MisoClientError) {
+      const logContext = {
+        ...context,
+        errorMessage: error.message,
+        statusCode: error.statusCode
+      };
+
+      // Add structured error details if available
+      if (error.errorResponse) {
+        logContext.errorType = error.errorResponse.type;
+        logContext.errorTitle = error.errorResponse.title;
+        logContext.errors = error.errorResponse.errors;
+        logContext.instance = error.errorResponse.instance;
+      } else if (error.errorBody) {
+        logContext.errorBody = error.errorBody;
+      }
+
+      await client.log.error('Operation failed', logContext);
+    } else {
+      // Generic error logging
+      await client.log.error('Operation failed', {
+        ...context,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+    }
+
+    throw error;
+  }
+}
+
+// Usage
+await processWithErrorLogging(
+  async () => await client.validateToken(token),
+  { operation: 'validateToken', userId: 'user-123' }
+);
 ```
 
 ## Testing

@@ -737,6 +737,68 @@ async function testServices() {
 | `ETIMEDOUT`      | Connection timeout    | Check network latency  |
 | `CERT_UNTRUSTED` | SSL certificate issue | Update certificates    |
 
+### Structured Error Responses
+
+The SDK automatically parses RFC 7807-style structured error responses from the controller. When available, errors provide detailed information:
+
+```typescript
+import { MisoClientError } from '@aifabrix/miso-client';
+
+try {
+  await client.validateToken(token);
+} catch (error) {
+  if (error instanceof MisoClientError && error.errorResponse) {
+    // Access structured error details
+    console.error('Error Type:', error.errorResponse.type);
+    console.error('Error Title:', error.errorResponse.title);
+    console.error('Error Messages:', error.errorResponse.errors);
+    console.error('Status Code:', error.errorResponse.statusCode);
+    console.error('Instance URI:', error.errorResponse.instance);
+    
+    // The error message is automatically set from title or first error
+    console.error('Message:', error.message);
+  } else if (error instanceof MisoClientError) {
+    // Fallback for non-structured errors (backward compatibility)
+    console.error('Error Body:', error.errorBody);
+    console.error('Status Code:', error.statusCode);
+  }
+}
+```
+
+#### Understanding Structured Errors
+
+Structured errors provide more context than traditional error messages:
+
+- **`type`**: A URI that identifies the error type (e.g., "/Errors/Bad Input")
+- **`title`**: A human-readable summary of the error
+- **`errors`**: An array of specific error messages
+- **`statusCode`**: The HTTP status code (supports both `statusCode` and `status_code`)
+- **`instance`**: The URI of the specific request that failed
+
+#### Backward Compatibility
+
+The SDK maintains full backward compatibility. If the controller returns a non-structured error response, it's still wrapped in `MisoClientError` with the raw response available in `errorBody`:
+
+```typescript
+try {
+  await client.get('/api/endpoint');
+} catch (error) {
+  if (error instanceof MisoClientError) {
+    // Check for structured error first
+    if (error.errorResponse) {
+      // New structured format
+      console.log('Structured errors:', error.errorResponse.errors);
+    } else if (error.errorBody) {
+      // Legacy format (still supported)
+      console.log('Error body:', error.errorBody);
+    }
+    
+    // Status code is always available
+    console.log('Status:', error.statusCode);
+  }
+}
+```
+
 ## Getting Help
 
 ### Self-Service Resources
@@ -802,14 +864,29 @@ When reporting issues, please include:
 3. **Error Details**:
 
    ```typescript
+   import { MisoClientError } from '@aifabrix/miso-client';
+
    try {
      // Your code here
    } catch (error) {
-     console.error('Full error:', {
-       message: error.message,
-       stack: error.stack,
-       name: error.name
-     });
+     if (error instanceof MisoClientError) {
+       console.error('Full error:', {
+         message: error.message,
+         stack: error.stack,
+         name: error.name,
+         statusCode: error.statusCode,
+         // Structured error details (if available)
+         errorResponse: error.errorResponse,
+         // Legacy error body (if available)
+         errorBody: error.errorBody
+       });
+     } else {
+       console.error('Full error:', {
+         message: error.message,
+         stack: error.stack,
+         name: error.name
+       });
+     }
    }
    ```
 

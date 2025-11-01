@@ -4,6 +4,8 @@
 
 import { HttpClient } from '../../src/utils/http-client';
 import { MisoClientConfig } from '../../src/types/config.types';
+import { MisoClientError } from '../../src/utils/errors';
+import { AxiosError } from 'axios';
 
 // Mock axios
 jest.mock('axios');
@@ -192,42 +194,193 @@ describe('HttpClient', () => {
   });
 
   describe('error handling', () => {
-    it('should propagate network errors', async () => {
+    it('should propagate non-Axios errors as-is', async () => {
       const networkError = new Error('Network error');
       mockAxios.get.mockRejectedValue(networkError);
 
       await expect(httpClient.get('/test')).rejects.toThrow('Network error');
     });
 
-    it('should propagate 404 errors', async () => {
-      const axiosError = {
-        response: { status: 404, data: { error: 'Not found' } },
-        message: 'Not found'
+    it('should convert AxiosError to MisoClientError with errorBody (backward compatibility)', async () => {
+      const axiosError: Partial<AxiosError> = {
+        isAxiosError: true,
+        response: {
+          status: 404,
+          statusText: 'Not Found',
+          data: { error: 'Not found', details: 'Resource not found' },
+          headers: {},
+          config: { url: '/test' } as any
+        },
+        message: 'Request failed with status code 404',
+        config: { url: '/test' } as any
       };
       mockAxios.get.mockRejectedValue(axiosError);
 
-      await expect(httpClient.get('/test')).rejects.toEqual(axiosError);
+      await expect(httpClient.get('/test')).rejects.toThrow(MisoClientError);
+      
+      try {
+        await httpClient.get('/test');
+      } catch (error) {
+        expect(error).toBeInstanceOf(MisoClientError);
+        const misoError = error as MisoClientError;
+        expect(misoError.statusCode).toBe(404);
+        expect(misoError.errorBody).toEqual({ error: 'Not found', details: 'Resource not found' });
+        expect(misoError.errorResponse).toBeUndefined();
+      }
     });
 
-    it('should propagate 500 errors', async () => {
-      const axiosError = {
-        response: { status: 500, data: { error: 'Internal server error' } },
-        message: 'Internal server error'
+    it('should parse structured error response and create MisoClientError with ErrorResponse', async () => {
+      const structuredError = {
+        errors: ['Validation failed', 'Invalid input'],
+        type: '/Errors/Bad Input',
+        title: 'Bad Request',
+        statusCode: 400,
+        instance: '/api/test'
+      };
+
+      const axiosError: Partial<AxiosError> = {
+        isAxiosError: true,
+        response: {
+          status: 400,
+          statusText: 'Bad Request',
+          data: structuredError,
+          headers: {},
+          config: { url: '/api/test' } as any
+        },
+        message: 'Request failed with status code 400',
+        config: { url: '/api/test' } as any
       };
       mockAxios.get.mockRejectedValue(axiosError);
 
-      await expect(httpClient.get('/test')).rejects.toEqual(axiosError);
+      await expect(httpClient.get('/api/test')).rejects.toThrow(MisoClientError);
+
+      try {
+        await httpClient.get('/api/test');
+      } catch (error) {
+        expect(error).toBeInstanceOf(MisoClientError);
+        const misoError = error as MisoClientError;
+        expect(misoError.errorResponse).toBeDefined();
+        expect(misoError.errorResponse?.errors).toEqual(['Validation failed', 'Invalid input']);
+        expect(misoError.errorResponse?.type).toBe('/Errors/Bad Input');
+        expect(misoError.errorResponse?.title).toBe('Bad Request');
+        expect(misoError.errorResponse?.statusCode).toBe(400);
+        expect(misoError.errorResponse?.instance).toBe('/api/test');
+        expect(misoError.statusCode).toBe(400);
+        expect(misoError.message).toBe('Bad Request');
+      }
+    });
+
+    it('should support snake_case status_code in error response', async () => {
+      const structuredError = {
+        errors: ['Server error'],
+        type: '/Errors/Internal Error',
+        title: 'Internal Server Error',
+        status_code: 500
+      };
+
+      const axiosError: Partial<AxiosError> = {
+        isAxiosError: true,
+        response: {
+          status: 500,
+          statusText: 'Internal Server Error',
+          data: structuredError,
+          headers: {},
+          config: { url: '/api/test' } as any
+        },
+        message: 'Request failed with status code 500',
+        config: { url: '/api/test' } as any
+      };
+      mockAxios.get.mockRejectedValue(axiosError);
+
+      try {
+        await httpClient.get('/api/test');
+      } catch (error) {
+        expect(error).toBeInstanceOf(MisoClientError);
+        const misoError = error as MisoClientError;
+        expect(misoError.errorResponse).toBeDefined();
+        expect(misoError.errorResponse?.statusCode).toBe(500);
+      }
+    });
+
+    it('should extract instance URI from request URL when not provided in error response', async () => {
+      const structuredError = {
+        errors: ['Not found'],
+        type: '/Errors/Not Found',
+        title: 'Resource Not Found',
+        statusCode: 404
+      };
+
+      const axiosError: Partial<AxiosError> = {
+        isAxiosError: true,
+        response: {
+          status: 404,
+          statusText: 'Not Found',
+          data: structuredError,
+          headers: {},
+          config: { url: '/api/users/123' } as any
+        },
+        message: 'Request failed with status code 404',
+        config: { url: '/api/users/123' } as any
+      };
+      mockAxios.get.mockRejectedValue(axiosError);
+
+      try {
+        await httpClient.get('/api/users/123');
+      } catch (error) {
+        expect(error).toBeInstanceOf(MisoClientError);
+        const misoError = error as MisoClientError;
+        expect(misoError.errorResponse?.instance).toBe('/api/users/123');
+      }
+    });
+
+    it('should handle string response data by parsing JSON', async () => {
+      const structuredError = {
+        errors: ['Parsed error'],
+        type: '/Errors/Test',
+        title: 'Test Error',
+        statusCode: 400
+      };
+
+      const axiosError: Partial<AxiosError> = {
+        isAxiosError: true,
+        response: {
+          status: 400,
+          statusText: 'Bad Request',
+          data: JSON.stringify(structuredError),
+          headers: {},
+          config: { url: '/api/test' } as any
+        },
+        message: 'Request failed with status code 400',
+        config: { url: '/api/test' } as any
+      };
+      mockAxios.get.mockRejectedValue(axiosError);
+
+      try {
+        await httpClient.get('/api/test');
+      } catch (error) {
+        expect(error).toBeInstanceOf(MisoClientError);
+        const misoError = error as MisoClientError;
+        expect(misoError.errorResponse).toBeDefined();
+        expect(misoError.errorResponse?.title).toBe('Test Error');
+      }
     });
 
     it('should enhance 401 errors with authentication context', async () => {
-      const axiosError = {
-        response: { status: 401, data: { error: 'Unauthorized' } },
-        message: 'Request failed with status code 401'
+      const axiosError: Partial<AxiosError> = {
+        isAxiosError: true,
+        response: {
+          status: 401,
+          statusText: 'Unauthorized',
+          data: { error: 'Unauthorized' },
+          headers: {},
+          config: { url: '/test' } as any
+        },
+        message: 'Request failed with status code 401',
+        config: { url: '/test' } as any
       };
       mockAxios.get.mockRejectedValue(axiosError);
 
       // Get the interceptor that was registered
-      const requestInterceptor = mockAxios.interceptors.request.use.mock.calls[0][0];
       const responseInterceptor = mockAxios.interceptors.response.use.mock.calls[0][1];
 
       // Simulate the response interceptor being called
@@ -238,34 +391,120 @@ describe('HttpClient', () => {
       });
     });
 
-    it('should handle POST errors', async () => {
-      const error = new Error('POST failed');
-      mockAxios.post.mockRejectedValue(error);
+    it('should handle POST errors with MisoClientError', async () => {
+      const axiosError: Partial<AxiosError> = {
+        isAxiosError: true,
+        response: {
+          status: 500,
+          statusText: 'Internal Server Error',
+          data: { error: 'POST failed' },
+          headers: {},
+          config: { url: '/test' } as any
+        },
+        message: 'Request failed',
+        config: { url: '/test' } as any
+      };
+      mockAxios.post.mockRejectedValue(axiosError);
 
-      await expect(httpClient.post('/test', {})).rejects.toThrow('POST failed');
+      await expect(httpClient.post('/test', {})).rejects.toThrow(MisoClientError);
     });
 
-    it('should handle PUT errors', async () => {
-      const error = new Error('PUT failed');
-      mockAxios.put.mockRejectedValue(error);
+    it('should handle PUT errors with MisoClientError', async () => {
+      const axiosError: Partial<AxiosError> = {
+        isAxiosError: true,
+        response: {
+          status: 500,
+          statusText: 'Internal Server Error',
+          data: { error: 'PUT failed' },
+          headers: {},
+          config: { url: '/test' } as any
+        },
+        message: 'Request failed',
+        config: { url: '/test' } as any
+      };
+      mockAxios.put.mockRejectedValue(axiosError);
 
-      await expect(httpClient.put('/test', {})).rejects.toThrow('PUT failed');
+      await expect(httpClient.put('/test', {})).rejects.toThrow(MisoClientError);
     });
 
-    it('should handle DELETE errors', async () => {
-      const error = new Error('DELETE failed');
-      mockAxios.delete.mockRejectedValue(error);
+    it('should handle DELETE errors with MisoClientError', async () => {
+      const axiosError: Partial<AxiosError> = {
+        isAxiosError: true,
+        response: {
+          status: 500,
+          statusText: 'Internal Server Error',
+          data: { error: 'DELETE failed' },
+          headers: {},
+          config: { url: '/test' } as any
+        },
+        message: 'Request failed',
+        config: { url: '/test' } as any
+      };
+      mockAxios.delete.mockRejectedValue(axiosError);
 
-      await expect(httpClient.delete('/test')).rejects.toThrow('DELETE failed');
+      await expect(httpClient.delete('/test')).rejects.toThrow(MisoClientError);
     });
 
-    it('should handle authenticated request errors', async () => {
-      const error = new Error('Auth request failed');
-      mockAxios.get.mockRejectedValue(error);
+    it('should handle authenticated request errors with MisoClientError', async () => {
+      const axiosError: Partial<AxiosError> = {
+        isAxiosError: true,
+        response: {
+          status: 403,
+          statusText: 'Forbidden',
+          data: { error: 'Auth request failed' },
+          headers: {},
+          config: { url: '/test' } as any
+        },
+        message: 'Request failed',
+        config: { url: '/test' } as any
+      };
+      mockAxios.get.mockRejectedValue(axiosError);
 
       await expect(
         httpClient.authenticatedRequest('GET', '/test', 'token123')
-      ).rejects.toThrow('Auth request failed');
+      ).rejects.toThrow(MisoClientError);
+    });
+
+    it('should handle all HTTP methods with structured error responses', async () => {
+      const structuredError = {
+        errors: ['Method specific error'],
+        type: '/Errors/Method Error',
+        title: 'Method Error',
+        statusCode: 405
+      };
+
+      const createAxiosError = (url: string): Partial<AxiosError> => ({
+        isAxiosError: true,
+        response: {
+          status: 405,
+          statusText: 'Method Not Allowed',
+          data: structuredError,
+          headers: {},
+          config: { url } as any
+        },
+        message: 'Request failed',
+        config: { url } as any
+      });
+
+      // Test GET
+      mockAxios.get.mockRejectedValue(createAxiosError('/test'));
+      await expect(httpClient.get('/test')).rejects.toThrow(MisoClientError);
+
+      // Test POST
+      mockAxios.post.mockRejectedValue(createAxiosError('/test'));
+      await expect(httpClient.post('/test', {})).rejects.toThrow(MisoClientError);
+
+      // Test PUT
+      mockAxios.put.mockRejectedValue(createAxiosError('/test'));
+      await expect(httpClient.put('/test', {})).rejects.toThrow(MisoClientError);
+
+      // Test DELETE
+      mockAxios.delete.mockRejectedValue(createAxiosError('/test'));
+      await expect(httpClient.delete('/test')).rejects.toThrow(MisoClientError);
+
+      // Test authenticatedRequest
+      mockAxios.get.mockRejectedValue(createAxiosError('/test'));
+      await expect(httpClient.authenticatedRequest('GET', '/test', 'token')).rejects.toThrow(MisoClientError);
     });
   });
 

@@ -291,3 +291,6 @@ export { HttpClient } from './utils/http-client';
 
 // Export utilities
 export { loadConfig } from './utils/config-loader';
+
+// Export error classes
+export { MisoClientError } from './utils/errors';
