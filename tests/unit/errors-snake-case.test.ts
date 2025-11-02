@@ -22,7 +22,7 @@ describe('errors', () => {
               title: 'Invalid input',
               statusCode: 400,
               instance: '/api/applications',
-              requestKey: 'req-b234f'
+              correlationId: 'req-b234f'
             }
           },
           status: 400
@@ -37,7 +37,7 @@ describe('errors', () => {
       expect(result.title).toBe('Invalid input');
       expect(result.statusCode).toBe(400);
       expect(result.instance).toBe('/api/applications');
-      expect(result.requestKey).toBe('req-b234f');
+      expect(result.correlationId).toBe('req-b234f');
     });
 
     it('should transform AxiosError with camelCase error directly', () => {
@@ -192,7 +192,7 @@ describe('errors', () => {
         title: 'Invalid input',
         statusCode: 400,
         instance: '/api/applications',
-        requestKey: 'req-b234f'
+        correlationId: 'req-b234f'
       };
 
       const exception = new ApiErrorException(errorResponse);
@@ -202,7 +202,7 @@ describe('errors', () => {
       expect(exception.errors).toEqual(['Invalid input']);
       expect(exception.type).toBe('https://docs.aifabrix.ai/errors/validation_error');
       expect(exception.instance).toBe('/api/applications');
-      expect(exception.requestKey).toBe('req-b234f');
+      expect(exception.correlationId).toBe('req-b234f');
     });
 
     it('should use default title when missing', () => {

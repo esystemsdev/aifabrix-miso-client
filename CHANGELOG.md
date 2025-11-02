@@ -10,14 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **BREAKING: All Public API Outputs Now Use camelCase**: Complete conversion from snake_case to camelCase across all public API outputs
-  - All type/interface properties now use camelCase (`statusCode`, `requestKey`, `currentPage`, `pageSize`, `totalItems`)
+  - All type/interface properties now use camelCase (`statusCode`, `correlationId`, `currentPage`, `pageSize`, `totalItems`)
   - All function names now use camelCase (`transformError`, `handleApiError`, `parsePaginationParams`, etc.)
   - All return value properties now use camelCase
   - **Breaking Changes**:
-    - `ErrorResponse` interface: `status_code` → `statusCode`, `request_key` → `requestKey`
+    - `ErrorResponse` interface: `status_code` → `statusCode`, `request_key` → `correlationId`
     - `Meta` interface: `total_items` → `totalItems`, `current_page` → `currentPage`, `page_size` → `pageSize`
     - `FilterQuery` interface: `page_size` → `pageSize`
-    - `ApiErrorException` class: `status_code` → `statusCode`, `request_key` → `requestKey`
+    - `ApiErrorException` class: `status_code` → `statusCode`, `request_key` → `correlationId`
     - Function renames:
       - `transform_error_to_snake_case()` → `transformError()`
       - `handle_api_error_snake_case()` → `handleApiError()`
@@ -62,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    
    // NEW (camelCase)
    error.statusCode
-   error.requestKey
+   error.correlationId
    ```
 
 2. **Pagination Properties:**

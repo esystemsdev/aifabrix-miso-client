@@ -72,7 +72,7 @@ export function transformError(err: unknown): ErrorResponseFromErrors {
           title: errorData.title ?? axiosError.message ?? 'Unknown error',
           statusCode: statusCode,
           instance: errorData.instance ?? axiosError.config?.url,
-          requestKey: errorData.requestKey
+          correlationId: errorData.correlationId
         };
       }
       
@@ -89,7 +89,7 @@ export function transformError(err: unknown): ErrorResponseFromErrors {
           title: (errorData.title as string | undefined) ?? axiosError.message ?? 'Unknown error',
           statusCode: statusCode,
           instance: (errorData.instance as string | undefined) ?? axiosError.config?.url,
-          requestKey: errorData.requestKey as string | undefined
+          correlationId: errorData.correlationId as string | undefined
         };
       }
     }
@@ -128,7 +128,7 @@ export function transformError(err: unknown): ErrorResponseFromErrors {
  */
 export class ApiErrorException extends Error {
   statusCode: number;
-  requestKey?: string;
+  correlationId?: string;
   type?: string;
   instance?: string;
   errors: string[];
@@ -137,7 +137,7 @@ export class ApiErrorException extends Error {
     super(error.title || 'API Error');
     this.name = 'ApiErrorException';
     this.statusCode = error.statusCode;
-    this.requestKey = error.requestKey;
+    this.correlationId = error.correlationId;
     this.type = error.type;
     this.instance = error.instance;
     this.errors = error.errors;

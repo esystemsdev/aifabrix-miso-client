@@ -24,7 +24,7 @@ export interface ErrorResponse {
   instance?: string;
 
   /** Request correlation key for debugging/audit. */
-  requestKey?: string;
+  correlationId?: string;
 }
 
 /**
