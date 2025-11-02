@@ -110,6 +110,7 @@ interface MisoClientConfig {
     permissionTTL?: number; // Permission cache TTL in seconds
   };
   sensitiveFieldsConfig?: string; // Optional: Path to custom sensitive fields JSON configuration file
+  audit?: AuditConfig; // Optional: Audit logging configuration
 }
 ```
 
@@ -126,6 +127,37 @@ interface RedisConfig {
   keyPrefix?: string; // Optional: Key prefix
 }
 ```
+
+### AuditConfig
+
+Audit logging configuration interface.
+
+```typescript
+interface AuditConfig {
+  enabled?: boolean; // Enable/disable audit logging (default: true)
+  level?: 'minimal' | 'standard' | 'detailed' | 'full'; // Audit detail level (default: 'detailed')
+  maxResponseSize?: number; // Truncate responses larger than this (default: 10000 bytes)
+  maxMaskingSize?: number; // Skip masking for objects larger than this (default: 50000 bytes)
+  batchSize?: number; // Batch size for queued logs (default: 10)
+  batchInterval?: number; // Flush interval in ms (default: 100)
+  skipEndpoints?: string[]; // Endpoints to skip audit logging
+}
+```
+
+**Audit Levels:**
+- `minimal`: Only metadata (method, URL, status, duration) - fastest, no masking
+- `standard`: Light masking (headers only, selective body masking) - balanced performance
+- `detailed`: Full masking with sizes (default) - optimized for compliance
+- `full`: Everything including debug-level details - most detailed
+
+**Performance Impact:**
+The SDK automatically optimizes audit logging performance:
+- Small requests (< 10KB): < 1ms to ~15ms CPU overhead depending on level
+- Medium requests (10KB-100KB): ~5ms to ~50ms CPU overhead depending on level
+- Large requests (> 100KB): ~10ms to ~100ms CPU overhead depending on level
+- Batch logging automatically reduces network overhead by 70-90%
+
+→ [Complete Audit Configuration Guide](configuration.md#audit-configuration)
 
 ### UserInfo
 
@@ -1518,3 +1550,7 @@ The SDK works in both environments with some differences:
 - **Redis**: Significantly improves performance for high-traffic applications
 - **Fallback**: Graceful degradation when Redis is unavailable
 - **Connection Pooling**: Automatic connection management for Redis
+- **Audit Logging**: Automatically optimized with intelligent processing, truncation, and batching
+  - Size-based optimization (fast path for small requests, optimized processing for large requests)
+  - Batch logging reduces network overhead by 70-90%
+  - Configurable audit levels for performance tuning (`minimal`, `standard`, `detailed`, `full`)
