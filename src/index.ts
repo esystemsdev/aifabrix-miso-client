@@ -311,7 +311,7 @@ export * from './types/filter.types';
 export * from './types/sort.types';
 
 // Export error types (use explicit exports to avoid conflict with config.types ErrorResponse)
-export type { ErrorResponse as ErrorResponseSnakeCase, ErrorEnvelope } from './types/errors.types';
+export type { ErrorResponse as ErrorResponseFromErrors, ErrorEnvelope } from './types/errors.types';
 
 // Export services for advanced usage
 export { AuthService } from './services/auth.service';
@@ -331,4 +331,4 @@ export * from './utils/filter.utils';
 export * from './utils/sort.utils';
 
 // Export error classes and utilities
-export { MisoClientError, ApiErrorException, transform_error_to_snake_case, handle_api_error_snake_case } from './utils/errors';
+export { MisoClientError, ApiErrorException, transformError, handleApiError } from './utils/errors';

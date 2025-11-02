@@ -430,10 +430,10 @@ ENCRYPTION_KEY=your-32-byte-encryption-key
 ```typescript
 import { 
   FilterBuilder, 
-  parse_pagination_params, 
-  parse_sort_params,
-  build_query_string,
-  create_paginated_list_response
+  parsePaginationParams, 
+  parseSortParams,
+  buildQueryString,
+  createPaginatedListResponse
 } from '@aifabrix/miso-client';
 
 const client = new MisoClient(loadConfig());
@@ -449,30 +449,30 @@ const queryString = filterBuilder.toQueryString();
 // Returns: "filter=status:eq:active&filter=region:in:eu,us&filter=created_at:gte:2024-01-01"
 
 // Parse pagination from query string
-const { current_page, page_size } = parse_pagination_params({ page: '1', page_size: '25' });
+const { currentPage, pageSize } = parsePaginationParams({ page: '1', page_size: '25' });
 
 // Parse sort from query string
-const sortOptions = parse_sort_params({ sort: '-updated_at' });
+const sortOptions = parseSortParams({ sort: '-updated_at' });
 
 // Build complete query
-const completeQuery = build_query_string({
+const completeQuery = buildQueryString({
   filters: filterBuilder.build(),
   sort: ['-updated_at'],
-  page: current_page,
-  page_size: page_size
+  page: currentPage,
+  pageSize: pageSize
 });
 
 // Create paginated response
-const response = create_paginated_list_response(
+const response = createPaginatedListResponse(
   items,
-  120, // total_items
-  1,   // current_page
-  25,  // page_size
+  120, // totalItems
+  1,   // currentPage
+  25,  // pageSize
   'application' // type
 );
 ```
 
-**Note:** All utilities use **snake_case** naming conventions following enterprise application standards (`current_page`, `page_size`, `status_code`, etc.), ensuring consistency and ISO 27001 compliance.
+**Note:** All utilities use **camelCase** naming conventions following TypeScript best practices (`currentPage`, `pageSize`, `statusCode`, etc.), ensuring consistency and ISO 27001 compliance.
 
 **Pro tip:** These utilities are business-logic-free and reusable across applications. Perfect for building query strings, parsing API responses, and testing with mocks. Designed following enterprise best practices for maintainability and compliance.
 

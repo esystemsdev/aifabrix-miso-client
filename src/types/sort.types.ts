@@ -1,6 +1,6 @@
 /**
  * Sort types for Miso/Dataplane API query parameters
- * All keys follow snake_case to match Miso/Dataplane schema
+ * All keys follow camelCase convention
  */
 
 /**

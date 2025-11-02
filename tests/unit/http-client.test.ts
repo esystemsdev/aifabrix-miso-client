@@ -238,7 +238,7 @@ function createMisoClientErrorFromAxiosError(
         errors: errorData.errors,
         type: errorData.type || `/Errors/${statusText}`,
         title: errorData.title || statusText,
-        statusCode: errorData.statusCode || errorData.status_code || status,
+        statusCode: errorData.statusCode || status,
         instance: errorData.instance || requestUrl
       };
     }
@@ -778,12 +778,12 @@ describe('HttpClient', () => {
       }
     });
 
-    it('should support snake_case status_code in error response', async () => {
+    it('should support camelCase statusCode in error response', async () => {
       const structuredError = {
         errors: ['Server error'],
         type: '/Errors/Internal Error',
         title: 'Internal Server Error',
-        status_code: 500
+        statusCode: 500
       };
 
       // InternalHttpClient converts AxiosError to MisoClientError

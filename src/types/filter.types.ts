@@ -1,6 +1,6 @@
 /**
  * Filter types for Miso/Dataplane API query parameters
- * All keys follow snake_case to match Miso/Dataplane schema
+ * All keys follow camelCase convention
  */
 
 /**
@@ -46,7 +46,7 @@ export interface FilterQuery {
   page?: number;
 
   /** Number of items per page. */
-  page_size?: number;
+  pageSize?: number;
 
   /** Array of field names to include in response (field projection). */
   fields?: string[];

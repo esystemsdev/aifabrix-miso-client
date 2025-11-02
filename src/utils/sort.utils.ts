@@ -11,7 +11,7 @@ import type { SortOption } from '../types/sort.types';
  * @param query - Query parameters object (e.g., from URLSearchParams or request query)
  * @returns Array of parsed sort options
  */
-export function parse_sort_params(query: Record<string, unknown>): SortOption[] {
+export function parseSortParams(query: Record<string, unknown>): SortOption[] {
   const sortParam = query.sort;
   const sorts = Array.isArray(sortParam) ? sortParam : sortParam ? [sortParam] : [];
 
@@ -29,6 +29,6 @@ export function parse_sort_params(query: Record<string, unknown>): SortOption[] 
  * @param sortOptions - Array of sort options
  * @returns Array of sort strings (e.g., `['-updated_at', 'name']`)
  */
-export function build_sort_string(sortOptions: SortOption[]): string[] {
+export function buildSortString(sortOptions: SortOption[]): string[] {
   return sortOptions.map((so) => (so.order === 'desc' ? `-${so.field}` : so.field));
 }

@@ -19,12 +19,12 @@ describe('isErrorResponse', () => {
       expect(isErrorResponse(validResponse)).toBe(true);
     });
 
-    it('should validate correct error response with snake_case status_code', () => {
-      const validResponse = {
+    it('should validate correct error response with camelCase statusCode', () => {
+      const validResponse: ErrorResponse = {
         errors: ['Error message'],
         type: '/Errors/Validation Error',
         title: 'Validation Failed',
-        status_code: 422
+        statusCode: 422
       };
 
       expect(isErrorResponse(validResponse)).toBe(true);
@@ -104,7 +104,7 @@ describe('isErrorResponse', () => {
       expect(isErrorResponse(invalidResponse)).toBe(false);
     });
 
-    it('should reject missing statusCode/status_code field', () => {
+    it('should reject missing statusCode field', () => {
       const invalidResponse = {
         errors: ['Error message'],
         type: '/Errors/Bad Input',

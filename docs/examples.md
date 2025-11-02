@@ -1208,58 +1208,58 @@ describe('MisoClient Integration', () => {
 ### Parse Pagination Params from Query String
 
 ```typescript
-import { parse_pagination_params } from '@aifabrix/miso-client';
+import { parsePaginationParams } from '@aifabrix/miso-client';
 import express from 'express';
 
 const app = express();
 
 app.get('/api/applications', (req, res) => {
   // Parse pagination from query string: ?page=2&page_size=25
-  const { current_page, page_size } = parse_pagination_params(req.query);
+  const { currentPage, pageSize } = parsePaginationParams(req.query);
   
-  console.log(`Page: ${current_page}, Size: ${page_size}`);
+  console.log(`Page: ${currentPage}, Size: ${pageSize}`);
   // Output: Page: 2, Size: 25
   
   // Use in your database query or API call
-  // const offset = (current_page - 1) * page_size;
+  // const offset = (currentPage - 1) * pageSize;
 });
 ```
 
 ### Create Paginated Response
 
 ```typescript
-import { create_paginated_list_response } from '@aifabrix/miso-client';
+import { createPaginatedListResponse } from '@aifabrix/miso-client';
 import express from 'express';
 
 const app = express();
 
 app.get('/api/applications', async (req, res) => {
   // Parse pagination params
-  const { current_page, page_size } = parse_pagination_params(req.query);
+  const { currentPage, pageSize } = parsePaginationParams(req.query);
   
   // Fetch data (example)
   const allItems = await fetchAllApplications();
   const totalItems = allItems.length;
   const pageItems = allItems.slice(
-    (current_page - 1) * page_size,
-    current_page * page_size
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
   );
   
   // Create paginated response
-  const response = create_paginated_list_response(
+  const response = createPaginatedListResponse(
     pageItems,
     totalItems,
-    current_page,
-    page_size,
+    currentPage,
+    pageSize,
     'application'
   );
   
   res.json(response);
   // Returns: {
   //   meta: {
-  //     total_items: 120,
-  //     current_page: 2,
-  //     page_size: 25,
+  //     totalItems: 120,
+  //     currentPage: 2,
+  //     pageSize: 25,
   //     type: 'application'
   //   },
   //   data: [...]
@@ -1270,7 +1270,7 @@ app.get('/api/applications', async (req, res) => {
 ### Apply Pagination to Array (for Mocks/Tests)
 
 ```typescript
-import { apply_pagination_to_array, create_paginated_list_response } from '@aifabrix/miso-client';
+import { applyPaginationToArray, createPaginatedListResponse } from '@aifabrix/miso-client';
 
 // Mock data for testing
 const mockApplications = [
@@ -1281,14 +1281,14 @@ const mockApplications = [
 ];
 
 // Apply pagination
-const page1 = apply_pagination_to_array(mockApplications, 1, 25);
+const page1 = applyPaginationToArray(mockApplications, 1, 25);
 // Returns: first 25 items
 
-const page2 = apply_pagination_to_array(mockApplications, 2, 25);
+const page2 = applyPaginationToArray(mockApplications, 2, 25);
 // Returns: items 26-50
 
 // Create full paginated response for testing
-const response = create_paginated_list_response(
+const response = createPaginatedListResponse(
   page1,
   mockApplications.length,
   1,
@@ -1302,7 +1302,7 @@ const response = create_paginated_list_response(
 ### Using FilterBuilder for Dynamic Filtering
 
 ```typescript
-import { FilterBuilder, build_query_string } from '@aifabrix/miso-client';
+import { FilterBuilder, buildQueryString } from '@aifabrix/miso-client';
 
 // Build filters dynamically based on user input
 function buildFilters(status?: string, region?: string, dateFrom?: string) {
@@ -1344,14 +1344,14 @@ app.get('/api/applications', (req, res) => {
 ### Parse Filter Params from Query String
 
 ```typescript
-import { parse_filter_params } from '@aifabrix/miso-client';
+import { parseFilterParams } from '@aifabrix/miso-client';
 import express from 'express';
 
 const app = express();
 
 app.get('/api/applications', (req, res) => {
   // Parse filters from query string: ?filter=status:eq:active&filter=region:in:eu,us
-  const filters = parse_filter_params(req.query);
+  const filters = parseFilterParams(req.query);
   
   // Returns: [
   //   { field: 'status', op: 'eq', value: 'active' },
@@ -1368,18 +1368,18 @@ app.get('/api/applications', (req, res) => {
 ### Build Query String from FilterQuery
 
 ```typescript
-import { FilterBuilder, build_query_string } from '@aifabrix/miso-client';
+import { FilterBuilder, buildQueryString } from '@aifabrix/miso-client';
 
 // Build complete query with filters, sort, pagination
 const filterBuilder = new FilterBuilder()
   .add('status', 'eq', 'active')
   .add('region', 'in', ['eu', 'us']);
 
-const queryString = build_query_string({
+const queryString = buildQueryString({
   filters: filterBuilder.build(),
   sort: ['-updated_at', 'name'],
   page: 1,
-  page_size: 25
+  pageSize: 25
 });
 
 // Returns: "filter=status:eq:active&filter=region:in:eu,us&sort=-updated_at&sort=name&page=1&page_size=25"
@@ -1391,7 +1391,7 @@ const url = `/api/applications?${queryString}`;
 ### Apply Filters Locally (for Mocks/Tests)
 
 ```typescript
-import { apply_filters, FilterBuilder } from '@aifabrix/miso-client';
+import { applyFilters, FilterBuilder } from '@aifabrix/miso-client';
 
 // Mock data
 const mockApplications = [
@@ -1406,7 +1406,7 @@ const filterBuilder = new FilterBuilder()
   .add('region', 'eq', 'eu');
 
 // Apply filters locally
-const filtered = apply_filters(mockApplications, filterBuilder.build());
+const filtered = applyFilters(mockApplications, filterBuilder.build());
 // Returns: [{ id: 1, status: 'active', region: 'eu' }]
 ```
 
@@ -1415,11 +1415,11 @@ const filtered = apply_filters(mockApplications, filterBuilder.build());
 ```typescript
 import {
   FilterBuilder,
-  build_query_string,
-  parse_pagination_params,
-  parse_filter_params,
-  parse_sort_params,
-  build_sort_string
+  buildQueryString,
+  parsePaginationParams,
+  parseFilterParams,
+  parseSortParams,
+  buildSortString
 } from '@aifabrix/miso-client';
 import express from 'express';
 
@@ -1427,9 +1427,9 @@ const app = express();
 
 app.get('/api/applications', (req, res) => {
   // Parse all query params
-  const { current_page, page_size } = parse_pagination_params(req.query);
-  const filters = parse_filter_params(req.query);
-  const sortOptions = parse_sort_params(req.query);
+  const { currentPage, pageSize } = parsePaginationParams(req.query);
+  const filters = parseFilterParams(req.query);
+  const sortOptions = parseSortParams(req.query);
   
   // Build complete query
   const filterBuilder = new FilterBuilder();
@@ -1437,13 +1437,13 @@ app.get('/api/applications', (req, res) => {
     filterBuilder.add(filter.field, filter.op, filter.value);
   });
   
-  const sortStrings = build_sort_string(sortOptions);
+  const sortStrings = buildSortString(sortOptions);
   
-  const queryString = build_query_string({
+  const queryString = buildQueryString({
     filters: filterBuilder.build(),
     sort: sortStrings,
-    page: current_page,
-    page_size: page_size
+    page: currentPage,
+    pageSize: pageSize
   });
   
   // Use queryString in API call or database query
@@ -1458,14 +1458,14 @@ app.get('/api/applications', (req, res) => {
 ### Parse Sort Params from Query String
 
 ```typescript
-import { parse_sort_params } from '@aifabrix/miso-client';
+import { parseSortParams } from '@aifabrix/miso-client';
 import express from 'express';
 
 const app = express();
 
 app.get('/api/applications', (req, res) => {
   // Parse sort from query string: ?sort=-updated_at&sort=name
-  const sortOptions = parse_sort_params(req.query);
+  const sortOptions = parseSortParams(req.query);
   
   // Returns: [
   //   { field: 'updated_at', order: 'desc' },
@@ -1482,7 +1482,7 @@ app.get('/api/applications', (req, res) => {
 ### Build Sort String from SortOption[]
 
 ```typescript
-import { build_sort_string } from '@aifabrix/miso-client';
+import { buildSortString } from '@aifabrix/miso-client';
 
 // Convert SortOption[] to query string format
 const sortOptions = [
@@ -1490,7 +1490,7 @@ const sortOptions = [
   { field: 'name', order: 'asc' }
 ];
 
-const sortStrings = build_sort_string(sortOptions);
+const sortStrings = buildSortString(sortOptions);
 // Returns: ['-updated_at', 'name']
 
 // Use in query string
@@ -1501,7 +1501,7 @@ const queryString = `sort=${sortStrings.join('&sort=')}`;
 ### Dynamic Sorting in API Route
 
 ```typescript
-import { parse_sort_params, build_sort_string } from '@aifabrix/miso-client';
+import { parseSortParams, buildSortString } from '@aifabrix/miso-client';
 import express from 'express';
 
 const app = express();
@@ -1510,11 +1510,11 @@ app.get('/api/applications', (req, res) => {
   // Parse sort params with defaults
   const defaultSort = [{ field: 'created_at', order: 'desc' as const }];
   const sortOptions = req.query.sort 
-    ? parse_sort_params(req.query)
+    ? parseSortParams(req.query)
     : defaultSort;
   
   // Convert to query string format for API call
-  const sortStrings = build_sort_string(sortOptions);
+  const sortStrings = buildSortString(sortOptions);
   
   // Use in API call
   const url = `/api/applications?sort=${sortStrings.join('&sort=')}`;

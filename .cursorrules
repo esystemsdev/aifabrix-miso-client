@@ -113,6 +113,11 @@ All controller endpoints use `/api` prefix:
 - Constants: UPPER_SNAKE_CASE
 - Private properties: prefix with `private` keyword
 - File names: kebab-case matching class name (`auth.service.ts`)
+- **All public API outputs (types, interfaces, return values, function names) must use camelCase**
+  - Type/interface properties: camelCase (`statusCode`, `requestKey`, `currentPage`, `pageSize`, `totalItems`)
+  - Function names: camelCase (`transformError`, `handleApiError`, `parsePaginationParams`)
+  - Return value properties: camelCase (all returned objects from SDK methods use camelCase)
+  - No snake_case in public API - all outputs use camelCase convention
 
 ### Error Handling
 - Services should return empty arrays `[]` on errors (for get methods)

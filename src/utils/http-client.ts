@@ -191,18 +191,18 @@ export class HttpClient {
    * GET request with pagination support.
    * Appends pagination query parameters (page, page_size) to URL.
    * @param url - Request URL (without query string)
-   * @param pagination - Pagination options with page and page_size
+   * @param pagination - Pagination options with page and pageSize
    * @param config - Optional Axios request config
    * @returns Promise with response data
    */
   async getPaginated<T>(
     url: string,
-    pagination: { page: number; page_size: number },
+    pagination: { page: number; pageSize: number },
     config?: AxiosRequestConfig
   ): Promise<T> {
     const params = new URLSearchParams();
     params.append('page', pagination.page.toString());
-    params.append('page_size', pagination.page_size.toString());
+    params.append('page_size', pagination.pageSize.toString());
     const fullUrl = `${url}?${params.toString()}`;
     return this.internalClient.get<T>(fullUrl, config);
   }

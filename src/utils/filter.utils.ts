@@ -13,7 +13,7 @@ const FILTER_PATTERN = /^([\w.]+):(eq|neq|in|nin|gt|lt|gte|lte|contains|like):(.
  * @param query - Query parameters object (e.g., from URLSearchParams or request query)
  * @returns Array of parsed filter options
  */
-export function parse_filter_params(query: Record<string, unknown>): FilterOption[] {
+export function parseFilterParams(query: Record<string, unknown>): FilterOption[] {
   const filterParam = query.filter;
   const filters = Array.isArray(filterParam) ? filterParam : filterParam ? [filterParam] : [];
 
@@ -41,7 +41,7 @@ export function parse_filter_params(query: Record<string, unknown>): FilterOptio
  * @param options - FilterQuery object with filters, sort, pagination, and field selection
  * @returns Query string (e.g., `?filter=status:eq:active&sort=-updated_at&page=1&page_size=25`)
  */
-export function build_query_string(options: FilterQuery): string {
+export function buildQueryString(options: FilterQuery): string {
   const params = new URLSearchParams();
 
   options.filters?.forEach((f) => {
@@ -53,8 +53,8 @@ export function build_query_string(options: FilterQuery): string {
   if (options.page) {
     params.append('page', options.page.toString());
   }
-  if (options.page_size) {
-    params.append('page_size', options.page_size.toString());
+  if (options.pageSize) {
+    params.append('page_size', options.pageSize.toString());
   }
   if (options.fields && options.fields.length > 0) {
     params.append('fields', options.fields.join(','));
@@ -69,7 +69,7 @@ export function build_query_string(options: FilterQuery): string {
  * @param filters - Array of filter options to apply
  * @returns Filtered array
  */
-export function apply_filters<T extends Record<string, unknown>>(data: T[], filters: FilterOption[]): T[] {
+export function applyFilters<T extends Record<string, unknown>>(data: T[], filters: FilterOption[]): T[] {
   return data.filter((item) =>
     filters.every((f) => {
       const v = item[f.field];

@@ -135,9 +135,9 @@ describe('HttpClient filter and pagination helpers', () => {
 
   describe('getPaginated', () => {
     it('should call get with pagination query parameters', async () => {
-      const pagination = { page: 1, page_size: 25 };
+      const pagination = { page: 1, pageSize: 25 };
       const mockResponse = {
-        meta: { total_items: 100, current_page: 1, page_size: 25, type: 'item' },
+        meta: { totalItems: 100, currentPage: 1, pageSize: 25, type: 'item' },
         data: [{ id: 1 }]
       };
       mockInternalClient.get.mockResolvedValue(mockResponse);
@@ -152,7 +152,7 @@ describe('HttpClient filter and pagination helpers', () => {
     });
 
     it('should handle different page numbers', async () => {
-      const pagination = { page: 3, page_size: 50 };
+      const pagination = { page: 3, pageSize: 50 };
       const mockResponse = { meta: {}, data: [] };
       mockInternalClient.get.mockResolvedValue(mockResponse);
 
@@ -165,7 +165,7 @@ describe('HttpClient filter and pagination helpers', () => {
     });
 
     it('should pass config parameter to get', async () => {
-      const pagination = { page: 2, page_size: 10 };
+      const pagination = { page: 2, pageSize: 10 };
       const requestConfig = { timeout: 5000 };
       const mockResponse = { meta: {}, data: [] };
       mockInternalClient.get.mockResolvedValue(mockResponse);
@@ -179,7 +179,7 @@ describe('HttpClient filter and pagination helpers', () => {
     });
 
     it('should handle large page sizes', async () => {
-      const pagination = { page: 1, page_size: 1000 };
+      const pagination = { page: 1, pageSize: 1000 };
       const mockResponse = { meta: {}, data: [] };
       mockInternalClient.get.mockResolvedValue(mockResponse);
 
@@ -192,7 +192,7 @@ describe('HttpClient filter and pagination helpers', () => {
     });
 
     it('should handle errors from InternalHttpClient', async () => {
-      const pagination = { page: 1, page_size: 25 };
+      const pagination = { page: 1, pageSize: 25 };
       const error = new Error('Network error');
       mockInternalClient.get.mockRejectedValue(error);
 
@@ -202,7 +202,7 @@ describe('HttpClient filter and pagination helpers', () => {
     });
 
     it('should handle page 0 (edge case)', async () => {
-      const pagination = { page: 0, page_size: 25 };
+      const pagination = { page: 0, pageSize: 25 };
       const mockResponse = { meta: {}, data: [] };
       mockInternalClient.get.mockResolvedValue(mockResponse);
 

@@ -1,21 +1,20 @@
 /**
  * Pagination types for Miso/Dataplane API responses
- * All keys follow snake_case to match Miso/Dataplane schema
+ * All keys follow camelCase convention
  */
 
 /**
  * Meta information returned in paginated API responses.
- * All keys follow snake_case to match Miso/Dataplane schema.
  */
 export interface Meta {
   /** Total number of items available in full dataset. */
-  total_items: number;
+  totalItems: number;
 
   /** Current page index (1-based). Maps from `page` query parameter. */
-  current_page: number;
+  currentPage: number;
 
-  /** Number of items per page. Maps from `page_size` query parameter. */
-  page_size: number;
+  /** Number of items per page. Maps from `pageSize` query parameter. */
+  pageSize: number;
 
   /** Logical resource type (e.g. "application", "environment"). */
   type: string;

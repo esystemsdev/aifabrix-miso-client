@@ -1161,11 +1161,11 @@ Pagination metadata returned in API responses.
 ```typescript
 interface Meta {
   /** Total number of items available in full dataset. */
-  total_items: number;
+  totalItems: number;
   /** Current page index (1-based). Maps from `page` query parameter. */
-  current_page: number;
+  currentPage: number;
   /** Number of items per page. Maps from `page_size` query parameter. */
-  page_size: number;
+  pageSize: number;
   /** Logical resource type (e.g., "application", "environment"). */
   type: string;
 }
@@ -1184,42 +1184,42 @@ interface PaginatedListResponse<T> {
 }
 ```
 
-### `parse_pagination_params(query: Record<string, unknown>): { current_page: number; page_size: number }`
+### `parsePaginationParams(query: Record<string, unknown>): { currentPage: number; pageSize: number }`
 
-Parses query parameters into pagination values. The `page` query parameter (1-based) is mapped to `current_page` in the result.
+Parses query parameters into pagination values. The `page` query parameter (1-based) is mapped to `currentPage` in the result.
 
 **Parameters:**
 
 - `query` - Query parameters object (e.g., from URLSearchParams or request query)
 
-**Returns:** Object with `current_page` (1-based) and `page_size`
+**Returns:** Object with `currentPage` (1-based) and `pageSize`
 
 **Example:**
 
 ```typescript
-import { parse_pagination_params } from '@aifabrix/miso-client';
+import { parsePaginationParams } from '@aifabrix/miso-client';
 
 // From URL query: ?page=2&page_size=25
-const { current_page, page_size } = parse_pagination_params({
+const { currentPage, pageSize } = parsePaginationParams({
   page: '2',
   page_size: '25'
 });
-// Returns: { current_page: 2, page_size: 25 }
+// Returns: { currentPage: 2, pageSize: 25 }
 
-// Defaults to page 1, page_size 20 if not provided
-const defaults = parse_pagination_params({});
-// Returns: { current_page: 1, page_size: 20 }
+// Defaults to page 1, pageSize 20 if not provided
+const defaults = parsePaginationParams({});
+// Returns: { currentPage: 1, pageSize: 20 }
 ```
 
-### `create_meta_object(total_items: number, current_page: number, page_size: number, type: string): Meta`
+### `createMetaObject(totalItems: number, currentPage: number, pageSize: number, type: string): Meta`
 
 Constructs a Meta object for API responses.
 
 **Parameters:**
 
-- `total_items` - Total number of items available in full dataset
-- `current_page` - Current page index (1-based)
-- `page_size` - Number of items per page
+- `totalItems` - Total number of items available in full dataset
+- `currentPage` - Current page index (1-based)
+- `pageSize` - Number of items per page
 - `type` - Logical resource type (e.g., "application", "environment")
 
 **Returns:** Meta object
@@ -1227,52 +1227,52 @@ Constructs a Meta object for API responses.
 **Example:**
 
 ```typescript
-import { create_meta_object } from '@aifabrix/miso-client';
+import { createMetaObject } from '@aifabrix/miso-client';
 
-const meta = create_meta_object(120, 1, 25, 'application');
+const meta = createMetaObject(120, 1, 25, 'application');
 // Returns: {
-//   total_items: 120,
-//   current_page: 1,
-//   page_size: 25,
+//   totalItems: 120,
+//   currentPage: 1,
+//   pageSize: 25,
 //   type: 'application'
 // }
 ```
 
-### `apply_pagination_to_array<T>(items: T[], current_page: number, page_size: number): T[]`
+### `applyPaginationToArray<T>(items: T[], currentPage: number, pageSize: number): T[]`
 
 Applies pagination to an array (useful for mocks/tests).
 
 **Parameters:**
 
 - `items` - Array of items to paginate
-- `current_page` - Current page index (1-based)
-- `page_size` - Number of items per page
+- `currentPage` - Current page index (1-based)
+- `pageSize` - Number of items per page
 
 **Returns:** Paginated slice of the array
 
 **Example:**
 
 ```typescript
-import { apply_pagination_to_array } from '@aifabrix/miso-client';
+import { applyPaginationToArray } from '@aifabrix/miso-client';
 
 const allItems = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
-const page1 = apply_pagination_to_array(allItems, 1, 5);
+const page1 = applyPaginationToArray(allItems, 1, 5);
 // Returns: [1, 2, 3, 4, 5]
 
-const page2 = apply_pagination_to_array(allItems, 2, 5);
+const page2 = applyPaginationToArray(allItems, 2, 5);
 // Returns: [6, 7, 8, 9, 10]
 ```
 
-### `create_paginated_list_response<T>(items: T[], total_items: number, current_page: number, page_size: number, type: string): PaginatedListResponse<T>`
+### `createPaginatedListResponse<T>(items: T[], totalItems: number, currentPage: number, pageSize: number, type: string): PaginatedListResponse<T>`
 
 Wraps an array and metadata into a standard paginated response.
 
 **Parameters:**
 
 - `items` - Array of items for the current page
-- `total_items` - Total number of items available in full dataset
-- `current_page` - Current page index (1-based)
-- `page_size` - Number of items per page
+- `totalItems` - Total number of items available in full dataset
+- `currentPage` - Current page index (1-based)
+- `pageSize` - Number of items per page
 - `type` - Logical resource type (e.g., "application", "environment")
 
 **Returns:** PaginatedListResponse object
@@ -1280,15 +1280,15 @@ Wraps an array and metadata into a standard paginated response.
 **Example:**
 
 ```typescript
-import { create_paginated_list_response } from '@aifabrix/miso-client';
+import { createPaginatedListResponse } from '@aifabrix/miso-client';
 
 const items = [{ id: 1, name: 'App 1' }, { id: 2, name: 'App 2' }];
-const response = create_paginated_list_response(items, 50, 1, 25, 'application');
+const response = createPaginatedListResponse(items, 50, 1, 25, 'application');
 // Returns: {
 //   meta: {
-//     total_items: 50,
-//     current_page: 1,
-//     page_size: 25,
+//     totalItems: 50,
+//     currentPage: 1,
+//     pageSize: 25,
 //     type: 'application'
 //   },
 //   data: [{ id: 1, name: 'App 1' }, { id: 2, name: 'App 2' }]
@@ -1297,7 +1297,7 @@ const response = create_paginated_list_response(items, 50, 1, 25, 'application')
 
 ## Filter Utilities
 
-Utilities for parsing and building filter queries. All functions use **snake_case** naming conventions following enterprise application best practices and industry standards (ISO 27001 compliant).
+Utilities for parsing and building filter queries. All functions use **camelCase** naming conventions following TypeScript best practices and industry standards (ISO 27001 compliant).
 
 ### FilterOperator Type
 
@@ -1345,7 +1345,7 @@ interface FilterQuery {
   /** Page number (1-based). */
   page?: number;
   /** Number of items per page. */
-  page_size?: number;
+  pageSize?: number;
   /** Array of field names to include in response (field projection). */
   fields?: string[];
 }
@@ -1411,7 +1411,7 @@ const queryString = filterBuilder.toQueryString();
 // Returns: "filter=status:eq:active&filter=region:in:eu,us&filter=created_at:gte:2024-01-01"
 ```
 
-### `parse_filter_params(query: Record<string, unknown>): FilterOption[]`
+### `parseFilterParams(query: Record<string, unknown>): FilterOption[]`
 
 Parses filter query parameters into structured FilterOption array. Supports format: `?filter=field:op:value` or `?filter[]=field:op:value&filter[]=...`
 
@@ -1424,10 +1424,10 @@ Parses filter query parameters into structured FilterOption array. Supports form
 **Example:**
 
 ```typescript
-import { parse_filter_params } from '@aifabrix/miso-client';
+import { parseFilterParams } from '@aifabrix/miso-client';
 
 // From URL query: ?filter=status:eq:active&filter=region:in:eu,us
-const filters = parse_filter_params({
+const filters = parseFilterParams({
   filter: ['status:eq:active', 'region:in:eu,us']
 });
 // Returns: [
@@ -1436,7 +1436,7 @@ const filters = parse_filter_params({
 // ]
 ```
 
-### `build_query_string(options: FilterQuery): string`
+### `buildQueryString(options: FilterQuery): string`
 
 Builds query string from FilterQuery object.
 
@@ -1449,21 +1449,21 @@ Builds query string from FilterQuery object.
 **Example:**
 
 ```typescript
-import { build_query_string, FilterBuilder } from '@aifabrix/miso-client';
+import { buildQueryString, FilterBuilder } from '@aifabrix/miso-client';
 
 const filterBuilder = new FilterBuilder()
   .add('status', 'eq', 'active');
 
-const queryString = build_query_string({
+const queryString = buildQueryString({
   filters: filterBuilder.build(),
   sort: ['-updated_at'],
   page: 1,
-  page_size: 25
+  pageSize: 25
 });
 // Returns: "filter=status:eq:active&sort=-updated_at&page=1&page_size=25"
 ```
 
-### `apply_filters<T extends Record<string, unknown>>(data: T[], filters: FilterOption[]): T[]`
+### `applyFilters<T extends Record<string, unknown>>(data: T[], filters: FilterOption[]): T[]`
 
 Applies filters locally to an array (used for mocks/tests).
 
@@ -1477,7 +1477,7 @@ Applies filters locally to an array (used for mocks/tests).
 **Example:**
 
 ```typescript
-import { apply_filters } from '@aifabrix/miso-client';
+import { applyFilters } from '@aifabrix/miso-client';
 
 const items = [
   { id: 1, status: 'active', region: 'eu' },
@@ -1490,7 +1490,7 @@ const filters = [
   { field: 'region', op: 'eq', value: 'eu' }
 ];
 
-const filtered = apply_filters(items, filters);
+const filtered = applyFilters(items, filters);
 // Returns: [
 //   { id: 1, status: 'active', region: 'eu' },
 //   { id: 3, status: 'active', region: 'eu' }
@@ -1499,7 +1499,7 @@ const filtered = apply_filters(items, filters);
 
 ## Sort Utilities
 
-Utilities for parsing and building sort query parameters. All functions use **snake_case** naming conventions following enterprise application best practices and industry standards (ISO 27001 compliant).
+Utilities for parsing and building sort query parameters. All functions use **camelCase** naming conventions following TypeScript best practices and industry standards (ISO 27001 compliant).
 
 ### SortOption Interface
 
@@ -1514,7 +1514,7 @@ interface SortOption {
 }
 ```
 
-### `parse_sort_params(query: Record<string, unknown>): SortOption[]`
+### `parseSortParams(query: Record<string, unknown>): SortOption[]`
 
 Parses sort query parameters into structured SortOption array. Supports format: `?sort=-field` (descending) or `?sort=field` (ascending) or `?sort[]=-updated_at&sort[]=name` for multiple sorts.
 
@@ -1527,10 +1527,10 @@ Parses sort query parameters into structured SortOption array. Supports format: 
 **Example:**
 
 ```typescript
-import { parse_sort_params } from '@aifabrix/miso-client';
+import { parseSortParams } from '@aifabrix/miso-client';
 
 // From URL query: ?sort=-updated_at&sort=name
-const sortOptions = parse_sort_params({
+const sortOptions = parseSortParams({
   sort: ['-updated_at', 'name']
 });
 // Returns: [
@@ -1539,11 +1539,11 @@ const sortOptions = parse_sort_params({
 // ]
 
 // Single sort
-const singleSort = parse_sort_params({ sort: '-created_at' });
+const singleSort = parseSortParams({ sort: '-created_at' });
 // Returns: [{ field: 'created_at', order: 'desc' }]
 ```
 
-### `build_sort_string(sortOptions: SortOption[]): string[]`
+### `buildSortString(sortOptions: SortOption[]): string[]`
 
 Converts SortOption array to query string format.
 
@@ -1556,14 +1556,14 @@ Converts SortOption array to query string format.
 **Example:**
 
 ```typescript
-import { build_sort_string } from '@aifabrix/miso-client';
+import { buildSortString } from '@aifabrix/miso-client';
 
 const sortOptions = [
   { field: 'updated_at', order: 'desc' },
   { field: 'name', order: 'asc' }
 ];
 
-const sortStrings = build_sort_string(sortOptions);
+const sortStrings = buildSortString(sortOptions);
 // Returns: ['-updated_at', 'name']
 ```
 
