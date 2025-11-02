@@ -957,7 +957,7 @@ describe('InternalHttpClient', () => {
       });
     });
 
-    it('should handle snake_case status_code', () => {
+    it('should handle camelCase statusCode', () => {
       const error: AxiosError = {
         config: {},
         message: 'Server Error',
@@ -970,7 +970,7 @@ describe('InternalHttpClient', () => {
             errors: ['Server error'],
             type: '/Errors/ServerError',
             title: 'Internal Server Error',
-            status_code: 500
+            statusCode: 500
           },
           headers: {},
           config: {} as any
@@ -1015,7 +1015,7 @@ describe('InternalHttpClient', () => {
       });
     });
 
-    it('should handle string response data with snake_case status_code', () => {
+    it('should handle string response data with camelCase statusCode', () => {
       const error: AxiosError = {
         config: {},
         message: 'Bad Request',
@@ -1028,7 +1028,7 @@ describe('InternalHttpClient', () => {
             errors: ['Parsed error'],
             type: '/Errors/BadRequest',
             title: 'Bad Request',
-            status_code: 400
+            statusCode: 400
           }),
           headers: {},
           config: {} as any

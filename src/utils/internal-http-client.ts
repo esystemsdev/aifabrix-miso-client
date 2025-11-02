@@ -155,20 +155,14 @@ export class InternalHttpClient {
 
       // If data is already an object, check if it matches ErrorResponse structure
       if (typeof data === 'object' && data !== null) {
-        // Normalize statusCode field (support both camelCase and snake_case)
-        const normalized = { ...data } as Record<string, unknown>;
-        if (normalized.status_code && !normalized.statusCode) {
-          normalized.statusCode = normalized.status_code;
-        }
-
         // Validate using type guard
-        if (isErrorResponse(normalized)) {
+        if (isErrorResponse(data)) {
           const errorResponse: ErrorResponse = {
-            errors: normalized.errors,
-            type: normalized.type,
-            title: normalized.title,
-            statusCode: normalized.statusCode,
-            instance: normalized.instance || requestUrl
+            errors: (data as ErrorResponse).errors,
+            type: (data as ErrorResponse).type,
+            title: (data as ErrorResponse).title,
+            statusCode: (data as ErrorResponse).statusCode,
+            instance: (data as ErrorResponse).instance || requestUrl
           };
           return errorResponse;
         }
@@ -178,17 +172,13 @@ export class InternalHttpClient {
       if (typeof data === 'string') {
         try {
           const parsed = JSON.parse(data);
-          const normalized = parsed as Record<string, unknown>;
-          if (normalized.status_code && !normalized.statusCode) {
-            normalized.statusCode = normalized.status_code;
-          }
-          if (isErrorResponse(normalized)) {
+          if (isErrorResponse(parsed)) {
             const errorResponse: ErrorResponse = {
-              errors: normalized.errors,
-              type: normalized.type,
-              title: normalized.title,
-              statusCode: normalized.statusCode,
-              instance: normalized.instance || requestUrl
+              errors: parsed.errors,
+              type: parsed.type,
+              title: parsed.title,
+              statusCode: parsed.statusCode,
+              instance: parsed.instance || requestUrl
             };
             return errorResponse;
           }

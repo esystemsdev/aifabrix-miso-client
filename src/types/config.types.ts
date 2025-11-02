@@ -114,7 +114,6 @@ export interface ClientTokenResponse {
 
 /**
  * RFC 7807-style structured error response
- * Supports both camelCase (statusCode) and snake_case (status_code) for compatibility
  */
 export interface ErrorResponse {
   errors: string[];
@@ -126,7 +125,6 @@ export interface ErrorResponse {
 
 /**
  * Type guard to check if data matches ErrorResponse structure
- * Handles both camelCase (statusCode) and snake_case (status_code) field names
  */
 export function isErrorResponse(data: unknown): data is ErrorResponse {
   if (!data || typeof data !== 'object') {
@@ -144,9 +142,8 @@ export function isErrorResponse(data: unknown): data is ErrorResponse {
     return false;
   }
 
-  // Support both camelCase and snake_case for statusCode
-  const statusCode = obj.statusCode ?? obj.status_code;
-  if (typeof statusCode !== 'number') {
+  // Check statusCode (camelCase only)
+  if (typeof obj.statusCode !== 'number') {
     return false;
   }
 

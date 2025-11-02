@@ -1,10 +1,10 @@
 /**
  * Error types for Miso/Dataplane API responses
- * All keys follow snake_case to match Miso/Dataplane schema
+ * All keys follow camelCase convention
  */
 
 /**
- * Canonical error response for AIFabrix Miso APIs (snake_case).
+ * Canonical error response for AIFabrix Miso APIs.
  * Follows RFC 7807-style structured error format.
  */
 export interface ErrorResponse {
@@ -18,13 +18,13 @@ export interface ErrorResponse {
   title?: string;
 
   /** HTTP status code. */
-  status_code: number;
+  statusCode: number;
 
   /** URI/path identifying the error instance. */
   instance?: string;
 
   /** Request correlation key for debugging/audit. */
-  request_key?: string;
+  requestKey?: string;
 }
 
 /**

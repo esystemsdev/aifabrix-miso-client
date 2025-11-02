@@ -5,6 +5,114 @@ All notable changes to the MisoClient SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0] - 2025-02-11
+
+### Changed
+
+- **BREAKING: All Public API Outputs Now Use camelCase**: Complete conversion from snake_case to camelCase across all public API outputs
+  - All type/interface properties now use camelCase (`statusCode`, `requestKey`, `currentPage`, `pageSize`, `totalItems`)
+  - All function names now use camelCase (`transformError`, `handleApiError`, `parsePaginationParams`, etc.)
+  - All return value properties now use camelCase
+  - **Breaking Changes**:
+    - `ErrorResponse` interface: `status_code` → `statusCode`, `request_key` → `requestKey`
+    - `Meta` interface: `total_items` → `totalItems`, `current_page` → `currentPage`, `page_size` → `pageSize`
+    - `FilterQuery` interface: `page_size` → `pageSize`
+    - `ApiErrorException` class: `status_code` → `statusCode`, `request_key` → `requestKey`
+    - Function renames:
+      - `transform_error_to_snake_case()` → `transformError()`
+      - `handle_api_error_snake_case()` → `handleApiError()`
+      - `parse_pagination_params()` → `parsePaginationParams()`
+      - `create_meta_object()` → `createMetaObject()`
+      - `apply_pagination_to_array()` → `applyPaginationToArray()`
+      - `create_paginated_list_response()` → `createPaginatedListResponse()`
+      - `parse_filter_params()` → `parseFilterParams()`
+      - `build_query_string()` → `buildQueryString()`
+      - `apply_filters()` → `applyFilters()`
+      - `parse_sort_params()` → `parseSortParams()`
+      - `build_sort_string()` → `buildSortString()`
+    - Return value changes: All pagination function returns use camelCase properties
+    - `parsePaginationParams()` now returns `{ currentPage, pageSize }` instead of `{ current_page, page_size }`
+  - Removed `ErrorResponseSnakeCase` type export (replaced with camelCase `ErrorResponse`)
+  - Removed snake_case compatibility code from error handlers
+  - All internal normalization code for snake_case removed
+
+### Removed
+
+- **BREAKING: Removed snake_case Support**: All snake_case support removed
+  - `ErrorResponseSnakeCase` type no longer exported
+  - Snake_case normalization code removed from `internal-http-client.ts`
+  - Snake_case compatibility checks removed from `isErrorResponse()` type guard
+  - All snake_case backward compatibility removed
+
+### Documentation
+
+- Updated `.cursorrules` to explicitly document camelCase convention requirement
+  - Added rule: "All public API outputs (types, interfaces, return values, function names) must use camelCase"
+  - Updated naming conventions section with explicit camelCase examples
+
+### Migration Guide
+
+**Breaking Changes for Users:**
+
+1. **Error Response Properties:**
+   ```typescript
+   // OLD (snake_case)
+   error.status_code
+   error.request_key
+   
+   // NEW (camelCase)
+   error.statusCode
+   error.requestKey
+   ```
+
+2. **Pagination Properties:**
+   ```typescript
+   // OLD (snake_case)
+   meta.total_items
+   meta.current_page
+   meta.page_size
+   
+   // NEW (camelCase)
+   meta.totalItems
+   meta.currentPage
+   meta.pageSize
+   ```
+
+3. **Function Names:**
+   ```typescript
+   // OLD (snake_case)
+   transform_error_to_snake_case()
+   parse_pagination_params()
+   create_meta_object()
+   
+   // NEW (camelCase)
+   transformError()
+   parsePaginationParams()
+   createMetaObject()
+   ```
+
+4. **FilterQuery:**
+   ```typescript
+   // OLD (snake_case)
+   { page_size: 25 }
+   
+   // NEW (camelCase)
+   { pageSize: 25 }
+   ```
+
+5. **Pagination Parameters:**
+   ```typescript
+   // OLD (snake_case)
+   parse_pagination_params(query)
+   // Returns: { current_page: 1, page_size: 20 }
+   
+   // NEW (camelCase)
+   parsePaginationParams(query)
+   // Returns: { currentPage: 1, pageSize: 20 }
+   ```
+
+**Note:** HTTP query parameters (`page_size` in URLs) remain unchanged as they are actual HTTP parameter names.
+
 ## [1.7.0] - 2025-02-11
 
 ### Added
