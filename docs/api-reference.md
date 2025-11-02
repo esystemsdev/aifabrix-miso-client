@@ -106,6 +106,7 @@ interface MisoClientConfig {
     roleTTL?: number; // Role cache TTL in seconds
     permissionTTL?: number; // Permission cache TTL in seconds
   };
+  sensitiveFieldsConfig?: string; // Optional: Path to custom sensitive fields JSON configuration file
 }
 ```
 

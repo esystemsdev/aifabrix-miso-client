@@ -3,47 +3,80 @@
  * Implements ISO 27001 data protection controls
  */
 
+import { loadSensitiveFieldsConfig, getFieldPatterns } from './sensitive-fields.loader';
+
 export class DataMasker {
   private static readonly MASKED_VALUE = '***MASKED***';
+  private static cachedFields: Set<string> | null = null;
+  private static cachedFieldPatterns: string[] | null = null;
+  private static configPath: string | undefined = undefined;
 
-  private static readonly sensitiveFields = new Set([
-    'password',
-    'passwd',
-    'pwd',
-    'secret',
-    'token',
-    'key',
-    'auth',
-    'authorization',
-    'cookie',
-    'session',
-    'ssn',
-    'creditcard',
-    'cc',
-    'cvv',
-    'pin',
-    'otp',
-    'apikey',
-    'accesstoken',
-    'refreshtoken',
-    'privatekey',
-    'secretkey'
-  ]);
+  /**
+   * Initialize sensitive fields from JSON configuration
+   * Loads configuration on first use and caches it
+   */
+  private static initializeSensitiveFields(customPath?: string): Set<string> {
+    // If config path changed, reload
+    if (this.configPath !== customPath) {
+      this.cachedFields = null;
+      this.cachedFieldPatterns = null;
+      this.configPath = customPath;
+    }
+
+    // Return cached if available
+    if (this.cachedFields) {
+      return this.cachedFields;
+    }
+
+    // Load from JSON config (with fallback to defaults)
+    this.cachedFields = loadSensitiveFieldsConfig(customPath);
+    this.cachedFieldPatterns = getFieldPatterns(customPath);
+
+    return this.cachedFields;
+  }
+
+  /**
+   * Get sensitive fields set (lazy loaded from JSON config)
+   */
+  private static getSensitiveFields(): Set<string> {
+    return this.initializeSensitiveFields(this.configPath);
+  }
+
+  /**
+   * Get field patterns (lazy loaded from JSON config)
+   */
+  private static getFieldPatterns(): string[] {
+    if (!this.cachedFieldPatterns) {
+      this.cachedFieldPatterns = getFieldPatterns(this.configPath);
+    }
+    return this.cachedFieldPatterns;
+  }
+
+  /**
+   * Set custom configuration path (call before first use if needed)
+   */
+  static setConfigPath(customPath: string): void {
+    this.configPath = customPath;
+    this.cachedFields = null;
+    this.cachedFieldPatterns = null;
+  }
 
   /**
    * Check if a field name indicates sensitive data
    */
   static isSensitiveField(key: string): boolean {
+    const sensitiveFields = this.getSensitiveFields();
+    const fieldPatterns = this.getFieldPatterns();
     const lowerKey = key.toLowerCase().replace(/[_-]/g, '');
 
     // Check exact match
-    if (this.sensitiveFields.has(lowerKey)) {
+    if (sensitiveFields.has(lowerKey)) {
       return true;
     }
 
-    // Check if field contains sensitive keywords
-    for (const sensitiveField of this.sensitiveFields) {
-      if (lowerKey.includes(sensitiveField)) {
+    // Check if field contains sensitive keywords (from fieldPatterns)
+    for (const pattern of fieldPatterns) {
+      if (lowerKey.includes(pattern.toLowerCase())) {
         return true;
       }
     }

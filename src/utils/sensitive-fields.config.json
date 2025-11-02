@@ -1,0 +1,68 @@
+{
+  "version": "1.0.0",
+  "description": "ISO 27001 compliant sensitive fields configuration for data masking",
+  "categories": {
+    "authentication": [
+      "password",
+      "passwd",
+      "pwd",
+      "secret",
+      "token",
+      "key",
+      "auth",
+      "authorization",
+      "cookie",
+      "session",
+      "apiKey",
+      "accessToken",
+      "refreshToken"
+    ],
+    "pii": [
+      "email",
+      "emailAddress",
+      "phone",
+      "phoneNumber",
+      "telephone",
+      "mobile",
+      "cellPhone",
+      "ssn",
+      "socialSecurityNumber",
+      "taxId",
+      "taxIdentification"
+    ],
+    "financial": [
+      "creditCard",
+      "cc",
+      "cardNumber",
+      "cvv",
+      "cvv2",
+      "cvc",
+      "pin",
+      "bankAccount",
+      "bankAccountNumber",
+      "routingNumber",
+      "iban",
+      "swift",
+      "accountNumber"
+    ],
+    "security": [
+      "otp",
+      "oneTimePassword",
+      "privateKey",
+      "publicKey",
+      "encryptionKey",
+      "decryptionKey"
+    ]
+  },
+  "fieldPatterns": [
+    "password",
+    "secret",
+    "token",
+    "key",
+    "ssn",
+    "creditcard",
+    "bankaccount",
+    "accountnumber"
+  ]
+}
+

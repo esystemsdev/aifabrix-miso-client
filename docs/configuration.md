@@ -280,6 +280,9 @@ ENCRYPTION_KEY=your-encryption-key
 
 # Optional: API key for testing (bypasses OAuth2 authentication)
 API_KEY=your-test-api-key
+
+# Optional: Custom sensitive fields configuration file path
+MISO_SENSITIVE_FIELDS_CONFIG=/path/to/custom-sensitive-fields.json
 ```
 
 ### Loading Configuration from Environment
@@ -486,6 +489,206 @@ const client = new MisoClient({
   clientSecret: process.env.MISO_CLIENTSECRET!,
   logLevel: process.env.NODE_ENV === 'production' ? 'warn' : 'debug'
 });
+```
+
+## Sensitive Fields Configuration
+
+The SDK includes ISO 27001 compliant data masking for sensitive fields in audit and debug logs. You can customize which fields are considered sensitive by providing your own configuration file.
+
+### Default Configuration
+
+The SDK includes a default `sensitive-fields.config.json` file that masks common sensitive fields including:
+
+- **Authentication**: password, token, secret, key, authorization, cookie, session
+- **PII**: email, phone, ssn, taxId
+- **Financial**: creditCard, cvv, pin, bankAccount, routingNumber
+- **Security**: otp, privateKey, encryptionKey
+
+### Custom Configuration
+
+You can provide your own sensitive fields configuration file to extend or customize the default fields:
+
+#### Using Environment Variable
+
+```bash
+# .env file
+MISO_SENSITIVE_FIELDS_CONFIG=/path/to/custom-sensitive-fields.json
+```
+
+#### Using Config Object
+
+```typescript
+const client = new MisoClient({
+  controllerUrl: 'https://controller.aifabrix.ai',
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: 'your-secret',
+  sensitiveFieldsConfig: '/path/to/custom-sensitive-fields.json' // Optional
+});
+```
+
+### Configuration File Structure
+
+Your custom configuration file should follow this JSON structure:
+
+```json
+{
+  "version": "1.0.0",
+  "description": "Your custom sensitive fields configuration",
+  "categories": {
+    "authentication": [
+      "password",
+      "token",
+      "secret",
+      // ... add your custom authentication fields
+    ],
+    "pii": [
+      "email",
+      "ssn",
+      "phone",
+      // ... add your custom PII fields
+    ],
+    "financial": [
+      "creditCard",
+      "cvv",
+      "bankAccount",
+      // ... add your custom financial fields
+    ],
+    "security": [
+      "privateKey",
+      "encryptionKey",
+      // ... add your custom security fields
+    ]
+  },
+  "fieldPatterns": [
+    "password",
+    "secret",
+    "token",
+    // ... patterns that match sensitive fields
+  ]
+}
+```
+
+### Field Categories
+
+#### `authentication`
+
+Fields related to authentication and authorization:
+- `password`, `passwd`, `pwd`
+- `token`, `secret`, `key`
+- `authorization`, `auth`
+- `cookie`, `session`
+- `apiKey`, `accessToken`, `refreshToken`
+
+#### `pii`
+
+Personally Identifiable Information:
+- `email`, `emailAddress`
+- `phone`, `phoneNumber`, `telephone`, `mobile`
+- `ssn`, `socialSecurityNumber`
+- `taxId`, `taxIdentification`
+
+#### `financial`
+
+Financial information:
+- `creditCard`, `cc`, `cardNumber`
+- `cvv`, `cvv2`, `cvc`
+- `pin`, `bankAccount`, `bankAccountNumber`
+- `routingNumber`, `iban`, `swift`
+- `accountNumber`
+
+#### `security`
+
+Security-related fields:
+- `otp`, `oneTimePassword`
+- `privateKey`, `publicKey`
+- `encryptionKey`, `decryptionKey`
+
+### Field Patterns
+
+The `fieldPatterns` array contains patterns that are matched against field names. If a field name contains any of these patterns, it will be masked.
+
+Example patterns:
+- `password` - matches fields like `userPassword`, `adminPassword`, etc.
+- `secret` - matches fields like `apiSecret`, `clientSecret`, etc.
+- `token` - matches fields like `accessToken`, `refreshToken`, etc.
+
+### Example Custom Configuration
+
+```json
+{
+  "version": "1.0.0",
+  "description": "Custom sensitive fields for MyApp",
+  "categories": {
+    "authentication": [
+      "password",
+      "token",
+      "apiKey",
+      "myCustomAuthField"  // Your custom field
+    ],
+    "pii": [
+      "email",
+      "ssn",
+      "customPIIField"  // Your custom field
+    ],
+    "financial": [
+      "creditCard",
+      "bankAccount"
+    ],
+    "security": [
+      "privateKey",
+      "mySecurityField"  // Your custom field
+    ]
+  },
+  "fieldPatterns": [
+    "password",
+    "secret",
+    "token",
+    "customPattern"  // Your custom pattern
+  ]
+}
+```
+
+### How It Works
+
+1. The SDK loads your custom configuration file on initialization
+2. Custom fields are merged with default fields (custom fields extend defaults)
+3. All HTTP request/response data is automatically masked before logging
+4. Masking happens in:
+   - Audit logs (always)
+   - Debug logs (when `logLevel === 'debug'`)
+
+### Best Practices
+
+1. **Always extend defaults**: Don't replace default fields, add to them
+2. **Use descriptive categories**: Keep fields organized by category
+3. **Include patterns**: Add fieldPatterns for flexible matching
+4. **Test your configuration**: Verify sensitive data is masked correctly
+5. **Keep it updated**: Add new sensitive fields as your application evolves
+
+### ISO 27001 Compliance
+
+The SDK automatically masks all sensitive data according to ISO 27001 standards:
+- Request headers (Authorization, tokens, cookies)
+- Request bodies (passwords, secrets, PII)
+- Response bodies (especially error responses)
+- Recursive masking for nested objects and arrays
+
+### Example Usage
+
+```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+// Set custom config path in .env or config
+const client = new MisoClient({
+  ...loadConfig(),
+  sensitiveFieldsConfig: './my-custom-sensitive-fields.json'
+});
+
+await client.initialize();
+
+// All HTTP requests will now use your custom sensitive fields configuration
+// for masking data in audit and debug logs
+const user = await client.getUser(token);
 ```
 
 ## API Key Testing Support

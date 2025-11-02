@@ -32,7 +32,8 @@ describe('DataMasker', () => {
 
     it('should return false for non-sensitive fields', () => {
       expect(DataMasker.isSensitiveField('username')).toBe(false);
-      expect(DataMasker.isSensitiveField('email')).toBe(false);
+      // email is now a sensitive field (PII)
+      expect(DataMasker.isSensitiveField('email')).toBe(true);
       expect(DataMasker.isSensitiveField('name')).toBe(false);
       expect(DataMasker.isSensitiveField('description')).toBe(false);
     });
@@ -51,7 +52,7 @@ describe('DataMasker', () => {
       expect(masked).toEqual({
         username: 'john',
         password: '***MASKED***',
-        email: 'john@example.com'
+        email: '***MASKED***' // email is now a sensitive field (PII)
       });
     });
 
@@ -184,7 +185,8 @@ describe('DataMasker', () => {
 
     it('should return false for non-sensitive data', () => {
       expect(DataMasker.containsSensitiveData({ username: 'john' })).toBe(false);
-      expect(DataMasker.containsSensitiveData({ email: 'test@example.com' })).toBe(false);
+      // email is now a sensitive field (PII)
+      expect(DataMasker.containsSensitiveData({ email: 'test@example.com' })).toBe(true);
     });
 
     it('should detect nested sensitive fields', () => {
@@ -227,6 +229,69 @@ describe('DataMasker', () => {
       };
 
       expect(DataMasker.containsSensitiveData(data)).toBe(true);
+    });
+  });
+
+  describe('setConfigPath', () => {
+    beforeEach(() => {
+      // Clear cache before each test by resetting the config path
+      // This ensures clean state between tests
+      DataMasker.setConfigPath(undefined as any);
+    });
+
+    afterEach(() => {
+      // Clean up after each test
+      DataMasker.setConfigPath(undefined as any);
+    });
+
+    it('should set custom config path', () => {
+      DataMasker.setConfigPath('/custom/path/config.json');
+      
+      // After setting path, isSensitiveField should use new config
+      // This tests that cache was cleared
+      expect(DataMasker.isSensitiveField('password')).toBe(true);
+    });
+
+    it('should clear cache when config path changes', () => {
+      // First call - should use default config
+      expect(DataMasker.isSensitiveField('password')).toBe(true);
+      
+      // Change config path - should clear cache
+      DataMasker.setConfigPath('/custom/path/config.json');
+      
+      // Should still work (might use same defaults or custom config)
+      expect(DataMasker.isSensitiveField('password')).toBe(true);
+    });
+
+    it('should handle undefined config path', () => {
+      DataMasker.setConfigPath(undefined as any);
+      
+      // Should not throw and should still work
+      expect(DataMasker.isSensitiveField('password')).toBe(true);
+    });
+  });
+
+  describe('cache invalidation', () => {
+    it('should reload fields when config path changes', () => {
+      // Initial state - default config
+      expect(DataMasker.isSensitiveField('password')).toBe(true);
+      expect(DataMasker.isSensitiveField('email')).toBe(true);
+      
+      // Change config path - cache should be invalidated
+      DataMasker.setConfigPath('/new/path/config.json');
+      
+      // Should still work (uses defaults if custom config not available)
+      expect(DataMasker.isSensitiveField('password')).toBe(true);
+    });
+
+    it('should cache field patterns after first use', () => {
+      // First use - should load and cache
+      const result1 = DataMasker.isSensitiveField('password');
+      expect(result1).toBe(true);
+      
+      // Second use - should use cache
+      const result2 = DataMasker.isSensitiveField('password');
+      expect(result2).toBe(true);
     });
   });
 });

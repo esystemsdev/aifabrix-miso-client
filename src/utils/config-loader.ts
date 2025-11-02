@@ -55,5 +55,10 @@ export function loadConfig(): MisoClientConfig {
     config.apiKey = process.env.API_KEY;
   }
 
+  // Optional sensitive fields configuration file path
+  if (process.env.MISO_SENSITIVE_FIELDS_CONFIG) {
+    config.sensitiveFieldsConfig = process.env.MISO_SENSITIVE_FIELDS_CONFIG;
+  }
+
   return config;
 }

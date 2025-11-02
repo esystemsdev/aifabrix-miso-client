@@ -48,6 +48,14 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 - Forensic analysis support
 - Compliance reporting automation
 
+**HTTP Request Audit (ISO 27001 Compliant)**
+- Automatic audit logging for all HTTP requests
+- Sensitive data masking (passwords, tokens, PII, financial data)
+- Configurable sensitive fields via JSON configuration
+- Debug logging with automatic data protection
+- Request/response metadata capture
+- User context extraction from JWT tokens
+
 ### ⚡ Performance & Scalability
 
 **Intelligent Caching**
@@ -290,6 +298,51 @@ await client.log.audit('access.denied', 'authorization', {
 
 ---
 
+### Step 6.5: HTTP Request Audit (ISO 27001)
+
+**What happens:** All HTTP requests are automatically audited with sensitive data masking for ISO 27001 compliance.
+
+```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+const client = new MisoClient(loadConfig());
+await client.initialize();
+
+// HTTP requests are automatically audited
+// - All requests/responses are logged with masked sensitive data
+// - User context is extracted from JWT tokens
+// - Request/response metadata (duration, size, status codes) is captured
+// - Sensitive fields (passwords, tokens, PII, financial data) are automatically masked
+
+// No additional code needed - works automatically!
+const user = await client.getUser(token);
+// This HTTP request is automatically audited with ISO 27001 compliance
+```
+
+**Configuration (Optional):**
+
+```bash
+# Add to .env for custom sensitive fields configuration
+MISO_SENSITIVE_FIELDS_CONFIG=/path/to/sensitive-fields.config.json
+```
+
+**What gets audited:**
+- All HTTP requests to the controller
+- Request/response metadata (method, URL, status, duration, size)
+- User context (extracted from JWT tokens)
+- Sensitive data is automatically masked (passwords, tokens, PII, credit cards, etc.)
+
+**ISO 27001 Compliance:**
+- Automatic sensitive data masking before logging
+- Configurable sensitive field patterns
+- Audit trail for all API communications
+- Data protection controls enforced
+
+→ [Custom sensitive fields example](examples/custom-sensitive-fields.example.ts)  
+→ [Sensitive fields config example](examples/sensitive-fields-config.example.json)
+
+---
+
 ### Step 7: Encryption & Caching
 
 **What happens:** Use encryption for sensitive data and generic caching for improved performance.
@@ -339,6 +392,7 @@ interface MisoClientConfig {
   redis?: RedisConfig;        // Optional: For caching
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
   encryptionKey?: string;     // Optional: Encryption key (or use ENCRYPTION_KEY env var)
+  sensitiveFieldsConfig?: string; // Optional: Path to ISO 27001 sensitive fields config JSON
   cache?: {
     roleTTL?: number;         // Role cache TTL (default: 900s)
     permissionTTL?: number;   // Permission cache TTL (default: 900s)
@@ -447,6 +501,7 @@ MISO_CONTROLLER_URL=http://localhost:3000
 REDIS_HOST=localhost
 REDIS_PORT=6379
 MISO_LOG_LEVEL=info
+MISO_SENSITIVE_FIELDS_CONFIG=/path/to/sensitive-fields.config.json  # Optional: ISO 27001 config
 ```
 
 ---

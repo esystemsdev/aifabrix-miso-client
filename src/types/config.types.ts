@@ -33,6 +33,9 @@ export interface MisoClientConfig {
     roleTTL?: number; // Default 15 minutes
     permissionTTL?: number; // Default 15 minutes
   };
+  
+  // Optional: Sensitive fields configuration file path
+  sensitiveFieldsConfig?: string;
 }
 
 export interface UserInfo {

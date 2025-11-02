@@ -1,15 +1,15 @@
 {
   "name": "@aifabrix/miso-client",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "AI Fabrix Client SDK for authentication, authorization, and logging",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "test:no-coverage": "jest --no-coverage",
+    "test": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js",
+    "test:watch": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --coverage",
+    "test:no-coverage": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --no-coverage",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "prepublishOnly": "npm run build"

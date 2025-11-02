@@ -10,6 +10,8 @@ import { RedisService } from './services/redis.service';
 import { EncryptionService } from './services/encryption.service';
 import { CacheService } from './services/cache.service';
 import { HttpClient } from './utils/http-client';
+import { InternalHttpClient } from './utils/internal-http-client';
+import { DataMasker } from './utils/data-masker';
 import { MisoClientConfig, UserInfo } from './types/config.types';
 
 export class MisoClient {
@@ -26,10 +28,33 @@ export class MisoClient {
 
   constructor(config: MisoClientConfig) {
     this.config = config;
-    this.httpClient = new HttpClient(config);
+    
+    // Initialize DataMasker with custom config path if provided
+    if (config.sensitiveFieldsConfig) {
+      DataMasker.setConfigPath(config.sensitiveFieldsConfig);
+    }
+    
+    // Create InternalHttpClient first (base HTTP functionality)
+    const internalClient = new InternalHttpClient(config);
+    
+    // Create Redis service
     this.redis = new RedisService(config.redis);
+    
+    // Create LoggerService with InternalHttpClient first (needs httpClient.request() and httpClient.config)
+    // InternalHttpClient has these methods, so we can use it directly
+    // Type assertion needed because InternalHttpClient has compatible interface with HttpClient
+    this.logger = new LoggerService(internalClient as unknown as HttpClient, this.redis);
+    
+    // Create public HttpClient that wraps InternalHttpClient with logger
+    this.httpClient = new HttpClient(config, this.logger);
+    
+    // Update LoggerService to use the new public HttpClient (for logging)
+    // Type assertion needed because httpClient property is private in LoggerService but needs to be updated
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (this.logger as any).httpClient = this.httpClient;
+    
+    // Create services
     this.auth = new AuthService(this.httpClient, this.redis);
-    this.logger = new LoggerService(this.httpClient, this.redis);
     
     // Initialize cache service with Redis support (used by roles and permissions)
     this.cacheService = new CacheService(this.redis);

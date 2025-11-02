@@ -2,6 +2,9 @@
  * Unit tests for ConfigLoader utility
  */
 
+// Mock dotenv/config to prevent real file loading
+jest.mock('dotenv/config', () => ({}), { virtual: true });
+
 import { loadConfig } from '../../src/utils/config-loader';
 import { MisoClientConfig } from '../../src/types/config.types';
 
@@ -10,7 +13,7 @@ describe('ConfigLoader', () => {
 
   beforeEach(() => {
     // Reset environment variables before each test
-    jest.resetModules();
+    // DO NOT use jest.resetModules() - it's very slow and causes module reloads
     process.env = { ...originalEnv };
   });
 
@@ -150,6 +153,107 @@ describe('ConfigLoader', () => {
           db: 3,
           keyPrefix: 'prod:miso:',
         });
+      });
+    });
+
+    describe('error cases', () => {
+      it('should throw error when MISO_CLIENTID is missing', () => {
+        delete process.env.MISO_CLIENTID;
+        delete process.env.MISO_CLIENT_ID;
+        delete process.env.MISO_CLIENTSECRET;
+        delete process.env.MISO_CLIENT_SECRET;
+
+        expect(() => loadConfig()).toThrow('MISO_CLIENTID environment variable is required');
+      });
+
+      it('should throw error when MISO_CLIENTSECRET is missing', () => {
+        process.env.MISO_CLIENTID = 'test-client-id';
+        delete process.env.MISO_CLIENTSECRET;
+        delete process.env.MISO_CLIENT_SECRET;
+
+        expect(() => loadConfig()).toThrow('MISO_CLIENTSECRET environment variable is required');
+      });
+
+      it('should throw error when clientId is empty string', () => {
+        process.env.MISO_CLIENTID = '';
+        delete process.env.MISO_CLIENT_ID;
+        process.env.MISO_CLIENTSECRET = 'test-secret';
+
+        expect(() => loadConfig()).toThrow('MISO_CLIENTID environment variable is required');
+      });
+
+      it('should throw error when clientSecret is empty string', () => {
+        process.env.MISO_CLIENTID = 'test-client-id';
+        process.env.MISO_CLIENTSECRET = '';
+
+        expect(() => loadConfig()).toThrow('MISO_CLIENTSECRET environment variable is required');
+      });
+
+      it('should accept MISO_CLIENT_ID as alternative to MISO_CLIENTID', () => {
+        delete process.env.MISO_CLIENTID;
+        process.env.MISO_CLIENT_ID = 'test-client-id';
+        process.env.MISO_CLIENTSECRET = 'test-secret';
+
+        const config = loadConfig();
+        expect(config.clientId).toBe('test-client-id');
+      });
+
+      it('should accept MISO_CLIENT_SECRET as alternative to MISO_CLIENTSECRET', () => {
+        process.env.MISO_CLIENTID = 'test-client-id';
+        delete process.env.MISO_CLIENTSECRET;
+        process.env.MISO_CLIENT_SECRET = 'test-secret';
+
+        const config = loadConfig();
+        expect(config.clientSecret).toBe('test-secret');
+      });
+    });
+
+    describe('optional configuration', () => {
+      beforeEach(() => {
+        process.env.MISO_CLIENTID = 'test-client-id';
+        process.env.MISO_CLIENTSECRET = 'test-secret';
+      });
+
+      it('should include encryptionKey when ENCRYPTION_KEY is set', () => {
+        process.env.ENCRYPTION_KEY = 'encryption-key-123';
+
+        const config = loadConfig();
+        expect(config.encryptionKey).toBe('encryption-key-123');
+      });
+
+      it('should not include encryptionKey when ENCRYPTION_KEY is not set', () => {
+        delete process.env.ENCRYPTION_KEY;
+
+        const config = loadConfig();
+        expect(config.encryptionKey).toBeUndefined();
+      });
+
+      it('should include apiKey when API_KEY is set', () => {
+        process.env.API_KEY = 'api-key-123';
+
+        const config = loadConfig();
+        expect(config.apiKey).toBe('api-key-123');
+      });
+
+      it('should not include apiKey when API_KEY is not set', () => {
+        delete process.env.API_KEY;
+
+        const config = loadConfig();
+        expect(config.apiKey).toBeUndefined();
+      });
+
+      it('should include sensitiveFieldsConfig when MISO_SENSITIVE_FIELDS_CONFIG is set', () => {
+        process.env.MISO_SENSITIVE_FIELDS_CONFIG = '/path/to/config.json';
+
+        const config = loadConfig();
+        expect(config.sensitiveFieldsConfig).toBe('/path/to/config.json');
+      });
+
+      it('should not include sensitiveFieldsConfig when MISO_SENSITIVE_FIELDS_CONFIG is not set', () => {
+        delete process.env.MISO_SENSITIVE_FIELDS_CONFIG;
+
+        const config = loadConfig();
+        expect(config.sensitiveFieldsConfig).toBeUndefined();
       });
     });
   });
