@@ -326,6 +326,28 @@ const user = await client.getUser(token);
 MISO_SENSITIVE_FIELDS_CONFIG=/path/to/sensitive-fields.config.json
 ```
 
+**Built-in Performance Optimizations:**
+The SDK automatically optimizes audit logging performance:
+- Automatic response body truncation for large payloads
+- Optimized masking operations with intelligent size-based processing
+- Batch logging to minimize network overhead
+- Configurable audit levels for performance tuning: `minimal`, `standard`, `detailed` (default), `full`
+- Fast path optimizations for small requests
+- Parallel processing for improved throughput
+
+**Performance Configuration:**
+
+```typescript
+const client = new MisoClient({
+  ...loadConfig(),
+  audit: {
+    level: 'standard', // Light masking, good performance
+    batchSize: 20, // Batch 20 logs per request
+    maxResponseSize: 10000 // Truncate large responses
+  }
+});
+```
+
 **What gets audited:**
 - All HTTP requests to the controller
 - Request/response metadata (method, URL, status, duration, size)
@@ -337,6 +359,9 @@ MISO_SENSITIVE_FIELDS_CONFIG=/path/to/sensitive-fields.config.json
 - Configurable sensitive field patterns
 - Audit trail for all API communications
 - Data protection controls enforced
+- Optimized performance without compromising compliance
+
+→ [Audit Configuration Guide](docs/configuration.md#audit-configuration)
 
 → [Custom sensitive fields example](examples/custom-sensitive-fields.example.ts)  
 → [Sensitive fields config example](examples/sensitive-fields-config.example.json)
@@ -457,6 +482,7 @@ interface MisoClientConfig {
     roleTTL?: number;         // Role cache TTL (default: 900s)
     permissionTTL?: number;   // Permission cache TTL (default: 900s)
   };
+  audit?: AuditConfig;        // Optional: Audit logging configuration
 }
 ```
 

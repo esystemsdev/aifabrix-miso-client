@@ -36,6 +36,19 @@ export interface MisoClientConfig {
   
   // Optional: Sensitive fields configuration file path
   sensitiveFieldsConfig?: string;
+  
+  // Optional: Audit logging configuration
+  audit?: AuditConfig;
+}
+
+export interface AuditConfig {
+  enabled?: boolean; // Enable/disable audit logging (default: true)
+  level?: 'minimal' | 'standard' | 'detailed' | 'full'; // Audit detail level (default: 'detailed')
+  maxResponseSize?: number; // Truncate responses larger than this (default: 10000)
+  maxMaskingSize?: number; // Skip masking for objects larger than this (default: 50000)
+  batchSize?: number; // Batch size for queued logs (default: 10)
+  batchInterval?: number; // Flush interval in ms (default: 100)
+  skipEndpoints?: string[]; // Endpoints to skip audit logging
 }
 
 export interface UserInfo {

@@ -6,6 +6,7 @@ import { HttpClient } from '../utils/http-client';
 import { RedisService } from './redis.service';
 import { DataMasker } from '../utils/data-masker';
 import { MisoClientConfig, LogEntry } from '../types/config.types';
+import { AuditLogQueue } from '../utils/audit-log-queue';
 import jwt from 'jsonwebtoken';
 
 export interface ClientLoggingOptions {
@@ -39,11 +40,18 @@ export class LoggerService {
   private maskSensitiveData = true; // Default: mask sensitive data
   private correlationCounter = 0;
   private performanceMetrics: Map<string, PerformanceMetrics> = new Map();
+  private auditLogQueue: AuditLogQueue | null = null;
 
   constructor(httpClient: HttpClient, redis: RedisService) {
     this.config = httpClient.config;
     this.redis = redis;
     this.httpClient = httpClient;
+    
+    // Initialize audit log queue if batch logging is enabled
+    const auditConfig = this.config.audit || {};
+    if (auditConfig.batchSize !== undefined || auditConfig.batchInterval !== undefined) {
+      this.auditLogQueue = new AuditLogQueue(httpClient, redis, this.config);
+    }
   }
 
   /**
@@ -251,6 +259,12 @@ export class LoggerService {
       requestId: options?.requestId,
       ...metadata
     };
+
+    // Use batch queue for audit logs if available
+    if (level === 'audit' && this.auditLogQueue) {
+      await this.auditLogQueue.add(logEntry);
+      return;
+    }
 
     // Try Redis first (if available)
     if (this.redis.isConnected()) {
