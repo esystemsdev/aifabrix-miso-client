@@ -2,6 +2,7 @@
  * Logger service for application logging and audit events
  */
 
+import { EventEmitter } from 'events';
 import { HttpClient } from '../utils/http-client';
 import { RedisService } from './redis.service';
 import { DataMasker } from '../utils/data-masker';
@@ -33,7 +34,7 @@ export interface PerformanceMetrics {
   };
 }
 
-export class LoggerService {
+export class LoggerService extends EventEmitter {
   private httpClient: HttpClient;
   private redis: RedisService;
   private config: MisoClientConfig;
@@ -43,6 +44,7 @@ export class LoggerService {
   private auditLogQueue: AuditLogQueue | null = null;
 
   constructor(httpClient: HttpClient, redis: RedisService) {
+    super(); // Initialize EventEmitter
     this.config = httpClient.config;
     this.redis = redis;
     this.httpClient = httpClient;
@@ -50,7 +52,7 @@ export class LoggerService {
     // Initialize audit log queue if batch logging is enabled
     const auditConfig = this.config.audit || {};
     if (auditConfig.batchSize !== undefined || auditConfig.batchInterval !== undefined) {
-      this.auditLogQueue = new AuditLogQueue(httpClient, redis, this.config);
+      this.auditLogQueue = new AuditLogQueue(httpClient, redis, this.config, this);
     }
   }
 
@@ -259,6 +261,14 @@ export class LoggerService {
       requestId: options?.requestId,
       ...metadata
     };
+
+    // If emitEvents is enabled, emit event and skip HTTP/Redis
+    if (this.config.emitEvents) {
+      // Emit log event - same payload structure as REST API
+      // Listener can check logEntry.level to filter by log level if needed
+      this.emit('log', logEntry);
+      return;
+    }
 
     // Use batch queue for audit logs if available
     if (level === 'audit' && this.auditLogQueue) {

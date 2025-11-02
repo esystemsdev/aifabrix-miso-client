@@ -52,7 +52,7 @@ describe('HttpClient filter and pagination helpers', () => {
     (InternalHttpClient as jest.Mock).mockImplementation(() => mockInternalClient);
 
     // Mock LoggerService constructor
-    (LoggerService as jest.Mock).mockImplementation(() => mockLogger);
+    (LoggerService as unknown as jest.Mock).mockImplementation(() => mockLogger);
 
     httpClient = new HttpClient(config, mockLogger);
   });

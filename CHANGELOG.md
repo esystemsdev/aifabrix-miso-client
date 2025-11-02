@@ -5,6 +5,78 @@ All notable changes to the MisoClient SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2025-02-11
+
+### Added
+
+- **Event Emission Mode for Direct SDK Usage**: Support for event-based logging when embedding the SDK directly in your own application
+  - `emitEvents` configuration option: When `true`, logs are emitted as Node.js events instead of being sent via HTTP/Redis
+  - **Event Names**: 
+    - `'log'` event: Emitted for all log entries (info, debug, error, audit) with `LogEntry` payload
+    - `'log:batch'` event: Emitted for batched audit logs with `LogEntry[]` payload
+  - **EventEmitter Support**: `LoggerService` now extends `EventEmitter` with full event listener support (`on`, `once`, `off`, etc.)
+  - **Same Payload Structure**: Events use the same `LogEntry` structure as REST API for consistency
+  - **Zero HTTP Overhead**: When `emitEvents = true`, HTTP calls and Redis operations are completely skipped
+  - **Environment Variable Support**: `MISO_EMIT_EVENTS` environment variable for configuration
+
+### Changed
+
+- **LoggerService Architecture**: `LoggerService` now extends `EventEmitter` for event emission support
+  - When `emitEvents = true`: Logs are emitted as events, Redis and HTTP operations are skipped
+  - When `emitEvents = false` (default): Maintains backward compatibility with existing Redis/HTTP behavior
+  - All EventEmitter methods are available through `client.log.on()`, `client.log.once()`, etc.
+
+- **AuditLogQueue Architecture**: Enhanced to support event emission for batch logs
+  - When `emitEvents = true`: Batch logs are emitted as `'log:batch'` events instead of HTTP/Redis
+  - When `emitEvents = false` (default): Maintains backward compatibility with existing batch behavior
+  - Optional `EventEmitter` parameter for event emission support
+
+### Use Cases
+
+- **Direct SDK Embedding**: Enable `emitEvents = true` to save logs directly to database without HTTP round-trips when embedding the SDK in your own application
+- **Single Codebase**: Use the same logger in both client applications and your own embedded applications
+- **Performance Optimization**: Eliminate HTTP overhead when embedding the SDK directly in your application
+
+### Configuration
+
+```typescript
+const client = new MisoClient({
+  ...loadConfig(),
+  emitEvents: true // Enable event emission mode
+});
+
+// Listen to log events
+client.log.on('log', (logEntry: LogEntry) => {
+  // Save directly to DB without HTTP
+  db.saveLog(logEntry);
+});
+
+// Listen to batch events
+client.log.on('log:batch', (logEntries: LogEntry[]) => {
+  // Save batch directly to DB
+  db.saveLogs(logEntries);
+});
+```
+
+### Technical Improvements
+
+- **Backward Compatibility**: Default behavior unchanged when `emitEvents = false` or not set
+- **Type Safety**: Full TypeScript support for event listeners with proper type inference
+- **Comprehensive Tests**: Full test coverage for event emission mode (13 new tests)
+  - Event emission tests for single logs
+  - Batch event emission tests
+  - Backward compatibility verification
+  - Redis/HTTP skipping verification
+
+### Documentation
+
+- Added "Event Emission Mode" section to configuration documentation
+- Complete usage examples for embedding the SDK in your own application
+- Event payload structure documentation
+- Best practices and use case guidance
+
+---
+
 ## [1.6.0] - 2025-02-11
 
 ### Added

@@ -248,8 +248,25 @@ await client.log.warn('Unusual activity', { details: '...' });
 
 **What happens to logs?** They're sent to the Miso Controller for centralized monitoring and analysis. Client token is automatically included.
 
+**Event Emission Mode:** When embedding the SDK directly in your own application, enable `emitEvents = true` to receive logs as Node.js events instead of HTTP calls:
+
+```typescript
+const client = new MisoClient({
+  ...loadConfig(),
+  emitEvents: true // Enable event emission mode
+});
+
+// Listen to log events
+client.log.on('log', (logEntry: LogEntry) => {
+  // Save directly to DB without HTTP
+  db.saveLog(logEntry);
+});
+```
+
 → [Complete logging example](examples/step-5-logging.ts)  
-→ [Logging Reference](docs/api-reference.md#logger-service)
+→ [Event emission mode example](examples/event-emission-mode.example.ts)  
+→ [Logging Reference](docs/api-reference.md#logger-service)  
+→ [Event Emission Mode Guide](docs/configuration.md#event-emission-mode)
 
 ---
 
@@ -478,6 +495,7 @@ interface MisoClientConfig {
   logLevel?: 'debug' | 'info' | 'warn' | 'error';
   encryptionKey?: string;     // Optional: Encryption key (or use ENCRYPTION_KEY env var)
   sensitiveFieldsConfig?: string; // Optional: Path to ISO 27001 sensitive fields config JSON
+  emitEvents?: boolean;       // Optional: Emit log events instead of HTTP/Redis (for direct SDK embedding)
   cache?: {
     roleTTL?: number;         // Role cache TTL (default: 900s)
     permissionTTL?: number;   // Permission cache TTL (default: 900s)
@@ -588,6 +606,7 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 MISO_LOG_LEVEL=info
 MISO_SENSITIVE_FIELDS_CONFIG=/path/to/sensitive-fields.config.json  # Optional: ISO 27001 config
+MISO_EMIT_EVENTS=true  # Optional: Enable event emission mode (for direct SDK embedding)
 ```
 
 ---

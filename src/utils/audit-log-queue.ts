@@ -3,6 +3,7 @@
  * Reduces network overhead by batching audit logs
  */
 
+import { EventEmitter } from 'events';
 import { LogEntry, MisoClientConfig } from '../types/config.types';
 import { HttpClient } from './http-client';
 import { RedisService } from '../services/redis.service';
@@ -21,11 +22,13 @@ export class AuditLogQueue {
   private batchSize: number;
   private batchInterval: number;
   private isFlushing = false;
+  private eventEmitter?: EventEmitter;
 
-  constructor(httpClient: HttpClient, redis: RedisService, config: MisoClientConfig) {
+  constructor(httpClient: HttpClient, redis: RedisService, config: MisoClientConfig, eventEmitter?: EventEmitter) {
     this.httpClient = httpClient;
     this.redis = redis;
     this.config = config;
+    this.eventEmitter = eventEmitter;
     const auditConfig = config.audit || {};
     this.batchSize = auditConfig.batchSize ?? 10;
     this.batchInterval = auditConfig.batchInterval ?? 100;
@@ -93,12 +96,22 @@ export class AuditLogQueue {
         return;
       }
 
+      const logEntries = entries.map(e => e.entry);
+
+      // If emitEvents is enabled, emit batch event and skip HTTP/Redis
+      if (this.config.emitEvents && this.eventEmitter) {
+        // Emit batch event - same payload structure as REST API
+        this.eventEmitter.emit('log:batch', logEntries);
+        this.isFlushing = false;
+        return;
+      }
+
       // Try Redis first (if available)
       if (this.redis.isConnected()) {
         const queueName = `audit-logs:${this.config.clientId}`;
         const success = await this.redis.rpush(
           queueName,
-          JSON.stringify(entries.map(e => e.entry))
+          JSON.stringify(logEntries)
         );
 
         if (success) {
@@ -110,8 +123,8 @@ export class AuditLogQueue {
       // Fallback to HTTP batch endpoint
       try {
         await this.httpClient.request('POST', '/api/logs/batch', {
-          logs: entries.map(e => ({
-            ...e.entry,
+          logs: logEntries.map(e => ({
+            ...e,
             // Remove fields that backend extracts from credentials
             environment: undefined,
             application: undefined

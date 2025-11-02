@@ -85,6 +85,7 @@ interface MisoClientConfig {
   logLevel?: 'debug' | 'info' | 'warn' | 'error'; // Optional: Logging level
   encryptionKey?: string; // Optional: Encryption key for EncryptionService
   apiKey?: string; // Optional: API key for testing (bypasses OAuth2 authentication)
+  emitEvents?: boolean; // Optional: Emit log events instead of HTTP/Redis (default: false)
   cache?: {
     roleTTL?: number; // Optional: Role cache TTL in seconds (default: 900)
     permissionTTL?: number; // Optional: Permission cache TTL in seconds (default: 900)
@@ -875,6 +876,185 @@ await client.initialize();
 // for masking data in audit and debug logs
 const user = await client.getUser(token);
 ```
+
+## Event Emission Mode
+
+The SDK supports event emission mode for direct SDK embedding in your own application. When `emitEvents = true`, logs are emitted as Node.js events instead of being sent via HTTP REST API or Redis queues. This enables your application to embed the SDK directly, listen to log events, and save them directly to the database without HTTP round-trips.
+
+### When to Use Event Emission
+
+- ✅ **Direct SDK embedding**: When embedding the SDK directly in your own application
+- ✅ **Avoid HTTP overhead**: Skip HTTP calls and save logs directly to DB
+- ✅ **Single codebase**: Use the same logger in both client applications and your own embedded applications
+- ❌ **External applications**: Regular applications should use default mode (HTTP/Redis)
+
+### Configuration
+
+#### Using Environment Variables
+
+```bash
+# .env file
+MISO_EMIT_EVENTS=true
+```
+
+#### Manual Configuration
+
+```typescript
+const client = new MisoClient({
+  controllerUrl: 'https://controller.aifabrix.ai',
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: 'your-secret',
+  emitEvents: true // Enable event emission mode
+});
+```
+
+### Event Names
+
+- **`'log'`**: Emitted for all log entries (info, debug, error, audit)
+  - Payload: `LogEntry` (same structure as REST API)
+- **`'log:batch'`**: Emitted for batched audit logs
+  - Payload: `LogEntry[]` (array of log entries)
+
+### Usage Example
+
+```typescript
+import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
+
+// Create client with emitEvents enabled
+const client = new MisoClient({
+  ...loadConfig(),
+  emitEvents: true
+});
+
+await client.initialize();
+
+// Listen to log events
+client.log.on('log', (logEntry: LogEntry) => {
+  // Save directly to DB without HTTP
+  db.saveLog(logEntry);
+});
+
+// Listen to batch events (for audit logs with batching)
+client.log.on('log:batch', (logEntries: LogEntry[]) => {
+  // Save batch directly to DB
+  db.saveLogs(logEntries);
+});
+
+// Use logger as normal - events will be emitted instead of HTTP calls
+await client.log.error('Error occurred', { error: 'details' });
+await client.log.audit('user.created', 'users', { userId: '123' });
+```
+
+### Event Payload Structure
+
+The event payload has the same structure as what would be sent to the REST API:
+
+```typescript
+interface LogEntry {
+  timestamp: string;
+  level: 'error' | 'audit' | 'info' | 'debug';
+  environment: string;
+  application: string;
+  applicationId: string;
+  userId?: string;
+  message: string;
+  context?: Record<string, unknown>;
+  stackTrace?: string;
+  correlationId?: string;
+  requestId?: string;
+  sessionId?: string;
+  // ... other ISO 27001 metadata fields
+}
+```
+
+### Behavior Differences
+
+#### When `emitEvents = true`:
+- ✅ Logs are emitted as events via EventEmitter
+- ❌ Redis queue operations are skipped
+- ❌ HTTP POST to `/api/logs` is skipped
+- ✅ Batch events are emitted for audit logs with batching enabled
+- ✅ All EventEmitter methods are available (`on`, `once`, `off`, etc.)
+
+#### When `emitEvents = false` (default):
+- ❌ Events are not emitted
+- ✅ Redis queue operations (if Redis is connected)
+- ✅ HTTP POST fallback (if Redis fails or not connected)
+- ✅ Normal batch processing via HTTP/Redis
+
+### Best Practices
+
+1. **Use when embedding the SDK**: Event emission mode is designed for applications that embed the SDK directly
+2. **Handle events synchronously**: Listeners should handle events quickly to avoid blocking
+3. **Error handling**: Wrap event listeners in try-catch to handle errors gracefully
+4. **Batch processing**: Use batch events (`log:batch`) for high-volume audit logging
+
+### Example: Complete Setup for Direct SDK Embedding
+
+```typescript
+import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
+import { db } from './database';
+
+const client = new MisoClient({
+  ...loadConfig(),
+  emitEvents: true,
+  audit: {
+    batchSize: 10,
+    batchInterval: 100
+  }
+});
+
+await client.initialize();
+
+// Single log event handler
+client.log.on('log', (logEntry: LogEntry) => {
+  try {
+    // Save to database directly
+    await db.logs.insert({
+      timestamp: logEntry.timestamp,
+      level: logEntry.level,
+      message: logEntry.message,
+      context: logEntry.context,
+      userId: logEntry.userId,
+      // ... other fields
+    });
+  } catch (error) {
+    console.error('Failed to save log:', error);
+  }
+});
+
+// Batch event handler (for audit logs)
+client.log.on('log:batch', async (logEntries: LogEntry[]) => {
+  try {
+    // Batch insert to database
+    await db.logs.insertMany(
+      logEntries.map(entry => ({
+        timestamp: entry.timestamp,
+        level: entry.level,
+        message: entry.message,
+        context: entry.context,
+        userId: entry.userId,
+        // ... other fields
+      }))
+    );
+  } catch (error) {
+    console.error('Failed to save batch logs:', error);
+  }
+});
+
+// Use logger normally - events will be emitted
+await client.log.info('Application started');
+await client.log.error('Operation failed', { error: 'details' });
+```
+
+### Backward Compatibility
+
+When `emitEvents` is not set or `false`, the SDK maintains backward compatibility:
+- Uses Redis queues (if Redis is connected)
+- Falls back to HTTP POST (if Redis fails or not connected)
+- No breaking changes to existing applications
+
+---
 
 ## API Key Testing Support
 

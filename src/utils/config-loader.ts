@@ -60,5 +60,10 @@ export function loadConfig(): MisoClientConfig {
     config.sensitiveFieldsConfig = process.env.MISO_SENSITIVE_FIELDS_CONFIG;
   }
 
+  // Optional emitEvents flag (for direct SDK embedding in your own application)
+  if (process.env.MISO_EMIT_EVENTS) {
+    config.emitEvents = process.env.MISO_EMIT_EVENTS.toLowerCase() === 'true';
+  }
+
   return config;
 }

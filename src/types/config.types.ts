@@ -39,6 +39,11 @@ export interface MisoClientConfig {
   
   // Optional: Audit logging configuration
   audit?: AuditConfig;
+  
+  // Optional: Emit log events instead of sending via HTTP/Redis
+  // When true, LoggerService will emit events via EventEmitter that can be listened to
+  // Useful for direct SDK embedding in your own application to save logs directly to DB
+  emitEvents?: boolean; // Default: false (maintains backward compatibility)
 }
 
 export interface AuditConfig {

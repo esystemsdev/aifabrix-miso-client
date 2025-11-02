@@ -298,6 +298,16 @@ private async fetchClientToken(): Promise<string> {
 - Use connection pooling for Redis
 - Handle Redis failures gracefully with controller fallback
 
+## Code Size Guidelines
+- **File Size**: Keep source files under 500 lines
+  - If a file exceeds 500 lines, consider splitting into multiple files
+  - Extract related functionality into separate utility classes or modules
+- **Method Size**: Keep methods under 20-30 lines
+  - Break complex methods into smaller, focused helper methods
+  - Each method should have a single responsibility
+  - Use private helper methods to extract logic from large methods
+- **Exception**: Configuration files, type definitions, and test files may exceed limits if needed
+
 ## Documentation
 - Use JSDoc comments for public methods
 - Include parameter types and return types in comments

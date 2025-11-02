@@ -2,6 +2,7 @@
  * Unit tests for AuditLogQueue
  */
 
+import { EventEmitter } from 'events';
 import { AuditLogQueue } from '../../src/utils/audit-log-queue';
 import { HttpClient } from '../../src/utils/http-client';
 import { RedisService } from '../../src/services/redis.service';
@@ -389,6 +390,137 @@ describe('AuditLogQueue', () => {
       
       expect(auditLogQueue.getQueueSize()).toBe(0);
       expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('event emission (emitEvents mode)', () => {
+    let eventEmitter: EventEmitter;
+
+    beforeEach(() => {
+      eventEmitter = new EventEmitter();
+      config.emitEvents = true;
+      (mockHttpClient as any).config = config;
+      auditLogQueue = new AuditLogQueue(mockHttpClient, mockRedisService, config, eventEmitter);
+    });
+
+    it('should emit log:batch event when emitEvents is true', async () => {
+      const eventSpy = jest.fn();
+      eventEmitter.on('log:batch', eventSpy);
+
+      const entries = [createLogEntry('Log 1'), createLogEntry('Log 2')];
+      
+      for (const entry of entries) {
+        await auditLogQueue.add(entry);
+      }
+      
+      await auditLogQueue.flush();
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      const emittedBatch = eventSpy.mock.calls[0][0];
+      expect(Array.isArray(emittedBatch)).toBe(true);
+      expect(emittedBatch.length).toBe(2);
+      expect(emittedBatch[0]).toMatchObject({ message: 'Log 1' });
+      expect(emittedBatch[1]).toMatchObject({ message: 'Log 2' });
+    });
+
+    it('should skip Redis when emitEvents is true', async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      const eventSpy = jest.fn();
+      eventEmitter.on('log:batch', eventSpy);
+
+      await auditLogQueue.add(createLogEntry('Test'));
+      await auditLogQueue.flush();
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      expect(mockRedisService.rpush).not.toHaveBeenCalled();
+    });
+
+    it('should skip HTTP when emitEvents is true', async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      const eventSpy = jest.fn();
+      eventEmitter.on('log:batch', eventSpy);
+
+      await auditLogQueue.add(createLogEntry('Test'));
+      await auditLogQueue.flush();
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      expect(mockHttpClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should emit batch events with correct payload structure', async () => {
+      const eventSpy = jest.fn();
+      eventEmitter.on('log:batch', eventSpy);
+
+      const entries = [
+        createLogEntry('Log 1'),
+        createLogEntry('Log 2'),
+        createLogEntry('Log 3')
+      ];
+      
+      for (const entry of entries) {
+        await auditLogQueue.add(entry);
+      }
+      
+      await auditLogQueue.flush();
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      const emittedBatch = eventSpy.mock.calls[0][0];
+      expect(Array.isArray(emittedBatch)).toBe(true);
+      expect(emittedBatch.length).toBe(3);
+      
+      // Each entry should have LogEntry structure
+      emittedBatch.forEach((entry: LogEntry) => {
+        expect(entry).toHaveProperty('timestamp');
+        expect(entry).toHaveProperty('level', 'audit');
+        expect(entry).toHaveProperty('environment', 'test');
+        expect(entry).toHaveProperty('application', 'ctrl-dev-test-app');
+        expect(entry).toHaveProperty('message');
+      });
+    });
+
+    it('should batch events correctly when batch size is reached', async () => {
+      config.audit!.batchSize = 3;
+      auditLogQueue = new AuditLogQueue(mockHttpClient, mockRedisService, config, eventEmitter);
+      
+      const eventSpy = jest.fn();
+      eventEmitter.on('log:batch', eventSpy);
+
+      const entries = [
+        createLogEntry('Log 1'),
+        createLogEntry('Log 2'),
+        createLogEntry('Log 3')
+      ];
+      
+      for (const entry of entries) {
+        await auditLogQueue.add(entry);
+      }
+      
+      // Wait for auto-flush
+      await Promise.resolve();
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      expect(eventSpy.mock.calls[0][0].length).toBe(3);
+      expect(mockHttpClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should maintain backward compatibility when emitEvents is false', async () => {
+      config.emitEvents = false;
+      (mockHttpClient as any).config = config;
+      auditLogQueue = new AuditLogQueue(mockHttpClient, mockRedisService, config);
+      
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+      
+      const eventSpy = jest.fn();
+      const tempEmitter = new EventEmitter();
+      tempEmitter.on('log:batch', eventSpy);
+
+      await auditLogQueue.add(createLogEntry('Test'));
+      await auditLogQueue.flush();
+
+      // Should use Redis/HTTP, not emit events
+      expect(mockRedisService.rpush).toHaveBeenCalled();
+      expect(eventSpy).not.toHaveBeenCalled();
     });
   });
 });

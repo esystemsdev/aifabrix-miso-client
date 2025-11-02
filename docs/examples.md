@@ -16,6 +16,7 @@ Practical examples demonstrating how to use the AI Fabrix Miso Client SDK in var
 - [Filtering](#filtering)
 - [Sorting](#sorting)
 - [Snake_case Error Handling](#snake_case-error-handling)
+- [Event Emission Mode](#event-emission-mode)
 
 ## Express.js Middleware
 
@@ -1660,5 +1661,151 @@ async function handleErrorResponse(response: Response) {
   return error;
 }
 ```
+
+## Event Emission Mode
+
+### Using Event Emission Mode in Your Application
+
+When embedding the SDK directly in your own application, enable `emitEvents = true` to receive logs as Node.js events instead of HTTP calls. This eliminates HTTP overhead and allows saving logs directly to the database.
+
+```typescript
+import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
+import { db } from './database';
+
+// Create client with emitEvents enabled
+const client = new MisoClient({
+  ...loadConfig(),
+  emitEvents: true
+});
+
+await client.initialize();
+
+// Listen to log events
+client.log.on('log', async (logEntry: LogEntry) => {
+  try {
+    // Save directly to database without HTTP
+    await db.logs.insert({
+      timestamp: logEntry.timestamp,
+      level: logEntry.level,
+      message: logEntry.message,
+      context: logEntry.context,
+      userId: logEntry.userId,
+      correlationId: logEntry.correlationId,
+      requestId: logEntry.requestId,
+      sessionId: logEntry.sessionId
+    });
+  } catch (error) {
+    console.error('Failed to save log:', error);
+  }
+});
+
+// Listen to batch events (for audit logs with batching)
+client.log.on('log:batch', async (logEntries: LogEntry[]) => {
+  try {
+    // Batch insert to database
+    await db.logs.insertMany(
+      logEntries.map(entry => ({
+        timestamp: entry.timestamp,
+        level: entry.level,
+        message: entry.message,
+        context: entry.context,
+        userId: entry.userId,
+        correlationId: entry.correlationId,
+        requestId: entry.requestId,
+        sessionId: entry.sessionId
+      }))
+    );
+  } catch (error) {
+    console.error('Failed to save batch logs:', error);
+  }
+});
+
+// Use logger normally - events will be emitted
+await client.log.info('Application started');
+await client.log.error('Operation failed', { error: 'details' });
+await client.log.audit('user.created', 'users', { userId: '123' });
+```
+
+### Complete Setup for Direct SDK Embedding
+
+```typescript
+import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
+import { db } from './database';
+
+const client = new MisoClient({
+  ...loadConfig(),
+  emitEvents: true,
+  audit: {
+    batchSize: 10,
+    batchInterval: 100
+  }
+});
+
+await client.initialize();
+
+// Single log event handler
+client.log.on('log', async (logEntry: LogEntry) => {
+  try {
+    await db.logs.insert({
+      timestamp: logEntry.timestamp,
+      level: logEntry.level,
+      message: logEntry.message,
+      context: logEntry.context,
+      userId: logEntry.userId,
+      correlationId: logEntry.correlationId,
+      requestId: logEntry.requestId,
+      sessionId: logEntry.sessionId,
+      stackTrace: logEntry.stackTrace,
+      environment: logEntry.environment,
+      application: logEntry.application,
+      applicationId: logEntry.applicationId
+    });
+  } catch (error) {
+    console.error('Failed to save log:', error);
+  }
+});
+
+// Batch event handler
+client.log.on('log:batch', async (logEntries: LogEntry[]) => {
+  try {
+    await db.logs.insertMany(
+      logEntries.map(entry => ({
+        timestamp: entry.timestamp,
+        level: entry.level,
+        message: entry.message,
+        context: entry.context,
+        userId: entry.userId,
+        correlationId: entry.correlationId,
+        requestId: entry.requestId,
+        sessionId: entry.sessionId,
+        stackTrace: entry.stackTrace,
+        environment: entry.environment,
+        application: entry.application,
+        applicationId: entry.applicationId
+      }))
+    );
+  } catch (error) {
+    console.error('Failed to save batch logs:', error);
+  }
+});
+```
+
+**Configuration:**
+
+```bash
+# .env file
+MISO_EMIT_EVENTS=true
+```
+
+**Benefits:**
+- Zero HTTP overhead when embedding the SDK directly in your application
+- Single codebase - use the same logger in both client and controller
+- Direct database saves without HTTP round-trips
+- Same payload structure as REST API for consistency
+
+→ [Event Emission Mode Guide](configuration.md#event-emission-mode)  
+→ [Event Emission Mode Example](../examples/event-emission-mode.example.ts)
+
+---
 
 These examples demonstrate various ways to integrate the AI Fabrix Miso Client SDK into different frameworks and scenarios. Each example includes proper error handling, logging, and authentication patterns.
