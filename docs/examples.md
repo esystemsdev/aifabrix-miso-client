@@ -12,6 +12,10 @@ Practical examples demonstrating how to use the AI Fabrix Miso Client SDK in var
 - [Background Jobs](#background-jobs)
 - [Error Handling](#error-handling)
 - [Testing](#testing)
+- [Pagination](#pagination)
+- [Filtering](#filtering)
+- [Sorting](#sorting)
+- [Snake_case Error Handling](#snake_case-error-handling)
 
 ## Express.js Middleware
 
@@ -1196,6 +1200,465 @@ describe('MisoClient Integration', () => {
     await expect(client.log.info('Test message')).resolves.not.toThrow();
   });
 });
+```
+
+## Pagination
+
+### Parse Pagination Params from Query String
+
+```typescript
+import { parse_pagination_params } from '@aifabrix/miso-client';
+import express from 'express';
+
+const app = express();
+
+app.get('/api/applications', (req, res) => {
+  // Parse pagination from query string: ?page=2&page_size=25
+  const { current_page, page_size } = parse_pagination_params(req.query);
+  
+  console.log(`Page: ${current_page}, Size: ${page_size}`);
+  // Output: Page: 2, Size: 25
+  
+  // Use in your database query or API call
+  // const offset = (current_page - 1) * page_size;
+});
+```
+
+### Create Paginated Response
+
+```typescript
+import { create_paginated_list_response } from '@aifabrix/miso-client';
+import express from 'express';
+
+const app = express();
+
+app.get('/api/applications', async (req, res) => {
+  // Parse pagination params
+  const { current_page, page_size } = parse_pagination_params(req.query);
+  
+  // Fetch data (example)
+  const allItems = await fetchAllApplications();
+  const totalItems = allItems.length;
+  const pageItems = allItems.slice(
+    (current_page - 1) * page_size,
+    current_page * page_size
+  );
+  
+  // Create paginated response
+  const response = create_paginated_list_response(
+    pageItems,
+    totalItems,
+    current_page,
+    page_size,
+    'application'
+  );
+  
+  res.json(response);
+  // Returns: {
+  //   meta: {
+  //     total_items: 120,
+  //     current_page: 2,
+  //     page_size: 25,
+  //     type: 'application'
+  //   },
+  //   data: [...]
+  // }
+});
+```
+
+### Apply Pagination to Array (for Mocks/Tests)
+
+```typescript
+import { apply_pagination_to_array, create_paginated_list_response } from '@aifabrix/miso-client';
+
+// Mock data for testing
+const mockApplications = [
+  { id: 1, name: 'App 1', status: 'active' },
+  { id: 2, name: 'App 2', status: 'active' },
+  { id: 3, name: 'App 3', status: 'inactive' },
+  // ... 47 more items
+];
+
+// Apply pagination
+const page1 = apply_pagination_to_array(mockApplications, 1, 25);
+// Returns: first 25 items
+
+const page2 = apply_pagination_to_array(mockApplications, 2, 25);
+// Returns: items 26-50
+
+// Create full paginated response for testing
+const response = create_paginated_list_response(
+  page1,
+  mockApplications.length,
+  1,
+  25,
+  'application'
+);
+```
+
+## Filtering
+
+### Using FilterBuilder for Dynamic Filtering
+
+```typescript
+import { FilterBuilder, build_query_string } from '@aifabrix/miso-client';
+
+// Build filters dynamically based on user input
+function buildFilters(status?: string, region?: string, dateFrom?: string) {
+  const filterBuilder = new FilterBuilder();
+  
+  if (status) {
+    filterBuilder.add('status', 'eq', status);
+  }
+  
+  if (region) {
+    filterBuilder.add('region', 'in', [region]);
+  }
+  
+  if (dateFrom) {
+    filterBuilder.add('created_at', 'gte', dateFrom);
+  }
+  
+  return filterBuilder;
+}
+
+// Usage in Express route
+app.get('/api/applications', (req, res) => {
+  const { status, region, dateFrom } = req.query;
+  
+  const filterBuilder = buildFilters(
+    status as string,
+    region as string,
+    dateFrom as string
+  );
+  
+  const queryString = filterBuilder.toQueryString();
+  // Returns: "filter=status:eq:active&filter=region:in:eu&filter=created_at:gte:2024-01-01"
+  
+  // Use queryString in API call
+  const url = `/api/applications?${queryString}`;
+});
+```
+
+### Parse Filter Params from Query String
+
+```typescript
+import { parse_filter_params } from '@aifabrix/miso-client';
+import express from 'express';
+
+const app = express();
+
+app.get('/api/applications', (req, res) => {
+  // Parse filters from query string: ?filter=status:eq:active&filter=region:in:eu,us
+  const filters = parse_filter_params(req.query);
+  
+  // Returns: [
+  //   { field: 'status', op: 'eq', value: 'active' },
+  //   { field: 'region', op: 'in', value: ['eu', 'us'] }
+  // ]
+  
+  // Use filters in your database query
+  filters.forEach(filter => {
+    console.log(`${filter.field} ${filter.op} ${filter.value}`);
+  });
+});
+```
+
+### Build Query String from FilterQuery
+
+```typescript
+import { FilterBuilder, build_query_string } from '@aifabrix/miso-client';
+
+// Build complete query with filters, sort, pagination
+const filterBuilder = new FilterBuilder()
+  .add('status', 'eq', 'active')
+  .add('region', 'in', ['eu', 'us']);
+
+const queryString = build_query_string({
+  filters: filterBuilder.build(),
+  sort: ['-updated_at', 'name'],
+  page: 1,
+  page_size: 25
+});
+
+// Returns: "filter=status:eq:active&filter=region:in:eu,us&sort=-updated_at&sort=name&page=1&page_size=25"
+
+// Use in API call
+const url = `/api/applications?${queryString}`;
+```
+
+### Apply Filters Locally (for Mocks/Tests)
+
+```typescript
+import { apply_filters, FilterBuilder } from '@aifabrix/miso-client';
+
+// Mock data
+const mockApplications = [
+  { id: 1, status: 'active', region: 'eu' },
+  { id: 2, status: 'active', region: 'us' },
+  { id: 3, status: 'inactive', region: 'eu' },
+];
+
+// Build filters
+const filterBuilder = new FilterBuilder()
+  .add('status', 'eq', 'active')
+  .add('region', 'eq', 'eu');
+
+// Apply filters locally
+const filtered = apply_filters(mockApplications, filterBuilder.build());
+// Returns: [{ id: 1, status: 'active', region: 'eu' }]
+```
+
+### Combined Filter + Pagination + Sort
+
+```typescript
+import {
+  FilterBuilder,
+  build_query_string,
+  parse_pagination_params,
+  parse_filter_params,
+  parse_sort_params,
+  build_sort_string
+} from '@aifabrix/miso-client';
+import express from 'express';
+
+const app = express();
+
+app.get('/api/applications', (req, res) => {
+  // Parse all query params
+  const { current_page, page_size } = parse_pagination_params(req.query);
+  const filters = parse_filter_params(req.query);
+  const sortOptions = parse_sort_params(req.query);
+  
+  // Build complete query
+  const filterBuilder = new FilterBuilder();
+  filters.forEach(filter => {
+    filterBuilder.add(filter.field, filter.op, filter.value);
+  });
+  
+  const sortStrings = build_sort_string(sortOptions);
+  
+  const queryString = build_query_string({
+    filters: filterBuilder.build(),
+    sort: sortStrings,
+    page: current_page,
+    page_size: page_size
+  });
+  
+  // Use queryString in API call or database query
+  const url = `/api/applications?${queryString}`;
+  
+  // ... fetch and return data
+});
+```
+
+## Sorting
+
+### Parse Sort Params from Query String
+
+```typescript
+import { parse_sort_params } from '@aifabrix/miso-client';
+import express from 'express';
+
+const app = express();
+
+app.get('/api/applications', (req, res) => {
+  // Parse sort from query string: ?sort=-updated_at&sort=name
+  const sortOptions = parse_sort_params(req.query);
+  
+  // Returns: [
+  //   { field: 'updated_at', order: 'desc' },
+  //   { field: 'name', order: 'asc' }
+  // ]
+  
+  // Use in your database query
+  sortOptions.forEach(sort => {
+    console.log(`Sort by ${sort.field} ${sort.order}`);
+  });
+});
+```
+
+### Build Sort String from SortOption[]
+
+```typescript
+import { build_sort_string } from '@aifabrix/miso-client';
+
+// Convert SortOption[] to query string format
+const sortOptions = [
+  { field: 'updated_at', order: 'desc' },
+  { field: 'name', order: 'asc' }
+];
+
+const sortStrings = build_sort_string(sortOptions);
+// Returns: ['-updated_at', 'name']
+
+// Use in query string
+const queryString = `sort=${sortStrings.join('&sort=')}`;
+// Returns: "sort=-updated_at&sort=name"
+```
+
+### Dynamic Sorting in API Route
+
+```typescript
+import { parse_sort_params, build_sort_string } from '@aifabrix/miso-client';
+import express from 'express';
+
+const app = express();
+
+app.get('/api/applications', (req, res) => {
+  // Parse sort params with defaults
+  const defaultSort = [{ field: 'created_at', order: 'desc' as const }];
+  const sortOptions = req.query.sort 
+    ? parse_sort_params(req.query)
+    : defaultSort;
+  
+  // Convert to query string format for API call
+  const sortStrings = build_sort_string(sortOptions);
+  
+  // Use in API call
+  const url = `/api/applications?sort=${sortStrings.join('&sort=')}`;
+  
+  // ... fetch and return data
+});
+```
+
+## Snake_case Error Handling
+
+### Using ApiErrorException
+
+```typescript
+import { ApiErrorException, ErrorResponseSnakeCase } from '@aifabrix/miso-client';
+
+async function fetchApplication(id: string) {
+  try {
+    // Some API call that might throw ApiErrorException
+    const response = await fetch(`/api/applications/${id}`);
+    
+    if (!response.ok) {
+      const errorData: ErrorResponseSnakeCase = await response.json();
+      throw new ApiErrorException(errorData);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    if (error instanceof ApiErrorException) {
+      console.error('Status code:', error.status_code);
+      console.error('Errors:', error.errors);
+      console.error('Type:', error.type);
+      console.error('Request key:', error.request_key);
+      
+      // Handle specific error codes
+      if (error.status_code === 404) {
+        throw new Error('Application not found');
+      }
+      
+      throw error;
+    }
+    throw error;
+  }
+}
+```
+
+### Using transform_error_to_snake_case
+
+```typescript
+import { transform_error_to_snake_case } from '@aifabrix/miso-client';
+import axios from 'axios';
+
+async function callApi(url: string) {
+  try {
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    // Transform any error to standardized snake_case format
+    const standardizedError = transform_error_to_snake_case(error);
+    
+    console.error('Error status:', standardizedError.status_code);
+    console.error('Error messages:', standardizedError.errors);
+    console.error('Error type:', standardizedError.type);
+    console.error('Instance:', standardizedError.instance);
+    
+    // Handle based on status code
+    if (standardizedError.status_code === 401) {
+      // Redirect to login
+    } else if (standardizedError.status_code === 403) {
+      // Show forbidden message
+    }
+    
+    throw standardizedError;
+  }
+}
+```
+
+### Using handle_api_error_snake_case
+
+```typescript
+import { handle_api_error_snake_case } from '@aifabrix/miso-client';
+import axios from 'axios';
+
+async function callApi(url: string) {
+  try {
+    const response = await axios.get(url);
+    return response.data;
+  } catch (error) {
+    // Transform and throw as ApiErrorException
+    handle_api_error_snake_case(error);
+    // This will never return (throws ApiErrorException)
+  }
+}
+```
+
+### Express Error Handler with Snake_case Errors
+
+```typescript
+import { ApiErrorException, transform_error_to_snake_case } from '@aifabrix/miso-client';
+import express from 'express';
+
+const app = express();
+
+// Error handler middleware
+app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof ApiErrorException) {
+    // Already a snake_case ApiErrorException
+    return res.status(err.status_code).json({
+      error: {
+        errors: err.errors,
+        type: err.type || 'about:blank',
+        title: err.message,
+        status_code: err.status_code,
+        instance: err.instance,
+        request_key: err.request_key
+      }
+    });
+  }
+  
+  // Transform other errors to snake_case format
+  const standardizedError = transform_error_to_snake_case(err);
+  
+  res.status(standardizedError.status_code || 500).json({
+    error: standardizedError
+  });
+});
+```
+
+### ErrorResponseSnakeCase Type Usage
+
+```typescript
+import { ErrorResponseSnakeCase, ErrorEnvelope } from '@aifabrix/miso-client';
+
+// Handle envelope format errors
+async function handleErrorResponse(response: Response) {
+  const envelope: ErrorEnvelope = await response.json();
+  const error: ErrorResponseSnakeCase = envelope.error;
+  
+  console.error('Error status:', error.status_code);
+  console.error('Error messages:', error.errors);
+  console.error('Error type:', error.type);
+  console.error('Request key:', error.request_key);
+  
+  // Use error for logging or user feedback
+  return error;
+}
 ```
 
 These examples demonstrate various ways to integrate the AI Fabrix Miso Client SDK into different frameworks and scenarios. Each example includes proper error handling, logging, and authentication patterns.

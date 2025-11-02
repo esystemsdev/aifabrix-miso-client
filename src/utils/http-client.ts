@@ -268,4 +268,38 @@ export class HttpClient {
   ): Promise<T> {
     return this.internalClient.authenticatedRequest<T>(method, url, token, data, config);
   }
+
+  /**
+   * GET request with filter builder support.
+   * Builds query string from FilterBuilder and appends to URL.
+   * @param url - Request URL (without query string)
+   * @param filterBuilder - FilterBuilder instance with filters
+   * @param config - Optional Axios request config
+   * @returns Promise with response data
+   */
+  async getWithFilters<T>(url: string, filterBuilder: { toQueryString(): string }, config?: AxiosRequestConfig): Promise<T> {
+    const queryString = filterBuilder.toQueryString();
+    const fullUrl = queryString ? `${url}?${queryString}` : url;
+    return this.internalClient.get<T>(fullUrl, config);
+  }
+
+  /**
+   * GET request with pagination support.
+   * Appends pagination query parameters (page, page_size) to URL.
+   * @param url - Request URL (without query string)
+   * @param pagination - Pagination options with page and page_size
+   * @param config - Optional Axios request config
+   * @returns Promise with response data
+   */
+  async getPaginated<T>(
+    url: string,
+    pagination: { page: number; page_size: number },
+    config?: AxiosRequestConfig
+  ): Promise<T> {
+    const params = new URLSearchParams();
+    params.append('page', pagination.page.toString());
+    params.append('page_size', pagination.page_size.toString());
+    const fullUrl = `${url}?${params.toString()}`;
+    return this.internalClient.get<T>(fullUrl, config);
+  }
 }

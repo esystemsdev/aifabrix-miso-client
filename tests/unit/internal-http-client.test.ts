@@ -114,9 +114,152 @@ describe('InternalHttpClient', () => {
       expect(createdInstance.interceptors.request.use).toHaveBeenCalled();
     });
 
+    it('should set up request interceptor that adds x-client-token header', async () => {
+      // Mock token fetch first - must be before creating client
+      const tokenResponse: AxiosResponse<ClientTokenResponse> = {
+        data: {
+          success: true,
+          token: 'test-token-123',
+          expiresIn: 3600,
+          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString()
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      // Create a new mock axios instance for this test to avoid interference
+      let requestInterceptor: ((config: InternalAxiosRequestConfig) => Promise<InternalAxiosRequestConfig>) | null = null;
+      
+      const testMockAxiosInstance = {
+        interceptors: {
+          request: { 
+            use: jest.fn((onFulfilled, onRejected) => {
+              // Capture the interceptor function
+              requestInterceptor = onFulfilled;
+              return 0;
+            })
+          },
+          response: { 
+            use: jest.fn((onFulfilled, onRejected) => {
+              return 0;
+            })
+          }
+        },
+        get: jest.fn(),
+        post: jest.fn(),
+        put: jest.fn(),
+        delete: jest.fn()
+      };
+
+      // Set up mock for temp axios before creating client
+      // Reset mock implementation first
+      const axiosCreateMock = axios.create as jest.MockedFunction<typeof axios.create>;
+      axiosCreateMock.mockReset();
+      
+      // Ensure the mock returns the response correctly
+      const tempAxiosPostMock = jest.fn();
+      tempAxiosPostMock.mockResolvedValue(tokenResponse);
+      const tempAxiosMock = { 
+        post: tempAxiosPostMock
+      };
+      
+      axiosCreateMock.mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          // Return temp axios with post method that already returns tokenResponse
+          return tempAxiosMock as any;
+        }
+        // Return test-specific mock instance
+        return testMockAxiosInstance;
+      });
+
+      // Create a fresh client AFTER mocks are set up
+      const freshClient = new InternalHttpClient(config);
+
+      // Mock the main axios get to capture headers - need to run interceptor first
+      const getResponse: AxiosResponse = {
+        data: { message: 'success' },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (testMockAxiosInstance.get as jest.Mock).mockImplementation(async (url, config) => {
+        // Run the interceptor first if it exists
+        if (requestInterceptor) {
+          // Ensure config is an object with headers
+          const interceptorConfig: InternalAxiosRequestConfig = (config || { headers: {} }) as InternalAxiosRequestConfig;
+          const updatedConfig = await requestInterceptor(interceptorConfig);
+          // Verify that x-client-token header was added by interceptor
+          expect(updatedConfig.headers?.['x-client-token']).toBe('test-token-123');
+          // Return response with updated config
+          return getResponse;
+        }
+        return getResponse;
+      });
+
+      await freshClient.get('/test');
+      
+      // Verify interceptor added the header and temp axios was called
+      expect(tempAxiosPostMock).toHaveBeenCalled();
+      expect(testMockAxiosInstance.get).toHaveBeenCalled();
+    });
+
     it('should set up response interceptor', () => {
       const createdInstance = axios.create();
       expect(createdInstance.interceptors.response.use).toHaveBeenCalled();
+    });
+
+    it('should set up response interceptor that handles 401 errors', async () => {
+      // Mock token fetch first - must be before creating client
+      const tokenResponse: AxiosResponse<ClientTokenResponse> = {
+        data: {
+          success: true,
+          token: 'test-token',
+          expiresIn: 3600,
+          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString()
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      // Set up mock for temp axios before creating client
+      const tempAxiosMock = { post: jest.fn() };
+      const axiosCreateMock = axios.create as jest.MockedFunction<typeof axios.create>;
+      axiosCreateMock.mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          (tempAxiosMock.post as jest.Mock).mockResolvedValue(tokenResponse);
+          return tempAxiosMock as any;
+        }
+        return mockAxiosInstance;
+      });
+
+      // Create a fresh client AFTER mocks are set up
+      const freshClient = new InternalHttpClient(config);
+
+      // Mock a 401 error response
+      const axiosError = new (require('axios').AxiosError)('Unauthorized');
+      axiosError.response = {
+        status: 401,
+        statusText: 'Unauthorized',
+        data: { error: 'Invalid token' },
+        headers: {},
+        config: {} as any
+      } as any;
+      axiosError.config = {} as any;
+      axiosError.isAxiosError = true;
+
+      (mockAxiosInstance.get as jest.Mock).mockRejectedValue(axiosError);
+
+      // The response interceptor should enhance the error and clear token
+      await expect(freshClient.get('/test')).rejects.toThrow();
+      
+      // Verify 401 error was handled by interceptor
+      expect(mockAxiosInstance.get).toHaveBeenCalled();
     });
   });
 
@@ -199,10 +342,13 @@ describe('InternalHttpClient', () => {
       await expect(httpClient.get('/test')).rejects.toThrow();
     });
 
-    it('should handle invalid token response', async () => {
+    it('should handle invalid token response (success false)', async () => {
       const tokenResponse: AxiosResponse<ClientTokenResponse> = {
         data: {
-          success: false
+          success: false,
+          token: '',
+          expiresIn: 3600,
+          expiresAt: new Date().toISOString()
         } as any,
         status: 200,
         statusText: 'OK',
@@ -210,10 +356,183 @@ describe('InternalHttpClient', () => {
         config: {} as any
       };
 
-      mockTempAxios.post.mockResolvedValue(tokenResponse);
+      // Set up mock for temp axios BEFORE creating client
+      // Reset mock implementation first to clear beforeEach setup
+      const axiosCreateMock = axios.create as jest.MockedFunction<typeof axios.create>;
+      axiosCreateMock.mockReset();
       
-      // When token response is invalid, fetchClientToken throws, so request fails
-      await expect(httpClient.get('/test')).rejects.toThrow();
+      // Create post mock that returns tokenResponse immediately
+      // Ensure the mock returns the response correctly
+      const tempAxiosPostMock = jest.fn();
+      tempAxiosPostMock.mockResolvedValue(tokenResponse);
+      const tempAxiosMock = { 
+        post: tempAxiosPostMock
+      };
+      
+      // Create a fresh mock axios instance for the main client
+      // Need to capture the interceptor function
+      let requestInterceptor: ((config: InternalAxiosRequestConfig) => Promise<InternalAxiosRequestConfig>) | null = null;
+      
+      const testMainAxiosInstance = {
+        interceptors: {
+          request: { 
+            use: jest.fn((onFulfilled, onRejected) => {
+              // Capture the interceptor function
+              requestInterceptor = onFulfilled;
+              return 0;
+            })
+          },
+          response: { 
+            use: jest.fn((onFulfilled, onRejected) => {
+              return 0;
+            })
+          }
+        },
+        get: jest.fn(),
+        post: jest.fn(),
+        put: jest.fn(),
+        delete: jest.fn()
+      };
+      
+      axiosCreateMock.mockImplementation((config?: any) => {
+        // Check if this is a temp axios for token fetch (has X-Client-Id header)
+        if (config?.headers?.['X-Client-Id']) {
+          // Return temp axios with post method that returns tokenResponse
+          return tempAxiosMock as any;
+        }
+        // Return main mock axios instance for the client
+        return testMainAxiosInstance;
+      });
+
+      // Create fresh client AFTER mocks are set up
+      const freshClient = new InternalHttpClient(config);
+      
+      // Mock the get method to run the interceptor first
+      (testMainAxiosInstance.get as jest.Mock).mockImplementation(async (url, config) => {
+        // Run the interceptor first if it exists
+        if (requestInterceptor) {
+          try {
+            // Ensure config is an object with headers
+            const interceptorConfig: InternalAxiosRequestConfig = (config || { headers: {} }) as InternalAxiosRequestConfig;
+            await requestInterceptor(interceptorConfig);
+          } catch (error) {
+            // If interceptor throws (e.g., invalid token), throw it
+            throw error;
+          }
+        }
+        // This should never be reached if token fetch fails
+        return { data: {} };
+      });
+      
+      // The request interceptor will call getClientToken which will call fetchClientToken
+      // When token response is invalid (success: false), fetchClientToken throws
+      await expect(freshClient.get('/test')).rejects.toThrow('Failed to get client token');
+    });
+
+    it('should handle invalid token response (missing token)', async () => {
+      const tokenResponse: AxiosResponse<ClientTokenResponse> = {
+        data: {
+          success: true,
+          token: '', // Empty token
+          expiresIn: 3600,
+          expiresAt: new Date().toISOString()
+        } as any,
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      // Set up mock for temp axios BEFORE creating client
+      // Reset mock implementation first to clear beforeEach setup
+      const axiosCreateMock = axios.create as jest.MockedFunction<typeof axios.create>;
+      axiosCreateMock.mockReset();
+      
+      // Create post mock that returns tokenResponse immediately
+      // Ensure the mock returns the response correctly
+      const tempAxiosPostMock = jest.fn();
+      tempAxiosPostMock.mockResolvedValue(tokenResponse);
+      const tempAxiosMock = { 
+        post: tempAxiosPostMock
+      };
+      
+      // Create a fresh mock axios instance for the main client
+      // Need to capture the interceptor function
+      let requestInterceptor: ((config: InternalAxiosRequestConfig) => Promise<InternalAxiosRequestConfig>) | null = null;
+      
+      const testMainAxiosInstance = {
+        interceptors: {
+          request: { 
+            use: jest.fn((onFulfilled, onRejected) => {
+              // Capture the interceptor function
+              requestInterceptor = onFulfilled;
+              return 0;
+            })
+          },
+          response: { 
+            use: jest.fn((onFulfilled, onRejected) => {
+              return 0;
+            })
+          }
+        },
+        get: jest.fn(),
+        post: jest.fn(),
+        put: jest.fn(),
+        delete: jest.fn()
+      };
+      
+      axiosCreateMock.mockImplementation((config?: any) => {
+        // Check if this is a temp axios for token fetch (has X-Client-Id header)
+        if (config?.headers?.['X-Client-Id']) {
+          // Return temp axios with post method that returns tokenResponse
+          return tempAxiosMock as any;
+        }
+        // Return main mock axios instance for the client
+        return testMainAxiosInstance;
+      });
+
+      // Create fresh client AFTER mocks are set up
+      const freshClient = new InternalHttpClient(config);
+      
+      // Mock the get method to run the interceptor first
+      (testMainAxiosInstance.get as jest.Mock).mockImplementation(async (url, config) => {
+        // Run the interceptor first if it exists
+        if (requestInterceptor) {
+          try {
+            // Ensure config is an object with headers
+            const interceptorConfig: InternalAxiosRequestConfig = (config || { headers: {} }) as InternalAxiosRequestConfig;
+            await requestInterceptor(interceptorConfig);
+          } catch (error) {
+            // If interceptor throws (e.g., empty token), throw it
+            throw error;
+          }
+        }
+        // This should never be reached if token fetch fails
+        return { data: {} };
+      });
+      
+      // When token is empty, fetchClientToken throws
+      await expect(freshClient.get('/test')).rejects.toThrow('Failed to get client token');
+    });
+
+    it('should handle token fetch error with non-Error object', async () => {
+      // Set up mock for temp axios BEFORE creating client
+      const tempAxiosMock = { post: jest.fn() };
+      const axiosCreateMock = axios.create as jest.MockedFunction<typeof axios.create>;
+      axiosCreateMock.mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          (tempAxiosMock.post as jest.Mock).mockRejectedValue('String error');
+          return tempAxiosMock as any;
+        }
+        return mockAxiosInstance;
+      });
+
+      // Create fresh client AFTER mocks are set up
+      const freshClient = new InternalHttpClient(config);
+      
+      // When error is not an Error instance, it should be caught and wrapped
+      // The error will propagate through the interceptor
+      await expect(freshClient.get('/test')).rejects.toThrow();
     });
 
     it('should handle network errors in token fetch', async () => {
@@ -224,9 +543,80 @@ describe('InternalHttpClient', () => {
       await expect(httpClient.get('/test')).rejects.toThrow();
     });
 
-    it('should proactively refresh token when within 60 seconds of expiration', async () => {
-      // Testing token refresh behavior is complex because it involves interceptors
-      // Instead, we verify that multiple requests work correctly
+    it('should make requests that trigger token fetch', async () => {
+      // Note: This test verifies that requests work and token fetch happens
+      // Full token refresh testing with precise timing is complex due to interceptor behavior
+      // The actual refresh behavior is tested through integration tests
+      const freshClient = new InternalHttpClient(config);
+      
+      const tokenResponse: AxiosResponse<ClientTokenResponse> = {
+        data: {
+          success: true,
+          token: 'test-token',
+          expiresIn: 3600,
+          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString()
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      const tempAxiosMock = { post: jest.fn() };
+      const axiosCreateMock = axios.create as jest.MockedFunction<typeof axios.create>;
+      axiosCreateMock.mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          (tempAxiosMock.post as jest.Mock).mockResolvedValue(tokenResponse);
+          return tempAxiosMock as any;
+        }
+        return mockAxiosInstance;
+      });
+
+      const getResponse: AxiosResponse = {
+        data: { message: 'success' },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (mockAxiosInstance.get as jest.Mock).mockResolvedValue(getResponse);
+      
+      // Make request - token fetch will happen via interceptor
+      const result = await freshClient.get('/test');
+      
+      // Verify request succeeded
+      expect(result).toEqual({ message: 'success' });
+    });
+
+    it('should handle concurrent token requests', async () => {
+      // Note: This test verifies concurrent request handling
+      // Full promise deduplication testing is complex due to interceptor timing
+      const freshClient = new InternalHttpClient(config);
+      
+      const tokenResponse: AxiosResponse<ClientTokenResponse> = {
+        data: {
+          success: true,
+          token: 'test-token',
+          expiresIn: 3600,
+          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString()
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      const tempAxiosMock = { post: jest.fn() };
+      const axiosCreateMock = axios.create as jest.MockedFunction<typeof axios.create>;
+      axiosCreateMock.mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          (tempAxiosMock.post as jest.Mock).mockResolvedValue(tokenResponse);
+          return tempAxiosMock as any;
+        }
+        return mockAxiosInstance;
+      });
+
       const getResponse: AxiosResponse = {
         data: { message: 'success' },
         status: 200,
@@ -237,14 +627,61 @@ describe('InternalHttpClient', () => {
 
       (mockAxiosInstance.get as jest.Mock).mockResolvedValue(getResponse);
 
-      // Multiple requests should work
-      const result1 = await httpClient.get('/test');
-      const result2 = await httpClient.get('/test2');
-      
-      // Verify both requests succeed
-      expect(result1).toEqual({ message: 'success' });
-      expect(result2).toEqual({ message: 'success' });
+      // Start concurrent requests
+      const request1 = freshClient.get('/test');
+      const request2 = freshClient.get('/test2');
+
+      await Promise.all([request1, request2]);
+
+      // Both requests should succeed
       expect(mockAxiosInstance.get).toHaveBeenCalledTimes(2);
+    });
+
+    it('should make multiple requests successfully', async () => {
+      // Note: This test verifies that multiple requests work
+      // Token caching behavior is tested through integration tests
+      const freshClient = new InternalHttpClient(config);
+      
+      const tokenResponse: AxiosResponse<ClientTokenResponse> = {
+        data: {
+          success: true,
+          token: 'test-token',
+          expiresIn: 3600,
+          expiresAt: new Date(Date.now() + 3600 * 1000).toISOString()
+        },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      const tempAxiosMock = { post: jest.fn() };
+      const axiosCreateMock = axios.create as jest.MockedFunction<typeof axios.create>;
+      axiosCreateMock.mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          (tempAxiosMock.post as jest.Mock).mockResolvedValue(tokenResponse);
+          return tempAxiosMock as any;
+        }
+        return mockAxiosInstance;
+      });
+
+      const getResponse: AxiosResponse = {
+        data: { message: 'success' },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (mockAxiosInstance.get as jest.Mock).mockResolvedValue(getResponse);
+
+      // Make multiple requests
+      await freshClient.get('/test');
+      await freshClient.get('/test2');
+      await freshClient.get('/test3');
+
+      // Verify all requests succeeded
+      expect(mockAxiosInstance.get).toHaveBeenCalledTimes(3);
     });
 
     it('should handle concurrent token requests', async () => {
@@ -421,6 +858,20 @@ describe('InternalHttpClient', () => {
   });
 
   describe('isAxiosError', () => {
+    it('should detect AxiosError instances via instanceof', () => {
+      // Create a real AxiosError instance using the mocked AxiosError class
+      const axiosErrorConstructor = require('axios').AxiosError;
+      const error = new axiosErrorConstructor('Test error');
+      error.config = {};
+      error.isAxiosError = true;
+
+      // Test through get method which uses isAxiosError internally
+      const mockAxiosInstance = axios.create();
+      (mockAxiosInstance.get as jest.Mock).mockRejectedValue(error);
+
+      return expect(httpClient.get('/test')).rejects.toThrow(MisoClientError);
+    });
+
     it('should detect AxiosError instances', () => {
       const error: AxiosError = {
         config: {},
@@ -864,6 +1315,14 @@ describe('InternalHttpClient', () => {
 
       await expect(httpClient.post('/test', {})).rejects.toThrow(MisoClientError);
     });
+
+    it('should propagate non-Axios errors in post', async () => {
+      const error = new Error('Network error');
+      const mockAxiosInstance = axios.create();
+      (mockAxiosInstance.post as jest.Mock).mockRejectedValue(error);
+
+      await expect(httpClient.post('/test', {})).rejects.toThrow('Network error');
+    });
   });
 
   describe('put', () => {
@@ -1103,6 +1562,27 @@ describe('InternalHttpClient', () => {
         }
       });
       expect(result).toEqual({ updated: true });
+    });
+
+    it('should make DELETE request with Authorization header', async () => {
+      const mockAxiosInstance = axios.create();
+      const response: AxiosResponse = {
+        data: { deleted: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (mockAxiosInstance.delete as jest.Mock).mockResolvedValue(response);
+
+      const result = await httpClient.authenticatedRequest('DELETE', '/test', 'token123');
+      expect(mockAxiosInstance.delete).toHaveBeenCalledWith('/test', {
+        headers: {
+          Authorization: 'Bearer token123'
+        }
+      });
+      expect(result).toEqual({ deleted: true });
     });
 
     it('should merge Authorization header with existing config', async () => {

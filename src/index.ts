@@ -305,6 +305,14 @@ export class MisoClient {
 // Export types
 export * from './types/config.types';
 
+// Export pagination, filter, sort types
+export * from './types/pagination.types';
+export * from './types/filter.types';
+export * from './types/sort.types';
+
+// Export error types (use explicit exports to avoid conflict with config.types ErrorResponse)
+export type { ErrorResponse as ErrorResponseSnakeCase, ErrorEnvelope } from './types/errors.types';
+
 // Export services for advanced usage
 export { AuthService } from './services/auth.service';
 export { RoleService } from './services/role.service';
@@ -317,5 +325,10 @@ export { HttpClient } from './utils/http-client';
 // Export utilities
 export { loadConfig } from './utils/config-loader';
 
-// Export error classes
-export { MisoClientError } from './utils/errors';
+// Export pagination, filter, sort utilities
+export * from './utils/pagination.utils';
+export * from './utils/filter.utils';
+export * from './utils/sort.utils';
+
+// Export error classes and utilities
+export { MisoClientError, ApiErrorException, transform_error_to_snake_case, handle_api_error_snake_case } from './utils/errors';
