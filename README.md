@@ -1,6 +1,6 @@
 # AI Fabrix Miso Client SDK
 
-[![npm version](https://badge.fury.io/js/%40aifabrix%2Fmiso-client.svg)](https://badge.fury.io/js/%40aifabrix%2Fmiso-client)
+[![npm version](https://img.shields.io/npm/v/%40aifabrix%2Fmiso-client.svg)](https://www.npmjs.com/package/%40aifabrix%2Fmiso-client)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 The **AI Fabrix Miso Client SDK** provides authentication, authorization, and logging for applications integrated with the AI Fabrix platform.
