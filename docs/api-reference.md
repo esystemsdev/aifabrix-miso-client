@@ -104,6 +104,7 @@ interface MisoClientConfig {
   clientSecret: string; // Required: Client secret
   redis?: RedisConfig; // Optional: Redis configuration
   logLevel?: 'debug' | 'info' | 'warn' | 'error'; // Optional: Log level
+  emitEvents?: boolean; // Optional: Emit log events instead of HTTP/Redis (for direct SDK embedding)
   cache?: {
     // Optional: Cache configuration
     roleTTL?: number; // Role cache TTL in seconds
@@ -478,7 +479,10 @@ console.log('Permissions cache cleared');
 
 ## Logging Methods
 
-The SDK provides a logger service accessible via `client.log`.
+The SDK provides a logger service accessible via `client.log`. The logger extends `EventEmitter` and supports event emission mode for direct SDK embedding in your own application.
+
+**Event Emission Mode:**
+When `emitEvents = true` in config, logs are emitted as Node.js events instead of being sent via HTTP/Redis. See [Event Emission Mode Guide](configuration.md#event-emission-mode) for details.
 
 ### `log.error(message: string, context?: object): Promise<void>`
 
@@ -740,11 +744,46 @@ const roleService = new RoleService(config, redisService);
 
 ### LoggerService
 
-```typescript
-import { LoggerService } from '@aifabrix/miso-client';
+`LoggerService` extends `EventEmitter` and provides structured logging with optional event emission mode.
 
-const loggerService = new LoggerService(config, redisService);
+```typescript
+import { LoggerService, LogEntry } from '@aifabrix/miso-client';
+
+const loggerService = new LoggerService(httpClient, redisService);
 ```
+
+**Event Emission Mode:**
+
+When `emitEvents = true` in config, `LoggerService` emits events instead of sending logs via HTTP/Redis:
+
+```typescript
+// Enable event emission mode
+const client = new MisoClient({
+  ...loadConfig(),
+  emitEvents: true
+});
+
+// Listen to log events
+client.log.on('log', (logEntry: LogEntry) => {
+  // Save directly to DB without HTTP
+  db.saveLog(logEntry);
+});
+
+// Listen to batch events (for batched audit logs)
+client.log.on('log:batch', (logEntries: LogEntry[]) => {
+  // Save batch directly to DB
+  db.saveLogs(logEntries);
+});
+```
+
+**Event Names:**
+- `'log'`: Emitted for all log entries (info, debug, error, audit) with `LogEntry` payload
+- `'log:batch'`: Emitted for batched audit logs with `LogEntry[]` payload
+
+**EventEmitter Methods:**
+All EventEmitter methods are available (`on`, `once`, `off`, `removeListener`, etc.)
+
+→ [Event Emission Mode Guide](configuration.md#event-emission-mode)
 
 ### RedisService
 

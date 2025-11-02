@@ -2294,6 +2294,12 @@ describe('HttpClient', () => {
 
         jest.advanceTimersByTime(1);
         await flushTimersAndPromises();
+        // Additional timer advances for nested async operations
+        jest.runOnlyPendingTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+        await Promise.resolve();
 
         expect(mockLogger.debug).toHaveBeenCalledWith(
           'HTTP POST /api/users',
@@ -2335,7 +2341,8 @@ describe('HttpClient', () => {
           data: {}
         };
 
-        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[0];
+        // Get the latest interceptor after creating new HttpClient
+        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[mockAxios.interceptors.response.use.mock.calls.length - 1];
         const successFn = responseUseCall[0];
         
         successFn(response);
@@ -2351,7 +2358,8 @@ describe('HttpClient', () => {
         config.logLevel = 'debug';
         httpClient = new HttpClient(config, mockLogger);
         
-        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[0];
+        // Get the latest interceptor after creating new HttpClient
+        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[mockAxios.interceptors.response.use.mock.calls.length - 1];
         const successFn = responseUseCall[0];
 
         const configObj: any = {
@@ -2377,6 +2385,12 @@ describe('HttpClient', () => {
 
         jest.advanceTimersByTime(1);
         await flushTimersAndPromises();
+        // Additional timer advances for nested async operations
+        jest.runOnlyPendingTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+        await Promise.resolve();
 
         expect(mockLogger.debug).toHaveBeenCalled();
       });
@@ -2385,7 +2399,8 @@ describe('HttpClient', () => {
         config.logLevel = 'debug';
         httpClient = new HttpClient(config, mockLogger);
         
-        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[0];
+        // Get the latest interceptor after creating new HttpClient
+        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[mockAxios.interceptors.response.use.mock.calls.length - 1];
         const successFn = responseUseCall[0];
 
         const configObj: any = {
@@ -2411,6 +2426,12 @@ describe('HttpClient', () => {
 
         jest.advanceTimersByTime(1);
         await flushTimersAndPromises();
+        // Additional timer advances for nested async operations
+        jest.runOnlyPendingTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+        await Promise.resolve();
 
         expect(mockLogger.debug).toHaveBeenCalled();
       });
@@ -2961,7 +2982,8 @@ describe('HttpClient', () => {
         config.logLevel = 'debug';
         httpClient = new HttpClient(config, mockLogger);
         
-        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[0];
+        // Get the latest interceptor after creating new HttpClient
+        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[mockAxios.interceptors.response.use.mock.calls.length - 1];
         const successFn = responseUseCall[0];
 
         mockLogger.debug.mockRejectedValueOnce(new Error('Debug logger error'));
@@ -3213,8 +3235,13 @@ describe('HttpClient', () => {
 
         successFn(response);
 
+        // Run timers to trigger setTimeout callbacks
         jest.advanceTimersByTime(1);
+        jest.runOnlyPendingTimers();
         await flushTimersAndPromises();
+        // Additional wait for async operations
+        await Promise.resolve();
+        await Promise.resolve();
 
         // Check that debug log contains masked data
         expect(mockLogger.debug).toHaveBeenCalled();

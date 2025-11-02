@@ -514,6 +514,77 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
 
 ## Logging Issues
 
+### Event Emission Mode Not Working
+
+**Symptoms:**
+
+- Logs are not being emitted as events when `emitEvents = true`
+- Event listeners are not being called
+- Logs still being sent via HTTP/Redis instead of events
+
+**Possible Causes:**
+
+1. `emitEvents` not set to `true` in config
+2. Event listeners not registered before logging
+3. Event emission disabled by configuration
+
+**Solutions:**
+
+1. **Verify Configuration:**
+
+   ```typescript
+   const client = new MisoClient({
+     ...loadConfig(),
+     emitEvents: true // Ensure this is set to true
+   });
+
+   await client.initialize();
+
+   // Register event listeners BEFORE using logger
+   client.log.on('log', (logEntry: LogEntry) => {
+     console.log('Log event received:', logEntry);
+     // Save to database
+   });
+
+   // Now use logger - events will be emitted
+   await client.log.info('Test message');
+   ```
+
+2. **Check Environment Variable:**
+
+   ```bash
+   # .env file
+   MISO_EMIT_EVENTS=true
+   ```
+
+3. **Verify Event Listeners Are Registered:**
+
+   ```typescript
+   // Register listeners BEFORE any logging operations
+   client.log.on('log', (logEntry: LogEntry) => {
+     // Handle log event
+   });
+
+   client.log.on('log:batch', (logEntries: LogEntry[]) => {
+     // Handle batch event
+   });
+   ```
+
+4. **Test Event Emission:**
+
+   ```typescript
+   const eventSpy = jest.fn();
+   client.log.on('log', eventSpy);
+   
+   await client.log.info('Test');
+   
+   expect(eventSpy).toHaveBeenCalled();
+   ```
+
+**Note:** When `emitEvents = true`, logs are emitted as events and HTTP/Redis operations are completely skipped. This is by design for applications that embed the SDK directly.
+
+→ [Event Emission Mode Guide](configuration.md#event-emission-mode)
+
 ### Logs Not Appearing
 
 **Symptoms:**

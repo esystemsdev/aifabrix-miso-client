@@ -625,4 +625,127 @@ describe('LoggerService', () => {
       );
     });
   });
+
+  describe('event emission (emitEvents mode)', () => {
+    beforeEach(() => {
+      // Set emitEvents to true
+      config.emitEvents = true;
+      (mockHttpClient as any).config = config;
+      loggerService = new LoggerService(mockHttpClient, mockRedisService);
+    });
+
+    it('should emit log event when emitEvents is true', async () => {
+      const eventSpy = jest.fn();
+      loggerService.on('log', eventSpy);
+
+      await loggerService.error('Test error', { userId: '123' });
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      const emittedLog = eventSpy.mock.calls[0][0];
+      expect(emittedLog).toMatchObject({
+        level: 'error',
+        message: 'Test error',
+        context: { userId: '123' },
+        environment: 'unknown',
+        application: 'ctrl-dev-test-app'
+      });
+      expect(emittedLog.timestamp).toBeDefined();
+      expect(emittedLog.correlationId).toBeDefined();
+    });
+
+    it('should skip Redis when emitEvents is true', async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      const eventSpy = jest.fn();
+      loggerService.on('log', eventSpy);
+
+      await loggerService.info('Test info');
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      expect(mockRedisService.rpush).not.toHaveBeenCalled();
+    });
+
+    it('should skip HTTP when emitEvents is true', async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      const eventSpy = jest.fn();
+      loggerService.on('log', eventSpy);
+
+      await loggerService.error('Test error');
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      expect(mockHttpClient.request).not.toHaveBeenCalled();
+    });
+
+    it('should emit audit events with correct structure', async () => {
+      const eventSpy = jest.fn();
+      loggerService.on('log', eventSpy);
+
+      await loggerService.audit('user.created', 'users', { userId: '123' });
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      const emittedLog = eventSpy.mock.calls[0][0];
+      expect(emittedLog.level).toBe('audit');
+      expect(emittedLog.message).toContain('Audit: user.created on users');
+      expect(emittedLog.context).toMatchObject({
+        action: 'user.created',
+        resource: 'users',
+        userId: '123'
+      });
+    });
+
+    it('should emit debug events when logLevel is debug', async () => {
+      const eventSpy = jest.fn();
+      loggerService.on('log', eventSpy);
+
+      await loggerService.debug('Test debug');
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      const emittedLog = eventSpy.mock.calls[0][0];
+      expect(emittedLog.level).toBe('debug');
+    });
+
+    it('should emit events with same payload structure as REST API', async () => {
+      const eventSpy = jest.fn();
+      loggerService.on('log', eventSpy);
+
+      jwt.decode.mockReturnValue({ sub: 'user-123', sessionId: 'session-456' });
+      await loggerService.info('Test', { key: 'value' }, {
+        token: 'jwt-token',
+        applicationId: 'app-123',
+        requestId: 'req-789'
+      });
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      const emittedLog = eventSpy.mock.calls[0][0];
+      // Should have same structure as REST API payload
+      expect(emittedLog).toHaveProperty('timestamp');
+      expect(emittedLog).toHaveProperty('level', 'info');
+      expect(emittedLog).toHaveProperty('environment', 'unknown');
+      expect(emittedLog).toHaveProperty('application', 'ctrl-dev-test-app');
+      expect(emittedLog).toHaveProperty('applicationId', 'app-123');
+      expect(emittedLog).toHaveProperty('message', 'Test');
+      expect(emittedLog).toHaveProperty('context');
+      expect(emittedLog).toHaveProperty('userId', 'user-123');
+      expect(emittedLog).toHaveProperty('sessionId', 'session-456');
+      expect(emittedLog).toHaveProperty('requestId', 'req-789');
+      expect(emittedLog).toHaveProperty('correlationId');
+    });
+
+    it('should maintain backward compatibility when emitEvents is false', async () => {
+      // Reset to default mode (emitEvents = false)
+      config.emitEvents = false;
+      (mockHttpClient as any).config = config;
+      loggerService = new LoggerService(mockHttpClient, mockRedisService);
+      
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+      const eventSpy = jest.fn();
+      loggerService.on('log', eventSpy);
+
+      await loggerService.error('Test error');
+
+      // Should use Redis/HTTP, not emit events
+      expect(mockRedisService.rpush).toHaveBeenCalled();
+      expect(eventSpy).not.toHaveBeenCalled();
+    });
+  });
 });

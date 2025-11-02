@@ -244,6 +244,8 @@ app.get('/admin', authMiddleware, async (req, res) => {
 
 **Now:**
 
+**Note:** When embedding the SDK directly in your own application, enable `emitEvents = true` to receive logs as Node.js events instead of HTTP calls. See [Event Emission Mode](../docs/configuration.md#event-emission-mode) for details.
+
 ```typescript
 // Log info
 await client.log.info('User logged in', {
