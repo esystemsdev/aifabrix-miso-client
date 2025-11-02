@@ -5,3 +5,9 @@ coverage/
 .env
 .DS_Store
 
+# Generated TypeScript files in examples
+examples/**/*.js
+examples/**/*.d.ts
+examples/**/*.js.map
+examples/**/*.d.ts.map
+
