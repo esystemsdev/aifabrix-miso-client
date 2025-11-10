@@ -150,12 +150,12 @@ Use the [AI Fabrix Builder](https://github.com/esystemsdev/aifabrix-builder/blob
 aifabrix up
 
 # Install Keycloak for authentication
-aifabrix create keycloak --port 8082 --database --template platform
+aifabrix create keycloak --port 8082 --database --template keycloak
 aifabrix build keycloak
 aifabrix run keycloak
 
 # Install Miso Controller
-aifabrix create miso-controller --port 3000 --database --redis --template platform
+aifabrix create miso-controller --port 3000 --database --redis --template miso-controller
 aifabrix build miso-controller
 aifabrix run miso-controller
 ```
