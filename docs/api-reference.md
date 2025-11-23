@@ -105,6 +105,7 @@ interface MisoClientConfig {
   redis?: RedisConfig; // Optional: Redis configuration
   logLevel?: 'debug' | 'info' | 'warn' | 'error'; // Optional: Log level
   emitEvents?: boolean; // Optional: Emit log events instead of HTTP/Redis (for direct SDK embedding)
+  authStrategy?: AuthStrategy; // Optional: Default authentication strategy
   cache?: {
     // Optional: Cache configuration
     roleTTL?: number; // Role cache TTL in seconds
@@ -195,13 +196,14 @@ client.login(window.location.href);
 client.login('https://myapp.com/callback');
 ```
 
-### `validateToken(token: string): Promise<boolean>`
+### `validateToken(token: string, authStrategy?: AuthStrategy): Promise<boolean>`
 
 Validates a JWT token with the controller.
 
 **Parameters:**
 
 - `token` - JWT token to validate
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to `true` if token is valid, `false` otherwise
 
@@ -212,15 +214,20 @@ const isValid = await client.validateToken(userToken);
 if (isValid) {
   console.log('Token is valid');
 }
+
+// With custom auth strategy
+const strategy = client.createAuthStrategy(['bearer', 'api-key'], userToken, 'api-key-123');
+const isValid = await client.validateToken(userToken, strategy);
 ```
 
-### `getUser(token: string): Promise<UserInfo | null>`
+### `getUser(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null>`
 
 Retrieves user information from a valid token.
 
 **Parameters:**
 
 - `token` - JWT token
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to user information or `null` if invalid
 
@@ -231,15 +238,20 @@ const user = await client.getUser(token);
 if (user) {
   console.log(`Welcome, ${user.username}!`);
 }
+
+// With custom auth strategy
+const strategy = client.createAuthStrategy(['client-token']);
+const user = await client.getUser(token, strategy);
 ```
 
-### `isAuthenticated(token: string): Promise<boolean>`
+### `isAuthenticated(token: string, authStrategy?: AuthStrategy): Promise<boolean>`
 
 Checks if a user is authenticated (alias for `validateToken`).
 
 **Parameters:**
 
 - `token` - JWT token
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to `true` if authenticated, `false` otherwise
 
@@ -262,17 +274,141 @@ await client.logout();
 console.log('User logged out');
 ```
 
+### Authentication Strategy Methods
+
+#### `requestWithAuthStrategy<T>(method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, authStrategy: AuthStrategy, data?: unknown, config?: AxiosRequestConfig): Promise<T>`
+
+Makes an HTTP request with a custom authentication strategy. Tries authentication methods in priority order based on the strategy.
+
+**Parameters:**
+
+- `method` - HTTP method (GET, POST, PUT, DELETE)
+- `url` - Request URL
+- `authStrategy` - Authentication strategy configuration
+- `data` - Optional request data (for POST/PUT)
+- `config` - Optional Axios request configuration
+
+**Returns:** Promise resolving to response data
+
+**Example:**
+
+```typescript
+// Use client-token only
+const strategy = client.createAuthStrategy(['client-token']);
+const data = await client.requestWithAuthStrategy('GET', '/api/data', strategy);
+
+// Use bearer token with fallback to client-token
+const strategy2 = client.createAuthStrategy(['bearer', 'client-token'], 'bearer-token-123');
+const result = await client.requestWithAuthStrategy('POST', '/api/create', strategy2, { name: 'test' });
+```
+
+#### `createAuthStrategy(methods: ('bearer' | 'client-token' | 'client-credentials' | 'api-key')[], bearerToken?: string, apiKey?: string): AuthStrategy`
+
+Creates an authentication strategy with specified methods and credentials.
+
+**Parameters:**
+
+- `methods` - Array of authentication methods in priority order
+- `bearerToken` - Optional bearer token for bearer authentication
+- `apiKey` - Optional API key for api-key authentication
+
+**Returns:** Authentication strategy object
+
+**Example:**
+
+```typescript
+// Bearer token with fallback to client-token
+const strategy = client.createAuthStrategy(['bearer', 'client-token'], 'token-123');
+
+// API key with fallback to client-credentials
+const strategy2 = client.createAuthStrategy(['api-key', 'client-credentials'], undefined, 'api-key-456');
+
+// Client-token only
+const strategy3 = client.createAuthStrategy(['client-token']);
+```
+
+#### `getDefaultAuthStrategy(bearerToken?: string): AuthStrategy`
+
+Gets the default authentication strategy (bearer token with fallback to client-token).
+
+**Parameters:**
+
+- `bearerToken` - Optional bearer token
+
+**Returns:** Default authentication strategy
+
+**Example:**
+
+```typescript
+const defaultStrategy = client.getDefaultAuthStrategy(token);
+// Returns: { methods: ['bearer', 'client-token'], bearerToken: token }
+
+// Use with existing methods
+const roles = await client.getRoles(token, defaultStrategy);
+```
+
+### Authentication Strategy Types
+
+#### `AuthStrategy`
+
+Interface for configuring authentication strategy.
+
+```typescript
+interface AuthStrategy {
+  methods: AuthMethod[]; // Array of authentication methods in priority order
+  bearerToken?: string;  // Optional bearer token for bearer authentication
+  apiKey?: string;       // Optional API key for api-key authentication
+}
+```
+
+**Supported Methods:**
+- `'bearer'` - Bearer token authentication (Authorization: Bearer <token>)
+- `'client-token'` - Client token authentication (x-client-token header)
+- `'client-credentials'` - Client credentials authentication (X-Client-Id and X-Client-Secret headers)
+- `'api-key'` - API key authentication (Authorization: Bearer <api-key>)
+
+**Priority-Based Fallback:** Methods are tried in the order specified in the `methods` array until one succeeds.
+
+**Example:**
+
+```typescript
+// Global strategy configuration
+const client = new MisoClient({
+  ...loadConfig(),
+  authStrategy: {
+    methods: ['bearer', 'client-token', 'client-credentials'],
+    bearerToken: 'optional-default-token'
+  }
+});
+
+// Per-request strategy
+const strategy: AuthStrategy = {
+  methods: ['api-key', 'client-token'],
+  apiKey: 'my-api-key'
+};
+await client.getRoles(token, strategy);
+```
+
+#### `AuthMethod`
+
+Type for authentication method names.
+
+```typescript
+type AuthMethod = 'bearer' | 'client-token' | 'client-credentials' | 'api-key';
+```
+
 ## Authorization Methods
 
 ### Role Methods
 
-#### `getRoles(token: string): Promise<string[]>`
+#### `getRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]>`
 
 Gets all roles for a user (cached in Redis if available).
 
 **Parameters:**
 
 - `token` - JWT token
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to array of role names
 
@@ -281,9 +417,13 @@ Gets all roles for a user (cached in Redis if available).
 ```typescript
 const roles = await client.getRoles(token);
 console.log('User roles:', roles); // ['admin', 'user', 'editor']
+
+// With custom auth strategy
+const strategy = client.createAuthStrategy(['client-token']);
+const roles = await client.getRoles(token, strategy);
 ```
 
-#### `hasRole(token: string, role: string): Promise<boolean>`
+#### `hasRole(token: string, role: string, authStrategy?: AuthStrategy): Promise<boolean>`
 
 Checks if user has a specific role.
 
@@ -291,6 +431,7 @@ Checks if user has a specific role.
 
 - `token` - JWT token
 - `role` - Role name to check
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to `true` if user has the role
 
@@ -303,7 +444,7 @@ if (isAdmin) {
 }
 ```
 
-#### `hasAnyRole(token: string, roles: string[]): Promise<boolean>`
+#### `hasAnyRole(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean>`
 
 Checks if user has any of the specified roles.
 
@@ -311,6 +452,7 @@ Checks if user has any of the specified roles.
 
 - `token` - JWT token
 - `roles` - Array of role names
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to `true` if user has any of the roles
 
@@ -323,7 +465,7 @@ if (canEdit) {
 }
 ```
 
-#### `hasAllRoles(token: string, roles: string[]): Promise<boolean>`
+#### `hasAllRoles(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean>`
 
 Checks if user has all of the specified roles.
 
@@ -331,6 +473,7 @@ Checks if user has all of the specified roles.
 
 - `token` - JWT token
 - `roles` - Array of role names
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to `true` if user has all roles
 
@@ -343,13 +486,14 @@ if (isSuperAdmin) {
 }
 ```
 
-#### `refreshRoles(token: string): Promise<string[]>`
+#### `refreshRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]>`
 
 Force refreshes roles from controller (bypasses cache).
 
 **Parameters:**
 
 - `token` - JWT token
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to fresh array of role names
 
@@ -362,13 +506,14 @@ console.log('Fresh roles:', freshRoles);
 
 ### Permission Methods
 
-#### `getPermissions(token: string): Promise<string[]>`
+#### `getPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]>`
 
 Gets all permissions for a user (cached in Redis if available).
 
 **Parameters:**
 
 - `token` - JWT token
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to array of permission names
 
@@ -379,7 +524,7 @@ const permissions = await client.getPermissions(token);
 console.log('User permissions:', permissions);
 ```
 
-#### `hasPermission(token: string, permission: string): Promise<boolean>`
+#### `hasPermission(token: string, permission: string, authStrategy?: AuthStrategy): Promise<boolean>`
 
 Checks if user has a specific permission.
 
@@ -387,6 +532,7 @@ Checks if user has a specific permission.
 
 - `token` - JWT token
 - `permission` - Permission name to check
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to `true` if user has the permission
 
@@ -399,7 +545,7 @@ if (canDelete) {
 }
 ```
 
-#### `hasAnyPermission(token: string, permissions: string[]): Promise<boolean>`
+#### `hasAnyPermission(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean>`
 
 Checks if user has any of the specified permissions.
 
@@ -407,6 +553,7 @@ Checks if user has any of the specified permissions.
 
 - `token` - JWT token
 - `permissions` - Array of permission names
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to `true` if user has any permission
 
@@ -419,7 +566,7 @@ if (canModify) {
 }
 ```
 
-#### `hasAllPermissions(token: string, permissions: string[]): Promise<boolean>`
+#### `hasAllPermissions(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean>`
 
 Checks if user has all of the specified permissions.
 
@@ -427,6 +574,7 @@ Checks if user has all of the specified permissions.
 
 - `token` - JWT token
 - `permissions` - Array of permission names
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to `true` if user has all permissions
 
@@ -443,13 +591,14 @@ if (canManage) {
 }
 ```
 
-#### `refreshPermissions(token: string): Promise<string[]>`
+#### `refreshPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]>`
 
 Force refreshes permissions from controller (bypasses cache).
 
 **Parameters:**
 
 - `token` - JWT token
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to fresh array of permission names
 
@@ -460,13 +609,14 @@ const freshPermissions = await client.refreshPermissions(token);
 console.log('Fresh permissions:', freshPermissions);
 ```
 
-#### `clearPermissionsCache(token: string): Promise<void>`
+#### `clearPermissionsCache(token: string, authStrategy?: AuthStrategy): Promise<void>`
 
 Clears cached permissions for a user.
 
 **Parameters:**
 
 - `token` - JWT token
+- `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise that resolves when cache is cleared
 

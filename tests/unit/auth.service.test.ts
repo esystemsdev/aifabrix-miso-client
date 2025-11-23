@@ -72,7 +72,10 @@ describe('AuthService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'POST',
         '/api/auth/validate',
-        'valid-token'
+        'valid-token',
+        undefined,
+        undefined,
+        undefined
       );
     });
 
@@ -232,7 +235,10 @@ describe('AuthService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
         '/api/auth/user',
-        'valid-token'
+        'valid-token',
+        undefined,
+        undefined,
+        undefined
       );
     });
 
@@ -277,7 +283,10 @@ describe('AuthService', () => {
         expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
           'POST',
           '/api/auth/validate',
-          'different-token'
+          'different-token',
+          undefined,
+          undefined,
+          undefined
         );
       });
 
@@ -315,7 +324,10 @@ describe('AuthService', () => {
         expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
           'POST',
           '/api/auth/validate',
-          'different-token'
+          'different-token',
+          undefined,
+          undefined,
+          undefined
         );
       });
     });
@@ -338,7 +350,10 @@ describe('AuthService', () => {
         expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
           'GET',
           '/api/auth/user',
-          'different-token'
+          'different-token',
+          undefined,
+          undefined,
+          undefined
         );
       });
     });
@@ -387,7 +402,10 @@ describe('AuthService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'POST',
         '/api/auth/validate',
-        'some-token'
+        'some-token',
+        undefined,
+        undefined,
+        undefined
       );
     });
   });

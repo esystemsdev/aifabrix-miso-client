@@ -10,8 +10,9 @@ import axios, {
   AxiosError,
   InternalAxiosRequestConfig
 } from 'axios';
-import { MisoClientConfig, ClientTokenResponse, ErrorResponse, isErrorResponse } from '../types/config.types';
+import { MisoClientConfig, ClientTokenResponse, ErrorResponse, isErrorResponse, AuthStrategy } from '../types/config.types';
 import { MisoClientError } from './errors';
+import { AuthStrategyHandler } from './auth-strategy';
 
 export class InternalHttpClient {
   private axios: AxiosInstance;
@@ -32,14 +33,19 @@ export class InternalHttpClient {
     });
 
     // Interceptor adds client token (or fetches it if needed)
+    // Note: This interceptor always adds client-token for backward compatibility
+    // When using auth strategy, the strategy handler will override headers as needed
     this.axios.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         config.headers = config.headers || {};
         
-        // Get client token (fetch if needed)
-        const token = await this.getClientToken();
-        if (token) {
-          config.headers['x-client-token'] = token;
+        // Only add client token if not already set by auth strategy
+        // Auth strategy will set headers appropriately
+        if (!config.headers['x-client-token'] && !config.headers['X-Client-Id']) {
+          const token = await this.getClientToken();
+          if (token) {
+            config.headers['x-client-token'] = token;
+          }
         }
         
         return config;
@@ -311,15 +317,87 @@ export class InternalHttpClient {
     url: string,
     token: string, // User authentication token (sent as Bearer token)
     data?: unknown,
+    config?: AxiosRequestConfig,
+    authStrategy?: AuthStrategy // Optional auth strategy override
+  ): Promise<T> {
+    // Use auth strategy if provided, otherwise use default bearer token behavior
+    let requestConfig: AxiosRequestConfig;
+    
+    if (authStrategy) {
+      // Build headers based on auth strategy
+      const clientToken = await this.getClientToken();
+      const authHeaders = AuthStrategyHandler.buildAuthHeaders(
+        authStrategy,
+        clientToken,
+        this.config.clientId,
+        this.config.clientSecret
+      );
+      
+      requestConfig = {
+        ...config,
+        headers: {
+          ...config?.headers,
+          ...authHeaders
+        }
+      };
+    } else {
+      // Default behavior: Bearer token + client token
+      requestConfig = {
+        ...config,
+        headers: {
+          ...config?.headers,
+          // Add Bearer token for user authentication
+          // x-client-token is automatically added by interceptor (not a Bearer token)
+          Authorization: `Bearer ${token}`
+        }
+      };
+    }
+
+    switch (method) {
+      case 'GET':
+        return this.get<T>(url, requestConfig);
+      case 'POST':
+        return this.post<T>(url, data, requestConfig);
+      case 'PUT':
+        return this.put<T>(url, data, requestConfig);
+      case 'DELETE':
+        return this.delete<T>(url, requestConfig);
+      default:
+        throw new Error(`Unsupported HTTP method: ${method}`);
+    }
+  }
+
+  /**
+   * Make request with authentication strategy
+   * Tries authentication methods in priority order based on strategy
+   * @param method - HTTP method
+   * @param url - Request URL
+   * @param authStrategy - Authentication strategy configuration
+   * @param data - Optional request data
+   * @param config - Optional Axios request config
+   * @returns Response data
+   */
+  async requestWithAuthStrategy<T>(
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    url: string,
+    authStrategy: AuthStrategy,
+    data?: unknown,
     config?: AxiosRequestConfig
   ): Promise<T> {
-    const requestConfig = {
+    // Build headers based on auth strategy
+    const clientToken = await this.getClientToken();
+    const authHeaders = AuthStrategyHandler.buildAuthHeaders(
+      authStrategy,
+      clientToken,
+      this.config.clientId,
+      this.config.clientSecret
+    );
+
+    const requestConfig: AxiosRequestConfig = {
       ...config,
       headers: {
         ...config?.headers,
-        // Add Bearer token for user authentication
-        // x-client-token is automatically added by interceptor (not a Bearer token)
-        Authorization: `Bearer ${token}`
+        ...authHeaders
       }
     };
 

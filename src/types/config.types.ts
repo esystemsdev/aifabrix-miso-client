@@ -10,6 +10,35 @@ export interface RedisConfig {
   keyPrefix?: string;
 }
 
+/**
+ * Authentication method types
+ */
+export type AuthMethod = 'bearer' | 'client-token' | 'client-credentials' | 'api-key';
+
+/**
+ * Authentication strategy configuration
+ * Defines which authentication methods to try and in what order
+ */
+export interface AuthStrategy {
+  /**
+   * Array of authentication methods in priority order
+   * Methods are tried in sequence until one succeeds
+   */
+  methods: AuthMethod[];
+  
+  /**
+   * Optional bearer token for bearer authentication
+   * Required if 'bearer' is in methods array
+   */
+  bearerToken?: string;
+  
+  /**
+   * Optional API key for api-key authentication
+   * Required if 'api-key' is in methods array
+   */
+  apiKey?: string;
+}
+
 export interface MisoClientConfig {
   // REQUIRED: Only these 3 fields needed
   controllerUrl: string;
@@ -44,6 +73,10 @@ export interface MisoClientConfig {
   // When true, LoggerService will emit events via EventEmitter that can be listened to
   // Useful for direct SDK embedding in your own application to save logs directly to DB
   emitEvents?: boolean; // Default: false (maintains backward compatibility)
+  
+  // Optional: Default authentication strategy
+  // If not specified, defaults to ['bearer', 'client-token']
+  authStrategy?: AuthStrategy;
 }
 
 export interface AuditConfig {

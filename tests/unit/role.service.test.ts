@@ -89,7 +89,10 @@ describe('RoleService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
         '/api/auth/roles',
-        'token'
+        'token',
+        undefined,
+        undefined,
+        undefined
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
         'roles:123',
@@ -115,7 +118,10 @@ describe('RoleService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
         '/api/auth/roles',
-        'token'
+        'token',
+        undefined,
+        undefined,
+        undefined
       );
     });
 
@@ -261,7 +267,10 @@ describe('RoleService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
         '/api/auth/roles/refresh',
-        'token'
+        'token',
+        undefined,
+        undefined,
+        undefined
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
         'roles:123',

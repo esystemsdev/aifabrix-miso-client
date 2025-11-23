@@ -481,6 +481,59 @@ const response = createPaginatedListResponse(
 → [Complete sort example](docs/examples.md#sorting)  
 → [API Reference](docs/api-reference.md#pagination-utilities)
 
+---
+
+### Step 9: Multi-Authentication Strategy
+
+**What happens:** Configure flexible authentication methods with priority-based fallback for advanced authentication scenarios.
+
+```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+const client = new MisoClient(loadConfig());
+await client.initialize();
+
+// Global strategy configuration
+const client = new MisoClient({
+  ...loadConfig(),
+  authStrategy: {
+    methods: ['bearer', 'client-token', 'client-credentials']
+  }
+});
+
+// Per-request strategy override
+const strategy = client.createAuthStrategy(['bearer', 'api-key'], 'token-123', 'api-key-456');
+await client.getRoles(token, strategy);
+
+// Using requestWithAuthStrategy for custom requests
+await client.requestWithAuthStrategy('GET', '/api/data', {
+  methods: ['client-token']
+});
+
+// Get default strategy
+const defaultStrategy = client.getDefaultAuthStrategy(token);
+// Returns: { methods: ['bearer', 'client-token'], bearerToken: token }
+```
+
+**Supported Authentication Methods:**
+- `bearer` - Bearer token authentication (Authorization: Bearer <token>)
+- `client-token` - Client token authentication (x-client-token header)
+- `client-credentials` - Client credentials authentication (X-Client-Id and X-Client-Secret headers)
+- `api-key` - API key authentication (Authorization: Bearer <api-key>)
+
+**Priority-Based Fallback:** Methods are tried in the order specified in the strategy array until one succeeds.
+
+**Environment Variable Configuration:**
+```bash
+MISO_AUTH_STRATEGY=bearer,client-token,api-key
+MISO_BEARER_TOKEN=optional-bearer-token
+MISO_API_KEY=optional-api-key
+```
+
+**Backward Compatibility:** All existing code continues to work without changes. If no strategy is specified, defaults to `['bearer', 'client-token']` (existing behavior).
+
+→ [Complete authentication strategy example](docs/examples.md#authentication-strategy)  
+→ [API Reference](docs/api-reference.md#authentication-strategy)
 
 ---
 
@@ -496,11 +549,18 @@ interface MisoClientConfig {
   encryptionKey?: string;     // Optional: Encryption key (or use ENCRYPTION_KEY env var)
   sensitiveFieldsConfig?: string; // Optional: Path to ISO 27001 sensitive fields config JSON
   emitEvents?: boolean;       // Optional: Emit log events instead of HTTP/Redis (for direct SDK embedding)
+  authStrategy?: AuthStrategy; // Optional: Default authentication strategy
   cache?: {
     roleTTL?: number;         // Role cache TTL (default: 900s)
     permissionTTL?: number;   // Permission cache TTL (default: 900s)
   };
   audit?: AuditConfig;        // Optional: Audit logging configuration
+}
+
+interface AuthStrategy {
+  methods: ('bearer' | 'client-token' | 'client-credentials' | 'api-key')[];
+  bearerToken?: string;       // Optional: Bearer token for bearer authentication
+  apiKey?: string;            // Optional: API key for api-key authentication
 }
 ```
 
@@ -607,6 +667,9 @@ REDIS_PORT=6379
 MISO_LOG_LEVEL=info
 MISO_SENSITIVE_FIELDS_CONFIG=/path/to/sensitive-fields.config.json  # Optional: ISO 27001 config
 MISO_EMIT_EVENTS=true  # Optional: Enable event emission mode (for direct SDK embedding)
+MISO_AUTH_STRATEGY=bearer,client-token,api-key  # Optional: Authentication strategy (comma-separated)
+MISO_BEARER_TOKEN=optional-bearer-token  # Optional: Default bearer token
+MISO_API_KEY=optional-api-key  # Optional: Default API key
 ```
 
 ---

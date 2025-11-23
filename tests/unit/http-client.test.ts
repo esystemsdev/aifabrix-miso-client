@@ -1002,7 +1002,7 @@ describe('HttpClient', () => {
 
       const result = await httpClient.authenticatedRequest('GET', '/test', '');
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('GET', '/test', '', undefined, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('GET', '/test', '', undefined, undefined, undefined);
       expect(result).toEqual(mockData);
     });
 
@@ -1016,7 +1016,7 @@ describe('HttpClient', () => {
 
       await httpClient.authenticatedRequest('POST', '/test', 'token123', {}, requestConfig);
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('POST', '/test', 'token123', {}, requestConfig);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('POST', '/test', 'token123', {}, requestConfig, undefined);
     });
 
     it('should handle POST with config', async () => {
@@ -1068,7 +1068,7 @@ describe('HttpClient', () => {
 
       const result = await httpClient.authenticatedRequest('GET', '/user', 'token123');
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('GET', '/user', 'token123', undefined, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('GET', '/user', 'token123', undefined, undefined, undefined);
       expect(result).toEqual(mockData);
     });
 
@@ -1084,7 +1084,7 @@ describe('HttpClient', () => {
         requestData
       );
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('POST', '/test', 'token123', requestData, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('POST', '/test', 'token123', requestData, undefined, undefined);
       expect(result).toEqual(mockData);
     });
 
@@ -1095,7 +1095,7 @@ describe('HttpClient', () => {
 
       const result = await httpClient.authenticatedRequest('PUT', '/test', 'token123', requestData);
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('PUT', '/test', 'token123', requestData, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('PUT', '/test', 'token123', requestData, undefined, undefined);
       expect(result).toEqual(mockData);
     });
 
@@ -1105,7 +1105,7 @@ describe('HttpClient', () => {
 
       const result = await httpClient.authenticatedRequest('DELETE', '/test', 'token123');
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('DELETE', '/test', 'token123', undefined, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('DELETE', '/test', 'token123', undefined, undefined, undefined);
       expect(result).toEqual(mockData);
     });
 
@@ -1126,7 +1126,7 @@ describe('HttpClient', () => {
 
       await httpClient.authenticatedRequest('POST', '/test', 'token123', {}, requestConfig);
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('POST', '/test', 'token123', {}, requestConfig);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('POST', '/test', 'token123', {}, requestConfig, undefined);
     });
   });
 

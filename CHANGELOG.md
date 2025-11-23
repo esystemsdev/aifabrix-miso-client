@@ -5,6 +5,103 @@ All notable changes to the MisoClient SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2025-11-23
+
+### Added
+
+- **Multi-Authentication Strategy Support**: Flexible authentication configuration with priority-based fallback
+  - New `AuthStrategy` interface and `AuthMethod` type for configuring authentication methods
+  - Support for multiple authentication methods: `bearer`, `client-token`, `client-credentials`, `api-key`
+  - Priority-based authentication fallback - methods are tried in the order specified
+  - New `requestWithAuthStrategy()` method in `MisoClient` for making requests with custom auth strategy
+  - New `createAuthStrategy()` helper method for creating authentication strategies
+  - New `getDefaultAuthStrategy()` helper method that returns default strategy (`['bearer', 'client-token']`)
+  - Optional `authStrategy` parameter added to all authentication, role, and permission methods:
+    - `validateToken(token, authStrategy?)`
+    - `getUser(token, authStrategy?)`
+    - `getUserInfo(token, authStrategy?)`
+    - `isAuthenticated(token, authStrategy?)`
+    - `getRoles(token, authStrategy?)`
+    - `hasRole(token, role, authStrategy?)`
+    - `hasAnyRole(token, roles, authStrategy?)`
+    - `hasAllRoles(token, roles, authStrategy?)`
+    - `refreshRoles(token, authStrategy?)`
+    - `getPermissions(token, authStrategy?)`
+    - `hasPermission(token, permission, authStrategy?)`
+    - `hasAnyPermission(token, permissions, authStrategy?)`
+    - `hasAllPermissions(token, permissions, authStrategy?)`
+    - `refreshPermissions(token, authStrategy?)`
+    - `clearPermissionsCache(token, authStrategy?)`
+  - Environment variable support: `MISO_AUTH_STRATEGY` for configuring default auth strategy
+  - Global configuration support: `authStrategy` option in `MisoClientConfig`
+  - Per-request authentication strategy override capability
+
+### Changed
+
+- **Backward Compatibility**: All existing code continues to work without changes
+  - All authentication methods maintain their original signatures with optional `authStrategy` parameter
+  - Default behavior unchanged: if no strategy specified, uses `['bearer', 'client-token']` (existing behavior)
+  - No breaking changes - fully backward compatible
+
+### Technical Improvements
+
+- **AuthStrategyHandler Class**: New utility class for managing authentication strategies
+  - `buildAuthHeaders()` method builds appropriate headers based on strategy
+  - `shouldTryMethod()` method checks if a method should be tried
+  - `getDefaultStrategy()` method returns default authentication strategy
+  - `mergeStrategy()` method merges strategies with defaults
+- **HTTP Client Enhancements**: Enhanced `InternalHttpClient` and `HttpClient` with auth strategy support
+  - Request interceptor updated to conditionally add client token based on strategy
+  - Support for priority-based authentication method selection
+- **Configuration Loader**: Enhanced to load auth strategy from environment variables
+  - Format: `MISO_AUTH_STRATEGY=bearer,client-token,api-key`
+  - Support for `MISO_BEARER_TOKEN` and `MISO_API_KEY` environment variables
+
+### Usage Examples
+
+**Global Strategy Configuration:**
+```typescript
+const client = new MisoClient({
+  ...loadConfig(),
+  authStrategy: {
+    methods: ['bearer', 'client-token', 'client-credentials']
+  }
+});
+```
+
+**Per-Request Strategy:**
+```typescript
+// Using requestWithAuthStrategy
+await client.requestWithAuthStrategy('GET', '/api/data', {
+  methods: ['client-token']
+});
+
+// Using with existing methods
+const strategy = client.createAuthStrategy(['bearer', 'api-key'], 'token-123', 'api-key-456');
+await client.getRoles(token, strategy);
+```
+
+**Environment Variable Configuration:**
+```bash
+MISO_AUTH_STRATEGY=bearer,client-token,api-key
+MISO_BEARER_TOKEN=optional-bearer-token
+MISO_API_KEY=optional-api-key
+```
+
+**Default Strategy Helper:**
+```typescript
+const defaultStrategy = client.getDefaultAuthStrategy(token);
+// Returns: { methods: ['bearer', 'client-token'], bearerToken: token }
+```
+
+### Documentation
+
+- Added comprehensive documentation for multi-authentication strategy feature
+- Updated API reference with new methods and types
+- Added usage examples and best practices
+
+---
+
 ## [1.8.0] - 2025-02-11
 
 ### Changed

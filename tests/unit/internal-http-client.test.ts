@@ -38,7 +38,7 @@ jest.mock('axios', () => {
 });
 
 import { InternalHttpClient } from '../../src/utils/internal-http-client';
-import { MisoClientConfig, ClientTokenResponse } from '../../src/types/config.types';
+import { MisoClientConfig, ClientTokenResponse, AuthStrategy } from '../../src/types/config.types';
 import { MisoClientError } from '../../src/utils/errors';
 import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
@@ -1614,6 +1614,297 @@ describe('InternalHttpClient', () => {
     it('should throw error for unsupported method', async () => {
       await expect(
         httpClient.authenticatedRequest('PATCH' as any, '/test', 'token123')
+      ).rejects.toThrow('Unsupported HTTP method: PATCH');
+    });
+
+    it('should use auth strategy when provided', async () => {
+      const mockAxiosInstance = axios.create();
+      const response: AxiosResponse = {
+        data: { success: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (mockAxiosInstance.get as jest.Mock).mockResolvedValue(response);
+
+      // Mock temp axios for client token fetch
+      const mockTempAxios = { post: jest.fn().mockResolvedValue({
+        data: { success: true, token: 'test-client-token', expiresIn: 3600, expiresAt: new Date().toISOString() }
+      }) };
+      (axios.create as jest.Mock).mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          return mockTempAxios;
+        }
+        return mockAxiosInstance;
+      });
+
+      const authStrategy: AuthStrategy = {
+        methods: ['client-token']
+      };
+
+      await httpClient.authenticatedRequest('GET', '/test', 'token123', undefined, undefined, authStrategy);
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/test', expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-client-token': 'test-client-token'
+        })
+      }));
+    });
+
+    it('should use bearer token from auth strategy', async () => {
+      const mockAxiosInstance = axios.create();
+      const response: AxiosResponse = {
+        data: { success: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (mockAxiosInstance.get as jest.Mock).mockResolvedValue(response);
+
+      // Mock temp axios for client token fetch
+      const mockTempAxios = { post: jest.fn().mockResolvedValue({
+        data: { success: true, token: 'test-client-token', expiresIn: 3600, expiresAt: new Date().toISOString() }
+      }) };
+      (axios.create as jest.Mock).mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          return mockTempAxios;
+        }
+        return mockAxiosInstance;
+      });
+
+      const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
+        bearerToken: 'strategy-bearer-token'
+      };
+
+      await httpClient.authenticatedRequest('GET', '/test', 'token123', undefined, undefined, authStrategy);
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/test', expect.objectContaining({
+        headers: expect.objectContaining({
+          'Authorization': 'Bearer strategy-bearer-token'
+        })
+      }));
+    });
+  });
+
+  describe('requestWithAuthStrategy', () => {
+    it('should make GET request with auth strategy', async () => {
+      const mockAxiosInstance = axios.create();
+      const response: AxiosResponse = {
+        data: { success: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (mockAxiosInstance.get as jest.Mock).mockResolvedValue(response);
+
+      // Mock temp axios for client token fetch
+      const mockTempAxios = { post: jest.fn().mockResolvedValue({
+        data: { success: true, token: 'test-client-token', expiresIn: 3600, expiresAt: new Date().toISOString() }
+      }) };
+      (axios.create as jest.Mock).mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          return mockTempAxios;
+        }
+        return mockAxiosInstance;
+      });
+
+      const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
+        bearerToken: 'test-bearer-token'
+      };
+
+      const result = await httpClient.requestWithAuthStrategy('GET', '/test', authStrategy);
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/test', expect.objectContaining({
+        headers: expect.objectContaining({
+          'Authorization': 'Bearer test-bearer-token'
+        })
+      }));
+      expect(result).toEqual({ success: true });
+    });
+
+    it('should make POST request with auth strategy and data', async () => {
+      const mockAxiosInstance = axios.create();
+      const requestData = { name: 'test' };
+      const response: AxiosResponse = {
+        data: { success: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (mockAxiosInstance.post as jest.Mock).mockResolvedValue(response);
+
+      // Mock temp axios for client token fetch
+      const mockTempAxios = { post: jest.fn().mockResolvedValue({
+        data: { success: true, token: 'test-client-token', expiresIn: 3600, expiresAt: new Date().toISOString() }
+      }) };
+      (axios.create as jest.Mock).mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          return mockTempAxios;
+        }
+        return mockAxiosInstance;
+      });
+
+      const authStrategy: AuthStrategy = {
+        methods: ['client-credentials']
+      };
+
+      const result = await httpClient.requestWithAuthStrategy('POST', '/test', authStrategy, requestData);
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith('/test', requestData, expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Client-Id': 'test-client-id',
+          'X-Client-Secret': 'test-secret'
+        })
+      }));
+      expect(result).toEqual({ success: true });
+    });
+
+    it('should use client-token from strategy', async () => {
+      const mockAxiosInstance = axios.create();
+      const response: AxiosResponse = {
+        data: { success: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (mockAxiosInstance.get as jest.Mock).mockResolvedValue(response);
+
+      // Mock temp axios for client token fetch
+      const mockTempAxios = { post: jest.fn().mockResolvedValue({
+        data: { success: true, token: 'test-client-token', expiresIn: 3600, expiresAt: new Date().toISOString() }
+      }) };
+      (axios.create as jest.Mock).mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          return mockTempAxios;
+        }
+        return mockAxiosInstance;
+      });
+
+      const authStrategy: AuthStrategy = {
+        methods: ['client-token']
+      };
+
+      await httpClient.requestWithAuthStrategy('GET', '/test', authStrategy);
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/test', expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-client-token': 'test-client-token'
+        })
+      }));
+    });
+
+    it('should use api-key from strategy', async () => {
+      const mockAxiosInstance = axios.create();
+      const response: AxiosResponse = {
+        data: { success: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (mockAxiosInstance.get as jest.Mock).mockResolvedValue(response);
+
+      // Mock temp axios for client token fetch
+      const mockTempAxios = { post: jest.fn().mockResolvedValue({
+        data: { success: true, token: 'test-client-token', expiresIn: 3600, expiresAt: new Date().toISOString() }
+      }) };
+      (axios.create as jest.Mock).mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          return mockTempAxios;
+        }
+        return mockAxiosInstance;
+      });
+
+      const authStrategy: AuthStrategy = {
+        methods: ['api-key'],
+        apiKey: 'test-api-key'
+      };
+
+      await httpClient.requestWithAuthStrategy('GET', '/test', authStrategy);
+
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/test', expect.objectContaining({
+        headers: expect.objectContaining({
+          'Authorization': 'Bearer test-api-key'
+        })
+      }));
+    });
+
+    it('should prioritize first method in strategy', async () => {
+      const mockAxiosInstance = axios.create();
+      const response: AxiosResponse = {
+        data: { success: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config: {} as any
+      };
+
+      (mockAxiosInstance.get as jest.Mock).mockResolvedValue(response);
+
+      // Mock temp axios for client token fetch
+      const mockTempAxios = { post: jest.fn().mockResolvedValue({
+        data: { success: true, token: 'test-client-token', expiresIn: 3600, expiresAt: new Date().toISOString() }
+      }) };
+      (axios.create as jest.Mock).mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          return mockTempAxios;
+        }
+        return mockAxiosInstance;
+      });
+
+      const authStrategy: AuthStrategy = {
+        methods: ['bearer', 'client-token'],
+        bearerToken: 'test-bearer-token'
+      };
+
+      await httpClient.requestWithAuthStrategy('GET', '/test', authStrategy);
+
+      // Should use bearer token (first method) not client-token
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith('/test', expect.objectContaining({
+        headers: expect.objectContaining({
+          'Authorization': 'Bearer test-bearer-token'
+        })
+      }));
+      expect(mockAxiosInstance.get).not.toHaveBeenCalledWith('/test', expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-client-token': 'test-client-token'
+        })
+      }));
+    });
+
+    it('should throw error for unsupported method', async () => {
+      // Mock temp axios for client token fetch
+      const mockAxiosInstance = axios.create();
+      const mockTempAxios = { post: jest.fn().mockResolvedValue({
+        data: { success: true, token: 'test-client-token', expiresIn: 3600, expiresAt: new Date().toISOString() }
+      }) };
+      (axios.create as jest.Mock).mockImplementation((config?: any) => {
+        if (config?.headers?.['X-Client-Id']) {
+          return mockTempAxios;
+        }
+        return mockAxiosInstance;
+      });
+
+      const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
+        bearerToken: 'test-token'
+      };
+
+      await expect(
+        httpClient.requestWithAuthStrategy('PATCH' as any, '/test', authStrategy)
       ).rejects.toThrow('Unsupported HTTP method: PATCH');
     });
   });

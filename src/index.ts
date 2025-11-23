@@ -12,7 +12,8 @@ import { CacheService } from './services/cache.service';
 import { HttpClient } from './utils/http-client';
 import { InternalHttpClient } from './utils/internal-http-client';
 import { DataMasker } from './utils/data-masker';
-import { MisoClientConfig, UserInfo } from './types/config.types';
+import { AuthStrategyHandler } from './utils/auth-strategy';
+import { MisoClientConfig, UserInfo, AuthStrategy } from './types/config.types';
 
 export class MisoClient {
   private config: MisoClientConfig;
@@ -145,30 +146,38 @@ export class MisoClient {
 
   /**
    * Validate token with controller
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async validateToken(token: string): Promise<boolean> {
-    return this.auth.validateToken(token);
+  async validateToken(token: string, authStrategy?: AuthStrategy): Promise<boolean> {
+    return this.auth.validateToken(token, authStrategy);
   }
 
   /**
    * Get user information from token
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async getUser(token: string): Promise<UserInfo | null> {
-    return this.auth.getUser(token);
+  async getUser(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null> {
+    return this.auth.getUser(token, authStrategy);
   }
 
   /**
    * Get user information from GET /api/auth/user endpoint
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async getUserInfo(token: string): Promise<UserInfo | null> {
-    return this.auth.getUserInfo(token);
+  async getUserInfo(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null> {
+    return this.auth.getUserInfo(token, authStrategy);
   }
 
   /**
    * Check if user is authenticated
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async isAuthenticated(token: string): Promise<boolean> {
-    return this.auth.isAuthenticated(token);
+  async isAuthenticated(token: string, authStrategy?: AuthStrategy): Promise<boolean> {
+    return this.auth.isAuthenticated(token, authStrategy);
   }
 
   /**
@@ -182,79 +191,107 @@ export class MisoClient {
 
   /**
    * Get user roles (cached in Redis if available)
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async getRoles(token: string): Promise<string[]> {
-    return this.roles.getRoles(token);
+  async getRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+    return this.roles.getRoles(token, authStrategy);
   }
 
   /**
    * Check if user has specific role
+   * @param token - User authentication token
+   * @param role - Role to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasRole(token: string, role: string): Promise<boolean> {
-    return this.roles.hasRole(token, role);
+  async hasRole(token: string, role: string, authStrategy?: AuthStrategy): Promise<boolean> {
+    return this.roles.hasRole(token, role, authStrategy);
   }
 
   /**
    * Check if user has any of the specified roles
+   * @param token - User authentication token
+   * @param roles - Roles to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasAnyRole(token: string, roles: string[]): Promise<boolean> {
-    return this.roles.hasAnyRole(token, roles);
+  async hasAnyRole(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+    return this.roles.hasAnyRole(token, roles, authStrategy);
   }
 
   /**
    * Check if user has all of the specified roles
+   * @param token - User authentication token
+   * @param roles - Roles to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasAllRoles(token: string, roles: string[]): Promise<boolean> {
-    return this.roles.hasAllRoles(token, roles);
+  async hasAllRoles(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+    return this.roles.hasAllRoles(token, roles, authStrategy);
   }
 
   /**
    * Force refresh roles from controller (bypass cache)
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async refreshRoles(token: string): Promise<string[]> {
-    return this.roles.refreshRoles(token);
+  async refreshRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+    return this.roles.refreshRoles(token, authStrategy);
   }
 
   /**
    * Get user permissions (cached in Redis if available)
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async getPermissions(token: string): Promise<string[]> {
-    return this.permissions.getPermissions(token);
+  async getPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+    return this.permissions.getPermissions(token, authStrategy);
   }
 
   /**
    * Check if user has specific permission
+   * @param token - User authentication token
+   * @param permission - Permission to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasPermission(token: string, permission: string): Promise<boolean> {
-    return this.permissions.hasPermission(token, permission);
+  async hasPermission(token: string, permission: string, authStrategy?: AuthStrategy): Promise<boolean> {
+    return this.permissions.hasPermission(token, permission, authStrategy);
   }
 
   /**
    * Check if user has any of the specified permissions
+   * @param token - User authentication token
+   * @param permissions - Permissions to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasAnyPermission(token: string, permissions: string[]): Promise<boolean> {
-    return this.permissions.hasAnyPermission(token, permissions);
+  async hasAnyPermission(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+    return this.permissions.hasAnyPermission(token, permissions, authStrategy);
   }
 
   /**
    * Check if user has all of the specified permissions
+   * @param token - User authentication token
+   * @param permissions - Permissions to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasAllPermissions(token: string, permissions: string[]): Promise<boolean> {
-    return this.permissions.hasAllPermissions(token, permissions);
+  async hasAllPermissions(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+    return this.permissions.hasAllPermissions(token, permissions, authStrategy);
   }
 
   /**
    * Force refresh permissions from controller (bypass cache)
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async refreshPermissions(token: string): Promise<string[]> {
-    return this.permissions.refreshPermissions(token);
+  async refreshPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+    return this.permissions.refreshPermissions(token, authStrategy);
   }
 
   /**
    * Clear cached permissions for a user
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async clearPermissionsCache(token: string): Promise<void> {
-    return this.permissions.clearPermissionsCache(token);
+  async clearPermissionsCache(token: string, authStrategy?: AuthStrategy): Promise<void> {
+    return this.permissions.clearPermissionsCache(token, authStrategy);
   }
 
   // ==================== LOGGING METHODS ====================
@@ -299,6 +336,55 @@ export class MisoClient {
    */
   isRedisConnected(): boolean {
     return this.redis.isConnected();
+  }
+
+  /**
+   * Make request with authentication strategy
+   * Tries authentication methods in priority order based on strategy
+   * @param method - HTTP method
+   * @param url - Request URL
+   * @param authStrategy - Authentication strategy configuration
+   * @param data - Optional request data
+   * @param config - Optional Axios request config
+   * @returns Response data
+   */
+  async requestWithAuthStrategy<T>(
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    url: string,
+    authStrategy: AuthStrategy,
+    data?: unknown,
+    config?: import('axios').AxiosRequestConfig
+  ): Promise<T> {
+    return this.httpClient.requestWithAuthStrategy<T>(method, url, authStrategy, data, config);
+  }
+
+  /**
+   * Create authentication strategy helper
+   * @param methods - Array of authentication methods in priority order
+   * @param bearerToken - Optional bearer token
+   * @param apiKey - Optional API key
+   * @returns Authentication strategy
+   */
+  createAuthStrategy(
+    methods: ('bearer' | 'client-token' | 'client-credentials' | 'api-key')[],
+    bearerToken?: string,
+    apiKey?: string
+  ): AuthStrategy {
+    return {
+      methods,
+      bearerToken,
+      apiKey
+    };
+  }
+
+  /**
+   * Get default authentication strategy
+   * Uses bearer token and client token in that order
+   * @param bearerToken - Optional bearer token
+   * @returns Default authentication strategy
+   */
+  getDefaultAuthStrategy(bearerToken?: string): AuthStrategy {
+    return AuthStrategyHandler.getDefaultStrategy(bearerToken);
   }
 }
 

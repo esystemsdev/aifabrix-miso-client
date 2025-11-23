@@ -4,7 +4,7 @@
  */
 
 import 'dotenv/config';
-import { MisoClientConfig, RedisConfig } from '../types/config.types';
+import { MisoClientConfig, RedisConfig, AuthStrategy, AuthMethod } from '../types/config.types';
 
 /**
  * Loads configuration from environment variables with defaults
@@ -63,6 +63,29 @@ export function loadConfig(): MisoClientConfig {
   // Optional emitEvents flag (for direct SDK embedding in your own application)
   if (process.env.MISO_EMIT_EVENTS) {
     config.emitEvents = process.env.MISO_EMIT_EVENTS.toLowerCase() === 'true';
+  }
+
+  // Optional auth strategy configuration
+  // Format: MISO_AUTH_STRATEGY=bearer,client-token,api-key
+  if (process.env.MISO_AUTH_STRATEGY) {
+    const methods = process.env.MISO_AUTH_STRATEGY.split(',').map(m => m.trim()) as AuthMethod[];
+    const authStrategy: AuthStrategy = {
+      methods: methods.filter(m => ['bearer', 'client-token', 'client-credentials', 'api-key'].includes(m))
+    };
+
+    // Add bearer token if provided
+    if (process.env.MISO_BEARER_TOKEN) {
+      authStrategy.bearerToken = process.env.MISO_BEARER_TOKEN;
+    }
+
+    // Add API key if provided (can also use existing API_KEY env var)
+    if (process.env.MISO_API_KEY || process.env.API_KEY) {
+      authStrategy.apiKey = process.env.MISO_API_KEY || process.env.API_KEY;
+    }
+
+    if (authStrategy.methods.length > 0) {
+      config.authStrategy = authStrategy;
+    }
   }
 
   return config;

@@ -4,7 +4,7 @@
 
 import { HttpClient } from '../utils/http-client';
 import { CacheService } from './cache.service';
-import { MisoClientConfig, RoleResult } from '../types/config.types';
+import { MisoClientConfig, RoleResult, AuthStrategy } from '../types/config.types';
 import jwt from 'jsonwebtoken';
 
 interface RoleCacheData {
@@ -43,8 +43,10 @@ export class RoleService {
   /**
    * Get user roles with Redis caching
    * Optimized to extract userId from token first to check cache before API call
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async getRoles(token: string): Promise<string[]> {
+  async getRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     try {
       // Extract userId from token to check cache first (avoids API call on cache hit)
       let userId = this.extractUserIdFromToken(token);
@@ -64,7 +66,10 @@ export class RoleService {
         const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
           'POST',
           '/api/auth/validate',
-          token
+          token,
+          undefined,
+          undefined,
+          authStrategy
         );
         userId = userInfo.user?.id || null;
         if (!userId) {
@@ -76,7 +81,10 @@ export class RoleService {
       const roleResult = await this.httpClient.authenticatedRequest<RoleResult>(
         'GET',
         '/api/auth/roles', // Backend knows app/env from client token
-        token
+        token,
+        undefined,
+        undefined,
+        authStrategy
       );
 
       const roles = roleResult.roles || [];
@@ -99,38 +107,52 @@ export class RoleService {
 
   /**
    * Check if user has specific role
+   * @param token - User authentication token
+   * @param role - Role to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasRole(token: string, role: string): Promise<boolean> {
-    const roles = await this.getRoles(token);
+  async hasRole(token: string, role: string, authStrategy?: AuthStrategy): Promise<boolean> {
+    const roles = await this.getRoles(token, authStrategy);
     return roles.includes(role);
   }
 
   /**
    * Check if user has any of the specified roles
+   * @param token - User authentication token
+   * @param roles - Roles to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasAnyRole(token: string, roles: string[]): Promise<boolean> {
-    const userRoles = await this.getRoles(token);
+  async hasAnyRole(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+    const userRoles = await this.getRoles(token, authStrategy);
     return roles.some((role) => userRoles.includes(role));
   }
 
   /**
    * Check if user has all of the specified roles
+   * @param token - User authentication token
+   * @param roles - Roles to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasAllRoles(token: string, roles: string[]): Promise<boolean> {
-    const userRoles = await this.getRoles(token);
+  async hasAllRoles(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+    const userRoles = await this.getRoles(token, authStrategy);
     return roles.every((role) => userRoles.includes(role));
   }
 
   /**
    * Force refresh roles from controller (bypass cache)
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async refreshRoles(token: string): Promise<string[]> {
+  async refreshRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     try {
       // Get user info to extract userId
       const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
         'POST',
         '/api/auth/validate',
-        token
+        token,
+        undefined,
+        undefined,
+        authStrategy
       );
 
       if (!userInfo.user?.id) {
@@ -144,7 +166,10 @@ export class RoleService {
       const roleResult = await this.httpClient.authenticatedRequest<RoleResult>(
         'GET',
         '/api/auth/roles/refresh',
-        token
+        token,
+        undefined,
+        undefined,
+        authStrategy
       );
 
       const roles = roleResult.roles || [];

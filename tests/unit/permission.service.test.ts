@@ -89,7 +89,10 @@ describe('PermissionService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
         '/api/auth/permissions',
-        'token'
+        'token',
+        undefined,
+        undefined,
+        undefined
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
         'permissions:123',
@@ -281,7 +284,10 @@ describe('PermissionService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
         '/api/auth/permissions/refresh',
-        'token'
+        'token',
+        undefined,
+        undefined,
+        undefined
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
         'permissions:123',
@@ -363,7 +369,10 @@ describe('PermissionService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'POST',
         '/api/auth/validate',
-        'token'
+        'token',
+        undefined,
+        undefined,
+        undefined
       );
     });
 
@@ -386,7 +395,10 @@ describe('PermissionService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'POST',
         '/api/auth/validate',
-        'token'
+        'token',
+        undefined,
+        undefined,
+        undefined
       );
     });
   });
@@ -562,7 +574,10 @@ describe('PermissionService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
         '/api/auth/permissions/refresh',
-        'token'
+        'token',
+        undefined,
+        undefined,
+        undefined
       );
     });
 

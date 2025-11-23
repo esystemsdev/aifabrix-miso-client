@@ -4,7 +4,7 @@
 
 import { HttpClient } from '../utils/http-client';
 import { CacheService } from './cache.service';
-import { MisoClientConfig, PermissionResult } from '../types/config.types';
+import { MisoClientConfig, PermissionResult, AuthStrategy } from '../types/config.types';
 import jwt from 'jsonwebtoken';
 
 interface PermissionCacheData {
@@ -43,8 +43,10 @@ export class PermissionService {
   /**
    * Get user permissions with caching
    * Optimized to extract userId from token first to check cache before API call
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async getPermissions(token: string): Promise<string[]> {
+  async getPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     try {
       // Extract userId from token to check cache first (avoids API call on cache hit)
       let userId = this.extractUserIdFromToken(token);
@@ -64,7 +66,10 @@ export class PermissionService {
         const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
           'POST',
           '/api/auth/validate',
-          token
+          token,
+          undefined,
+          undefined,
+          authStrategy
         );
         userId = userInfo.user?.id || null;
         if (!userId) {
@@ -76,7 +81,10 @@ export class PermissionService {
       const permissionResult = await this.httpClient.authenticatedRequest<PermissionResult>(
         'GET',
         '/api/auth/permissions', // Backend knows app/env from client token
-        token
+        token,
+        undefined,
+        undefined,
+        authStrategy
       );
 
       const permissions = permissionResult.permissions || [];
@@ -99,38 +107,52 @@ export class PermissionService {
 
   /**
    * Check if user has specific permission
+   * @param token - User authentication token
+   * @param permission - Permission to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasPermission(token: string, permission: string): Promise<boolean> {
-    const permissions = await this.getPermissions(token);
+  async hasPermission(token: string, permission: string, authStrategy?: AuthStrategy): Promise<boolean> {
+    const permissions = await this.getPermissions(token, authStrategy);
     return permissions.includes(permission);
   }
 
   /**
    * Check if user has any of the specified permissions
+   * @param token - User authentication token
+   * @param permissions - Permissions to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasAnyPermission(token: string, permissions: string[]): Promise<boolean> {
-    const userPermissions = await this.getPermissions(token);
+  async hasAnyPermission(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+    const userPermissions = await this.getPermissions(token, authStrategy);
     return permissions.some((permission) => userPermissions.includes(permission));
   }
 
   /**
    * Check if user has all of the specified permissions
+   * @param token - User authentication token
+   * @param permissions - Permissions to check
+   * @param authStrategy - Optional authentication strategy override
    */
-  async hasAllPermissions(token: string, permissions: string[]): Promise<boolean> {
-    const userPermissions = await this.getPermissions(token);
+  async hasAllPermissions(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+    const userPermissions = await this.getPermissions(token, authStrategy);
     return permissions.every((permission) => userPermissions.includes(permission));
   }
 
   /**
    * Force refresh permissions from controller (bypass cache)
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async refreshPermissions(token: string): Promise<string[]> {
+  async refreshPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     try {
       // Get user info to extract userId
       const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
         'POST',
         '/api/auth/validate',
-        token
+        token,
+        undefined,
+        undefined,
+        authStrategy
       );
 
       if (!userInfo.user?.id) {
@@ -144,7 +166,10 @@ export class PermissionService {
       const permissionResult = await this.httpClient.authenticatedRequest<PermissionResult>(
         'GET',
         '/api/auth/permissions/refresh',
-        token
+        token,
+        undefined,
+        undefined,
+        authStrategy
       );
 
       const permissions = permissionResult.permissions || [];
@@ -166,14 +191,19 @@ export class PermissionService {
 
   /**
    * Clear cached permissions for a user
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async clearPermissionsCache(token: string): Promise<void> {
+  async clearPermissionsCache(token: string, authStrategy?: AuthStrategy): Promise<void> {
     try {
       // Get user info to extract userId
       const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
         'POST',
         '/api/auth/validate',
-        token
+        token,
+        undefined,
+        undefined,
+        authStrategy
       );
 
       if (!userInfo.user?.id) {

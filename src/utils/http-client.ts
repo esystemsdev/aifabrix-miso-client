@@ -9,7 +9,7 @@ import {
   AxiosError,
   InternalAxiosRequestConfig
 } from 'axios';
-import { MisoClientConfig } from '../types/config.types';
+import { MisoClientConfig, AuthStrategy } from '../types/config.types';
 import { InternalHttpClient } from './internal-http-client';
 import { LoggerService } from '../services/logger.service';
 import { DataMasker } from './data-masker';
@@ -168,9 +168,30 @@ export class HttpClient {
     url: string,
     token: string, // User authentication token (sent as Bearer token)
     data?: unknown,
+    config?: AxiosRequestConfig,
+    authStrategy?: AuthStrategy // Optional auth strategy override
+  ): Promise<T> {
+    return this.internalClient.authenticatedRequest<T>(method, url, token, data, config, authStrategy);
+  }
+
+  /**
+   * Make request with authentication strategy
+   * Tries authentication methods in priority order based on strategy
+   * @param method - HTTP method
+   * @param url - Request URL
+   * @param authStrategy - Authentication strategy configuration
+   * @param data - Optional request data
+   * @param config - Optional Axios request config
+   * @returns Response data
+   */
+  async requestWithAuthStrategy<T>(
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    url: string,
+    authStrategy: AuthStrategy,
+    data?: unknown,
     config?: AxiosRequestConfig
   ): Promise<T> {
-    return this.internalClient.authenticatedRequest<T>(method, url, token, data, config);
+    return this.internalClient.requestWithAuthStrategy<T>(method, url, authStrategy, data, config);
   }
 
   /**

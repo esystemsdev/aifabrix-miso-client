@@ -4,7 +4,7 @@
 
 import { HttpClient } from '../utils/http-client';
 import { RedisService } from './redis.service';
-import { MisoClientConfig, UserInfo, AuthResult } from '../types/config.types';
+import { MisoClientConfig, UserInfo, AuthResult, AuthStrategy } from '../types/config.types';
 
 export class AuthService {
   private httpClient: HttpClient;
@@ -72,8 +72,10 @@ export class AuthService {
   /**
    * Validate token with controller
    * If API_KEY is configured and token matches, returns true without calling controller
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async validateToken(token: string): Promise<boolean> {
+  async validateToken(token: string, authStrategy?: AuthStrategy): Promise<boolean> {
     // Check API_KEY bypass for testing
     if (this.isApiKeyToken(token)) {
       return true;
@@ -83,7 +85,10 @@ export class AuthService {
       const result = await this.httpClient.authenticatedRequest<AuthResult>(
         'POST',
         '/api/auth/validate', // Backend knows app/env from client token
-        token
+        token,
+        undefined,
+        undefined,
+        authStrategy
       );
 
       return result.authenticated;
@@ -96,8 +101,10 @@ export class AuthService {
   /**
    * Get user information from token
    * If API_KEY is configured and token matches, returns null (by design for testing)
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async getUser(token: string): Promise<UserInfo | null> {
+  async getUser(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null> {
     // Check API_KEY bypass for testing - return null by design
     if (this.isApiKeyToken(token)) {
       return null;
@@ -107,7 +114,10 @@ export class AuthService {
       const result = await this.httpClient.authenticatedRequest<AuthResult>(
         'POST',
         '/api/auth/validate',
-        token
+        token,
+        undefined,
+        undefined,
+        authStrategy
       );
 
       if (result.authenticated && result.user) {
@@ -124,8 +134,10 @@ export class AuthService {
   /**
    * Get user information from GET /api/auth/user endpoint
    * If API_KEY is configured and token matches, returns null (by design for testing)
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async getUserInfo(token: string): Promise<UserInfo | null> {
+  async getUserInfo(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null> {
     // Check API_KEY bypass for testing - return null by design
     if (this.isApiKeyToken(token)) {
       return null;
@@ -135,7 +147,10 @@ export class AuthService {
       const user = await this.httpClient.authenticatedRequest<UserInfo>(
         'GET',
         '/api/auth/user',
-        token
+        token,
+        undefined,
+        undefined,
+        authStrategy
       );
 
       return user;
@@ -162,8 +177,10 @@ export class AuthService {
 
   /**
    * Check if user is authenticated (has valid token)
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
    */
-  async isAuthenticated(token: string): Promise<boolean> {
-    return this.validateToken(token);
+  async isAuthenticated(token: string, authStrategy?: AuthStrategy): Promise<boolean> {
+    return this.validateToken(token, authStrategy);
   }
 }
