@@ -34,7 +34,8 @@ describe('RoleService', () => {
     };
 
     mockHttpClient = {
-      authenticatedRequest: jest.fn()
+      authenticatedRequest: jest.fn(),
+      validateTokenRequest: jest.fn()
     } as any;
     (mockHttpClient as any).config = config; // Add config to httpClient for access
 
@@ -88,7 +89,7 @@ describe('RoleService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledTimes(1);
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
-        '/api/auth/roles',
+        '/api/v1/auth/roles',
         'token',
         undefined,
         undefined,
@@ -117,7 +118,7 @@ describe('RoleService', () => {
       expect(result).toEqual(['admin']);
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
-        '/api/auth/roles',
+        '/api/v1/auth/roles',
         'token',
         undefined,
         undefined,
@@ -183,7 +184,7 @@ describe('RoleService', () => {
     it('should return empty array when validate returns no userId', async () => {
       // JWT decode returns null
       jwt.decode.mockReturnValue(null);
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
+      mockHttpClient.validateTokenRequest.mockResolvedValue({
         user: {} // No id field
       });
 
@@ -251,22 +252,22 @@ describe('RoleService', () => {
     it('should force refresh roles from controller', async () => {
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
-      mockHttpClient.authenticatedRequest
-        .mockResolvedValueOnce({ user: { id: '123' } })
-        .mockResolvedValueOnce({
-          userId: '123',
-          roles: ['admin', 'user'],
-          environment: 'dev',
-          application: 'test-app'
-        });
+      mockHttpClient.validateTokenRequest.mockResolvedValueOnce({ user: { id: '123' } });
+      mockHttpClient.authenticatedRequest.mockResolvedValueOnce({
+        userId: '123',
+        roles: ['admin', 'user'],
+        environment: 'dev',
+        application: 'test-app'
+      });
       mockCacheService.set.mockResolvedValue(true);
 
       const result = await roleService.refreshRoles('token');
 
       expect(result).toEqual(['admin', 'user']);
+      expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith('token', undefined);
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
-        '/api/auth/roles/refresh',
+        '/api/v1/auth/roles/refresh',
         'token',
         undefined,
         undefined,
@@ -280,7 +281,7 @@ describe('RoleService', () => {
     });
 
     it('should return empty array on error', async () => {
-      mockHttpClient.authenticatedRequest.mockRejectedValue(new Error('Network error'));
+      mockHttpClient.validateTokenRequest.mockRejectedValue(new Error('Network error'));
 
       const result = await roleService.refreshRoles('token');
 

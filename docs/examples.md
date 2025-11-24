@@ -1798,6 +1798,7 @@ MISO_EMIT_EVENTS=true
 ```
 
 **Benefits:**
+
 - Zero HTTP overhead when embedding the SDK directly in your application
 - Single codebase - use the same logger in both client and controller
 - Direct database saves without HTTP round-trips

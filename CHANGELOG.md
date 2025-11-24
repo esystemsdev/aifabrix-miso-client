@@ -5,6 +5,24 @@ All notable changes to the MisoClient SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.2] - 2025-11-24
+
+### Changed
+
+- **API Endpoint Versioning**: Updated all miso-controller API endpoints to use `/api/v1/` prefix
+  - All authentication endpoints now use `/api/v1/auth/*` (token, login, validate, user, logout)
+  - All role endpoints now use `/api/v1/auth/roles` and `/api/v1/auth/roles/refresh`
+  - All permission endpoints now use `/api/v1/auth/permissions` and `/api/v1/auth/permissions/refresh`
+  - All logging endpoints now use `/api/v1/logs` and `/api/v1/logs/batch`
+  - Updated HTTP client endpoint checks to match new versioned endpoints
+  - All test files updated to reflect new endpoint structure
+
+### Technical Improvements
+
+- **Endpoint Consistency**: All miso-controller API calls now consistently use versioned endpoints
+- **Test Coverage**: All unit and integration tests updated to match new endpoint structure
+- **Backward Compatibility**: No breaking changes to public API - only internal endpoint URLs updated
+
 ## [1.9.0] - 2025-11-23
 
 ### Added
@@ -60,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Usage Examples
 
 **Global Strategy Configuration:**
+
 ```typescript
 const client = new MisoClient({
   ...loadConfig(),
@@ -70,6 +89,7 @@ const client = new MisoClient({
 ```
 
 **Per-Request Strategy:**
+
 ```typescript
 // Using requestWithAuthStrategy
 await client.requestWithAuthStrategy('GET', '/api/data', {
@@ -82,6 +102,7 @@ await client.getRoles(token, strategy);
 ```
 
 **Environment Variable Configuration:**
+
 ```bash
 MISO_AUTH_STRATEGY=bearer,client-token,api-key
 MISO_BEARER_TOKEN=optional-bearer-token
@@ -89,6 +110,7 @@ MISO_API_KEY=optional-api-key
 ```
 
 **Default Strategy Helper:**
+
 ```typescript
 const defaultStrategy = client.getDefaultAuthStrategy(token);
 // Returns: { methods: ['bearer', 'client-token'], bearerToken: token }
@@ -152,6 +174,7 @@ const defaultStrategy = client.getDefaultAuthStrategy(token);
 **Breaking Changes for Users:**
 
 1. **Error Response Properties:**
+
    ```typescript
    // OLD (snake_case)
    error.status_code
@@ -163,6 +186,7 @@ const defaultStrategy = client.getDefaultAuthStrategy(token);
    ```
 
 2. **Pagination Properties:**
+
    ```typescript
    // OLD (snake_case)
    meta.total_items
@@ -176,6 +200,7 @@ const defaultStrategy = client.getDefaultAuthStrategy(token);
    ```
 
 3. **Function Names:**
+
    ```typescript
    // OLD (snake_case)
    transform_error_to_snake_case()
@@ -189,6 +214,7 @@ const defaultStrategy = client.getDefaultAuthStrategy(token);
    ```
 
 4. **FilterQuery:**
+
    ```typescript
    // OLD (snake_case)
    { page_size: 25 }
@@ -198,6 +224,7 @@ const defaultStrategy = client.getDefaultAuthStrategy(token);
    ```
 
 5. **Pagination Parameters:**
+
    ```typescript
    // OLD (snake_case)
    parse_pagination_params(query)
@@ -216,7 +243,7 @@ const defaultStrategy = client.getDefaultAuthStrategy(token);
 
 - **Event Emission Mode for Direct SDK Usage**: Support for event-based logging when embedding the SDK directly in your own application
   - `emitEvents` configuration option: When `true`, logs are emitted as Node.js events instead of being sent via HTTP/Redis
-  - **Event Names**: 
+  - **Event Names**:
     - `'log'` event: Emitted for all log entries (info, debug, error, audit) with `LogEntry` payload
     - `'log:batch'` event: Emitted for batched audit logs with `LogEntry[]` payload
   - **EventEmitter Support**: `LoggerService` now extends `EventEmitter` with full event listener support (`on`, `once`, `off`, etc.)
@@ -633,23 +660,27 @@ client.log.on('log:batch', (logEntries: LogEntry[]) => {
 ### Features
 
 #### Core Client
+
 - `MisoClient` main class with initialization and lifecycle management
 - Configuration management with `MisoClientConfig` and `RedisConfig`
 - Connection state tracking and graceful fallback
 
 #### Authentication Service
+
 - Token validation with controller integration
 - User information retrieval
 - Login URL generation for web applications
 - Logout functionality
 
 #### Role Service
+
 - Role retrieval with Redis caching (15-minute TTL)
 - Role checking methods: `hasRole`, `hasAnyRole`, `hasAllRoles`
 - Role refresh functionality to bypass cache
 - Cache key management with user/environment/application scoping
 
 #### Permission Service
+
 - Permission retrieval with Redis caching (15-minute TTL)
 - Permission checking methods: `hasPermission`, `hasAnyPermission`, `hasAllPermissions`
 - Permission refresh functionality to bypass cache
@@ -657,6 +688,7 @@ client.log.on('log:batch', (logEntries: LogEntry[]) => {
 - Cache key management with user/environment/application scoping
 
 #### Logger Service
+
 - Structured logging with multiple levels: `info`, `error`, `audit`, `debug`
 - Redis queue integration for log batching
 - HTTP fallback when Redis is unavailable
@@ -664,6 +696,7 @@ client.log.on('log:batch', (logEntries: LogEntry[]) => {
 - Fluent API for method chaining
 
 #### HTTP Client
+
 - HTTP client wrapper using Axios
 - Automatic header injection (X-Environment, X-Application)
 - Authenticated request support with Bearer token
@@ -671,17 +704,20 @@ client.log.on('log:batch', (logEntries: LogEntry[]) => {
 - Automatic client token management
 
 #### Redis Service
+
 - Redis integration using ioredis
 - Graceful degradation when Redis is unavailable
 - Connection state tracking
 - Key prefix support for multi-tenant environments
 
 #### Encryption Service
+
 - AES-256-GCM encryption/decryption
 - Secure key management
 - Integration with Redis caching
 
 #### Cache Service
+
 - High-level caching abstraction
 - Redis-backed caching with fallback
 - TTL support and cache invalidation
@@ -775,8 +811,8 @@ client.log.on('log:batch', (logEntries: LogEntry[]) => {
 ---
 
 For more information about the MisoClient SDK, visit:
+
 - [Documentation](https://docs.aifabrix.ai/miso-client-typescript)
 - [GitHub Repository](https://github.com/esystemsdev/aifabrix-miso-client)
 - [Issue Tracker](https://github.com/esystemsdev/aifabrix-miso-client/issues)
 - [npm Package](https://www.npmjs.com/package/@aifabrix/miso-client)
-

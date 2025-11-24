@@ -163,7 +163,7 @@ export class MisoClient {
   }
 
   /**
-   * Get user information from GET /api/auth/user endpoint
+   * Get user information from GET /api/v1/auth/user endpoint
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */

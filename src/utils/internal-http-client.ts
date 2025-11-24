@@ -114,7 +114,7 @@ export class InternalHttpClient {
         }
       });
 
-      const response = await tempAxios.post<ClientTokenResponse>('/api/auth/token');
+      const response = await tempAxios.post<ClientTokenResponse>('/api/v1/auth/token');
       
       if (response.data.success && response.data.token) {
         this.clientToken = response.data.token;

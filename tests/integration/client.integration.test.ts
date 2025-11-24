@@ -292,7 +292,7 @@ describe('MisoClient Integration', () => {
       await client.log.info('Test info');
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
-        '/api/logs',
+        '/api/v1/logs',
         expect.objectContaining({
           level: 'info',
           message: 'Test info',

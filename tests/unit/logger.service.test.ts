@@ -88,7 +88,7 @@ describe('LoggerService', () => {
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         'POST',
-        '/api/logs',
+        '/api/v1/logs',
         expect.objectContaining({
           level: 'error',
           message: 'Test error',
@@ -105,7 +105,7 @@ describe('LoggerService', () => {
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         'POST',
-        '/api/logs',
+        '/api/v1/logs',
         expect.objectContaining({
           level: 'error',
           message: 'Test error'

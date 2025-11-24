@@ -33,6 +33,7 @@ describe('AuthService', () => {
 
     mockHttpClient = {
       authenticatedRequest: jest.fn(),
+      validateTokenRequest: jest.fn(),
       request: jest.fn()
     } as any;
     (mockHttpClient as any).config = config; // Add config to httpClient for access
@@ -53,7 +54,7 @@ describe('AuthService', () => {
     it('should generate correct login URL', () => {
       const loginUrl = authService.login('/dashboard');
 
-      expect(loginUrl).toContain('https://controller.aifabrix.ai/api/auth/login');
+      expect(loginUrl).toContain('https://controller.aifabrix.ai/api/v1/auth/login');
       expect(loginUrl).toContain('redirect=%2Fdashboard');
       // No longer includes environment/application - backend extracts from client credentials
     });
@@ -61,7 +62,7 @@ describe('AuthService', () => {
 
   describe('validateToken', () => {
     it('should return true for valid token', async () => {
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
+      mockHttpClient.validateTokenRequest.mockResolvedValue({
         authenticated: true,
         user: { id: '123', username: 'testuser' }
       });
@@ -69,18 +70,11 @@ describe('AuthService', () => {
       const result = await authService.validateToken('valid-token');
 
       expect(result).toBe(true);
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/auth/validate',
-        'valid-token',
-        undefined,
-        undefined,
-        undefined
-      );
+      expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith('valid-token', undefined);
     });
 
     it('should return false for invalid token', async () => {
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
+      mockHttpClient.validateTokenRequest.mockResolvedValue({
         authenticated: false,
         error: 'Invalid token'
       });
@@ -91,7 +85,7 @@ describe('AuthService', () => {
     });
 
     it('should return false on error', async () => {
-      mockHttpClient.authenticatedRequest.mockRejectedValue(new Error('Network error'));
+      mockHttpClient.validateTokenRequest.mockRejectedValue(new Error('Network error'));
 
       const result = await authService.validateToken('token');
 
@@ -102,7 +96,7 @@ describe('AuthService', () => {
   describe('getUser', () => {
     it('should return user info for valid token', async () => {
       const userInfo = { id: '123', username: 'testuser', email: 'test@example.com' };
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
+      mockHttpClient.validateTokenRequest.mockResolvedValue({
         authenticated: true,
         user: userInfo
       });
@@ -113,7 +107,7 @@ describe('AuthService', () => {
     });
 
     it('should return null for invalid token', async () => {
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
+      mockHttpClient.validateTokenRequest.mockResolvedValue({
         authenticated: false,
         error: 'Invalid token'
       });
@@ -124,7 +118,7 @@ describe('AuthService', () => {
     });
 
     it('should return null on error', async () => {
-      mockHttpClient.authenticatedRequest.mockRejectedValue(new Error('Network error'));
+      mockHttpClient.validateTokenRequest.mockRejectedValue(new Error('Network error'));
 
       const result = await authService.getUser('token');
 
@@ -138,7 +132,7 @@ describe('AuthService', () => {
 
       await authService.logout();
 
-      expect(mockHttpClient.request).toHaveBeenCalledWith('POST', '/api/auth/logout');
+      expect(mockHttpClient.request).toHaveBeenCalledWith('POST', '/api/v1/auth/logout');
     });
 
     it('should throw error on failure', async () => {
@@ -156,7 +150,7 @@ describe('AuthService', () => {
 
   describe('isAuthenticated', () => {
     it('should return authentication status', async () => {
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
+      mockHttpClient.validateTokenRequest.mockResolvedValue({
         authenticated: true,
         user: { id: '123', username: 'testuser' }
       });
@@ -198,7 +192,7 @@ describe('AuthService', () => {
       const result = await authService.getEnvironmentToken();
 
       expect(result).toBe('env-token-123');
-      expect(mockTempAxios.post).toHaveBeenCalledWith('/api/auth/token');
+      expect(mockTempAxios.post).toHaveBeenCalledWith('/api/v1/auth/token');
     });
 
     it('should throw error on invalid response', async () => {
@@ -234,7 +228,7 @@ describe('AuthService', () => {
       expect(result).toEqual(userInfo);
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
-        '/api/auth/user',
+        '/api/v1/auth/user',
         'valid-token',
         undefined,
         undefined,
@@ -268,11 +262,11 @@ describe('AuthService', () => {
         const result = await authService.validateToken('test-api-key-123');
 
         expect(result).toBe(true);
-        expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
+        expect(mockHttpClient.validateTokenRequest).not.toHaveBeenCalled();
       });
 
       it('should fall through to controller for non-matching token', async () => {
-        mockHttpClient.authenticatedRequest.mockResolvedValue({
+        mockHttpClient.validateTokenRequest.mockResolvedValue({
           authenticated: true,
           user: { id: '123', username: 'testuser' }
         });
@@ -280,18 +274,11 @@ describe('AuthService', () => {
         const result = await authService.validateToken('different-token');
 
         expect(result).toBe(true);
-        expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-          'POST',
-          '/api/auth/validate',
-          'different-token',
-          undefined,
-          undefined,
-          undefined
-        );
+        expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith('different-token', undefined);
       });
 
       it('should be case-sensitive', async () => {
-        mockHttpClient.authenticatedRequest.mockResolvedValue({
+        mockHttpClient.validateTokenRequest.mockResolvedValue({
           authenticated: false,
           error: 'Invalid token'
         });
@@ -299,7 +286,7 @@ describe('AuthService', () => {
         const result = await authService.validateToken('TEST-API-KEY-123');
 
         expect(result).toBe(false);
-        expect(mockHttpClient.authenticatedRequest).toHaveBeenCalled();
+        expect(mockHttpClient.validateTokenRequest).toHaveBeenCalled();
       });
     });
 
@@ -308,12 +295,12 @@ describe('AuthService', () => {
         const result = await authService.getUser('test-api-key-123');
 
         expect(result).toBeNull();
-        expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
+        expect(mockHttpClient.validateTokenRequest).not.toHaveBeenCalled();
       });
 
       it('should fall through to controller for non-matching token', async () => {
         const userInfo = { id: '123', username: 'testuser', email: 'test@example.com' };
-        mockHttpClient.authenticatedRequest.mockResolvedValue({
+        mockHttpClient.validateTokenRequest.mockResolvedValue({
           authenticated: true,
           user: userInfo
         });
@@ -321,14 +308,7 @@ describe('AuthService', () => {
         const result = await authService.getUser('different-token');
 
         expect(result).toEqual(userInfo);
-        expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-          'POST',
-          '/api/auth/validate',
-          'different-token',
-          undefined,
-          undefined,
-          undefined
-        );
+        expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith('different-token', undefined);
       });
     });
 
@@ -337,7 +317,7 @@ describe('AuthService', () => {
         const result = await authService.getUserInfo('test-api-key-123');
 
         expect(result).toBeNull();
-        expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
+        expect(mockHttpClient.validateTokenRequest).not.toHaveBeenCalled();
       });
 
       it('should fall through to controller for non-matching token', async () => {
@@ -349,7 +329,7 @@ describe('AuthService', () => {
         expect(result).toEqual(userInfo);
         expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
           'GET',
-          '/api/auth/user',
+          '/api/v1/auth/user',
           'different-token',
           undefined,
           undefined,
@@ -363,11 +343,11 @@ describe('AuthService', () => {
         const result = await authService.isAuthenticated('test-api-key-123');
 
         expect(result).toBe(true);
-        expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
+        expect(mockHttpClient.validateTokenRequest).not.toHaveBeenCalled();
       });
 
       it('should fall through to controller for non-matching token', async () => {
-        mockHttpClient.authenticatedRequest.mockResolvedValue({
+        mockHttpClient.validateTokenRequest.mockResolvedValue({
           authenticated: true,
           user: { id: '123', username: 'testuser' }
         });
@@ -375,7 +355,7 @@ describe('AuthService', () => {
         const result = await authService.isAuthenticated('different-token');
 
         expect(result).toBe(true);
-        expect(mockHttpClient.authenticatedRequest).toHaveBeenCalled();
+        expect(mockHttpClient.validateTokenRequest).toHaveBeenCalled();
       });
     });
   });
@@ -391,7 +371,7 @@ describe('AuthService', () => {
       (mockHttpClient as any).config = config;
       authService = new AuthService(mockHttpClient, mockRedisService);
 
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
+      mockHttpClient.validateTokenRequest.mockResolvedValue({
         authenticated: true,
         user: { id: '123', username: 'testuser' }
       });
@@ -399,14 +379,7 @@ describe('AuthService', () => {
       const result = await authService.validateToken('some-token');
 
       expect(result).toBe(true);
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/auth/validate',
-        'some-token',
-        undefined,
-        undefined,
-        undefined
-      );
+      expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith('some-token', undefined);
     });
   });
 });

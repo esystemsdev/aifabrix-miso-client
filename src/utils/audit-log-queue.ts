@@ -122,7 +122,7 @@ export class AuditLogQueue {
 
       // Fallback to HTTP batch endpoint
       try {
-        await this.httpClient.request('POST', '/api/logs/batch', {
+        await this.httpClient.request('POST', '/api/v1/logs/batch', {
           logs: logEntries.map(e => ({
             ...e,
             // Remove fields that backend extracts from credentials

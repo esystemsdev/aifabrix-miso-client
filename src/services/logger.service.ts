@@ -289,7 +289,7 @@ export class LoggerService extends EventEmitter {
     // Fallback to unified logging endpoint with client credentials
     try {
       // Backend extracts environment and application from client credentials
-      await this.httpClient.request('POST', '/api/logs', {
+      await this.httpClient.request('POST', '/api/v1/logs', {
         ...logEntry,
         // Remove fields that backend extracts from credentials
         environment: undefined,

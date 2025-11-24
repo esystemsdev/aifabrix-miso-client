@@ -1167,9 +1167,9 @@ describe('HttpClient', () => {
         expect(result.metadata.baseURL).toBe('https://controller.aifabrix.ai');
       });
 
-      it('should not add metadata for /api/logs endpoint', async () => {
+      it('should not add metadata for /api/v1/logs endpoint', async () => {
         const config: any = {
-          url: '/api/logs',
+          url: '/api/v1/logs',
           method: 'post',
           headers: {}
         };
@@ -1179,9 +1179,9 @@ describe('HttpClient', () => {
         expect(result.metadata).toBeUndefined();
       });
 
-      it('should not add metadata for /api/auth/token endpoint', async () => {
+      it('should not add metadata for /api/v1/auth/token endpoint', async () => {
         const config: any = {
-          url: '/api/auth/token',
+          url: '/api/v1/auth/token',
           method: 'post',
           headers: {}
         };

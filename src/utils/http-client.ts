@@ -106,11 +106,11 @@ export class HttpClient {
     }
     
     // Don't audit the logs endpoint itself
-    if (url && url.includes('/api/logs')) {
+    if (url && url.includes('/api/v1/logs')) {
       return false;
     }
     // Don't audit the client token endpoint
-    if (url && url.includes('/api/auth/token')) {
+    if (url && url.includes('/api/v1/auth/token')) {
       return false;
     }
     return true;
@@ -192,6 +192,27 @@ export class HttpClient {
     config?: AxiosRequestConfig
   ): Promise<T> {
     return this.internalClient.requestWithAuthStrategy<T>(method, url, authStrategy, data, config);
+  }
+
+  /**
+   * Validate token using /api/v1/auth/validate endpoint
+   * OpenAPI spec requires token in request body: { token: "..." }
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
+   * @returns Response data from validate endpoint
+   */
+  async validateTokenRequest<T>(
+    token: string,
+    authStrategy?: AuthStrategy
+  ): Promise<T> {
+    return this.authenticatedRequest<T>(
+      'POST',
+      '/api/v1/auth/validate',
+      token,
+      { token }, // OpenAPI spec requires token in request body
+      undefined,
+      authStrategy
+    );
   }
 
   /**

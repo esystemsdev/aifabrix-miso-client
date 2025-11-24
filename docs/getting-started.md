@@ -40,16 +40,19 @@ You'll need:
 **Don't have Keycloak or Controller yet?** Use the AI Fabrix Builder:
 
 1. **Create your app:**
+
    ```bash
    aifabrix create myapp --port 3000 --database --language typescript
    ```
 
 2. **Login to controller:**
+
    ```bash
    aifabrix login
    ```
 
 3. **Register your application:**
+
    ```bash
    aifabrix app register myapp --environment dev
    ```
@@ -101,6 +104,7 @@ MISO_LOG_LEVEL=info
 ### 💡 Why .env?
 
 When I started, I tried manual configuration. It was messy. With .env:
+
 - ✅ No secrets in your code
 - ✅ Easy environment switching (dev/test/prod)
 - ✅ Team-friendly
@@ -166,6 +170,7 @@ async function authMiddleware(req, res, next) {
 ```
 
 **What happens:**
+
 1. User logs in at Keycloak → gets JWT token
 2. User sends request with `Authorization: Bearer {token}`
 3. Your app calls `validateToken()` → checks with controller
@@ -173,6 +178,7 @@ async function authMiddleware(req, res, next) {
 5. If valid, you get user info
 
 **I love this because:**
+
 - ✅ Token validation happens automatically
 - ✅ User info is cached (faster next time)
 - ✅ Works with any framework
@@ -222,12 +228,14 @@ app.get('/admin', authMiddleware, async (req, res) => {
 ```
 
 **What happens:**
+
 1. Check Redis cache first (⚡ fast)
 2. If not cached, check controller (still fast)
 3. Cache result for 15 minutes
 4. Return true/false
 
 **I love this because:**
+
 - ✅ Roles are managed in one place (controller)
 - ✅ Caching makes it super fast
 - ✅ No database queries needed
@@ -273,12 +281,14 @@ await client.log.debug('Processing request', {
 ```
 
 **What happens:**
+
 1. Logs go to Redis first (fast)
 2. If Redis fails, fallback to controller HTTP
 3. Controller stores logs centrally
 4. You can query logs via controller interface
 
 **I love this because:**
+
 - ✅ Centralized logs for all apps
 - ✅ No need to manage log files
 - ✅ Automatic fallback if Redis is down
@@ -319,12 +329,14 @@ await client.log.audit('access.denied', 'authorization', {
 ```
 
 **What to audit:**
+
 - ✅ Login/logout events
 - ✅ Permission checks (granted/denied)
 - ✅ Sensitive operations (user deletion, role changes)
 - ✅ Content creation/modification/deletion
 
 **I love this because:**
+
 - ✅ Automatically records who, what, when
 - ✅ Perfect for compliance (ISO 27001, GDPR)
 - ✅ Immutable audit records
@@ -377,6 +389,7 @@ app.post('/save-preferences', authMiddleware, async (req, res) => {
 ```
 
 **I love this because:**
+
 - ✅ AES-256-GCM encryption (military-grade security)
 - ✅ Easy to use - just encrypt/decrypt
 - ✅ Works with any string data
@@ -430,12 +443,14 @@ app.get('/api/products/:id', async (req, res) => {
 ```
 
 **What happens:**
+
 1. Check Redis cache first (if available)
 2. Fallback to in-memory cache if Redis is down
 3. Auto-expires after TTL
 4. Works with any data type (automatically serialized)
 
 **I love this because:**
+
 - ✅ Automatic Redis + memory fallback
 - ✅ Type-safe with TypeScript generics
 - ✅ No manual JSON serialization needed
@@ -449,9 +464,10 @@ app.get('/api/products/:id', async (req, res) => {
 
 ---
 
-## 🎉 You Did It!
+## 🎉 You Did It
 
 By now, you have:
+
 - ✅ User authentication working
 - ✅ Role-based access control
 - ✅ Centralized logging
@@ -507,7 +523,7 @@ app.post('/create-post', authMiddleware, async (req, res) => {
 
 Stuck? We've got your back:
 
-- **Email**: support@esystemsnordic.com
+- **Email**: <support@esystemsnordic.com>
 - **Documentation**: [Full docs index](../README.md#-documentation)
 - **Issues**: [GitHub Issues](https://github.com/esystemsdev/aifabrix-miso-client/issues)
 

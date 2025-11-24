@@ -63,12 +63,8 @@ export class RoleService {
       // Cache miss or no userId in token - fetch from controller
       // If we don't have userId, get it from validate endpoint
       if (!userId) {
-        const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
-          'POST',
-          '/api/auth/validate',
+        const userInfo = await this.httpClient.validateTokenRequest<{ user: { id: string } }>(
           token,
-          undefined,
-          undefined,
           authStrategy
         );
         userId = userInfo.user?.id || null;
@@ -80,7 +76,7 @@ export class RoleService {
       // Cache miss - fetch from controller
       const roleResult = await this.httpClient.authenticatedRequest<RoleResult>(
         'GET',
-        '/api/auth/roles', // Backend knows app/env from client token
+        '/api/v1/auth/roles', // Backend knows app/env from client token
         token,
         undefined,
         undefined,
@@ -146,12 +142,8 @@ export class RoleService {
   async refreshRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     try {
       // Get user info to extract userId
-      const userInfo = await this.httpClient.authenticatedRequest<{ user: { id: string } }>(
-        'POST',
-        '/api/auth/validate',
+      const userInfo = await this.httpClient.validateTokenRequest<{ user: { id: string } }>(
         token,
-        undefined,
-        undefined,
         authStrategy
       );
 
@@ -165,7 +157,7 @@ export class RoleService {
       // Fetch fresh roles from controller using refresh endpoint
       const roleResult = await this.httpClient.authenticatedRequest<RoleResult>(
         'GET',
-        '/api/auth/roles/refresh',
+        '/api/v1/auth/roles/refresh',
         token,
         undefined,
         undefined,

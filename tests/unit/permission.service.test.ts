@@ -31,7 +31,8 @@ describe('PermissionService', () => {
     };
 
     mockHttpClient = {
-      authenticatedRequest: jest.fn()
+      authenticatedRequest: jest.fn(),
+      validateTokenRequest: jest.fn()
     } as any;
     (mockHttpClient as any).config = config; // Add config to httpClient for access
 
@@ -88,7 +89,7 @@ describe('PermissionService', () => {
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledTimes(1);
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
-        '/api/auth/permissions',
+        '/api/v1/auth/permissions',
         'token',
         undefined,
         undefined,
@@ -268,22 +269,22 @@ describe('PermissionService', () => {
     it('should fetch fresh permissions from controller', async () => {
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
-      mockHttpClient.authenticatedRequest
-        .mockResolvedValueOnce({ user: { id: '123' } })
-        .mockResolvedValueOnce({
-          userId: '123',
-          permissions: ['read:users', 'write:posts'],
-          environment: 'dev',
-          application: 'test-app'
-        });
+      mockHttpClient.validateTokenRequest.mockResolvedValueOnce({ user: { id: '123' } });
+      mockHttpClient.authenticatedRequest.mockResolvedValueOnce({
+        userId: '123',
+        permissions: ['read:users', 'write:posts'],
+        environment: 'dev',
+        application: 'test-app'
+      });
       mockCacheService.set.mockResolvedValue(true);
 
       const result = await permissionService.refreshPermissions('token');
 
       expect(result).toEqual(['read:users', 'write:posts']);
+      expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith('token', undefined);
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
-        '/api/auth/permissions/refresh',
+        '/api/v1/auth/permissions/refresh',
         'token',
         undefined,
         undefined,
@@ -299,7 +300,7 @@ describe('PermissionService', () => {
     it('should handle errors during refresh', async () => {
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
-      mockHttpClient.authenticatedRequest.mockRejectedValue(new Error('Network error'));
+      mockHttpClient.validateTokenRequest.mockRejectedValue(new Error('Network error'));
 
       const result = await permissionService.refreshPermissions('token');
 
@@ -309,7 +310,7 @@ describe('PermissionService', () => {
     it('should return empty array when user validation fails', async () => {
       // Mock JWT decode to return userId, but validate returns empty
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
-      mockHttpClient.authenticatedRequest.mockResolvedValueOnce({});
+      mockHttpClient.validateTokenRequest.mockResolvedValueOnce({});
 
       const result = await permissionService.refreshPermissions('token');
 
@@ -319,7 +320,7 @@ describe('PermissionService', () => {
 
   describe('clearPermissionsCache', () => {
     it('should clear cached permissions from cache', async () => {
-      mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '123' } });
+      mockHttpClient.validateTokenRequest.mockResolvedValue({ user: { id: '123' } });
       mockCacheService.delete.mockResolvedValue(true);
 
       await permissionService.clearPermissionsCache('token');
@@ -328,7 +329,7 @@ describe('PermissionService', () => {
     });
 
     it('should handle cache delete failure gracefully', async () => {
-      mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '123' } });
+      mockHttpClient.validateTokenRequest.mockResolvedValue({ user: { id: '123' } });
       mockCacheService.delete.mockResolvedValue(false);
 
       await permissionService.clearPermissionsCache('token');
@@ -337,7 +338,7 @@ describe('PermissionService', () => {
     });
 
     it('should handle user validation failure', async () => {
-      mockHttpClient.authenticatedRequest.mockResolvedValue({});
+      mockHttpClient.validateTokenRequest.mockResolvedValue({});
 
       await permissionService.clearPermissionsCache('token');
 
@@ -345,7 +346,7 @@ describe('PermissionService', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      mockHttpClient.authenticatedRequest.mockRejectedValue(new Error('Network error'));
+      mockHttpClient.validateTokenRequest.mockRejectedValue(new Error('Network error'));
 
       await expect(permissionService.clearPermissionsCache('token')).resolves.not.toThrow();
     });
@@ -353,31 +354,24 @@ describe('PermissionService', () => {
     it('should handle cache delete error gracefully', async () => {
       // Mock JWT decode to return userId
       jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
-      mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '123' } });
+      mockHttpClient.validateTokenRequest.mockResolvedValue({ user: { id: '123' } });
       mockCacheService.delete.mockRejectedValue(new Error('Cache delete failed'));
 
       await expect(permissionService.clearPermissionsCache('token')).resolves.not.toThrow();
     });
 
     it('should extract userId from validate API when clearing cache', async () => {
-      mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '456' } });
+      mockHttpClient.validateTokenRequest.mockResolvedValue({ user: { id: '456' } });
       mockCacheService.delete.mockResolvedValue(true);
 
       await permissionService.clearPermissionsCache('token');
 
       expect(mockCacheService.delete).toHaveBeenCalledWith('permissions:456');
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/auth/validate',
-        'token',
-        undefined,
-        undefined,
-        undefined
-      );
+      expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith('token', undefined);
     });
 
     it('should handle different user IDs from validate API when clearing cache', async () => {
-      mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '789' } });
+      mockHttpClient.validateTokenRequest.mockResolvedValue({ user: { id: '789' } });
       mockCacheService.delete.mockResolvedValue(true);
 
       await permissionService.clearPermissionsCache('token');
@@ -386,20 +380,13 @@ describe('PermissionService', () => {
     });
 
     it('should always use validate API to get userId for clearing cache', async () => {
-      mockHttpClient.authenticatedRequest.mockResolvedValue({ user: { id: '999' } });
+      mockHttpClient.validateTokenRequest.mockResolvedValue({ user: { id: '999' } });
       mockCacheService.delete.mockResolvedValue(true);
 
       await permissionService.clearPermissionsCache('token');
 
       expect(mockCacheService.delete).toHaveBeenCalledWith('permissions:999');
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/auth/validate',
-        'token',
-        undefined,
-        undefined,
-        undefined
-      );
+      expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith('token', undefined);
     });
   });
 
@@ -423,14 +410,13 @@ describe('PermissionService', () => {
     it('should handle JWT decode returning empty object', async () => {
       jwt.decode.mockReturnValue({});
       mockCacheService.get.mockResolvedValue(null);
-      mockHttpClient.authenticatedRequest
-        .mockResolvedValueOnce({ user: { id: '123' } })
-        .mockResolvedValueOnce({
-          userId: '123',
-          permissions: ['read:test'],
-          environment: 'dev',
-          application: 'test-app'
-        });
+      mockHttpClient.validateTokenRequest.mockResolvedValueOnce({ user: { id: '123' } });
+      mockHttpClient.authenticatedRequest.mockResolvedValueOnce({
+        userId: '123',
+        permissions: ['read:test'],
+        environment: 'dev',
+        application: 'test-app'
+      });
 
       const result = await permissionService.getPermissions('token');
 
@@ -558,22 +544,22 @@ describe('PermissionService', () => {
   describe('refreshPermissions edge cases', () => {
     it('should handle refresh when userId extracted from token', async () => {
       jwt.decode.mockReturnValue({ sub: 'refresh-user' });
-      mockHttpClient.authenticatedRequest
-        .mockResolvedValueOnce({ user: { id: 'refresh-user' } })
-        .mockResolvedValueOnce({
-          userId: 'refresh-user',
-          permissions: ['refresh:perm'],
-          environment: 'dev',
-          application: 'test-app'
-        });
+      mockHttpClient.validateTokenRequest.mockResolvedValueOnce({ user: { id: 'refresh-user' } });
+      mockHttpClient.authenticatedRequest.mockResolvedValueOnce({
+        userId: 'refresh-user',
+        permissions: ['refresh:perm'],
+        environment: 'dev',
+        application: 'test-app'
+      });
       mockCacheService.set.mockResolvedValue(true);
 
       const result = await permissionService.refreshPermissions('token');
 
       expect(result).toEqual(['refresh:perm']);
+      expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith('token', undefined);
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
-        '/api/auth/permissions/refresh',
+        '/api/v1/auth/permissions/refresh',
         'token',
         undefined,
         undefined,
@@ -583,14 +569,13 @@ describe('PermissionService', () => {
 
     it('should handle refresh when cache update fails', async () => {
       jwt.decode.mockReturnValue({ sub: 'refresh-user' });
-      mockHttpClient.authenticatedRequest
-        .mockResolvedValueOnce({ user: { id: 'refresh-user' } })
-        .mockResolvedValueOnce({
-          userId: 'refresh-user',
-          permissions: ['perm1'],
-          environment: 'dev',
-          application: 'test-app'
-        });
+      mockHttpClient.validateTokenRequest.mockResolvedValueOnce({ user: { id: 'refresh-user' } });
+      mockHttpClient.authenticatedRequest.mockResolvedValueOnce({
+        userId: 'refresh-user',
+        permissions: ['perm1'],
+        environment: 'dev',
+        application: 'test-app'
+      });
       mockCacheService.set.mockResolvedValue(false);
 
       const result = await permissionService.refreshPermissions('token');

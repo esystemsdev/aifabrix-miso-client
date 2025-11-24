@@ -37,6 +37,7 @@ await client.initialize();
 ```
 
 **Benefits:**
+
 - ✅ No configuration boilerplate
 - ✅ Easy environment switching (dev/test/prod)
 - ✅ Keeps secrets out of code
@@ -47,6 +48,7 @@ await client.initialize();
 ### When to Use Manual Configuration
 
 Use manual configuration when:
+
 - You need dynamic configuration
 - Config comes from an external service
 - You're integrating with an existing config system
@@ -643,18 +645,21 @@ const client = new MisoClient({
 The SDK automatically optimizes audit logging based on request size:
 
 #### Small Requests (< 10KB)
+
 - **Minimal**: < 1ms CPU overhead
 - **Standard**: ~2-5ms CPU overhead
 - **Detailed**: ~5-10ms CPU overhead
 - **Full**: ~7-15ms CPU overhead
 
 #### Medium Requests (10KB-100KB)
+
 - **Minimal**: < 1ms CPU overhead
 - **Standard**: ~5-10ms CPU overhead
 - **Detailed**: ~10-20ms CPU overhead
 - **Full**: ~20-50ms CPU overhead
 
 #### Large Requests (> 100KB)
+
 - **Minimal**: < 1ms CPU overhead
 - **Standard**: ~10-20ms CPU overhead (automatically uses metadata-only mode)
 - **Detailed**: ~20-50ms CPU overhead (automatically skips masking for large objects)
@@ -759,6 +764,7 @@ Your custom configuration file should follow this JSON structure:
 #### `authentication`
 
 Fields related to authentication and authorization:
+
 - `password`, `passwd`, `pwd`
 - `token`, `secret`, `key`
 - `authorization`, `auth`
@@ -768,6 +774,7 @@ Fields related to authentication and authorization:
 #### `pii`
 
 Personally Identifiable Information:
+
 - `email`, `emailAddress`
 - `phone`, `phoneNumber`, `telephone`, `mobile`
 - `ssn`, `socialSecurityNumber`
@@ -776,6 +783,7 @@ Personally Identifiable Information:
 #### `financial`
 
 Financial information:
+
 - `creditCard`, `cc`, `cardNumber`
 - `cvv`, `cvv2`, `cvc`
 - `pin`, `bankAccount`, `bankAccountNumber`
@@ -785,6 +793,7 @@ Financial information:
 #### `security`
 
 Security-related fields:
+
 - `otp`, `oneTimePassword`
 - `privateKey`, `publicKey`
 - `encryptionKey`, `decryptionKey`
@@ -794,6 +803,7 @@ Security-related fields:
 The `fieldPatterns` array contains patterns that are matched against field names. If a field name contains any of these patterns, it will be masked.
 
 Example patterns:
+
 - `password` - matches fields like `userPassword`, `adminPassword`, etc.
 - `secret` - matches fields like `apiSecret`, `clientSecret`, etc.
 - `token` - matches fields like `accessToken`, `refreshToken`, etc.
@@ -854,6 +864,7 @@ Example patterns:
 ### ISO 27001 Compliance
 
 The SDK automatically masks all sensitive data according to ISO 27001 standards:
+
 - Request headers (Authorization, tokens, cookies)
 - Request bodies (passwords, secrets, PII)
 - Response bodies (especially error responses)
@@ -969,14 +980,16 @@ interface LogEntry {
 
 ### Behavior Differences
 
-#### When `emitEvents = true`:
+#### When `emitEvents = true`
+
 - ✅ Logs are emitted as events via EventEmitter
 - ❌ Redis queue operations are skipped
 - ❌ HTTP POST to `/api/logs` is skipped
 - ✅ Batch events are emitted for audit logs with batching enabled
 - ✅ All EventEmitter methods are available (`on`, `once`, `off`, etc.)
 
-#### When `emitEvents = false` (default):
+#### When `emitEvents = false` (default)
+
 - ❌ Events are not emitted
 - ✅ Redis queue operations (if Redis is connected)
 - ✅ HTTP POST fallback (if Redis fails or not connected)
@@ -1050,6 +1063,7 @@ await client.log.error('Operation failed', { error: 'details' });
 ### Backward Compatibility
 
 When `emitEvents` is not set or `false`, the SDK maintains backward compatibility:
+
 - Uses Redis queues (if Redis is connected)
 - Falls back to HTTP POST (if Redis fails or not connected)
 - No breaking changes to existing applications
@@ -1063,6 +1077,7 @@ The SDK supports an optional `API_KEY` configuration that allows bypassing OAuth
 ### How It Works
 
 When `API_KEY` is configured:
+
 - Bearer tokens matching the API key will automatically validate without calling the controller
 - `validateToken()` returns `true` for matching API_KEY tokens without making HTTP requests
 - `getUser()` and `getUserInfo()` return `null` when using API_KEY (by design for testing scenarios)

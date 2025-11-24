@@ -147,6 +147,7 @@ interface AuditConfig {
 ```
 
 **Audit Levels:**
+
 - `minimal`: Only metadata (method, URL, status, duration) - fastest, no masking
 - `standard`: Light masking (headers only, selective body masking) - balanced performance
 - `detailed`: Full masking with sizes (default) - optimized for compliance
@@ -154,6 +155,7 @@ interface AuditConfig {
 
 **Performance Impact:**
 The SDK automatically optimizes audit logging performance:
+
 - Small requests (< 10KB): < 1ms to ~15ms CPU overhead depending on level
 - Medium requests (10KB-100KB): ~5ms to ~50ms CPU overhead depending on level
 - Large requests (> 100KB): ~10ms to ~100ms CPU overhead depending on level
@@ -362,10 +364,11 @@ interface AuthStrategy {
 ```
 
 **Supported Methods:**
-- `'bearer'` - Bearer token authentication (Authorization: Bearer <token>)
+
+- `'bearer'` - Bearer token authentication (Authorization: Bearer `token`)
 - `'client-token'` - Client token authentication (x-client-token header)
 - `'client-credentials'` - Client credentials authentication (X-Client-Id and X-Client-Secret headers)
-- `'api-key'` - API key authentication (Authorization: Bearer <api-key>)
+- `'api-key'` - API key authentication (Authorization: Bearer `api-key`)
 
 **Priority-Based Fallback:** Methods are tried in the order specified in the `methods` array until one succeeds.
 
@@ -927,6 +930,7 @@ client.log.on('log:batch', (logEntries: LogEntry[]) => {
 ```
 
 **Event Names:**
+
 - `'log'`: Emitted for all log entries (info, debug, error, audit) with `LogEntry` payload
 - `'log:batch'`: Emitted for batched audit logs with `LogEntry[]` payload
 

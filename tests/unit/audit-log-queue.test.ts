@@ -97,7 +97,7 @@ describe('AuditLogQueue', () => {
       expect(auditLogQueue.getQueueSize()).toBe(0);
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         'POST',
-        '/api/logs/batch',
+        '/api/v1/logs/batch',
         expect.objectContaining({
           logs: expect.arrayContaining([
             expect.objectContaining({ message: '1' }),
@@ -166,7 +166,7 @@ describe('AuditLogQueue', () => {
       
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         'POST',
-        '/api/logs/batch',
+        '/api/v1/logs/batch',
         expect.objectContaining({
           logs: expect.arrayContaining([
             expect.objectContaining({ message: entry.message })
@@ -235,7 +235,7 @@ describe('AuditLogQueue', () => {
       
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         'POST',
-        '/api/logs/batch',
+        '/api/v1/logs/batch',
         expect.objectContaining({
           logs: expect.arrayContaining([
             expect.objectContaining({
@@ -365,7 +365,7 @@ describe('AuditLogQueue', () => {
       
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         'POST',
-        '/api/logs/batch',
+        '/api/v1/logs/batch',
         expect.objectContaining({
           logs: expect.arrayContaining(
             entries.map(e => expect.objectContaining({ message: e.message }))

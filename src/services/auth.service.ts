@@ -44,7 +44,7 @@ export class AuthService {
       });
 
       const response = await tempAxios.post<import('../types/config.types').ClientTokenResponse>(
-        '/api/auth/token'
+        '/api/v1/auth/token'
       );
 
       if (response.data.success && response.data.token) {
@@ -66,7 +66,7 @@ export class AuthService {
    */
   login(redirectUri: string): string {
     // Backend will extract environment and application from client token
-    return `${this.config.controllerUrl}/api/auth/login?redirect=${encodeURIComponent(redirectUri)}`;
+    return `${this.config.controllerUrl}/api/v1/auth/login?redirect=${encodeURIComponent(redirectUri)}`;
   }
 
   /**
@@ -82,15 +82,7 @@ export class AuthService {
     }
 
     try {
-      const result = await this.httpClient.authenticatedRequest<AuthResult>(
-        'POST',
-        '/api/auth/validate', // Backend knows app/env from client token
-        token,
-        undefined,
-        undefined,
-        authStrategy
-      );
-
+      const result = await this.httpClient.validateTokenRequest<AuthResult>(token, authStrategy);
       return result.authenticated;
     } catch (error) {
       // Token validation failed, return false
@@ -111,14 +103,7 @@ export class AuthService {
     }
 
     try {
-      const result = await this.httpClient.authenticatedRequest<AuthResult>(
-        'POST',
-        '/api/auth/validate',
-        token,
-        undefined,
-        undefined,
-        authStrategy
-      );
+      const result = await this.httpClient.validateTokenRequest<AuthResult>(token, authStrategy);
 
       if (result.authenticated && result.user) {
         return result.user;
@@ -132,7 +117,7 @@ export class AuthService {
   }
 
   /**
-   * Get user information from GET /api/auth/user endpoint
+   * Get user information from GET /api/v1/auth/user endpoint
    * If API_KEY is configured and token matches, returns null (by design for testing)
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
@@ -146,7 +131,7 @@ export class AuthService {
     try {
       const user = await this.httpClient.authenticatedRequest<UserInfo>(
         'GET',
-        '/api/auth/user',
+        '/api/v1/auth/user',
         token,
         undefined,
         undefined,
@@ -166,7 +151,7 @@ export class AuthService {
   async logout(): Promise<void> {
     try {
       // Backend extracts app/env from client token
-      await this.httpClient.request('POST', '/api/auth/logout');
+      await this.httpClient.request('POST', '/api/v1/auth/logout');
     } catch (error) {
       // Logout failed, re-throw error for application to handle
       throw new Error(
