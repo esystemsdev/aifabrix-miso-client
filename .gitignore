@@ -4,6 +4,7 @@ coverage/
 *.log
 .env
 .DS_Store
+aifabrix-deploy.json
 
 # Generated TypeScript files in examples
 examples/**/*.js

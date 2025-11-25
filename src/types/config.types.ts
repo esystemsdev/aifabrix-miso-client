@@ -140,9 +140,16 @@ export interface PermissionResult {
 
 export interface ClientTokenResponse {
   success: boolean;
-  token: string;
-  expiresIn: number;
-  expiresAt: string; // ISO date string
+  // Support both nested (new) and flat (old) response formats
+  data?: {
+    token: string;
+    expiresIn: number;
+    expiresAt: string; // ISO date string
+  };
+  token?: string; // For backward compatibility with flat format
+  expiresIn?: number;
+  expiresAt?: string; // ISO date string
+  timestamp?: string;
 }
 
 /**

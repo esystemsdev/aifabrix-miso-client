@@ -99,9 +99,22 @@ export class InternalHttpClient {
   }
 
   /**
+   * Generate unique correlation ID for request tracking
+   */
+  private generateCorrelationId(): string {
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    const clientPrefix = this.config.clientId.substring(0, 10);
+    return `${clientPrefix}-${timestamp}-${random}`;
+  }
+
+  /**
    * Fetch client token from controller
    */
   private async fetchClientToken(): Promise<string> {
+    const correlationId = this.generateCorrelationId();
+    const clientId = this.config.clientId;
+    
     try {
       // Create a temporary axios instance without interceptors to avoid recursion
       const tempAxios = axios.create({
@@ -116,18 +129,60 @@ export class InternalHttpClient {
 
       const response = await tempAxios.post<ClientTokenResponse>('/api/v1/auth/token');
       
-      if (response.data.success && response.data.token) {
-        this.clientToken = response.data.token;
+      // Handle both nested (new) and flat (old) response formats
+      const token = response.data.data?.token || response.data.token;
+      const expiresIn = response.data.data?.expiresIn || response.data.expiresIn;
+      
+      if (response.data.success && token) {
+        this.clientToken = token;
         // Set expiration with 30 second buffer before actual expiration
-        const expiresIn = response.data.expiresIn - 30;
-        this.tokenExpiresAt = new Date(Date.now() + expiresIn * 1000);
+        if (expiresIn) {
+          const bufferExpiresIn = expiresIn - 30;
+          this.tokenExpiresAt = new Date(Date.now() + bufferExpiresIn * 1000);
+        }
         return this.clientToken;
       }
 
-      throw new Error('Failed to get client token: Invalid response');
-    } catch (error) {
+      // Invalid response format - include full response details
+      const responseDetails = JSON.stringify({
+        status: response.status,
+        statusText: response.statusText,
+        data: response.data,
+        headers: response.headers
+      });
       throw new Error(
-        'Failed to get client token: ' + (error instanceof Error ? error.message : 'Unknown error')
+        `Failed to get client token: Invalid response format. Expected {success: true, token: string}. ` +
+        `Full response: ${responseDetails} [correlationId: ${correlationId}, clientId: ${clientId}]`
+      );
+    } catch (error) {
+      // Check if it's an AxiosError to extract full response details
+      if (this.isAxiosError(error)) {
+        const responseDetails: string[] = [];
+        
+        if (error.response) {
+          responseDetails.push(`status: ${error.response.status}`);
+          responseDetails.push(`statusText: ${error.response.statusText}`);
+          responseDetails.push(`data: ${JSON.stringify(error.response.data)}`);
+          if (error.response.headers) {
+            responseDetails.push(`headers: ${JSON.stringify(error.response.headers)}`);
+          }
+        } else if (error.request) {
+          responseDetails.push(`request: ${JSON.stringify(error.request)}`);
+          responseDetails.push(`message: ${error.message}`);
+        } else {
+          responseDetails.push(`message: ${error.message}`);
+        }
+        
+        throw new Error(
+          `Failed to get client token: ${error.message}. ` +
+          `Full response: {${responseDetails.join(', ')}} [correlationId: ${correlationId}, clientId: ${clientId}]`
+        );
+      }
+      
+      // Non-Axios error
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(
+        `Failed to get client token: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`
       );
     }
   }
