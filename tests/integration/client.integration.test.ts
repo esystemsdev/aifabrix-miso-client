@@ -2,40 +2,40 @@
  * Integration tests for MisoClient SDK
  */
 
-import { MisoClient } from '../../src/index';
-import { MisoClientConfig } from '../../src/types/config.types';
+import { MisoClient } from "../../src/index";
+import { MisoClientConfig } from "../../src/types/config.types";
 
 // Mock all external dependencies
-jest.mock('axios');
-jest.mock('ioredis');
-jest.mock('jsonwebtoken');
+jest.mock("axios");
+jest.mock("ioredis");
+jest.mock("jsonwebtoken");
 
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 
 const mockAxiosInstance = {
   interceptors: {
     request: { use: jest.fn() },
-    response: { use: jest.fn() }
+    response: { use: jest.fn() },
   },
   get: jest.fn(),
   post: jest.fn(),
   put: jest.fn(),
-  delete: jest.fn()
+  delete: jest.fn(),
 };
 
 // Mock for temporary axios instance used for token fetch
 const mockTempAxiosInstance = {
-  post: jest.fn()
+  post: jest.fn(),
 };
 
 const mockAxios = {
   create: jest.fn((config?: any) => {
     // If config has X-Client-Id header, return temp instance for token fetch
-    if (config?.headers?.['X-Client-Id']) {
+    if (config?.headers?.["X-Client-Id"]) {
       return mockTempAxiosInstance;
     }
     return mockAxiosInstance;
-  })
+  }),
 };
 
 const mockRedis = {
@@ -46,38 +46,38 @@ const mockRedis = {
   setex: jest.fn(),
   del: jest.fn(),
   rpush: jest.fn(),
-  isConnected: jest.fn()
+  isConnected: jest.fn(),
 };
 
-require('axios').create = mockAxios.create;
-require('ioredis').mockImplementation(() => mockRedis);
+require("axios").create = mockAxios.create;
+require("ioredis").mockImplementation(() => mockRedis);
 
-describe('MisoClient Integration', () => {
+describe("MisoClient Integration", () => {
   let client: MisoClient;
   let config: MisoClientConfig;
 
   beforeEach(() => {
     config = {
-      controllerUrl: 'https://controller.aifabrix.ai',
-      clientId: 'ctrl-dev-test-app',
-      clientSecret: 'test-secret',
+      controllerUrl: "https://controller.aifabrix.ai",
+      clientId: "ctrl-dev-test-app",
+      clientSecret: "test-secret",
       redis: {
-        host: 'localhost',
-        port: 6379
-      }
+        host: "localhost",
+        port: 6379,
+      },
     };
 
     // Reset mocks before each test
     jest.clearAllMocks();
-    
+
     // Setup default token response for all tests
     mockTempAxiosInstance.post.mockResolvedValue({
       data: {
         success: true,
-        token: 'client-token-123',
+        token: "client-token-123",
         expiresIn: 3600,
-        expiresAt: new Date(Date.now() + 3600000).toISOString()
-      }
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      },
     });
 
     // Re-setup mocks after clearing
@@ -87,10 +87,10 @@ describe('MisoClient Integration', () => {
     mockTempAxiosInstance.post.mockResolvedValue({
       data: {
         success: true,
-        token: 'client-token-123',
+        token: "client-token-123",
         expiresIn: 3600,
-        expiresAt: new Date(Date.now() + 3600000).toISOString()
-      }
+        expiresAt: new Date(Date.now() + 3600000).toISOString(),
+      },
     });
     mockRedis.connect.mockClear();
     mockRedis.disconnect.mockClear();
@@ -104,8 +104,8 @@ describe('MisoClient Integration', () => {
     client = new MisoClient(config);
   });
 
-  describe('Initialization', () => {
-    it('should initialize successfully with Redis', async () => {
+  describe("Initialization", () => {
+    it("should initialize successfully with Redis", async () => {
       mockRedis.connect.mockResolvedValue(undefined);
 
       await client.initialize();
@@ -115,10 +115,10 @@ describe('MisoClient Integration', () => {
       expect(mockRedis.connect).toHaveBeenCalled();
     });
 
-    it('should initialize successfully without Redis', async () => {
+    it("should initialize successfully without Redis", async () => {
       const clientWithoutRedis = new MisoClient({
         ...config,
-        redis: undefined
+        redis: undefined,
       });
 
       await clientWithoutRedis.initialize();
@@ -127,8 +127,8 @@ describe('MisoClient Integration', () => {
       expect(clientWithoutRedis.isRedisConnected()).toBe(false);
     });
 
-    it('should handle Redis connection failure gracefully', async () => {
-      mockRedis.connect.mockRejectedValue(new Error('Connection failed'));
+    it("should handle Redis connection failure gracefully", async () => {
+      mockRedis.connect.mockRejectedValue(new Error("Connection failed"));
 
       await client.initialize();
 
@@ -137,177 +137,192 @@ describe('MisoClient Integration', () => {
     });
   });
 
-  describe('Authentication Flow', () => {
+  describe("Authentication Flow", () => {
     beforeEach(async () => {
       mockRedis.connect.mockResolvedValue(undefined);
       await client.initialize();
     });
 
-    it('should validate token successfully', async () => {
+    it("should validate token successfully", async () => {
       mockAxiosInstance.post.mockResolvedValue({
-        data: { authenticated: true, user: { id: '123', username: 'testuser' } }
+        data: {
+          authenticated: true,
+          user: { id: "123", username: "testuser" },
+        },
       });
 
-      const result = await client.validateToken('valid-token');
+      const result = await client.validateToken("valid-token");
 
       expect(result).toBe(true);
     });
 
-    it('should get user information', async () => {
-      const userInfo = { id: '123', username: 'testuser', email: 'test@example.com' };
+    it("should get user information", async () => {
+      const userInfo = {
+        id: "123",
+        username: "testuser",
+        email: "test@example.com",
+      };
       mockAxiosInstance.post.mockResolvedValue({
-        data: { authenticated: true, user: userInfo }
+        data: { authenticated: true, user: userInfo },
       });
 
-      const result = await client.getUser('valid-token');
+      const result = await client.getUser("valid-token");
 
       expect(result).toEqual(userInfo);
     });
 
-    it('should check authentication status', async () => {
+    it("should check authentication status", async () => {
       mockAxiosInstance.post.mockResolvedValue({
-        data: { authenticated: true, user: { id: '123' } }
+        data: { authenticated: true, user: { id: "123" } },
       });
 
-      const result = await client.isAuthenticated('valid-token');
+      const result = await client.isAuthenticated("valid-token");
 
       expect(result).toBe(true);
     });
   });
 
-  describe('Authorization Flow', () => {
+  describe("Authorization Flow", () => {
     beforeEach(async () => {
       mockRedis.connect.mockResolvedValue(undefined);
       await client.initialize();
     });
 
-    it('should get roles from cache when available', async () => {
+    it("should get roles from cache when available", async () => {
       // Mock JWT decode to return userId - avoids validate API call
-      jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
+      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
 
       mockRedis.get.mockResolvedValue(
-        JSON.stringify({ roles: ['admin', 'user'], timestamp: Date.now() })
+        JSON.stringify({ roles: ["admin", "user"], timestamp: Date.now() }),
       );
 
-      const result = await client.getRoles('valid-token');
+      const result = await client.getRoles("valid-token");
 
-      expect(result).toEqual(['admin', 'user']);
-      expect(mockRedis.get).toHaveBeenCalledWith('roles:123');
+      expect(result).toEqual(["admin", "user"]);
+      expect(mockRedis.get).toHaveBeenCalledWith("roles:123");
     });
 
-    it('should fetch roles from controller when cache miss', async () => {
+    it("should fetch roles from controller when cache miss", async () => {
       // Mock JWT decode to return userId
-      jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
+      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
       // Mock the authenticated request (which internally uses axios.get with token interceptor)
       mockAxiosInstance.get.mockResolvedValue({
-        data: { userId: '123', roles: ['admin', 'user'], environment: 'dev', application: 'test-app' }
+        data: {
+          userId: "123",
+          roles: ["admin", "user"],
+          environment: "dev",
+          application: "test-app",
+        },
       });
 
       mockRedis.get.mockResolvedValue(null);
       mockRedis.isConnected.mockReturnValue(true);
       mockRedis.setex.mockResolvedValue(undefined);
 
-      const result = await client.getRoles('valid-token');
+      const result = await client.getRoles("valid-token");
 
-      expect(result).toEqual(['admin', 'user']);
+      expect(result).toEqual(["admin", "user"]);
       expect(mockRedis.setex).toHaveBeenCalled();
     });
 
-    it('should check specific role', async () => {
+    it("should check specific role", async () => {
       // Mock JWT decode to return userId
-      jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
+      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
 
       mockRedis.get.mockResolvedValue(
-        JSON.stringify({ roles: ['admin', 'user'], timestamp: Date.now() })
+        JSON.stringify({ roles: ["admin", "user"], timestamp: Date.now() }),
       );
 
-      const result = await client.hasRole('valid-token', 'admin');
+      const result = await client.hasRole("valid-token", "admin");
 
       expect(result).toBe(true);
     });
 
-    it('should check multiple roles', async () => {
+    it("should check multiple roles", async () => {
       // Mock JWT decode to return userId
-      jwt.decode.mockReturnValue({ sub: '123', userId: '123' });
+      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
 
       mockRedis.get.mockResolvedValue(
-        JSON.stringify({ roles: ['admin', 'user'], timestamp: Date.now() })
+        JSON.stringify({ roles: ["admin", "user"], timestamp: Date.now() }),
       );
 
-      const hasAny = await client.hasAnyRole('valid-token', ['admin', 'moderator']);
-      const hasAll = await client.hasAllRoles('valid-token', ['admin', 'user']);
+      const hasAny = await client.hasAnyRole("valid-token", [
+        "admin",
+        "moderator",
+      ]);
+      const hasAll = await client.hasAllRoles("valid-token", ["admin", "user"]);
 
       expect(hasAny).toBe(true);
       expect(hasAll).toBe(true);
     });
   });
 
-  describe('Logging Flow', () => {
+  describe("Logging Flow", () => {
     beforeEach(async () => {
       mockRedis.connect.mockResolvedValue(undefined);
       await client.initialize();
     });
 
-    it('should log to Redis when connected', async () => {
+    it("should log to Redis when connected", async () => {
       mockRedis.rpush.mockResolvedValue(true);
 
-      await client.log.error('Test error', { userId: '123' });
+      await client.log.error("Test error", { userId: "123" });
 
       expect(mockRedis.rpush).toHaveBeenCalledWith(
-        'logs:ctrl-dev-test-app',
-        expect.stringContaining('"level":"error"')
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"level":"error"'),
       );
       expect(mockRedis.rpush).toHaveBeenCalledWith(
-        'logs:ctrl-dev-test-app',
-        expect.stringContaining('"message":"Test error"')
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"message":"Test error"'),
       );
     });
 
-    it('should log audit events', async () => {
+    it("should log audit events", async () => {
       mockRedis.rpush.mockResolvedValue(true);
 
-      await client.log.audit('user.created', 'users', { userId: '123' });
+      await client.log.audit("user.created", "users", { userId: "123" });
 
       expect(mockRedis.rpush).toHaveBeenCalledWith(
-        'logs:ctrl-dev-test-app',
-        expect.stringContaining('"level":"audit"')
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"level":"audit"'),
       );
       expect(mockRedis.rpush).toHaveBeenCalledWith(
-        'logs:ctrl-dev-test-app',
-        expect.stringContaining('"message":"Audit: user.created on users"')
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"message":"Audit: user.created on users"'),
       );
     });
 
-    it('should fallback to HTTP when Redis fails', async () => {
+    it("should fallback to HTTP when Redis fails", async () => {
       mockAxiosInstance.post.mockResolvedValue({ data: {} });
 
       // Ensure Redis is connected but rpush fails
       mockRedis.connect.mockResolvedValue(undefined);
       mockRedis.isConnected.mockReturnValue(true);
-      mockRedis.rpush.mockRejectedValue(new Error('Redis rpush failed'));
+      mockRedis.rpush.mockRejectedValue(new Error("Redis rpush failed"));
 
       // Initialize the client to ensure Redis is connected
       await client.initialize();
 
-      await client.log.info('Test info');
+      await client.log.info("Test info");
 
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
-        '/api/v1/logs',
+        "/api/v1/logs",
         expect.objectContaining({
-          level: 'info',
-          message: 'Test info',
+          level: "info",
+          message: "Test info",
           application: undefined,
-          applicationId: '',
+          applicationId: "",
           environment: undefined,
-          timestamp: expect.any(String)
+          timestamp: expect.any(String),
         }),
-        undefined
+        undefined,
       );
     });
   });
 
-  describe('Configuration', () => {
-    it('should return configuration', () => {
+  describe("Configuration", () => {
+    it("should return configuration", () => {
       const returnedConfig = client.getConfig();
 
       expect(returnedConfig).toEqual(config);
@@ -315,8 +330,8 @@ describe('MisoClient Integration', () => {
     });
   });
 
-  describe('Cleanup', () => {
-    it('should disconnect from Redis', async () => {
+  describe("Cleanup", () => {
+    it("should disconnect from Redis", async () => {
       mockRedis.connect.mockResolvedValue(undefined);
       mockRedis.disconnect.mockResolvedValue(undefined);
 

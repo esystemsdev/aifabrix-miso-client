@@ -1,0 +1,132 @@
+name: Manual Publish To NPM
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (leave empty to use current version)'
+        required: false
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          scope: '@aifabrix'
+      
+      - name: Get version
+        id: get_version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+      
+      - name: Check if version already published
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          
+          if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
+            echo "⚠️  Version $VERSION already published!"
+            exit 1
+          fi
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run linting
+        run: npm run lint
+      
+      - name: Build package
+        run: npm run build
+      
+      - name: Verify build output
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "❌ Build failed: dist directory not found"
+            exit 1
+          fi
+          echo "✅ Build output verified"
+      
+      - name: Test package structure
+        run: |
+          npm pack --dry-run 2>&1 | tee pack-output.txt
+          
+          if grep -q "dist/index.js" pack-output.txt; then
+            echo "✅ dist/index.js will be included"
+          else
+            echo "❌ dist/index.js NOT found in package"
+            exit 1
+          fi
+      
+      - name: Publish to npm (public)
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      
+      - name: Verify publication
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          
+          sleep 30
+          
+          if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
+            echo "✅ Successfully verified: $PACKAGE_NAME@$VERSION"
+          else
+            echo "⚠️  Could not verify (npm registry may take time to update)"
+          fi
+      
+      - name: Summary
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          
+          echo "✅ Successfully published to npm!"
+          echo "📦 Package: $PACKAGE_NAME"
+          echo "🔖 Version: $VERSION"
+          echo "🌐 Registry: https://registry.npmjs.org"
+          echo ""
+          echo "Installation: npm install $PACKAGE_NAME@$VERSION"
+      
+      - name: Update GitHub Release
+        if: github.event_name == 'release'
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          
+          gh release edit "v$VERSION" \
+            --notes "## @aifabrix/miso-client v$VERSION
+          
+          ✅ **Published to npm**: \`$PACKAGE_NAME@$VERSION\`
+          
+          ### Installation
+          \`\`\`bash
+          npm install $PACKAGE_NAME@$VERSION
+          \`\`\`
+          
+          ### Package Information
+          - **Registry**: https://registry.npmjs.org
+          - **Access**: Public
+          - **Package URL**: https://www.npmjs.com/package/$PACKAGE_NAME/v/$VERSION"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

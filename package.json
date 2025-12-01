@@ -1,7 +1,7 @@
 {
   "name": "@aifabrix/miso-client",
   "version": "2.0.0",
-  "description": "AI Fabrix Client SDK for authentication, authorization, and logging",
+  "description": "AI Fabrix Client SDK - Authentication, authorization, logging, and Express.js utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -27,6 +27,14 @@
   ],
   "author": "AI Fabrix Team",
   "license": "MIT",
+  "peerDependencies": {
+    "express": "^4.18.0 || ^5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@types/jsonwebtoken": "^9.0.10",
     "axios": "^1.6.2",
@@ -35,6 +43,7 @@
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/jest": "^29.5.8",
     "@types/node": "^20.10.4",
     "@typescript-eslint/eslint-plugin": "^6.21.0",

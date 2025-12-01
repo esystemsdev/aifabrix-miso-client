@@ -10,18 +10,21 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 ### 🔐 Enterprise Security
 
 **SSO and Federated Identity**
+
 - Single Sign-On (SSO) with Keycloak
 - OAuth 2.0 and OpenID Connect (OIDC) support
 - Multi-factor authentication (MFA) ready
 - Social login integration (Google, Microsoft, etc.)
 
 **Centralized Access Control**
+
 - Role-based access control (RBAC)
 - Fine-grained permissions
 - Dynamic policy enforcement
 - Attribute-based access control (ABAC)
 
 **API Security**
+
 - JWT token validation
 - API key authentication
 - Token revocation support
@@ -31,24 +34,28 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 ### 📊 Compliance & Audit
 
 **ISO 27001 Compliance**
+
 - Comprehensive audit trails for all user actions
 - Data access logging and monitoring
 - Security event tracking
 - Accountability and non-repudiation
 
 **Regulatory Compliance**
+
 - GDPR-ready data protection
 - HIPAA-compliant audit logging
 - SOC 2 audit trail requirements
 - Industry-standard security controls
 
 **Audit Capabilities**
+
 - Real-time audit event logging
 - Immutable audit records
 - Forensic analysis support
 - Compliance reporting automation
 
 **HTTP Request Audit (ISO 27001 Compliant)**
+
 - Automatic audit logging for all HTTP requests
 - Sensitive data masking (passwords, tokens, PII, financial data)
 - Configurable sensitive fields via JSON configuration
@@ -59,6 +66,7 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 ### ⚡ Performance & Scalability
 
 **Intelligent Caching**
+
 - Redis-based role and permission caching
 - Generic cache service with Redis and in-memory fallback
 - Configurable cache TTL (default: 15 minutes)
@@ -66,12 +74,14 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 - Fallback to controller when Redis unavailable
 
 **High Availability**
+
 - Automatic failover to controller
 - Redundant infrastructure support
 - Load balancing compatible
 - Zero-downtime deployments
 
 **Optimized Network**
+
 - Efficient API calls with caching
 - Batch operations support
 - Connection pooling
@@ -80,18 +90,21 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 ### 🛠️ Developer Experience
 
 **Easy Integration**
+
 - Progressive activation (6-step setup)
 - Works with any framework (Express, Next.js, NestJS, Fastify)
 - TypeScript-first with full type definitions
 - Browser and Node.js support
 
 **Flexible Configuration**
+
 - Environment-based configuration
 - Support for dev, test, and production environments
 - Docker and Kubernetes ready
 - CI/CD friendly
 
 **Observability**
+
 - Centralized logging with correlation IDs
 - Performance tracking and metrics
 - Error tracking and debugging
@@ -166,7 +179,7 @@ aifabrix run miso-controller
 
 ---
 
-## 📚 Documentation
+## 🔍 How It Works
 
 **What happens:** Your app validates user tokens from Keycloak.
 
@@ -345,6 +358,7 @@ MISO_SENSITIVE_FIELDS_CONFIG=/path/to/sensitive-fields.config.json
 
 **Built-in Performance Optimizations:**
 The SDK automatically optimizes audit logging performance:
+
 - Automatic response body truncation for large payloads
 - Optimized masking operations with intelligent size-based processing
 - Batch logging to minimize network overhead
@@ -366,12 +380,14 @@ const client = new MisoClient({
 ```
 
 **What gets audited:**
+
 - All HTTP requests to the controller
 - Request/response metadata (method, URL, status, duration, size)
 - User context (extracted from JWT tokens)
 - Sensitive data is automatically masked (passwords, tokens, PII, credit cards, etc.)
 
 **ISO 27001 Compliance:**
+
 - Automatic sensitive data masking before logging
 - Configurable sensitive field patterns
 - Audit trail for all API communications
@@ -483,7 +499,211 @@ const response = createPaginatedListResponse(
 
 ---
 
-### Step 9: Multi-Authentication Strategy
+### Step 9: Express.js Utilities
+
+**What happens:** Use Express-specific utilities for building REST APIs with standardized responses, error handling, and validation.
+
+#### Installation
+
+For Express.js applications, the SDK includes optional Express utilities:
+
+```bash
+npm install @aifabrix/miso-client express
+```
+
+#### Quick Start
+
+```typescript
+import express from 'express';
+import { 
+  injectResponseHelpers,
+  asyncHandler,
+  ValidationHelper,
+  setErrorLogger,
+  EncryptionUtil
+} from '@aifabrix/miso-client';
+
+const app = express();
+
+// Inject response helpers
+app.use(injectResponseHelpers);
+
+// Configure error logger (optional)
+setErrorLogger({
+  async logError(message, options) {
+    console.error(message, options);
+  }
+});
+
+// Use asyncHandler for automatic error handling
+app.get('/users/:id', asyncHandler(async (req, res) => {
+  const user = await ValidationHelper.findOrFail(
+    () => db.user.findById(req.params.id),
+    'User',
+    req.params.id
+  );
+  res.success(user, 'User retrieved');
+}));
+```
+
+#### Response Helpers
+
+Standardized API response formatting:
+
+```typescript
+import { ResponseHelper } from '@aifabrix/miso-client';
+
+// Success response (200)
+return ResponseHelper.success(res, data, 'Success message');
+
+// Created response (201)
+return ResponseHelper.created(res, newResource, 'Resource created');
+
+// Paginated response
+return ResponseHelper.paginated(res, items, {
+  currentPage: 1,
+  pageSize: 20,
+  totalItems: 100,
+  type: 'user'
+});
+
+// No content (204)
+return ResponseHelper.noContent(res);
+
+// Accepted (202)
+return ResponseHelper.accepted(res, { jobId: '123' }, 'Job queued');
+
+// Or use injected methods on res object
+res.success(user);
+res.created(newPost);
+res.paginated(users, meta);
+res.noContent();
+res.accepted(data);
+```
+
+#### Async Handler
+
+Eliminates try-catch blocks in route handlers:
+
+```typescript
+import { asyncHandler } from '@aifabrix/miso-client';
+
+// Automatic error handling
+router.post('/users', asyncHandler(async (req, res) => {
+  const user = await userService.create(req.body);
+  res.created(user, 'User created');
+}));
+
+// Named variant for better error messages
+router.get('/users/:id', asyncHandlerNamed('getUser', async (req, res) => {
+  const user = await userService.findById(req.params.id);
+  res.success(user);
+}));
+```
+
+#### Validation Helper
+
+Common validation patterns:
+
+```typescript
+import { ValidationHelper } from '@aifabrix/miso-client';
+
+// Find or throw 404
+const user = await ValidationHelper.findOrFail(
+  () => prisma.user.findUnique({ where: { id } }),
+  'User',
+  id
+);
+
+// Ensure doesn't exist or throw 409
+await ValidationHelper.ensureNotExists(
+  () => prisma.user.findUnique({ where: { email } }),
+  'User',
+  email
+);
+
+// Check ownership or admin role
+ValidationHelper.ensureOwnershipOrAdmin(req, resourceUserId);
+
+// Validate required fields
+ValidationHelper.validateRequiredFields(data, ['name', 'email'], 'User');
+
+// Validate string length
+ValidationHelper.validateStringLength(password, 'password', 8, 128);
+```
+
+#### Error Handling
+
+RFC 7807 compliant error responses with optional custom logger:
+
+```typescript
+import { setErrorLogger } from '@aifabrix/miso-client';
+
+// Configure during app initialization
+setErrorLogger({
+  async logError(message, options) {
+    await yourLogger.error(message, options);
+  }
+});
+
+// Errors are automatically handled by asyncHandler
+// AppError is automatically converted to RFC 7807 format
+```
+
+#### Encryption
+
+AES-256-GCM encryption for sensitive data:
+
+```typescript
+import { EncryptionUtil } from '@aifabrix/miso-client';
+
+// Initialize once at startup (uses ENCRYPTION_KEY env var)
+EncryptionUtil.initialize();
+
+// Encrypt sensitive data
+const encrypted = EncryptionUtil.encrypt('sensitive-data');
+
+// Decrypt
+const decrypted = EncryptionUtil.decrypt(encrypted);
+
+// Generate new key (for setup)
+const key = EncryptionUtil.generateKey();
+console.log('ENCRYPTION_KEY=' + key);
+```
+
+#### Sort Utilities
+
+Parse and apply sorting for API queries:
+
+```typescript
+import { parseSortParams, applySorting } from '@aifabrix/miso-client';
+
+// Parse sort query parameters
+const sortOptions = parseSortParams({ sort: ['-createdAt', 'name'] });
+// Returns: [{ field: 'createdAt', order: 'desc' }, { field: 'name', order: 'asc' }]
+
+// Apply sorting to in-memory data (client-side)
+const sortedData = applySorting(users, sortOptions);
+
+// Or parse from Express request query
+app.get('/users', (req, res) => {
+  const sortOptions = parseSortParams(req.query);
+  // Use sortOptions to build database query with Prisma/SQL
+  const users = await prisma.user.findMany({
+    orderBy: sortOptions.map(s => ({ [s.field]: s.order }))
+  });
+  res.success(users);
+});
+```
+
+**Note:** For large datasets, always sort at the database level. Use `applySorting()` only for small in-memory datasets or client-side sorting.
+
+→ [Complete Express examples](examples/)  
+→ [API Reference](docs/api-reference.md#express-utilities)
+
+---
+
+### Step 10: Multi-Authentication Strategy
 
 **What happens:** Configure flexible authentication methods with priority-based fallback for advanced authentication scenarios.
 
@@ -516,6 +736,7 @@ const defaultStrategy = client.getDefaultAuthStrategy(token);
 ```
 
 **Supported Authentication Methods:**
+
 - `bearer` - Bearer token authentication (Authorization: Bearer <token>)
 - `client-token` - Client token authentication (x-client-token header)
 - `client-credentials` - Client credentials authentication (X-Client-Id and X-Client-Secret headers)
@@ -524,6 +745,7 @@ const defaultStrategy = client.getDefaultAuthStrategy(token);
 **Priority-Based Fallback:** Methods are tried in the order specified in the strategy array until one succeeds.
 
 **Environment Variable Configuration:**
+
 ```bash
 MISO_AUTH_STRATEGY=bearer,client-token,api-key
 MISO_BEARER_TOKEN=optional-bearer-token
@@ -599,16 +821,19 @@ The SDK consists of five core services:
 **First time setup?** Use the AI Fabrix Builder:
 
 1. **Create your app:**
+
    ```bash
    aifabrix create myapp --port 3000 --database --language typescript
    ```
 
 2. **Login to controller:**
+
    ```bash
    aifabrix login
    ```
 
 3. **Register your application:**
+
    ```bash
    aifabrix app register myapp --environment dev
    ```
@@ -622,6 +847,7 @@ The SDK consists of five core services:
 ## 💡 Next Steps
 
 ### Learn More
+
 - [Express.js Middleware](docs/examples.md#expressjs-middleware) - Protect API routes
 - [React Authentication](docs/examples.md#react-authentication) - Frontend auth
 - [NestJS Guards](docs/examples.md#nestjs-guards) - Decorator-based auth
@@ -630,6 +856,7 @@ The SDK consists of five core services:
 ### Common Tasks
 
 **Add authentication middleware:**
+
 ```typescript
 app.use(async (req, res, next) => {
   const token = client.getToken(req);
@@ -644,6 +871,7 @@ app.use(async (req, res, next) => {
 ```
 
 **Protect routes by role:**
+
 ```typescript
 app.get('/admin', async (req, res) => {
   const token = client.getToken(req);
@@ -658,6 +886,7 @@ app.get('/admin', async (req, res) => {
 ```
 
 **Use environment variables:**
+
 ```bash
 MISO_CLIENTID=ctrl-dev-my-app
 MISO_CLIENTSECRET=your-secret

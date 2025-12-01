@@ -7,16 +7,16 @@
  * Filter operators supported by the API.
  */
 export type FilterOperator =
-  | 'eq'
-  | 'neq'
-  | 'in'
-  | 'nin'
-  | 'gt'
-  | 'lt'
-  | 'gte'
-  | 'lte'
-  | 'contains'
-  | 'like';
+  | "eq"
+  | "neq"
+  | "in"
+  | "nin"
+  | "gt"
+  | "lt"
+  | "gte"
+  | "lte"
+  | "contains"
+  | "like";
 
 /**
  * Single filter option with field, operator, and value.
@@ -66,7 +66,11 @@ export class FilterBuilder {
    * @param value - Filter value (supports arrays for `in` and `nin`)
    * @returns FilterBuilder instance for method chaining
    */
-  add(field: string, op: FilterOperator, value: string | number | boolean | Array<string | number>): FilterBuilder {
+  add(
+    field: string,
+    op: FilterOperator,
+    value: string | number | boolean | Array<string | number>,
+  ): FilterBuilder {
     this.filters.push({ field, op, value });
     return this;
   }
@@ -96,8 +100,8 @@ export class FilterBuilder {
   toQueryString(): string {
     const params = new URLSearchParams();
     this.filters.forEach((f) => {
-      const val = Array.isArray(f.value) ? f.value.join(',') : String(f.value);
-      params.append('filter', `${f.field}:${f.op}:${val}`);
+      const val = Array.isArray(f.value) ? f.value.join(",") : String(f.value);
+      params.append("filter", `${f.field}:${f.op}:${val}`);
     });
     return params.toString();
   }

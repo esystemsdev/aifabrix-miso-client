@@ -3,8 +3,11 @@
  * Supports structured error responses and backward compatibility
  */
 
-import { ErrorResponse } from '../types/config.types';
-import { ErrorResponse as ErrorResponseFromErrors, ErrorEnvelope } from '../types/errors.types';
+import { ErrorResponse } from "../types/config.types";
+import {
+  ErrorResponse as ErrorResponseFromErrors,
+  ErrorEnvelope,
+} from "../types/errors.types";
 
 /**
  * Custom error class that extends Error
@@ -19,7 +22,7 @@ export class MisoClientError extends Error {
     message: string,
     errorResponse?: ErrorResponse,
     errorBody?: Record<string, unknown>,
-    statusCode?: number
+    statusCode?: number,
   ) {
     // Generate message prioritizing structured errors when available
     let finalMessage = message;
@@ -33,8 +36,8 @@ export class MisoClientError extends Error {
     }
 
     super(finalMessage);
-    this.name = 'MisoClientError';
-    
+    this.name = "MisoClientError";
+
     // Set properties
     this.errorResponse = errorResponse;
     this.errorBody = errorBody;
@@ -53,72 +56,88 @@ export class MisoClientError extends Error {
  * @returns Standardized camelCase ErrorResponse
  */
 export function transformError(err: unknown): ErrorResponseFromErrors {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const axiosError = err as { response?: { data?: unknown; status?: number }; config?: { url?: string }; message?: string };
-    
+  if (err && typeof err === "object" && "response" in err) {
+    const axiosError = err as {
+      response?: { data?: unknown; status?: number };
+      config?: { url?: string };
+      message?: string;
+    };
+
     if (axiosError.response?.data) {
       const data = axiosError.response.data;
-      
+
       // Handle error envelope format
-      if (typeof data === 'object' && data !== null && 'error' in data) {
+      if (typeof data === "object" && data !== null && "error" in data) {
         const envelope = data as ErrorEnvelope;
         const errorData = envelope.error;
-        
-        const statusCode = errorData.statusCode ?? axiosError.response.status ?? 500;
-        
+
+        const statusCode =
+          errorData.statusCode ?? axiosError.response.status ?? 500;
+
         return {
-          errors: errorData.errors ?? ['Unknown error'],
-          type: errorData.type ?? 'about:blank',
-          title: errorData.title ?? axiosError.message ?? 'Unknown error',
+          errors: errorData.errors ?? ["Unknown error"],
+          type: errorData.type ?? "about:blank",
+          title: errorData.title ?? axiosError.message ?? "Unknown error",
           statusCode: statusCode,
           instance: errorData.instance ?? axiosError.config?.url,
-          correlationId: errorData.correlationId
+          correlationId: errorData.correlationId,
         };
       }
-      
+
       // Handle direct error format
-      if (typeof data === 'object' && data !== null) {
+      if (typeof data === "object" && data !== null) {
         const errorData = data as Record<string, unknown>;
-        const statusCode = (typeof errorData.statusCode === 'number' ? errorData.statusCode : 
-                           typeof axiosError.response?.status === 'number' ? axiosError.response.status : 
-                           500) as number;
-        
+        const statusCode = (
+          typeof errorData.statusCode === "number"
+            ? errorData.statusCode
+            : typeof axiosError.response?.status === "number"
+              ? axiosError.response.status
+              : 500
+        ) as number;
+
         return {
-          errors: Array.isArray(errorData.errors) ? (errorData.errors as string[]) : ['Unknown error'],
-          type: (errorData.type as string | undefined) ?? 'about:blank',
-          title: (errorData.title as string | undefined) ?? axiosError.message ?? 'Unknown error',
+          errors: Array.isArray(errorData.errors)
+            ? (errorData.errors as string[])
+            : ["Unknown error"],
+          type: (errorData.type as string | undefined) ?? "about:blank",
+          title:
+            (errorData.title as string | undefined) ??
+            axiosError.message ??
+            "Unknown error",
           statusCode: statusCode,
-          instance: (errorData.instance as string | undefined) ?? axiosError.config?.url,
-          correlationId: errorData.correlationId as string | undefined
+          instance:
+            (errorData.instance as string | undefined) ??
+            axiosError.config?.url,
+          correlationId: errorData.correlationId as string | undefined,
         };
       }
     }
-    
+
     // Fallback for response without data
     return {
-      errors: [(axiosError as { message?: string }).message ?? 'Network error'],
-      type: 'about:blank',
-      title: 'Network error',
-      statusCode: axiosError.response?.status ?? 0
+      errors: [(axiosError as { message?: string }).message ?? "Network error"],
+      type: "about:blank",
+      title: "Network error",
+      statusCode: axiosError.response?.status ?? 0,
     };
   }
-  
+
   // Handle non-Axios errors
   if (err instanceof Error) {
     return {
-      errors: [err.message ?? 'Unknown error'],
-      type: 'about:blank',
-      title: 'Error',
-      statusCode: 0
+      errors: [err.message ?? "Unknown error"],
+      type: "about:blank",
+      title: "Error",
+      statusCode: 0,
     };
   }
-  
+
   // Last resort
   return {
-    errors: ['Unknown error'],
-    type: 'about:blank',
-    title: 'Unknown error',
-    statusCode: 0
+    errors: ["Unknown error"],
+    type: "about:blank",
+    title: "Unknown error",
+    statusCode: 0,
   };
 }
 
@@ -134,8 +153,8 @@ export class ApiErrorException extends Error {
   errors: string[];
 
   constructor(error: ErrorResponseFromErrors) {
-    super(error.title || 'API Error');
-    this.name = 'ApiErrorException';
+    super(error.title || "API Error");
+    this.name = "ApiErrorException";
     this.statusCode = error.statusCode;
     this.correlationId = error.correlationId;
     this.type = error.type;
@@ -158,4 +177,3 @@ export function handleApiError(err: unknown): never {
   const error = transformError(err);
   throw new ApiErrorException(error);
 }
-

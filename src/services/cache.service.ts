@@ -2,7 +2,7 @@
  * Cache service for generic caching with Redis support and in-memory TTL fallback
  */
 
-import { RedisService } from './redis.service';
+import { RedisService } from "./redis.service";
 
 interface CacheEntry<T> {
   value: T;
@@ -22,9 +22,12 @@ export class CacheService {
     this.redis = redis;
 
     // Start periodic cleanup of expired entries (every 5 minutes)
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupExpired();
-    }, 5 * 60 * 1000);
+    this.cleanupInterval = setInterval(
+      () => {
+        this.cleanupExpired();
+      },
+      5 * 60 * 1000,
+    );
   }
 
   /**
@@ -138,7 +141,7 @@ export class CacheService {
     const expiresAt = Date.now() + ttl * 1000;
     this.memoryCache.set(key, {
       value,
-      expiresAt
+      expiresAt,
     });
   }
 
@@ -190,4 +193,3 @@ export class CacheService {
     this.memoryCache.clear();
   }
 }
-

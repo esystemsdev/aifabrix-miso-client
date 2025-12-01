@@ -1,0 +1,108 @@
+name: Manual Version Bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Bump version
+        run: |
+          node -e "
+            const fs = require('fs');
+            const packagePath = 'package.json';
+            const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+            const currentVersion = packageJson.version;
+            console.log('Current version:', currentVersion);
+            
+            const [major, minor, patch] = currentVersion.split('.').map(Number);
+            let newVersion;
+            
+            switch ('${{ inputs.version_type }}') {
+              case 'major':
+                newVersion = \`\${major + 1}.0.0\`;
+                break;
+              case 'minor':
+                newVersion = \`\${major}.\${minor + 1}.0\`;
+                break;
+              case 'patch':
+                newVersion = \`\${major}.\${minor}.\${patch + 1}\`;
+                break;
+              default:
+                throw new Error('Invalid version type');
+            }
+            
+            console.log('New version:', newVersion);
+            packageJson.version = newVersion;
+            fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\\n');
+            fs.writeFileSync(process.env.GITHUB_ENV, \`NEW_VERSION=\${newVersion}\\n\`, { flag: 'a' });
+          "
+      
+      - name: Commit and push
+        run: |
+          git add package.json
+          git commit -m "chore: bump version to $NEW_VERSION"
+          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+          git push origin main
+          git push origin "v$NEW_VERSION"
+      
+      - name: Create GitHub Release
+        run: |
+          gh release create "v$NEW_VERSION" \
+            --title "Release v$NEW_VERSION" \
+            --notes "## @aifabrix/miso-client v$NEW_VERSION
+          
+          AI Fabrix Client SDK - Authentication, authorization, logging, and Express.js utilities
+          
+          ### Installation
+          \`\`\`bash
+          npm install @aifabrix/miso-client@$NEW_VERSION
+          \`\`\`
+          
+          ### What's Changed
+          - Version bumped to $NEW_VERSION
+          
+          See the [commits](https://github.com/esystemsdev/aifabrix-miso-client/commits/v$NEW_VERSION) for detailed changes."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Summary
+        run: |
+          echo "✅ Version bump completed successfully!"
+          echo "📦 New version: $NEW_VERSION"
+          echo "🏷️  Git tag: v$NEW_VERSION"
+          echo "🚀 GitHub Release created"
+          echo ""
+          echo "Next steps:"
+          echo "1. Review the GitHub Release"
+          echo "2. Trigger the 'Manual Publish To NPM' workflow to publish the package"
+

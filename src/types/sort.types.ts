@@ -11,5 +11,5 @@ export interface SortOption {
   field: string;
 
   /** Sort order: ascending or descending. */
-  order: 'asc' | 'desc';
+  order: "asc" | "desc";
 }

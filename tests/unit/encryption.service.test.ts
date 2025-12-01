@@ -1,224 +1,225 @@
 /**
- * Unit tests for EncryptionService
+ * Unit tests for EncryptionUtil
  */
 
-import { EncryptionService } from '../../src/services/encryption.service';
+import { EncryptionUtil } from "../../src/express/encryption";
 
-describe('EncryptionService', () => {
-  const testKey = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef'; // 64 hex chars = 32 bytes
+describe("EncryptionUtil", () => {
+  const testKey =
+    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"; // 64 hex chars = 32 bytes
 
-  describe('Constructor', () => {
-    it('should create instance with constructor parameter', () => {
-      const service = new EncryptionService(testKey);
-      expect(service).toBeInstanceOf(EncryptionService);
-    });
+  beforeEach(() => {
+    // Reset initialization state before each test
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (EncryptionUtil as any).initialized = false;
+  });
 
-    it('should create instance with env var when no parameter provided', () => {
+  describe("initialize()", () => {
+    it("should initialize with env var", () => {
       const originalEnv = process.env.ENCRYPTION_KEY;
       process.env.ENCRYPTION_KEY = testKey;
 
-      const service = new EncryptionService();
-      expect(service).toBeInstanceOf(EncryptionService);
+      expect(() => EncryptionUtil.initialize()).not.toThrow();
 
       process.env.ENCRYPTION_KEY = originalEnv;
     });
 
-    it('should throw error when no key is provided', () => {
+    it("should throw error when no key is provided", () => {
       const originalEnv = process.env.ENCRYPTION_KEY;
       delete process.env.ENCRYPTION_KEY;
 
       expect(() => {
-        new EncryptionService();
-      }).toThrow('Encryption key is required');
+        EncryptionUtil.initialize();
+      }).toThrow("ENCRYPTION_KEY environment variable not configured");
 
       if (originalEnv) {
         process.env.ENCRYPTION_KEY = originalEnv;
       }
     });
 
-    it('should accept raw string key and derive 32-byte key', () => {
-      const service = new EncryptionService('my-secret-key');
-      expect(service).toBeInstanceOf(EncryptionService);
-      
-      // Test that it can encrypt/decrypt
-      const plaintext = 'test';
-      const encrypted = service.encrypt(plaintext);
-      const decrypted = service.decrypt(encrypted);
-      expect(decrypted).toBe(plaintext);
-    });
-
-    it('should accept hex key', () => {
-      const service = new EncryptionService(testKey);
-      expect(service).toBeInstanceOf(EncryptionService);
-    });
-
-    it('should accept base64 key', () => {
-      const base64Key = Buffer.from(testKey, 'hex').toString('base64');
-      const service = new EncryptionService(base64Key);
-      expect(service).toBeInstanceOf(EncryptionService);
-      
-      // Test that it can encrypt/decrypt
-      const plaintext = 'test';
-      const encrypted = service.encrypt(plaintext);
-      const decrypted = service.decrypt(encrypted);
-      expect(decrypted).toBe(plaintext);
-    });
-
-    it('should prefer constructor parameter over env var', () => {
+    it("should throw error when key length is invalid", () => {
       const originalEnv = process.env.ENCRYPTION_KEY;
-      process.env.ENCRYPTION_KEY = 'env-key';
-      const constructorKey = 'constructor-key';
+      process.env.ENCRYPTION_KEY = "short-key";
 
-      const service = new EncryptionService(constructorKey);
-      
-      // Encrypt with constructor key
-      const encrypted = service.encrypt('test');
-      
-      // Try to decrypt with a service using env key (should fail since keys are different)
-      const envService = new EncryptionService();
       expect(() => {
-        envService.decrypt(encrypted);
-      }).toThrow('Decryption failed'); // Should throw error since keys are different
+        EncryptionUtil.initialize();
+      }).toThrow("ENCRYPTION_KEY must be 64 hex characters");
 
-      // But decryption with original service should work
-      const decrypted = service.decrypt(encrypted);
-      expect(decrypted).toBe('test');
+      process.env.ENCRYPTION_KEY = originalEnv;
+    });
+
+    it("should accept valid hex key", () => {
+      const originalEnv = process.env.ENCRYPTION_KEY;
+      process.env.ENCRYPTION_KEY = testKey;
+
+      expect(() => EncryptionUtil.initialize()).not.toThrow();
+
+      process.env.ENCRYPTION_KEY = originalEnv;
+    });
+
+    it("should not reinitialize if already initialized", () => {
+      const originalEnv = process.env.ENCRYPTION_KEY;
+      process.env.ENCRYPTION_KEY = testKey;
+
+      EncryptionUtil.initialize();
+      expect(() => EncryptionUtil.initialize()).not.toThrow();
 
       process.env.ENCRYPTION_KEY = originalEnv;
     });
   });
 
-  describe('Encryption/Decryption', () => {
-    let service: EncryptionService;
-
+  describe("Encryption/Decryption", () => {
     beforeEach(() => {
-      service = new EncryptionService(testKey);
+      const originalEnv = process.env.ENCRYPTION_KEY;
+      process.env.ENCRYPTION_KEY = testKey;
+      EncryptionUtil.initialize();
+      process.env.ENCRYPTION_KEY = originalEnv;
     });
 
-    it('should encrypt and decrypt plaintext successfully', () => {
-      const plaintext = 'Hello, World!';
-      const encrypted = service.encrypt(plaintext);
-      const decrypted = service.decrypt(encrypted);
+    it("should encrypt and decrypt plaintext successfully", () => {
+      const plaintext = "Hello, World!";
+      const encrypted = EncryptionUtil.encrypt(plaintext);
+      const decrypted = EncryptionUtil.decrypt(encrypted);
 
       expect(encrypted).not.toBe(plaintext);
-      expect(encrypted).toMatch(/^[A-Za-z0-9+/=]+$/); // Base64 format
+      expect(encrypted).toMatch(/^[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/); // Hex format: iv:authTag:ciphertext
       expect(decrypted).toBe(plaintext);
     });
 
-    it('should handle empty string', () => {
-      const encrypted = service.encrypt('');
-      expect(encrypted).toBe('');
-      
-      const decrypted = service.decrypt('');
-      expect(decrypted).toBe('');
+    it("should handle empty string", () => {
+      expect(() => EncryptionUtil.encrypt("")).toThrow(
+        "Cannot encrypt empty text",
+      );
+      expect(() => EncryptionUtil.decrypt("")).toThrow(
+        "Cannot decrypt empty text",
+      );
     });
 
-    it('should produce different ciphertext for same plaintext (due to random IV)', () => {
-      const plaintext = 'same text';
-      const encrypted1 = service.encrypt(plaintext);
-      const encrypted2 = service.encrypt(plaintext);
+    it("should produce different ciphertext for same plaintext (due to random IV)", () => {
+      const plaintext = "same text";
+      const encrypted1 = EncryptionUtil.encrypt(plaintext);
+      const encrypted2 = EncryptionUtil.encrypt(plaintext);
 
       // Should be different due to random IV
       expect(encrypted1).not.toBe(encrypted2);
-      
+
       // But both should decrypt to same plaintext
-      expect(service.decrypt(encrypted1)).toBe(plaintext);
-      expect(service.decrypt(encrypted2)).toBe(plaintext);
+      expect(EncryptionUtil.decrypt(encrypted1)).toBe(plaintext);
+      expect(EncryptionUtil.decrypt(encrypted2)).toBe(plaintext);
     });
 
-    it('should handle special characters', () => {
-      const plaintext = 'Special chars: !@#$%^&*()_+-=[]{}|;:,.<>?';
-      const encrypted = service.encrypt(plaintext);
-      const decrypted = service.decrypt(encrypted);
+    it("should handle special characters", () => {
+      const plaintext = "Special chars: !@#$%^&*()_+-=[]{}|;:,.<>?";
+      const encrypted = EncryptionUtil.encrypt(plaintext);
+      const decrypted = EncryptionUtil.decrypt(encrypted);
 
       expect(decrypted).toBe(plaintext);
     });
 
-    it('should handle unicode characters', () => {
-      const plaintext = 'Unicode: 你好世界 🌍';
-      const encrypted = service.encrypt(plaintext);
-      const decrypted = service.decrypt(encrypted);
+    it("should handle unicode characters", () => {
+      const plaintext = "Unicode: 你好世界 🌍";
+      const encrypted = EncryptionUtil.encrypt(plaintext);
+      const decrypted = EncryptionUtil.decrypt(encrypted);
 
       expect(decrypted).toBe(plaintext);
     });
 
-    it('should handle long strings', () => {
-      const plaintext = 'A'.repeat(10000);
-      const encrypted = service.encrypt(plaintext);
-      const decrypted = service.decrypt(encrypted);
+    it("should handle long strings", () => {
+      const plaintext = "A".repeat(10000);
+      const encrypted = EncryptionUtil.encrypt(plaintext);
+      const decrypted = EncryptionUtil.decrypt(encrypted);
 
       expect(decrypted).toBe(plaintext);
     });
 
-    it('should handle JSON strings', () => {
-      const jsonData = JSON.stringify({ name: 'John', age: 30, items: [1, 2, 3] });
-      const encrypted = service.encrypt(jsonData);
-      const decrypted = service.decrypt(encrypted);
+    it("should handle JSON strings", () => {
+      const jsonData = JSON.stringify({
+        name: "John",
+        age: 30,
+        items: [1, 2, 3],
+      });
+      const encrypted = EncryptionUtil.encrypt(jsonData);
+      const decrypted = EncryptionUtil.decrypt(encrypted);
 
       expect(JSON.parse(decrypted)).toEqual(JSON.parse(jsonData));
     });
   });
 
-  describe('Error Handling', () => {
-    let service: EncryptionService;
-
+  describe("Error Handling", () => {
     beforeEach(() => {
-      service = new EncryptionService(testKey);
+      const originalEnv = process.env.ENCRYPTION_KEY;
+      process.env.ENCRYPTION_KEY = testKey;
+      EncryptionUtil.initialize();
+      process.env.ENCRYPTION_KEY = originalEnv;
     });
 
-    it('should throw error on invalid encrypted data', () => {
+    it("should throw error when not initialized", () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (EncryptionUtil as any).initialized = false;
+
       expect(() => {
-        service.decrypt('invalid-data');
-      }).toThrow('Decryption failed');
-    });
+        EncryptionUtil.encrypt("test");
+      }).toThrow("EncryptionUtil not initialized");
 
-    it('should throw error on too short encrypted data', () => {
-      const shortData = Buffer.from('short').toString('base64');
       expect(() => {
-        service.decrypt(shortData);
-      }).toThrow('Decryption failed');
+        EncryptionUtil.decrypt("test:test:test");
+      }).toThrow("EncryptionUtil not initialized");
     });
 
-    it('should throw error on corrupted encrypted data', () => {
-      const plaintext = 'test';
-      const encrypted = service.encrypt(plaintext);
-      
+    it("should throw error on invalid encrypted data", () => {
+      expect(() => {
+        EncryptionUtil.decrypt("invalid-data");
+      }).toThrow("Invalid encrypted text format");
+    });
+
+    it("should throw error on too short encrypted data", () => {
+      expect(() => {
+        EncryptionUtil.decrypt("aa:bb:cc");
+      }).toThrow("Decryption failed");
+    });
+
+    it("should throw error on corrupted encrypted data", () => {
+      const plaintext = "test";
+      const encrypted = EncryptionUtil.encrypt(plaintext);
+
       // Corrupt the encrypted data
-      const corrupted = encrypted.slice(0, -5) + 'XXXXX';
-      
-      expect(() => {
-        service.decrypt(corrupted);
-      }).toThrow('Decryption failed');
-    });
-
-    it('should throw error when using wrong key', () => {
-      const service1 = new EncryptionService(testKey);
-      const service2 = new EncryptionService('different-key-0123456789abcdef0123456789abcdef');
-
-      const plaintext = 'test';
-      const encrypted = service1.encrypt(plaintext);
+      const parts = encrypted.split(":");
+      const corrupted = parts[0] + ":" + parts[1] + ":" + "XXXXXXXXXX";
 
       expect(() => {
-        service2.decrypt(encrypted);
-      }).toThrow('Decryption failed');
+        EncryptionUtil.decrypt(corrupted);
+      }).toThrow("Decryption failed");
     });
   });
 
-  describe('Key Derivation', () => {
-    it('should derive same key from same input string', () => {
-      const service1 = new EncryptionService('my-key');
-      const service2 = new EncryptionService('my-key');
+  describe("generateKey()", () => {
+    it("should generate a valid 64-character hex key", () => {
+      const key = EncryptionUtil.generateKey();
+      expect(key).toMatch(/^[0-9a-f]{64}$/);
+    });
 
-      const plaintext = 'test';
-      const encrypted1 = service1.encrypt(plaintext);
-      const encrypted2 = service2.encrypt(plaintext);
+    it("should generate unique keys", () => {
+      const key1 = EncryptionUtil.generateKey();
+      const key2 = EncryptionUtil.generateKey();
+      expect(key1).not.toBe(key2);
+    });
 
-      // Different ciphertexts due to IV, but both decryptable with same key
-      expect(service1.decrypt(encrypted1)).toBe(plaintext);
-      expect(service1.decrypt(encrypted2)).toBe(plaintext);
-      expect(service2.decrypt(encrypted1)).toBe(plaintext);
-      expect(service2.decrypt(encrypted2)).toBe(plaintext);
+    it("generated key should be usable for encryption", () => {
+      const key = EncryptionUtil.generateKey();
+      const originalEnv = process.env.ENCRYPTION_KEY;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (EncryptionUtil as any).initialized = false;
+      process.env.ENCRYPTION_KEY = key;
+      EncryptionUtil.initialize();
+
+      const plaintext = "test";
+      const encrypted = EncryptionUtil.encrypt(plaintext);
+      const decrypted = EncryptionUtil.decrypt(encrypted);
+
+      expect(decrypted).toBe(plaintext);
+
+      process.env.ENCRYPTION_KEY = originalEnv;
     });
   });
 });
-

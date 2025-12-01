@@ -3,10 +3,13 @@
  * Implements ISO 27001 data protection controls
  */
 
-import { loadSensitiveFieldsConfig, getFieldPatterns } from './sensitive-fields.loader';
+import {
+  loadSensitiveFieldsConfig,
+  getFieldPatterns,
+} from "./sensitive-fields.loader";
 
 export class DataMasker {
-  private static readonly MASKED_VALUE = '***MASKED***';
+  private static readonly MASKED_VALUE = "***MASKED***";
   private static cachedFields: Set<string> | null = null;
   private static cachedFieldPatterns: string[] | null = null;
   private static configPath: string | undefined = undefined;
@@ -67,7 +70,7 @@ export class DataMasker {
   static isSensitiveField(key: string): boolean {
     const sensitiveFields = this.getSensitiveFields();
     const fieldPatterns = this.getFieldPatterns();
-    const lowerKey = key.toLowerCase().replace(/[_-]/g, '');
+    const lowerKey = key.toLowerCase().replace(/[_-]/g, "");
 
     // Check exact match
     if (sensitiveFields.has(lowerKey)) {
@@ -95,7 +98,7 @@ export class DataMasker {
     }
 
     // Handle primitives (string, number, boolean)
-    if (typeof data !== 'object') {
+    if (typeof data !== "object") {
       return data;
     }
 
@@ -106,11 +109,13 @@ export class DataMasker {
 
     // Handle objects
     const masked: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(
+      data as Record<string, unknown>,
+    )) {
       if (this.isSensitiveField(key)) {
         // Mask sensitive field
         masked[key] = this.MASKED_VALUE;
-      } else if (typeof value === 'object' && value !== null) {
+      } else if (typeof value === "object" && value !== null) {
         // Recursively mask nested objects
         masked[key] = this.maskSensitiveData(value);
       } else {
@@ -125,14 +130,18 @@ export class DataMasker {
   /**
    * Mask specific value (useful for masking individual strings)
    */
-  static maskValue(value: string, showFirst: number = 0, showLast: number = 0): string {
+  static maskValue(
+    value: string,
+    showFirst: number = 0,
+    showLast: number = 0,
+  ): string {
     if (!value || value.length <= showFirst + showLast) {
       return this.MASKED_VALUE;
     }
 
     const first = value.substring(0, showFirst);
     const last = value.substring(value.length - showLast);
-    const masked = '*'.repeat(Math.min(8, value.length - showFirst - showLast));
+    const masked = "*".repeat(Math.min(8, value.length - showFirst - showLast));
 
     return `${first}${masked}${last}`;
   }
@@ -141,7 +150,7 @@ export class DataMasker {
    * Check if data contains sensitive information
    */
   static containsSensitiveData(data: unknown): boolean {
-    if (data === null || data === undefined || typeof data !== 'object') {
+    if (data === null || data === undefined || typeof data !== "object") {
       return false;
     }
 
@@ -149,11 +158,13 @@ export class DataMasker {
       return data.some((item) => this.containsSensitiveData(item));
     }
 
-    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(
+      data as Record<string, unknown>,
+    )) {
       if (this.isSensitiveField(key)) {
         return true;
       }
-      if (typeof value === 'object' && value !== null) {
+      if (typeof value === "object" && value !== null) {
         if (this.containsSensitiveData(value)) {
           return true;
         }

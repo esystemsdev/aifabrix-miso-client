@@ -3,7 +3,7 @@
  * Manages authentication methods and builds appropriate headers
  */
 
-import { AuthStrategy, AuthMethod } from '../types/config.types';
+import { AuthStrategy, AuthMethod } from "../types/config.types";
 
 export class AuthStrategyHandler {
   /**
@@ -19,38 +19,38 @@ export class AuthStrategyHandler {
     strategy: AuthStrategy,
     clientToken: string | null,
     clientId?: string,
-    clientSecret?: string
+    clientSecret?: string,
   ): Record<string, string> {
     const headers: Record<string, string> = {};
 
     // Try methods in priority order
     for (const method of strategy.methods) {
       switch (method) {
-        case 'bearer':
+        case "bearer":
           if (strategy.bearerToken) {
-            headers['Authorization'] = `Bearer ${strategy.bearerToken}`;
+            headers["Authorization"] = `Bearer ${strategy.bearerToken}`;
             return headers;
           }
           break;
 
-        case 'client-token':
+        case "client-token":
           if (clientToken) {
-            headers['x-client-token'] = clientToken;
+            headers["x-client-token"] = clientToken;
             return headers;
           }
           break;
 
-        case 'client-credentials':
+        case "client-credentials":
           if (clientId && clientSecret) {
-            headers['X-Client-Id'] = clientId;
-            headers['X-Client-Secret'] = clientSecret;
+            headers["X-Client-Id"] = clientId;
+            headers["X-Client-Secret"] = clientSecret;
             return headers;
           }
           break;
 
-        case 'api-key':
+        case "api-key":
           if (strategy.apiKey) {
-            headers['Authorization'] = `Bearer ${strategy.apiKey}`;
+            headers["Authorization"] = `Bearer ${strategy.apiKey}`;
             return headers;
           }
           break;
@@ -73,13 +73,13 @@ export class AuthStrategyHandler {
     }
 
     switch (method) {
-      case 'bearer':
+      case "bearer":
         return !!strategy.bearerToken;
-      case 'client-token':
+      case "client-token":
         return true; // Client token is managed internally
-      case 'client-credentials':
+      case "client-credentials":
         return true; // Client credentials are from config
-      case 'api-key':
+      case "api-key":
         return !!strategy.apiKey;
       default:
         return false;
@@ -93,8 +93,8 @@ export class AuthStrategyHandler {
    */
   static getDefaultStrategy(bearerToken?: string): AuthStrategy {
     return {
-      methods: ['bearer', 'client-token'],
-      bearerToken
+      methods: ["bearer", "client-token"],
+      bearerToken,
     };
   }
 
@@ -106,7 +106,7 @@ export class AuthStrategyHandler {
    */
   static mergeStrategy(
     strategy: AuthStrategy | undefined,
-    defaultStrategy: AuthStrategy
+    defaultStrategy: AuthStrategy,
   ): AuthStrategy {
     if (!strategy) {
       return defaultStrategy;
@@ -114,10 +114,12 @@ export class AuthStrategyHandler {
 
     // Use provided strategy, but fill in missing required fields from default
     return {
-      methods: strategy.methods.length > 0 ? strategy.methods : defaultStrategy.methods,
+      methods:
+        strategy.methods.length > 0
+          ? strategy.methods
+          : defaultStrategy.methods,
       bearerToken: strategy.bearerToken || defaultStrategy.bearerToken,
-      apiKey: strategy.apiKey || defaultStrategy.apiKey
+      apiKey: strategy.apiKey || defaultStrategy.apiKey,
     };
   }
 }
-

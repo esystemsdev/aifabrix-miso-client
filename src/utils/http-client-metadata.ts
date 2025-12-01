@@ -3,9 +3,9 @@
  * Extracts request/response metadata for audit logging
  */
 
-import { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { MisoClientConfig } from '../types/config.types';
-import jwt from 'jsonwebtoken';
+import { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from "axios";
+import { MisoClientConfig } from "../types/config.types";
+import jwt from "jsonwebtoken";
 
 export interface RequestMetadata {
   startTime: number;
@@ -14,7 +14,8 @@ export interface RequestMetadata {
   baseURL?: string;
 }
 
-export interface AxiosRequestConfigWithMetadata extends InternalAxiosRequestConfig {
+export interface AxiosRequestConfigWithMetadata
+  extends InternalAxiosRequestConfig {
   metadata?: RequestMetadata;
 }
 
@@ -41,7 +42,7 @@ export interface ExtractedMetadata {
 export function extractRequestMetadata(
   response: AxiosResponse | undefined,
   error: AxiosError | null,
-  config: MisoClientConfig
+  config: MisoClientConfig,
 ): ExtractedMetadata | null {
   const axiosConfig = response?.config || error?.config;
   if (!axiosConfig) {
@@ -60,7 +61,7 @@ export function extractRequestMetadata(
   return {
     ...basicInfo,
     ...requestData,
-    ...responseData
+    ...responseData,
   };
 }
 
@@ -70,7 +71,7 @@ export function extractRequestMetadata(
 function extractBasicMetadata(
   metadata: RequestMetadata,
   config: InternalAxiosRequestConfig,
-  misoConfig: MisoClientConfig
+  misoConfig: MisoClientConfig,
 ): {
   config: InternalAxiosRequestConfig;
   metadata: RequestMetadata;
@@ -84,8 +85,8 @@ function extractBasicMetadata(
   userId: string | null;
 } {
   const duration = Date.now() - metadata.startTime;
-  const method = metadata.method || 'UNKNOWN';
-  const url = metadata.url || '';
+  const method = metadata.method || "UNKNOWN";
+  const url = metadata.url || "";
   const baseURL = metadata.baseURL || misoConfig.controllerUrl;
   const fullUrl = `${baseURL}${url}`;
   const authHeader = config.headers?.authorization as string | undefined;
@@ -101,7 +102,7 @@ function extractBasicMetadata(
     baseURL,
     statusCode: 0, // Will be set by responseData
     authHeader,
-    userId
+    userId,
   };
 }
 
@@ -110,14 +111,14 @@ function extractBasicMetadata(
  */
 function extractRequestData(
   config: InternalAxiosRequestConfig,
-  error: AxiosError | null
+  error: AxiosError | null,
 ): {
   requestHeaders: Record<string, unknown>;
   requestBody: unknown;
 } {
   return {
     requestHeaders: config.headers || {},
-    requestBody: config.data || error?.config?.data
+    requestBody: config.data || error?.config?.data,
   };
 }
 
@@ -126,7 +127,7 @@ function extractRequestData(
  */
 function extractResponseData(
   response: AxiosResponse | undefined,
-  error: AxiosError | null
+  error: AxiosError | null,
 ): {
   statusCode: number;
   responseBody: unknown;
@@ -135,7 +136,7 @@ function extractResponseData(
   return {
     statusCode: response?.status || error?.response?.status || 0,
     responseBody: response?.data || error?.response?.data,
-    responseHeaders: response?.headers || error?.response?.headers || {}
+    responseHeaders: response?.headers || error?.response?.headers || {},
   };
 }
 
@@ -143,7 +144,7 @@ function extractResponseData(
  * Extract user ID from JWT token
  */
 export function extractUserIdFromToken(authHeader?: string): string | null {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;
   }
 
@@ -151,9 +152,10 @@ export function extractUserIdFromToken(authHeader?: string): string | null {
   try {
     const decoded = jwt.decode(token) as Record<string, unknown> | null;
     if (!decoded) return null;
-    return (decoded.sub || decoded.userId || decoded.user_id || decoded.id) as string | null;
+    return (decoded.sub || decoded.userId || decoded.user_id || decoded.id) as
+      | string
+      | null;
   } catch {
     return null;
   }
 }
-

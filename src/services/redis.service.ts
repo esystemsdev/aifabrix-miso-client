@@ -2,8 +2,8 @@
  * Redis service for caching and log queuing
  */
 
-import Redis from 'ioredis';
-import { RedisConfig } from '../types/config.types';
+import Redis from "ioredis";
+import { RedisConfig } from "../types/config.types";
 
 export class RedisService {
   private redis?: Redis;
@@ -17,7 +17,7 @@ export class RedisService {
   async connect(): Promise<void> {
     if (!this.config) {
       // eslint-disable-next-line no-console
-      console.log('Redis not configured, using controller fallback');
+      console.log("Redis not configured, using controller fallback");
       return;
     }
 
@@ -27,18 +27,18 @@ export class RedisService {
         port: this.config.port,
         password: this.config.password,
         db: this.config.db || 0,
-        keyPrefix: this.config.keyPrefix || 'miso:',
+        keyPrefix: this.config.keyPrefix || "miso:",
         maxRetriesPerRequest: 3,
-        lazyConnect: true
+        lazyConnect: true,
       });
 
       await this.redis.connect();
       this.connected = true;
       // eslint-disable-next-line no-console
-      console.log('Connected to Redis');
+      console.log("Connected to Redis");
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Failed to connect to Redis:', error);
+      console.error("Failed to connect to Redis:", error);
       this.connected = false;
       throw error;
     }
@@ -49,7 +49,7 @@ export class RedisService {
       await this.redis.disconnect();
       this.connected = false;
       // eslint-disable-next-line no-console
-      console.log('Disconnected from Redis');
+      console.log("Disconnected from Redis");
     }
   }
 
@@ -62,7 +62,7 @@ export class RedisService {
       return await this.redis.get(key);
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Redis get error:', error);
+      console.error("Redis get error:", error);
       return null;
     }
   }
@@ -77,7 +77,7 @@ export class RedisService {
       return true;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Redis set error:', error);
+      console.error("Redis set error:", error);
       return false;
     }
   }
@@ -92,7 +92,7 @@ export class RedisService {
       return true;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Redis delete error:', error);
+      console.error("Redis delete error:", error);
       return false;
     }
   }
@@ -107,7 +107,7 @@ export class RedisService {
       return true;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Redis rpush error:', error);
+      console.error("Redis rpush error:", error);
       return false;
     }
   }

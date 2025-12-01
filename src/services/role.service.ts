@@ -2,10 +2,14 @@
  * Role service for completely authorization with caching
  */
 
-import { HttpClient } from '../utils/http-client';
-import { CacheService } from './cache.service';
-import { MisoClientConfig, RoleResult, AuthStrategy } from '../types/config.types';
-import jwt from 'jsonwebtoken';
+import { HttpClient } from "../utils/http-client";
+import { CacheService } from "./cache.service";
+import {
+  MisoClientConfig,
+  RoleResult,
+  AuthStrategy,
+} from "../types/config.types";
+import jwt from "jsonwebtoken";
 
 interface RoleCacheData {
   roles: string[];
@@ -32,9 +36,12 @@ export class RoleService {
     try {
       const decoded = jwt.decode(token) as Record<string, unknown> | null;
       if (!decoded) return null;
-      
+
       // Try common JWT claim fields for user ID
-      return (decoded.sub || decoded.userId || decoded.user_id || decoded.id) as string | null;
+      return (decoded.sub ||
+        decoded.userId ||
+        decoded.user_id ||
+        decoded.id) as string | null;
     } catch (error) {
       return null;
     }
@@ -46,7 +53,10 @@ export class RoleService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async getRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  async getRoles(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     try {
       // Extract userId from token to check cache first (avoids API call on cache hit)
       let userId = this.extractUserIdFromToken(token);
@@ -63,10 +73,9 @@ export class RoleService {
       // Cache miss or no userId in token - fetch from controller
       // If we don't have userId, get it from validate endpoint
       if (!userId) {
-        const userInfo = await this.httpClient.validateTokenRequest<{ user: { id: string } }>(
-          token,
-          authStrategy
-        );
+        const userInfo = await this.httpClient.validateTokenRequest<{
+          user: { id: string };
+        }>(token, authStrategy);
         userId = userInfo.user?.id || null;
         if (!userId) {
           return [];
@@ -75,12 +84,12 @@ export class RoleService {
 
       // Cache miss - fetch from controller
       const roleResult = await this.httpClient.authenticatedRequest<RoleResult>(
-        'GET',
-        '/api/v1/auth/roles', // Backend knows app/env from client token
+        "GET",
+        "/api/v1/auth/roles", // Backend knows app/env from client token
         token,
         undefined,
         undefined,
-        authStrategy
+        authStrategy,
       );
 
       const roles = roleResult.roles || [];
@@ -90,13 +99,13 @@ export class RoleService {
       await this.cache.set<RoleCacheData>(
         finalCacheKey,
         { roles, timestamp: Date.now() },
-        this.roleTTL
+        this.roleTTL,
       );
 
       return roles;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Failed to get roles:', error);
+      console.error("Failed to get roles:", error);
       return [];
     }
   }
@@ -107,7 +116,11 @@ export class RoleService {
    * @param role - Role to check
    * @param authStrategy - Optional authentication strategy override
    */
-  async hasRole(token: string, role: string, authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasRole(
+    token: string,
+    role: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     const roles = await this.getRoles(token, authStrategy);
     return roles.includes(role);
   }
@@ -118,7 +131,11 @@ export class RoleService {
    * @param roles - Roles to check
    * @param authStrategy - Optional authentication strategy override
    */
-  async hasAnyRole(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasAnyRole(
+    token: string,
+    roles: string[],
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     const userRoles = await this.getRoles(token, authStrategy);
     return roles.some((role) => userRoles.includes(role));
   }
@@ -129,7 +146,11 @@ export class RoleService {
    * @param roles - Roles to check
    * @param authStrategy - Optional authentication strategy override
    */
-  async hasAllRoles(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasAllRoles(
+    token: string,
+    roles: string[],
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     const userRoles = await this.getRoles(token, authStrategy);
     return roles.every((role) => userRoles.includes(role));
   }
@@ -139,13 +160,15 @@ export class RoleService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async refreshRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  async refreshRoles(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     try {
       // Get user info to extract userId
-      const userInfo = await this.httpClient.validateTokenRequest<{ user: { id: string } }>(
-        token,
-        authStrategy
-      );
+      const userInfo = await this.httpClient.validateTokenRequest<{
+        user: { id: string };
+      }>(token, authStrategy);
 
       if (!userInfo.user?.id) {
         return [];
@@ -156,12 +179,12 @@ export class RoleService {
 
       // Fetch fresh roles from controller using refresh endpoint
       const roleResult = await this.httpClient.authenticatedRequest<RoleResult>(
-        'GET',
-        '/api/v1/auth/roles/refresh',
+        "GET",
+        "/api/v1/auth/roles/refresh",
         token,
         undefined,
         undefined,
-        authStrategy
+        authStrategy,
       );
 
       const roles = roleResult.roles || [];
@@ -170,13 +193,13 @@ export class RoleService {
       await this.cache.set<RoleCacheData>(
         cacheKey,
         { roles, timestamp: Date.now() },
-        this.roleTTL
+        this.roleTTL,
       );
 
       return roles;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Failed to refresh roles:', error);
+      console.error("Failed to refresh roles:", error);
       return [];
     }
   }

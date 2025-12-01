@@ -3,7 +3,7 @@
  * Handles sensitive data masking and body truncation for audit logging
  */
 
-import { DataMasker } from './data-masker';
+import { DataMasker } from "./data-masker";
 
 /**
  * Quick size estimation without full JSON.stringify
@@ -14,11 +14,11 @@ export function estimateObjectSize(obj: unknown): number {
     return 0;
   }
 
-  if (typeof obj === 'string') {
+  if (typeof obj === "string") {
     return obj.length;
   }
 
-  if (typeof obj !== 'object') {
+  if (typeof obj !== "object") {
     return 10; // Estimate for primitives
   }
 
@@ -26,7 +26,7 @@ export function estimateObjectSize(obj: unknown): number {
     // Estimate based on array length and first few items
     const length = obj.length;
     if (length === 0) return 10;
-    
+
     // Sample first few items for estimation
     const sampleSize = Math.min(3, length);
     let estimatedItemSize = 0;
@@ -50,17 +50,20 @@ export function estimateObjectSize(obj: unknown): number {
  * Truncate response body to reduce processing cost
  * Returns truncated body with flag indicating truncation
  */
-export function truncateResponseBody(body: unknown, maxSize: number = 10000): { data: unknown; truncated: boolean } {
+export function truncateResponseBody(
+  body: unknown,
+  maxSize: number = 10000,
+): { data: unknown; truncated: boolean } {
   if (body === null || body === undefined) {
     return { data: body, truncated: false };
   }
 
   // For strings, truncate directly
-  if (typeof body === 'string') {
+  if (typeof body === "string") {
     if (body.length <= maxSize) {
       return { data: body, truncated: false };
     }
-    return { data: body.substring(0, maxSize) + '...', truncated: true };
+    return { data: body.substring(0, maxSize) + "...", truncated: true };
   }
 
   // For objects/arrays, estimate size first
@@ -71,9 +74,12 @@ export function truncateResponseBody(body: unknown, maxSize: number = 10000): { 
 
   // If estimated size is too large, return placeholder
   // Full body only processed in debug mode
-  return { 
-    data: { _message: 'Response body too large, truncated for performance', _estimatedSize: estimatedSize }, 
-    truncated: true 
+  return {
+    data: {
+      _message: "Response body too large, truncated for performance",
+      _estimatedSize: estimatedSize,
+    },
+    truncated: true,
   };
 }
 
@@ -83,15 +89,22 @@ export function truncateResponseBody(body: unknown, maxSize: number = 10000): { 
 export function analyzeRequestSizes(
   requestBody: unknown,
   responseBody: unknown,
-  maxMaskingSize: number
+  maxMaskingSize: number,
 ): {
   isSmallRequest: boolean;
   isLargeRequest: boolean;
 } {
-  const estimatedRequestSize = requestBody ? estimateObjectSize(requestBody) : 0;
-  const estimatedResponseSize = responseBody ? estimateObjectSize(responseBody) : 0;
-  const isSmallRequest = estimatedRequestSize < 1024 && estimatedResponseSize < 1024;
-  const isLargeRequest = estimatedRequestSize > maxMaskingSize || estimatedResponseSize > maxMaskingSize;
+  const estimatedRequestSize = requestBody
+    ? estimateObjectSize(requestBody)
+    : 0;
+  const estimatedResponseSize = responseBody
+    ? estimateObjectSize(responseBody)
+    : 0;
+  const isSmallRequest =
+    estimatedRequestSize < 1024 && estimatedResponseSize < 1024;
+  const isLargeRequest =
+    estimatedRequestSize > maxMaskingSize ||
+    estimatedResponseSize > maxMaskingSize;
 
   return { isSmallRequest, isLargeRequest };
 }
@@ -102,7 +115,7 @@ export function analyzeRequestSizes(
 export function truncateBodies(
   requestBody: unknown,
   responseBody: unknown,
-  maxResponseSize: number
+  maxResponseSize: number,
 ): {
   requestBody: unknown;
   responseBody: unknown;
@@ -121,7 +134,7 @@ export function truncateBodies(
     requestBody: truncatedRequestBody,
     responseBody: truncatedResponseBody,
     requestTruncated,
-    responseTruncated
+    responseTruncated,
   };
 }
 
@@ -135,9 +148,9 @@ export async function applyMaskingStrategy(
     responseBody: unknown;
     responseHeaders: Record<string, unknown>;
   },
-  auditLevel: 'standard' | 'detailed' | 'full',
+  auditLevel: "standard" | "detailed" | "full",
   maxResponseSize: number,
-  maxMaskingSize: number
+  maxMaskingSize: number,
 ): Promise<{
   headers: Record<string, unknown>;
   requestBody: unknown;
@@ -146,10 +159,18 @@ export async function applyMaskingStrategy(
   requestTruncated: boolean;
   responseTruncated: boolean;
 }> {
-  const sizeInfo = analyzeRequestSizes(metadata.requestBody, metadata.responseBody, maxMaskingSize);
-  const truncated = truncateBodies(metadata.requestBody, metadata.responseBody, maxResponseSize);
+  const sizeInfo = analyzeRequestSizes(
+    metadata.requestBody,
+    metadata.responseBody,
+    maxMaskingSize,
+  );
+  const truncated = truncateBodies(
+    metadata.requestBody,
+    metadata.responseBody,
+    maxResponseSize,
+  );
 
-  if (auditLevel === 'standard') {
+  if (auditLevel === "standard") {
     return applyStandardMasking(
       metadata.requestHeaders,
       metadata.responseHeaders,
@@ -158,7 +179,7 @@ export async function applyMaskingStrategy(
       sizeInfo.isSmallRequest,
       sizeInfo.isLargeRequest,
       truncated.requestTruncated,
-      truncated.responseTruncated
+      truncated.responseTruncated,
     );
   }
 
@@ -170,7 +191,7 @@ export async function applyMaskingStrategy(
     sizeInfo.isSmallRequest,
     sizeInfo.isLargeRequest,
     truncated.requestTruncated,
-    truncated.responseTruncated
+    truncated.responseTruncated,
   );
 }
 
@@ -185,7 +206,7 @@ export function applyStandardMasking(
   isSmallRequest: boolean,
   isLargeRequest: boolean,
   requestTruncated: boolean,
-  responseTruncated: boolean
+  responseTruncated: boolean,
 ): {
   headers: Record<string, unknown>;
   requestBody: unknown;
@@ -194,8 +215,13 @@ export function applyStandardMasking(
   requestTruncated: boolean;
   responseTruncated: boolean;
 } {
-  const maskedHeaders = DataMasker.maskSensitiveData(requestHeaders) as Record<string, unknown>;
-  const maskedResponseHeaders = DataMasker.maskSensitiveData(responseHeaders) as Record<string, unknown>;
+  const maskedHeaders = DataMasker.maskSensitiveData(requestHeaders) as Record<
+    string,
+    unknown
+  >;
+  const maskedResponseHeaders = DataMasker.maskSensitiveData(
+    responseHeaders,
+  ) as Record<string, unknown>;
 
   let maskedRequestBody: unknown;
   let maskedResponseBody: unknown;
@@ -204,8 +230,10 @@ export function applyStandardMasking(
     maskedRequestBody = DataMasker.maskSensitiveData(requestBody);
     maskedResponseBody = DataMasker.maskSensitiveData(responseBody);
   } else {
-    maskedRequestBody = { _message: 'Request body too large, masking skipped' };
-    maskedResponseBody = { _message: 'Response body too large, masking skipped' };
+    maskedRequestBody = { _message: "Request body too large, masking skipped" };
+    maskedResponseBody = {
+      _message: "Response body too large, masking skipped",
+    };
   }
 
   return {
@@ -214,7 +242,7 @@ export function applyStandardMasking(
     responseBody: maskedResponseBody,
     responseHeaders: maskedResponseHeaders,
     requestTruncated,
-    responseTruncated
+    responseTruncated,
   };
 }
 
@@ -229,7 +257,7 @@ export async function applyDetailedMasking(
   isSmallRequest: boolean,
   isLargeRequest: boolean,
   requestTruncated: boolean,
-  responseTruncated: boolean
+  responseTruncated: boolean,
 ): Promise<{
   headers: Record<string, unknown>;
   requestBody: unknown;
@@ -243,7 +271,7 @@ export async function applyDetailedMasking(
       requestHeaders,
       responseHeaders,
       requestTruncated,
-      responseTruncated
+      responseTruncated,
     );
   }
 
@@ -254,7 +282,7 @@ export async function applyDetailedMasking(
       requestBody,
       responseBody,
       requestTruncated,
-      responseTruncated
+      responseTruncated,
     );
   }
 
@@ -264,7 +292,7 @@ export async function applyDetailedMasking(
     requestBody,
     responseBody,
     requestTruncated,
-    responseTruncated
+    responseTruncated,
   );
 }
 
@@ -275,7 +303,7 @@ function createSkippedMaskingResult(
   requestHeaders: Record<string, unknown>,
   responseHeaders: Record<string, unknown>,
   requestTruncated: boolean,
-  responseTruncated: boolean
+  responseTruncated: boolean,
 ): {
   headers: Record<string, unknown>;
   requestBody: unknown;
@@ -286,11 +314,11 @@ function createSkippedMaskingResult(
 } {
   return {
     headers: requestHeaders,
-    requestBody: { _message: 'Request body too large, masking skipped' },
-    responseBody: { _message: 'Response body too large, masking skipped' },
+    requestBody: { _message: "Request body too large, masking skipped" },
+    responseBody: { _message: "Response body too large, masking skipped" },
     responseHeaders,
     requestTruncated,
-    responseTruncated
+    responseTruncated,
   };
 }
 
@@ -303,7 +331,7 @@ function applySequentialMasking(
   requestBody: unknown,
   responseBody: unknown,
   requestTruncated: boolean,
-  responseTruncated: boolean
+  responseTruncated: boolean,
 ): {
   headers: Record<string, unknown>;
   requestBody: unknown;
@@ -313,12 +341,18 @@ function applySequentialMasking(
   responseTruncated: boolean;
 } {
   return {
-    headers: DataMasker.maskSensitiveData(requestHeaders) as Record<string, unknown>,
+    headers: DataMasker.maskSensitiveData(requestHeaders) as Record<
+      string,
+      unknown
+    >,
     requestBody: DataMasker.maskSensitiveData(requestBody),
     responseBody: DataMasker.maskSensitiveData(responseBody),
-    responseHeaders: DataMasker.maskSensitiveData(responseHeaders) as Record<string, unknown>,
+    responseHeaders: DataMasker.maskSensitiveData(responseHeaders) as Record<
+      string,
+      unknown
+    >,
     requestTruncated,
-    responseTruncated
+    responseTruncated,
   };
 }
 
@@ -331,7 +365,7 @@ async function applyParallelMasking(
   requestBody: unknown,
   responseBody: unknown,
   requestTruncated: boolean,
-  responseTruncated: boolean
+  responseTruncated: boolean,
 ): Promise<{
   headers: Record<string, unknown>;
   requestBody: unknown;
@@ -340,13 +374,17 @@ async function applyParallelMasking(
   requestTruncated: boolean;
   responseTruncated: boolean;
 }> {
-  const [maskedHeadersResult, maskedRequestBodyResult, maskedResponseBodyResult, maskedResponseHeadersResult] =
-    await Promise.all([
-      Promise.resolve(DataMasker.maskSensitiveData(requestHeaders)),
-      Promise.resolve(DataMasker.maskSensitiveData(requestBody)),
-      Promise.resolve(DataMasker.maskSensitiveData(responseBody)),
-      Promise.resolve(DataMasker.maskSensitiveData(responseHeaders))
-    ]);
+  const [
+    maskedHeadersResult,
+    maskedRequestBodyResult,
+    maskedResponseBodyResult,
+    maskedResponseHeadersResult,
+  ] = await Promise.all([
+    Promise.resolve(DataMasker.maskSensitiveData(requestHeaders)),
+    Promise.resolve(DataMasker.maskSensitiveData(requestBody)),
+    Promise.resolve(DataMasker.maskSensitiveData(responseBody)),
+    Promise.resolve(DataMasker.maskSensitiveData(responseHeaders)),
+  ]);
 
   return {
     headers: maskedHeadersResult as Record<string, unknown>,
@@ -354,7 +392,6 @@ async function applyParallelMasking(
     responseBody: maskedResponseBodyResult,
     responseHeaders: maskedResponseHeadersResult as Record<string, unknown>,
     requestTruncated,
-    responseTruncated
+    responseTruncated,
   };
 }
-

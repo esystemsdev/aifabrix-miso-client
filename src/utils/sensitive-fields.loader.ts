@@ -3,9 +3,9 @@
  * Loads ISO 27001 compliant sensitive fields from JSON configuration file
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-import defaultConfig from './sensitive-fields.config.json';
+import * as fs from "fs";
+import * as path from "path";
+import defaultConfig from "./sensitive-fields.config.json";
 
 export interface SensitiveFieldsConfig {
   version: string;
@@ -25,52 +25,52 @@ export interface SensitiveFieldsConfig {
 function getDefaultSensitiveFields(): Set<string> {
   return new Set([
     // Authentication & Authorization
-    'password',
-    'passwd',
-    'pwd',
-    'secret',
-    'token',
-    'key',
-    'auth',
-    'authorization',
-    'cookie',
-    'session',
-    'apikey',
-    'accesstoken',
-    'refreshtoken',
+    "password",
+    "passwd",
+    "pwd",
+    "secret",
+    "token",
+    "key",
+    "auth",
+    "authorization",
+    "cookie",
+    "session",
+    "apikey",
+    "accesstoken",
+    "refreshtoken",
     // PII (ISO 27001)
-    'email',
-    'emailaddress',
-    'phone',
-    'phonenumber',
-    'telephone',
-    'mobile',
-    'cellphone',
-    'ssn',
-    'socialsecuritynumber',
-    'taxid',
-    'taxidentification',
+    "email",
+    "emailaddress",
+    "phone",
+    "phonenumber",
+    "telephone",
+    "mobile",
+    "cellphone",
+    "ssn",
+    "socialsecuritynumber",
+    "taxid",
+    "taxidentification",
     // Financial Information
-    'creditcard',
-    'cc',
-    'cardnumber',
-    'cvv',
-    'cvv2',
-    'cvc',
-    'pin',
-    'bankaccount',
-    'bankaccountnumber',
-    'routingnumber',
-    'iban',
-    'swift',
-    'accountnumber',
+    "creditcard",
+    "cc",
+    "cardnumber",
+    "cvv",
+    "cvv2",
+    "cvc",
+    "pin",
+    "bankaccount",
+    "bankaccountnumber",
+    "routingnumber",
+    "iban",
+    "swift",
+    "accountnumber",
     // Security & Sensitive Data
-    'otp',
-    'onetimepassword',
-    'privatekey',
-    'publickey',
-    'encryptionkey',
-    'decryptionkey'
+    "otp",
+    "onetimepassword",
+    "privatekey",
+    "publickey",
+    "encryptionkey",
+    "decryptionkey",
   ]);
 }
 
@@ -78,7 +78,16 @@ function getDefaultSensitiveFields(): Set<string> {
  * Get default field patterns (fallback if JSON file cannot be loaded)
  */
 function getDefaultFieldPatterns(): string[] {
-  return ['password', 'secret', 'token', 'key', 'ssn', 'creditcard', 'bankaccount', 'accountnumber'];
+  return [
+    "password",
+    "secret",
+    "token",
+    "key",
+    "ssn",
+    "creditcard",
+    "bankaccount",
+    "accountnumber",
+  ];
 }
 
 /**
@@ -87,13 +96,13 @@ function getDefaultFieldPatterns(): string[] {
  */
 export function loadSensitiveFieldsConfig(customPath?: string): Set<string> {
   // Browser environment - return defaults
-  if (typeof globalThis !== 'undefined' && 'window' in globalThis) {
+  if (typeof globalThis !== "undefined" && "window" in globalThis) {
     const globalWindow = (globalThis as Record<string, unknown>).window;
-    if (typeof globalWindow !== 'undefined') {
+    if (typeof globalWindow !== "undefined") {
       return getDefaultSensitiveFields();
     }
   }
-  if (typeof process === 'undefined' || !process.env) {
+  if (typeof process === "undefined" || !process.env) {
     return getDefaultSensitiveFields();
   }
 
@@ -102,10 +111,14 @@ export function loadSensitiveFieldsConfig(customPath?: string): Set<string> {
     if (customPath || process.env.MISO_SENSITIVE_FIELDS_CONFIG) {
       let configPath: string;
       if (customPath) {
-        configPath = path.isAbsolute(customPath) ? customPath : path.resolve(process.cwd(), customPath);
+        configPath = path.isAbsolute(customPath)
+          ? customPath
+          : path.resolve(process.cwd(), customPath);
       } else {
         const envPath = process.env.MISO_SENSITIVE_FIELDS_CONFIG!;
-        configPath = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
+        configPath = path.isAbsolute(envPath)
+          ? envPath
+          : path.resolve(process.cwd(), envPath);
       }
 
       if (!fs.existsSync(configPath)) {
@@ -113,7 +126,7 @@ export function loadSensitiveFieldsConfig(customPath?: string): Set<string> {
         return getDefaultSensitiveFields();
       }
 
-      const configContent = fs.readFileSync(configPath, 'utf8');
+      const configContent = fs.readFileSync(configPath, "utf8");
       const config: SensitiveFieldsConfig = JSON.parse(configContent);
 
       // Combine all categories into a single set (lowercase for case-insensitive matching)
@@ -142,9 +155,9 @@ export function loadSensitiveFieldsConfig(customPath?: string): Set<string> {
       return allFields;
     } catch {
       // If module import fails, try filesystem path (for development/source code)
-      const configPath = path.join(__dirname, 'sensitive-fields.config.json');
+      const configPath = path.join(__dirname, "sensitive-fields.config.json");
       if (fs.existsSync(configPath)) {
-        const configContent = fs.readFileSync(configPath, 'utf8');
+        const configContent = fs.readFileSync(configPath, "utf8");
         const config: SensitiveFieldsConfig = JSON.parse(configContent);
         const allFields = new Set<string>();
         Object.values(config.categories).forEach((fields: string[]) => {
@@ -155,7 +168,7 @@ export function loadSensitiveFieldsConfig(customPath?: string): Set<string> {
         return allFields;
       }
     }
-    
+
     // Fallback to defaults if nothing worked
     return getDefaultSensitiveFields();
   } catch (error) {
@@ -169,13 +182,13 @@ export function loadSensitiveFieldsConfig(customPath?: string): Set<string> {
  */
 export function getFieldPatterns(customPath?: string): string[] {
   // Browser environment - return defaults
-  if (typeof globalThis !== 'undefined' && 'window' in globalThis) {
+  if (typeof globalThis !== "undefined" && "window" in globalThis) {
     const globalWindow = (globalThis as Record<string, unknown>).window;
-    if (typeof globalWindow !== 'undefined') {
+    if (typeof globalWindow !== "undefined") {
       return getDefaultFieldPatterns();
     }
   }
-  if (typeof process === 'undefined' || !process.env) {
+  if (typeof process === "undefined" || !process.env) {
     return getDefaultFieldPatterns();
   }
 
@@ -184,17 +197,21 @@ export function getFieldPatterns(customPath?: string): string[] {
     if (customPath || process.env.MISO_SENSITIVE_FIELDS_CONFIG) {
       let configPath: string;
       if (customPath) {
-        configPath = path.isAbsolute(customPath) ? customPath : path.resolve(process.cwd(), customPath);
+        configPath = path.isAbsolute(customPath)
+          ? customPath
+          : path.resolve(process.cwd(), customPath);
       } else {
         const envPath = process.env.MISO_SENSITIVE_FIELDS_CONFIG!;
-        configPath = path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
+        configPath = path.isAbsolute(envPath)
+          ? envPath
+          : path.resolve(process.cwd(), envPath);
       }
 
       if (!fs.existsSync(configPath)) {
         return getDefaultFieldPatterns();
       }
 
-      const configContent = fs.readFileSync(configPath, 'utf8');
+      const configContent = fs.readFileSync(configPath, "utf8");
       const config: SensitiveFieldsConfig = JSON.parse(configContent);
       return config.fieldPatterns || getDefaultFieldPatterns();
     }
@@ -205,9 +222,9 @@ export function getFieldPatterns(customPath?: string): string[] {
       return config.fieldPatterns || getDefaultFieldPatterns();
     } catch {
       // If module import fails, try filesystem path (for development/source code)
-      const configPath = path.join(__dirname, 'sensitive-fields.config.json');
+      const configPath = path.join(__dirname, "sensitive-fields.config.json");
       if (fs.existsSync(configPath)) {
-        const configContent = fs.readFileSync(configPath, 'utf8');
+        const configContent = fs.readFileSync(configPath, "utf8");
         const config: SensitiveFieldsConfig = JSON.parse(configContent);
         return config.fieldPatterns || getDefaultFieldPatterns();
       }
@@ -227,4 +244,3 @@ export function getSensitiveFieldsArray(customPath?: string): string[] {
   const fieldsSet = loadSensitiveFieldsConfig(customPath);
   return Array.from(fieldsSet);
 }
-

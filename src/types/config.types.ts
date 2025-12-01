@@ -13,7 +13,11 @@ export interface RedisConfig {
 /**
  * Authentication method types
  */
-export type AuthMethod = 'bearer' | 'client-token' | 'client-credentials' | 'api-key';
+export type AuthMethod =
+  | "bearer"
+  | "client-token"
+  | "client-credentials"
+  | "api-key";
 
 /**
  * Authentication strategy configuration
@@ -25,13 +29,13 @@ export interface AuthStrategy {
    * Methods are tried in sequence until one succeeds
    */
   methods: AuthMethod[];
-  
+
   /**
    * Optional bearer token for bearer authentication
    * Required if 'bearer' is in methods array
    */
   bearerToken?: string;
-  
+
   /**
    * Optional API key for api-key authentication
    * Required if 'api-key' is in methods array
@@ -44,36 +48,36 @@ export interface MisoClientConfig {
   controllerUrl: string;
   clientId: string;
   clientSecret: string;
-  
+
   // Optional: Redis for caching
   redis?: RedisConfig;
-  
+
   // Optional: Logging
-  logLevel?: 'debug' | 'info' | 'warn' | 'error';
-  
+  logLevel?: "debug" | "info" | "warn" | "error";
+
   // Optional: Encryption key (for EncryptionService)
   encryptionKey?: string;
-  
+
   // Optional: API key for testing (bypasses OAuth2 authentication)
   apiKey?: string;
-  
+
   // Optional: Cache configuration
   cache?: {
     roleTTL?: number; // Default 15 minutes
     permissionTTL?: number; // Default 15 minutes
   };
-  
+
   // Optional: Sensitive fields configuration file path
   sensitiveFieldsConfig?: string;
-  
+
   // Optional: Audit logging configuration
   audit?: AuditConfig;
-  
+
   // Optional: Emit log events instead of sending via HTTP/Redis
   // When true, LoggerService will emit events via EventEmitter that can be listened to
   // Useful for direct SDK embedding in your own application to save logs directly to DB
   emitEvents?: boolean; // Default: false (maintains backward compatibility)
-  
+
   // Optional: Default authentication strategy
   // If not specified, defaults to ['bearer', 'client-token']
   authStrategy?: AuthStrategy;
@@ -81,7 +85,7 @@ export interface MisoClientConfig {
 
 export interface AuditConfig {
   enabled?: boolean; // Enable/disable audit logging (default: true)
-  level?: 'minimal' | 'standard' | 'detailed' | 'full'; // Audit detail level (default: 'detailed')
+  level?: "minimal" | "standard" | "detailed" | "full"; // Audit detail level (default: 'detailed')
   maxResponseSize?: number; // Truncate responses larger than this (default: 10000)
   maxMaskingSize?: number; // Skip masking for objects larger than this (default: 50000)
   batchSize?: number; // Batch size for queued logs (default: 10)
@@ -106,7 +110,7 @@ export interface AuthResult {
 
 export interface LogEntry {
   timestamp: string;
-  level: 'error' | 'audit' | 'info' | 'debug';
+  level: "error" | "audit" | "info" | "debug";
   environment: string;
   application: string;
   applicationId: string;
@@ -167,28 +171,31 @@ export interface ErrorResponse {
  * Type guard to check if data matches ErrorResponse structure
  */
 export function isErrorResponse(data: unknown): data is ErrorResponse {
-  if (!data || typeof data !== 'object') {
+  if (!data || typeof data !== "object") {
     return false;
   }
 
   const obj = data as Record<string, unknown>;
 
   // Check required fields
-  if (!Array.isArray(obj.errors) || !obj.errors.every(e => typeof e === 'string')) {
+  if (
+    !Array.isArray(obj.errors) ||
+    !obj.errors.every((e) => typeof e === "string")
+  ) {
     return false;
   }
 
-  if (typeof obj.type !== 'string' || typeof obj.title !== 'string') {
+  if (typeof obj.type !== "string" || typeof obj.title !== "string") {
     return false;
   }
 
   // Check statusCode (camelCase only)
-  if (typeof obj.statusCode !== 'number') {
+  if (typeof obj.statusCode !== "number") {
     return false;
   }
 
   // instance is optional
-  if (obj.instance !== undefined && typeof obj.instance !== 'string') {
+  if (obj.instance !== undefined && typeof obj.instance !== "string") {
     return false;
   }
 

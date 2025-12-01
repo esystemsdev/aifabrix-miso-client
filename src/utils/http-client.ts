@@ -7,18 +7,18 @@ import {
   AxiosRequestConfig,
   AxiosResponse,
   AxiosError,
-  InternalAxiosRequestConfig
-} from 'axios';
-import { MisoClientConfig, AuthStrategy } from '../types/config.types';
-import { InternalHttpClient } from './internal-http-client';
-import { LoggerService } from '../services/logger.service';
-import { DataMasker } from './data-masker';
+  InternalAxiosRequestConfig,
+} from "axios";
+import { MisoClientConfig, AuthStrategy } from "../types/config.types";
+import { InternalHttpClient } from "./internal-http-client";
+import { LoggerService } from "../services/logger.service";
+import { DataMasker } from "./data-masker";
 import {
   extractRequestMetadata,
   RequestMetadata,
-  AxiosRequestConfigWithMetadata
-} from './http-client-metadata';
-import { logHttpRequestAudit } from './http-client-audit';
+  AxiosRequestConfigWithMetadata,
+} from "./http-client-metadata";
+import { logHttpRequestAudit } from "./http-client-audit";
 
 export class HttpClient {
   private internalClient: InternalHttpClient;
@@ -29,12 +29,12 @@ export class HttpClient {
     this.config = config;
     this.logger = logger;
     this.internalClient = new InternalHttpClient(config);
-    
+
     // Initialize DataMasker with config path if provided
     if (config.sensitiveFieldsConfig) {
       DataMasker.setConfigPath(config.sensitiveFieldsConfig);
     }
-    
+
     this.setupAuditLogging();
   }
 
@@ -47,18 +47,18 @@ export class HttpClient {
     // Request interceptor - capture start time and metadata
     axiosInstance.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        if (this.shouldAuditRequest(config.url || '')) {
+        if (this.shouldAuditRequest(config.url || "")) {
           // Store metadata in config for later use
           (config as AxiosRequestConfigWithMetadata).metadata = {
             startTime: Date.now(),
             method: config.method?.toUpperCase(),
             url: config.url,
-            baseURL: config.baseURL
+            baseURL: config.baseURL,
           } as RequestMetadata;
         }
         return config;
       },
-      (error: AxiosError) => Promise.reject(error)
+      (error: AxiosError) => Promise.reject(error),
     );
 
     // Response interceptor - log audit and debug events
@@ -82,7 +82,7 @@ export class HttpClient {
           });
         }, 0);
         return Promise.reject(error);
-      }
+      },
     );
   }
 
@@ -95,7 +95,7 @@ export class HttpClient {
     if (this.config.audit?.enabled === false) {
       return false;
     }
-    
+
     // Check skip endpoints
     if (this.config.audit?.skipEndpoints) {
       for (const endpoint of this.config.audit.skipEndpoints) {
@@ -104,13 +104,13 @@ export class HttpClient {
         }
       }
     }
-    
+
     // Don't audit the logs endpoint itself
-    if (url && url.includes('/api/v1/logs')) {
+    if (url && url.includes("/api/v1/logs")) {
       return false;
     }
     // Don't audit the client token endpoint
-    if (url && url.includes('/api/v1/auth/token')) {
+    if (url && url.includes("/api/v1/auth/token")) {
       return false;
     }
     return true;
@@ -123,7 +123,7 @@ export class HttpClient {
    */
   private async logHttpRequestAudit(
     response: AxiosResponse | undefined,
-    error: AxiosError | null
+    error: AxiosError | null,
   ): Promise<void> {
     try {
       const metadata = extractRequestMetadata(response, error, this.config);
@@ -137,11 +137,19 @@ export class HttpClient {
     return this.internalClient.get<T>(url, config);
   }
 
-  async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  async post<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
     return this.internalClient.post<T>(url, data, config);
   }
 
-  async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  async put<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
     return this.internalClient.put<T>(url, data, config);
   }
 
@@ -151,10 +159,10 @@ export class HttpClient {
 
   // Generic method for all requests (uses client credentials)
   async request<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
     data?: unknown,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     return this.internalClient.request<T>(method, url, data, config);
   }
@@ -164,14 +172,21 @@ export class HttpClient {
   // User token is sent as Authorization: Bearer header (this method parameter)
   // These are two separate tokens for different purposes
   async authenticatedRequest<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
     token: string, // User authentication token (sent as Bearer token)
     data?: unknown,
     config?: AxiosRequestConfig,
-    authStrategy?: AuthStrategy // Optional auth strategy override
+    authStrategy?: AuthStrategy, // Optional auth strategy override
   ): Promise<T> {
-    return this.internalClient.authenticatedRequest<T>(method, url, token, data, config, authStrategy);
+    return this.internalClient.authenticatedRequest<T>(
+      method,
+      url,
+      token,
+      data,
+      config,
+      authStrategy,
+    );
   }
 
   /**
@@ -185,13 +200,19 @@ export class HttpClient {
    * @returns Response data
    */
   async requestWithAuthStrategy<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
     authStrategy: AuthStrategy,
     data?: unknown,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
-    return this.internalClient.requestWithAuthStrategy<T>(method, url, authStrategy, data, config);
+    return this.internalClient.requestWithAuthStrategy<T>(
+      method,
+      url,
+      authStrategy,
+      data,
+      config,
+    );
   }
 
   /**
@@ -203,15 +224,15 @@ export class HttpClient {
    */
   async validateTokenRequest<T>(
     token: string,
-    authStrategy?: AuthStrategy
+    authStrategy?: AuthStrategy,
   ): Promise<T> {
     return this.authenticatedRequest<T>(
-      'POST',
-      '/api/v1/auth/validate',
+      "POST",
+      "/api/v1/auth/validate",
       token,
       { token }, // OpenAPI spec requires token in request body
       undefined,
-      authStrategy
+      authStrategy,
     );
   }
 
@@ -223,7 +244,11 @@ export class HttpClient {
    * @param config - Optional Axios request config
    * @returns Promise with response data
    */
-  async getWithFilters<T>(url: string, filterBuilder: { toQueryString(): string }, config?: AxiosRequestConfig): Promise<T> {
+  async getWithFilters<T>(
+    url: string,
+    filterBuilder: { toQueryString(): string },
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
     const queryString = filterBuilder.toQueryString();
     const fullUrl = queryString ? `${url}?${queryString}` : url;
     return this.internalClient.get<T>(fullUrl, config);
@@ -240,11 +265,11 @@ export class HttpClient {
   async getPaginated<T>(
     url: string,
     pagination: { page: number; pageSize: number },
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     const params = new URLSearchParams();
-    params.append('page', pagination.page.toString());
-    params.append('page_size', pagination.pageSize.toString());
+    params.append("page", pagination.page.toString());
+    params.append("page_size", pagination.pageSize.toString());
     const fullUrl = `${url}?${params.toString()}`;
     return this.internalClient.get<T>(fullUrl, config);
   }

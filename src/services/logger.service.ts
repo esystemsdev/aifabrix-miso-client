@@ -2,13 +2,13 @@
  * Logger service for application logging and audit events
  */
 
-import { EventEmitter } from 'events';
-import { HttpClient } from '../utils/http-client';
-import { RedisService } from './redis.service';
-import { DataMasker } from '../utils/data-masker';
-import { MisoClientConfig, LogEntry } from '../types/config.types';
-import { AuditLogQueue } from '../utils/audit-log-queue';
-import jwt from 'jsonwebtoken';
+import { EventEmitter } from "events";
+import { HttpClient } from "../utils/http-client";
+import { RedisService } from "./redis.service";
+import { DataMasker } from "../utils/data-masker";
+import { MisoClientConfig, LogEntry } from "../types/config.types";
+import { AuditLogQueue } from "../utils/audit-log-queue";
+import jwt from "jsonwebtoken";
 
 export interface ClientLoggingOptions {
   applicationId?: string;
@@ -48,11 +48,19 @@ export class LoggerService extends EventEmitter {
     this.config = httpClient.config;
     this.redis = redis;
     this.httpClient = httpClient;
-    
+
     // Initialize audit log queue if batch logging is enabled
     const auditConfig = this.config.audit || {};
-    if (auditConfig.batchSize !== undefined || auditConfig.batchInterval !== undefined) {
-      this.auditLogQueue = new AuditLogQueue(httpClient, redis, this.config, this);
+    if (
+      auditConfig.batchSize !== undefined ||
+      auditConfig.batchInterval !== undefined
+    ) {
+      this.auditLogQueue = new AuditLogQueue(
+        httpClient,
+        redis,
+        this.config,
+        this,
+      );
     }
   }
 
@@ -92,11 +100,19 @@ export class LoggerService extends EventEmitter {
       if (!decoded) return {};
 
       return {
-        userId: (decoded.sub || decoded.userId || decoded.user_id) as string | undefined,
-        applicationId: (decoded.applicationId || decoded.app_id) as string | undefined,
+        userId: (decoded.sub || decoded.userId || decoded.user_id) as
+          | string
+          | undefined,
+        applicationId: (decoded.applicationId || decoded.app_id) as
+          | string
+          | undefined,
         sessionId: (decoded.sessionId || decoded.sid) as string | undefined,
-        roles: (decoded.roles || (decoded.realm_access as { roles?: string[] } | undefined)?.roles || []) as string[],
-        permissions: (decoded.permissions || (decoded.scope as string | undefined)?.split(' ') || []) as string[]
+        roles: (decoded.roles ||
+          (decoded.realm_access as { roles?: string[] } | undefined)?.roles ||
+          []) as string[],
+        permissions: (decoded.permissions ||
+          (decoded.scope as string | undefined)?.split(" ") ||
+          []) as string[],
       };
     } catch (error) {
       // JWT parsing failed, return empty context
@@ -111,18 +127,22 @@ export class LoggerService extends EventEmitter {
     const metadata: Record<string, unknown> = {};
 
     // Try to extract browser metadata
-    if (typeof globalThis !== 'undefined' && 'window' in globalThis) {
+    if (typeof globalThis !== "undefined" && "window" in globalThis) {
       const win = globalThis as Record<string, unknown>;
-      const navigator = (win.window as Record<string, unknown>)?.navigator as Record<string, unknown> | undefined;
-      const location = (win.window as Record<string, unknown>)?.location as Record<string, unknown> | undefined;
-      
+      const navigator = (win.window as Record<string, unknown>)?.navigator as
+        | Record<string, unknown>
+        | undefined;
+      const location = (win.window as Record<string, unknown>)?.location as
+        | Record<string, unknown>
+        | undefined;
+
       metadata.userAgent = navigator?.userAgent as string | undefined;
       metadata.hostname = location?.hostname as string | undefined;
     }
 
     // Try to extract Node.js metadata
-    if (typeof process !== 'undefined' && process.env) {
-      metadata.hostname = process.env['HOSTNAME'] || 'unknown';
+    if (typeof process !== "undefined" && process.env) {
+      metadata.hostname = process.env["HOSTNAME"] || "unknown";
     }
 
     return metadata as Partial<LogEntry>;
@@ -134,7 +154,8 @@ export class LoggerService extends EventEmitter {
   startPerformanceTracking(operationId: string): void {
     this.performanceMetrics.set(operationId, {
       startTime: Date.now(),
-      memoryUsage: typeof process !== 'undefined' ? process.memoryUsage() : undefined
+      memoryUsage:
+        typeof process !== "undefined" ? process.memoryUsage() : undefined,
     });
   }
 
@@ -147,7 +168,7 @@ export class LoggerService extends EventEmitter {
 
     metrics.endTime = Date.now();
     metrics.duration = metrics.endTime - metrics.startTime;
-    if (typeof process !== 'undefined') {
+    if (typeof process !== "undefined") {
       metrics.memoryUsage = process.memoryUsage();
     }
 
@@ -162,9 +183,9 @@ export class LoggerService extends EventEmitter {
     message: string,
     context?: Record<string, unknown>,
     stackTrace?: string,
-    options?: ClientLoggingOptions
+    options?: ClientLoggingOptions,
   ): Promise<void> {
-    await this.log('error', message, context, stackTrace, options);
+    await this.log("error", message, context, stackTrace, options);
   }
 
   /**
@@ -174,14 +195,20 @@ export class LoggerService extends EventEmitter {
     action: string,
     resource: string,
     context?: Record<string, unknown>,
-    options?: ClientLoggingOptions
+    options?: ClientLoggingOptions,
   ): Promise<void> {
     const auditContext = {
       action,
       resource,
-      ...context
+      ...context,
     };
-    await this.log('audit', `Audit: ${action} on ${resource}`, auditContext, undefined, options);
+    await this.log(
+      "audit",
+      `Audit: ${action} on ${resource}`,
+      auditContext,
+      undefined,
+      options,
+    );
   }
 
   /**
@@ -190,9 +217,9 @@ export class LoggerService extends EventEmitter {
   async info(
     message: string,
     context?: Record<string, unknown>,
-    options?: ClientLoggingOptions
+    options?: ClientLoggingOptions,
   ): Promise<void> {
-    await this.log('info', message, context, undefined, options);
+    await this.log("info", message, context, undefined, options);
   }
 
   /**
@@ -201,10 +228,10 @@ export class LoggerService extends EventEmitter {
   async debug(
     message: string,
     context?: Record<string, unknown>,
-    options?: ClientLoggingOptions
+    options?: ClientLoggingOptions,
   ): Promise<void> {
-    if (this.config.logLevel === 'debug') {
-      await this.log('debug', message, context, undefined, options);
+    if (this.config.logLevel === "debug") {
+      await this.log("debug", message, context, undefined, options);
     }
   }
 
@@ -212,23 +239,27 @@ export class LoggerService extends EventEmitter {
    * Internal log method with enhanced features
    */
   private async log(
-    level: LogEntry['level'],
+    level: LogEntry["level"],
     message: string,
     context?: Record<string, unknown>,
     stackTrace?: string,
-    options?: ClientLoggingOptions
+    options?: ClientLoggingOptions,
   ): Promise<void> {
     // Extract JWT context if token provided
-    const jwtContext = options?.token ? this.extractJWTContext(options.token) : {};
+    const jwtContext = options?.token
+      ? this.extractJWTContext(options.token)
+      : {};
 
     // Extract environment metadata
     const metadata = this.extractMetadata();
 
     // Generate correlation ID if not provided
-    const correlationId = options?.correlationId || this.generateCorrelationId();
+    const correlationId =
+      options?.correlationId || this.generateCorrelationId();
 
     // Mask sensitive data in context if enabled
-    const maskSensitive = options?.maskSensitiveData !== false && this.maskSensitiveData;
+    const maskSensitive =
+      options?.maskSensitiveData !== false && this.maskSensitiveData;
     const maskedContext =
       maskSensitive && context
         ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
@@ -236,22 +267,22 @@ export class LoggerService extends EventEmitter {
 
     // Add performance metrics if requested
     let enhancedContext = maskedContext;
-    if (options?.performanceMetrics && typeof process !== 'undefined') {
+    if (options?.performanceMetrics && typeof process !== "undefined") {
       enhancedContext = {
         ...enhancedContext,
         performance: {
           memoryUsage: process.memoryUsage(),
-          uptime: process.uptime()
-        }
+          uptime: process.uptime(),
+        },
       };
     }
 
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
-      environment: 'unknown', // Backend extracts from client credentials
+      environment: "unknown", // Backend extracts from client credentials
       application: this.config.clientId, // Use clientId as application identifier
-      applicationId: options?.applicationId || '', // Optional from options
+      applicationId: options?.applicationId || "", // Optional from options
       message,
       context: enhancedContext,
       stackTrace,
@@ -259,19 +290,19 @@ export class LoggerService extends EventEmitter {
       userId: options?.userId || jwtContext.userId,
       sessionId: options?.sessionId || jwtContext.sessionId,
       requestId: options?.requestId,
-      ...metadata
+      ...metadata,
     };
 
     // If emitEvents is enabled, emit event and skip HTTP/Redis
     if (this.config.emitEvents) {
       // Emit log event - same payload structure as REST API
       // Listener can check logEntry.level to filter by log level if needed
-      this.emit('log', logEntry);
+      this.emit("log", logEntry);
       return;
     }
 
     // Use batch queue for audit logs if available
-    if (level === 'audit' && this.auditLogQueue) {
+    if (level === "audit" && this.auditLogQueue) {
       await this.auditLogQueue.add(logEntry);
       return;
     }
@@ -279,7 +310,10 @@ export class LoggerService extends EventEmitter {
     // Try Redis first (if available)
     if (this.redis.isConnected()) {
       const queueName = `logs:${this.config.clientId}`;
-      const success = await this.redis.rpush(queueName, JSON.stringify(logEntry));
+      const success = await this.redis.rpush(
+        queueName,
+        JSON.stringify(logEntry),
+      );
 
       if (success) {
         return; // Successfully queued in Redis
@@ -289,11 +323,11 @@ export class LoggerService extends EventEmitter {
     // Fallback to unified logging endpoint with client credentials
     try {
       // Backend extracts environment and application from client credentials
-      await this.httpClient.request('POST', '/api/v1/logs', {
+      await this.httpClient.request("POST", "/api/v1/logs", {
         ...logEntry,
         // Remove fields that backend extracts from credentials
         environment: undefined,
-        application: undefined
+        application: undefined,
       });
     } catch (error) {
       // Failed to send log to controller
@@ -333,7 +367,7 @@ export class LoggerChain {
   constructor(
     logger: LoggerService,
     context: Record<string, unknown> = {},
-    options: ClientLoggingOptions = {}
+    options: ClientLoggingOptions = {},
   ) {
     this.logger = logger;
     this.context = context;

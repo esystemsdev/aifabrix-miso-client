@@ -2,10 +2,14 @@
  * Permission service for user authorization with caching
  */
 
-import { HttpClient } from '../utils/http-client';
-import { CacheService } from './cache.service';
-import { MisoClientConfig, PermissionResult, AuthStrategy } from '../types/config.types';
-import jwt from 'jsonwebtoken';
+import { HttpClient } from "../utils/http-client";
+import { CacheService } from "./cache.service";
+import {
+  MisoClientConfig,
+  PermissionResult,
+  AuthStrategy,
+} from "../types/config.types";
+import jwt from "jsonwebtoken";
 
 interface PermissionCacheData {
   permissions: string[];
@@ -32,9 +36,12 @@ export class PermissionService {
     try {
       const decoded = jwt.decode(token) as Record<string, unknown> | null;
       if (!decoded) return null;
-      
+
       // Try common JWT claim fields for user ID
-      return (decoded.sub || decoded.userId || decoded.user_id || decoded.id) as string | null;
+      return (decoded.sub ||
+        decoded.userId ||
+        decoded.user_id ||
+        decoded.id) as string | null;
     } catch (error) {
       return null;
     }
@@ -46,7 +53,10 @@ export class PermissionService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async getPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  async getPermissions(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     try {
       // Extract userId from token to check cache first (avoids API call on cache hit)
       let userId = this.extractUserIdFromToken(token);
@@ -63,10 +73,9 @@ export class PermissionService {
       // Cache miss or no userId in token - fetch from controller
       // If we don't have userId, get it from validate endpoint
       if (!userId) {
-        const userInfo = await this.httpClient.validateTokenRequest<{ user: { id: string } }>(
-          token,
-          authStrategy
-        );
+        const userInfo = await this.httpClient.validateTokenRequest<{
+          user: { id: string };
+        }>(token, authStrategy);
         userId = userInfo.user?.id || null;
         if (!userId) {
           return [];
@@ -74,14 +83,15 @@ export class PermissionService {
       }
 
       // Cache miss - fetch from controller
-      const permissionResult = await this.httpClient.authenticatedRequest<PermissionResult>(
-        'GET',
-        '/api/v1/auth/permissions', // Backend knows app/env from client token
-        token,
-        undefined,
-        undefined,
-        authStrategy
-      );
+      const permissionResult =
+        await this.httpClient.authenticatedRequest<PermissionResult>(
+          "GET",
+          "/api/v1/auth/permissions", // Backend knows app/env from client token
+          token,
+          undefined,
+          undefined,
+          authStrategy,
+        );
 
       const permissions = permissionResult.permissions || [];
 
@@ -90,13 +100,13 @@ export class PermissionService {
       await this.cache.set<PermissionCacheData>(
         finalCacheKey,
         { permissions, timestamp: Date.now() },
-        this.permissionTTL
+        this.permissionTTL,
       );
 
       return permissions;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Failed to get permissions:', error);
+      console.error("Failed to get permissions:", error);
       return [];
     }
   }
@@ -107,7 +117,11 @@ export class PermissionService {
    * @param permission - Permission to check
    * @param authStrategy - Optional authentication strategy override
    */
-  async hasPermission(token: string, permission: string, authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasPermission(
+    token: string,
+    permission: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     const permissions = await this.getPermissions(token, authStrategy);
     return permissions.includes(permission);
   }
@@ -118,9 +132,15 @@ export class PermissionService {
    * @param permissions - Permissions to check
    * @param authStrategy - Optional authentication strategy override
    */
-  async hasAnyPermission(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasAnyPermission(
+    token: string,
+    permissions: string[],
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     const userPermissions = await this.getPermissions(token, authStrategy);
-    return permissions.some((permission) => userPermissions.includes(permission));
+    return permissions.some((permission) =>
+      userPermissions.includes(permission),
+    );
   }
 
   /**
@@ -129,9 +149,15 @@ export class PermissionService {
    * @param permissions - Permissions to check
    * @param authStrategy - Optional authentication strategy override
    */
-  async hasAllPermissions(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasAllPermissions(
+    token: string,
+    permissions: string[],
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     const userPermissions = await this.getPermissions(token, authStrategy);
-    return permissions.every((permission) => userPermissions.includes(permission));
+    return permissions.every((permission) =>
+      userPermissions.includes(permission),
+    );
   }
 
   /**
@@ -139,13 +165,15 @@ export class PermissionService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async refreshPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  async refreshPermissions(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     try {
       // Get user info to extract userId
-      const userInfo = await this.httpClient.validateTokenRequest<{ user: { id: string } }>(
-        token,
-        authStrategy
-      );
+      const userInfo = await this.httpClient.validateTokenRequest<{
+        user: { id: string };
+      }>(token, authStrategy);
 
       if (!userInfo.user?.id) {
         return [];
@@ -155,14 +183,15 @@ export class PermissionService {
       const cacheKey = `permissions:${userId}`;
 
       // Fetch fresh permissions from controller using refresh endpoint
-      const permissionResult = await this.httpClient.authenticatedRequest<PermissionResult>(
-        'GET',
-        '/api/v1/auth/permissions/refresh',
-        token,
-        undefined,
-        undefined,
-        authStrategy
-      );
+      const permissionResult =
+        await this.httpClient.authenticatedRequest<PermissionResult>(
+          "GET",
+          "/api/v1/auth/permissions/refresh",
+          token,
+          undefined,
+          undefined,
+          authStrategy,
+        );
 
       const permissions = permissionResult.permissions || [];
 
@@ -170,13 +199,13 @@ export class PermissionService {
       await this.cache.set<PermissionCacheData>(
         cacheKey,
         { permissions, timestamp: Date.now() },
-        this.permissionTTL
+        this.permissionTTL,
       );
 
       return permissions;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Failed to refresh permissions:', error);
+      console.error("Failed to refresh permissions:", error);
       return [];
     }
   }
@@ -186,13 +215,15 @@ export class PermissionService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async clearPermissionsCache(token: string, authStrategy?: AuthStrategy): Promise<void> {
+  async clearPermissionsCache(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<void> {
     try {
       // Get user info to extract userId
-      const userInfo = await this.httpClient.validateTokenRequest<{ user: { id: string } }>(
-        token,
-        authStrategy
-      );
+      const userInfo = await this.httpClient.validateTokenRequest<{
+        user: { id: string };
+      }>(token, authStrategy);
 
       if (!userInfo.user?.id) {
         return;
@@ -205,7 +236,7 @@ export class PermissionService {
       await this.cache.delete(cacheKey);
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Failed to clear permissions cache:', error);
+      console.error("Failed to clear permissions cache:", error);
     }
   }
 }

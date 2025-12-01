@@ -8,11 +8,17 @@ import axios, {
   AxiosRequestConfig,
   AxiosResponse,
   AxiosError,
-  InternalAxiosRequestConfig
-} from 'axios';
-import { MisoClientConfig, ClientTokenResponse, ErrorResponse, isErrorResponse, AuthStrategy } from '../types/config.types';
-import { MisoClientError } from './errors';
-import { AuthStrategyHandler } from './auth-strategy';
+  InternalAxiosRequestConfig,
+} from "axios";
+import {
+  MisoClientConfig,
+  ClientTokenResponse,
+  ErrorResponse,
+  isErrorResponse,
+  AuthStrategy,
+} from "../types/config.types";
+import { MisoClientError } from "./errors";
+import { AuthStrategyHandler } from "./auth-strategy";
 
 export class InternalHttpClient {
   private axios: AxiosInstance;
@@ -28,8 +34,8 @@ export class InternalHttpClient {
       baseURL: config.controllerUrl,
       timeout: 30000,
       headers: {
-        'Content-Type': 'application/json'
-      }
+        "Content-Type": "application/json",
+      },
     });
 
     // Interceptor adds client token (or fetches it if needed)
@@ -38,19 +44,22 @@ export class InternalHttpClient {
     this.axios.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         config.headers = config.headers || {};
-        
+
         // Only add client token if not already set by auth strategy
         // Auth strategy will set headers appropriately
-        if (!config.headers['x-client-token'] && !config.headers['X-Client-Id']) {
+        if (
+          !config.headers["x-client-token"] &&
+          !config.headers["X-Client-Id"]
+        ) {
           const token = await this.getClientToken();
           if (token) {
-            config.headers['x-client-token'] = token;
+            config.headers["x-client-token"] = token;
           }
         }
-        
+
         return config;
       },
-      (error: AxiosError) => Promise.reject(error)
+      (error: AxiosError) => Promise.reject(error),
     );
 
     // Add response interceptor for error handling
@@ -59,7 +68,7 @@ export class InternalHttpClient {
       (error: AxiosError) => {
         if (error.response?.status === 401) {
           // Enhance error with authentication context
-          error.message = 'Authentication failed - token may be invalid';
+          error.message = "Authentication failed - token may be invalid";
           // Clear token on 401 to force refresh
           this.clientToken = null;
           this.tokenExpiresAt = null;
@@ -67,7 +76,7 @@ export class InternalHttpClient {
         // Note: Don't convert to MisoClientError here - let the method handlers do it
         // This preserves the original error for the try-catch blocks in each method
         return Promise.reject(error);
-      }
+      },
     );
   }
 
@@ -77,9 +86,13 @@ export class InternalHttpClient {
    */
   private async getClientToken(): Promise<string | null> {
     const now = new Date();
-    
+
     // If token exists and not expired (with 60s buffer for proactive refresh), return it
-    if (this.clientToken && this.tokenExpiresAt && this.tokenExpiresAt > new Date(now.getTime() + 60000)) {
+    if (
+      this.clientToken &&
+      this.tokenExpiresAt &&
+      this.tokenExpiresAt > new Date(now.getTime() + 60000)
+    ) {
       return this.clientToken;
     }
 
@@ -114,25 +127,27 @@ export class InternalHttpClient {
   private async fetchClientToken(): Promise<string> {
     const correlationId = this.generateCorrelationId();
     const clientId = this.config.clientId;
-    
+
     try {
       // Create a temporary axios instance without interceptors to avoid recursion
       const tempAxios = axios.create({
         baseURL: this.config.controllerUrl,
         timeout: 30000,
         headers: {
-          'Content-Type': 'application/json',
-          'X-Client-Id': this.config.clientId,
-          'X-Client-Secret': this.config.clientSecret
-        }
+          "Content-Type": "application/json",
+          "X-Client-Id": this.config.clientId,
+          "X-Client-Secret": this.config.clientSecret,
+        },
       });
 
-      const response = await tempAxios.post<ClientTokenResponse>('/api/v1/auth/token');
-      
+      const response =
+        await tempAxios.post<ClientTokenResponse>("/api/v1/auth/token");
+
       // Handle both nested (new) and flat (old) response formats
       const token = response.data.data?.token || response.data.token;
-      const expiresIn = response.data.data?.expiresIn || response.data.expiresIn;
-      
+      const expiresIn =
+        response.data.data?.expiresIn || response.data.expiresIn;
+
       if (response.data.success && token) {
         this.clientToken = token;
         // Set expiration with 30 second buffer before actual expiration
@@ -148,23 +163,25 @@ export class InternalHttpClient {
         status: response.status,
         statusText: response.statusText,
         data: response.data,
-        headers: response.headers
+        headers: response.headers,
       });
       throw new Error(
         `Failed to get client token: Invalid response format. Expected {success: true, token: string}. ` +
-        `Full response: ${responseDetails} [correlationId: ${correlationId}, clientId: ${clientId}]`
+          `Full response: ${responseDetails} [correlationId: ${correlationId}, clientId: ${clientId}]`,
       );
     } catch (error) {
       // Check if it's an AxiosError to extract full response details
       if (this.isAxiosError(error)) {
         const responseDetails: string[] = [];
-        
+
         if (error.response) {
           responseDetails.push(`status: ${error.response.status}`);
           responseDetails.push(`statusText: ${error.response.statusText}`);
           responseDetails.push(`data: ${JSON.stringify(error.response.data)}`);
           if (error.response.headers) {
-            responseDetails.push(`headers: ${JSON.stringify(error.response.headers)}`);
+            responseDetails.push(
+              `headers: ${JSON.stringify(error.response.headers)}`,
+            );
           }
         } else if (error.request) {
           responseDetails.push(`request: ${JSON.stringify(error.request)}`);
@@ -172,17 +189,18 @@ export class InternalHttpClient {
         } else {
           responseDetails.push(`message: ${error.message}`);
         }
-        
+
         throw new Error(
           `Failed to get client token: ${error.message}. ` +
-          `Full response: {${responseDetails.join(', ')}} [correlationId: ${correlationId}, clientId: ${clientId}]`
+            `Full response: {${responseDetails.join(", ")}} [correlationId: ${correlationId}, clientId: ${clientId}]`,
         );
       }
-      
+
       // Non-Axios error
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       throw new Error(
-        `Failed to get client token: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`
+        `Failed to get client token: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
       );
     }
   }
@@ -195,7 +213,11 @@ export class InternalHttpClient {
       return true;
     }
     // Support for mocked errors in tests
-    if (typeof error === 'object' && error !== null && 'isAxiosError' in error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "isAxiosError" in error
+    ) {
       return (error as AxiosError).isAxiosError === true;
     }
     return false;
@@ -205,7 +227,10 @@ export class InternalHttpClient {
    * Parse error response from AxiosError
    * Attempts to parse structured ErrorResponse, falls back to null if parsing fails
    */
-  private parseErrorResponse(error: AxiosError, requestUrl?: string): ErrorResponse | null {
+  private parseErrorResponse(
+    error: AxiosError,
+    requestUrl?: string,
+  ): ErrorResponse | null {
     try {
       // Check if response data exists
       if (!error.response?.data) {
@@ -215,7 +240,7 @@ export class InternalHttpClient {
       const data = error.response.data;
 
       // If data is already an object, check if it matches ErrorResponse structure
-      if (typeof data === 'object' && data !== null) {
+      if (typeof data === "object" && data !== null) {
         // Validate using type guard
         if (isErrorResponse(data)) {
           const errorResponse: ErrorResponse = {
@@ -223,14 +248,14 @@ export class InternalHttpClient {
             type: (data as ErrorResponse).type,
             title: (data as ErrorResponse).title,
             statusCode: (data as ErrorResponse).statusCode,
-            instance: (data as ErrorResponse).instance || requestUrl
+            instance: (data as ErrorResponse).instance || requestUrl,
           };
           return errorResponse;
         }
       }
 
       // If data is a string, try to parse as JSON
-      if (typeof data === 'string') {
+      if (typeof data === "string") {
         try {
           const parsed = JSON.parse(data);
           if (isErrorResponse(parsed)) {
@@ -239,7 +264,7 @@ export class InternalHttpClient {
               type: parsed.type,
               title: parsed.title,
               statusCode: parsed.statusCode,
-              instance: parsed.instance || requestUrl
+              instance: parsed.instance || requestUrl,
             };
             return errorResponse;
           }
@@ -260,7 +285,10 @@ export class InternalHttpClient {
    * Create MisoClientError from AxiosError
    * Parses structured error response if available, falls back to errorBody
    */
-  private createMisoClientError(error: AxiosError, requestUrl?: string): MisoClientError {
+  private createMisoClientError(
+    error: AxiosError,
+    requestUrl?: string,
+  ): MisoClientError {
     // Extract status code
     const statusCode = error.response?.status;
 
@@ -269,18 +297,25 @@ export class InternalHttpClient {
 
     // Extract errorBody for backward compatibility
     let errorBody: Record<string, unknown> | undefined;
-    if (error.response?.data && typeof error.response.data === 'object') {
+    if (error.response?.data && typeof error.response.data === "object") {
       errorBody = error.response.data as Record<string, unknown>;
     }
 
     // Generate default message
-    let message = error.message || 'Request failed';
+    let message = error.message || "Request failed";
     if (error.response) {
-      message = error.response.statusText || `Request failed with status code ${statusCode}`;
+      message =
+        error.response.statusText ||
+        `Request failed with status code ${statusCode}`;
     }
 
     // Create MisoClientError (convert null to undefined)
-    return new MisoClientError(message, errorResponse || undefined, errorBody, statusCode);
+    return new MisoClientError(
+      message,
+      errorResponse || undefined,
+      errorBody,
+      statusCode,
+    );
   }
 
   /**
@@ -303,7 +338,11 @@ export class InternalHttpClient {
     }
   }
 
-  async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  async post<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
     try {
       const response = await this.axios.post<T>(url, data, config);
       return response.data;
@@ -316,7 +355,11 @@ export class InternalHttpClient {
     }
   }
 
-  async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  async put<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
     try {
       const response = await this.axios.put<T>(url, data, config);
       return response.data;
@@ -344,19 +387,19 @@ export class InternalHttpClient {
 
   // Generic method for all requests (uses client credentials)
   async request<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
     data?: unknown,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     switch (method) {
-      case 'GET':
+      case "GET":
         return this.get<T>(url, config);
-      case 'POST':
+      case "POST":
         return this.post<T>(url, data, config);
-      case 'PUT':
+      case "PUT":
         return this.put<T>(url, data, config);
-      case 'DELETE':
+      case "DELETE":
         return this.delete<T>(url, config);
       default:
         throw new Error(`Unsupported HTTP method: ${method}`);
@@ -368,16 +411,16 @@ export class InternalHttpClient {
   // User token is sent as Authorization: Bearer header (this method parameter)
   // These are two separate tokens for different purposes
   async authenticatedRequest<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
     token: string, // User authentication token (sent as Bearer token)
     data?: unknown,
     config?: AxiosRequestConfig,
-    authStrategy?: AuthStrategy // Optional auth strategy override
+    authStrategy?: AuthStrategy, // Optional auth strategy override
   ): Promise<T> {
     // Use auth strategy if provided, otherwise use default bearer token behavior
     let requestConfig: AxiosRequestConfig;
-    
+
     if (authStrategy) {
       // Build headers based on auth strategy
       const clientToken = await this.getClientToken();
@@ -385,15 +428,15 @@ export class InternalHttpClient {
         authStrategy,
         clientToken,
         this.config.clientId,
-        this.config.clientSecret
+        this.config.clientSecret,
       );
-      
+
       requestConfig = {
         ...config,
         headers: {
           ...config?.headers,
-          ...authHeaders
-        }
+          ...authHeaders,
+        },
       };
     } else {
       // Default behavior: Bearer token + client token
@@ -403,19 +446,19 @@ export class InternalHttpClient {
           ...config?.headers,
           // Add Bearer token for user authentication
           // x-client-token is automatically added by interceptor (not a Bearer token)
-          Authorization: `Bearer ${token}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       };
     }
 
     switch (method) {
-      case 'GET':
+      case "GET":
         return this.get<T>(url, requestConfig);
-      case 'POST':
+      case "POST":
         return this.post<T>(url, data, requestConfig);
-      case 'PUT':
+      case "PUT":
         return this.put<T>(url, data, requestConfig);
-      case 'DELETE':
+      case "DELETE":
         return this.delete<T>(url, requestConfig);
       default:
         throw new Error(`Unsupported HTTP method: ${method}`);
@@ -433,11 +476,11 @@ export class InternalHttpClient {
    * @returns Response data
    */
   async requestWithAuthStrategy<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
     authStrategy: AuthStrategy,
     data?: unknown,
-    config?: AxiosRequestConfig
+    config?: AxiosRequestConfig,
   ): Promise<T> {
     // Build headers based on auth strategy
     const clientToken = await this.getClientToken();
@@ -445,29 +488,28 @@ export class InternalHttpClient {
       authStrategy,
       clientToken,
       this.config.clientId,
-      this.config.clientSecret
+      this.config.clientSecret,
     );
 
     const requestConfig: AxiosRequestConfig = {
       ...config,
       headers: {
         ...config?.headers,
-        ...authHeaders
-      }
+        ...authHeaders,
+      },
     };
 
     switch (method) {
-      case 'GET':
+      case "GET":
         return this.get<T>(url, requestConfig);
-      case 'POST':
+      case "POST":
         return this.post<T>(url, data, requestConfig);
-      case 'PUT':
+      case "PUT":
         return this.put<T>(url, data, requestConfig);
-      case 'DELETE':
+      case "DELETE":
         return this.delete<T>(url, requestConfig);
       default:
         throw new Error(`Unsupported HTTP method: ${method}`);
     }
   }
 }
-

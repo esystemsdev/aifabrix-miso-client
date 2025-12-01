@@ -2,21 +2,21 @@
  * Unit tests for HttpClient
  */
 
-import { HttpClient } from '../../src/utils/http-client';
-import { InternalHttpClient } from '../../src/utils/internal-http-client';
-import { LoggerService } from '../../src/services/logger.service';
-import { MisoClientConfig } from '../../src/types/config.types';
-import { MisoClientError } from '../../src/utils/errors';
-import { AxiosError } from 'axios';
+import { HttpClient } from "../../src/utils/http-client";
+import { InternalHttpClient } from "../../src/utils/internal-http-client";
+import { LoggerService } from "../../src/services/logger.service";
+import { MisoClientConfig } from "../../src/types/config.types";
+import { MisoClientError } from "../../src/utils/errors";
+import { AxiosError } from "axios";
 
 // Mock axios
-jest.mock('axios');
+jest.mock("axios");
 // Mock InternalHttpClient
-jest.mock('../../src/utils/internal-http-client');
+jest.mock("../../src/utils/internal-http-client");
 // Mock LoggerService
-jest.mock('../../src/services/logger.service');
+jest.mock("../../src/services/logger.service");
 // Mock jsonwebtoken
-jest.mock('jsonwebtoken');
+jest.mock("jsonwebtoken");
 
 // Unhandled rejection handling is configured in tests/setup.ts
 
@@ -27,24 +27,24 @@ let responseErrorFn: ((error: any) => Promise<any>) | null = null;
 const mockAxios = {
   create: jest.fn(),
   interceptors: {
-    request: { 
+    request: {
       use: jest.fn((onFulfilled, onRejected) => {
         requestInterceptorFn = onFulfilled;
         return 0;
-      })
+      }),
     },
-    response: { 
+    response: {
       use: jest.fn((onFulfilled, onRejected) => {
         responseSuccessFn = onFulfilled;
         responseErrorFn = onRejected;
         return 0;
-      })
-    }
+      }),
+    },
   },
   get: jest.fn(),
   post: jest.fn(),
   put: jest.fn(),
-  delete: jest.fn()
+  delete: jest.fn(),
 };
 
 // Store expected responses per test to allow interceptors to execute
@@ -57,17 +57,17 @@ const createInterceptorExecutor = (method: string) => {
     const currentRequestFn = requestInterceptorFn;
     const currentResponseFn = responseSuccessFn;
     const currentResponseErrorFn = responseErrorFn;
-    
+
     // Execute request interceptor
     let requestConfig = {
       url,
       method: method.toLowerCase(),
-      baseURL: config?.baseURL || 'https://controller.aifabrix.ai',
+      baseURL: config?.baseURL || "https://controller.aifabrix.ai",
       headers: config?.headers || {},
       data,
-      ...config
+      ...config,
     };
-    
+
     if (currentRequestFn) {
       try {
         requestConfig = await currentRequestFn(requestConfig);
@@ -75,20 +75,20 @@ const createInterceptorExecutor = (method: string) => {
         // If request interceptor fails, still proceed
       }
     }
-    
+
     // Check if there's an expected response or error for this call
     const callKey = `${method}:${url}`;
     const expectedResponse = expectedAxiosResponses.get(callKey);
-    
+
     if (expectedResponse?.error) {
       // For errors, create error response and execute error interceptor
       const error = {
         config: requestConfig,
         response: expectedResponse.error.response,
-        message: expectedResponse.error.message || 'Request failed',
-        ...expectedResponse.error
+        message: expectedResponse.error.message || "Request failed",
+        ...expectedResponse.error,
       };
-      
+
       // Execute response error interceptor (async, fire-and-forget via setTimeout)
       if (currentResponseErrorFn) {
         try {
@@ -96,40 +96,48 @@ const createInterceptorExecutor = (method: string) => {
           // any promise rejections are handled. The interceptor returns Promise.reject(error)
           // but we still need to wait for the setTimeout callback to execute.
           const result = currentResponseErrorFn(error);
-          
+
           // Wait for setTimeout callbacks to execute (they use setTimeout with 0 delay)
           // Use multiple Promise.resolve() and setTimeout/setImmediate to ensure all microtasks and macrotasks complete
           for (let i = 0; i < 5; i++) {
             await new Promise<void>((resolve) => {
-              if (typeof setImmediate !== 'undefined') {
+              if (typeof setImmediate !== "undefined") {
                 setImmediate(() => {
-                  Promise.resolve().then(() => {
-                    setImmediate(() => {
-                      Promise.resolve().then(() => {
-                        resolve();
-                      }).catch(() => resolve());
+                  Promise.resolve()
+                    .then(() => {
+                      setImmediate(() => {
+                        Promise.resolve()
+                          .then(() => {
+                            resolve();
+                          })
+                          .catch(() => resolve());
+                      });
+                    })
+                    .catch(() => {
+                      setImmediate(() => resolve());
                     });
-                  }).catch(() => {
-                    setImmediate(() => resolve());
-                  });
                 });
               } else {
                 setTimeout(() => {
-                  Promise.resolve().then(() => {
-                    setTimeout(() => {
-                      Promise.resolve().then(() => {
-                        resolve();
-                      }).catch(() => resolve());
-                    }, 0);
-                  }).catch(() => {
-                    setTimeout(() => resolve(), 0);
-                  });
+                  Promise.resolve()
+                    .then(() => {
+                      setTimeout(() => {
+                        Promise.resolve()
+                          .then(() => {
+                            resolve();
+                          })
+                          .catch(() => resolve());
+                      }, 0);
+                    })
+                    .catch(() => {
+                      setTimeout(() => resolve(), 0);
+                    });
                 }, 0);
               }
             });
             await Promise.resolve();
           }
-          
+
           // Return the rejected promise (the interceptor returns Promise.reject(error))
           return result;
         } catch (e) {
@@ -137,55 +145,63 @@ const createInterceptorExecutor = (method: string) => {
           return Promise.reject(error);
         }
       }
-      
+
       return Promise.reject(error);
     }
-    
+
     // For successful responses, create a response and execute response interceptor
     const responseData = expectedResponse?.data || { success: true };
     const response = {
       config: requestConfig,
       status: 200,
       data: responseData,
-      headers: {}
+      headers: {},
     };
-    
+
     // Execute response success interceptor (async, fire-and-forget via setTimeout)
     if (currentResponseFn) {
       try {
         // The interceptor uses setTimeout internally, so we need to ensure
         // any promise rejections are handled. Wrap in try-catch and wait for next tick.
         currentResponseFn(response);
-        
+
         // Wait for setTimeout callbacks to execute (they use setTimeout with 0 delay)
         // The interceptor uses setTimeout(() => { logHttpRequestAudit().catch(...) }, 0)
         // We need to wait for this setTimeout to execute and its promise to settle
         // Use multiple Promise.resolve() and setTimeout to ensure all microtasks and macrotasks complete
         for (let i = 0; i < 5; i++) {
           await new Promise<void>((resolve) => {
-            if (typeof setImmediate !== 'undefined') {
+            if (typeof setImmediate !== "undefined") {
               setImmediate(() => {
-                Promise.resolve().then(() => {
-                  setImmediate(() => {
-                    Promise.resolve().then(() => {
-                      resolve();
-                    }).catch(() => resolve());
+                Promise.resolve()
+                  .then(() => {
+                    setImmediate(() => {
+                      Promise.resolve()
+                        .then(() => {
+                          resolve();
+                        })
+                        .catch(() => resolve());
+                    });
+                  })
+                  .catch(() => {
+                    setImmediate(() => resolve());
                   });
-                }).catch(() => {
-                  setImmediate(() => resolve());
-                });
               });
             } else {
               setTimeout(() => {
-                Promise.resolve().then(() => {
-                  setTimeout(() => {
-                    Promise.resolve().then(() => {
-                      resolve();
-                    }).catch(() => resolve());
-                  }, 0);
-                }).catch(() => {
-                  setTimeout(() => resolve(), 0);
-                });
+                Promise.resolve()
+                  .then(() => {
+                    setTimeout(() => {
+                      Promise.resolve()
+                        .then(() => {
+                          resolve();
+                        })
+                        .catch(() => resolve());
+                    }, 0);
+                  })
+                  .catch(() => {
+                    setTimeout(() => resolve(), 0);
+                  });
               }, 0);
             }
           });
@@ -195,29 +211,29 @@ const createInterceptorExecutor = (method: string) => {
         // Ignore errors from response interceptor
       }
     }
-    
+
     return Promise.resolve(response);
   };
 };
 
 mockAxios.get.mockImplementation((url: string, config?: any) => {
-  const executor = createInterceptorExecutor('GET');
+  const executor = createInterceptorExecutor("GET");
   return executor(url, undefined, config);
 });
 mockAxios.post.mockImplementation((url: string, data?: any, config?: any) => {
-  const executor = createInterceptorExecutor('POST');
+  const executor = createInterceptorExecutor("POST");
   return executor(url, data, config);
 });
 mockAxios.put.mockImplementation((url: string, data?: any, config?: any) => {
-  const executor = createInterceptorExecutor('PUT');
+  const executor = createInterceptorExecutor("PUT");
   return executor(url, data, config);
 });
 mockAxios.delete.mockImplementation((url: string, config?: any) => {
-  const executor = createInterceptorExecutor('DELETE');
+  const executor = createInterceptorExecutor("DELETE");
   return executor(url, undefined, config);
 });
 
-const axios = require('axios');
+const axios = require("axios");
 axios.create.mockReturnValue(mockAxios);
 
 // Helper function to create MisoClientError from AxiosError-like data
@@ -227,11 +243,11 @@ function createMisoClientErrorFromAxiosError(
   statusText: string,
   data: unknown,
   message?: string,
-  requestUrl?: string
+  requestUrl?: string,
 ): MisoClientError {
   // Try to parse structured error response
   let errorResponse: any = null;
-  if (data && typeof data === 'object') {
+  if (data && typeof data === "object") {
     const errorData = data as any;
     if (errorData.errors && Array.isArray(errorData.errors)) {
       errorResponse = {
@@ -239,24 +255,30 @@ function createMisoClientErrorFromAxiosError(
         type: errorData.type || `/Errors/${statusText}`,
         title: errorData.title || statusText,
         statusCode: errorData.statusCode || status,
-        instance: errorData.instance || requestUrl
+        instance: errorData.instance || requestUrl,
       };
     }
   }
 
   // Extract errorBody for backward compatibility
   let errorBody: Record<string, unknown> | undefined;
-  if (data && typeof data === 'object') {
+  if (data && typeof data === "object") {
     errorBody = data as Record<string, unknown>;
   }
 
   // Generate message
-  const errorMessage = message || statusText || `Request failed with status code ${status}`;
+  const errorMessage =
+    message || statusText || `Request failed with status code ${status}`;
 
-  return new MisoClientError(errorMessage, errorResponse || undefined, errorBody, status);
+  return new MisoClientError(
+    errorMessage,
+    errorResponse || undefined,
+    errorBody,
+    status,
+  );
 }
 
-describe('HttpClient', () => {
+describe("HttpClient", () => {
   let httpClient: HttpClient;
   let config: MisoClientConfig;
   let mockLogger: jest.Mocked<LoggerService>;
@@ -300,17 +322,19 @@ describe('HttpClient', () => {
     // Ensure real timers are used by default (tests that need fake timers will set them)
     jest.useRealTimers();
     jest.clearAllTimers();
-    
+
     // Clear expected responses and mock state
     expectedAxiosResponses.clear();
     requestInterceptorFn = null;
     responseSuccessFn = null;
     responseErrorFn = null;
-    
+
     // Clear stored mock return values from previous tests
     if (mockInternalClient) {
-      ['get', 'post', 'put', 'delete', 'request'].forEach(method => {
-        const mockFn = (mockInternalClient as any)[method] as jest.Mock | undefined;
+      ["get", "post", "put", "delete", "request"].forEach((method) => {
+        const mockFn = (mockInternalClient as any)[method] as
+          | jest.Mock
+          | undefined;
         if (mockFn) {
           delete (mockFn as any)._resolvedValue;
           delete (mockFn as any)._rejectedValue;
@@ -319,9 +343,9 @@ describe('HttpClient', () => {
     }
 
     config = {
-      controllerUrl: 'https://controller.aifabrix.ai',
-      clientId: 'ctrl-dev-test-app',
-      clientSecret: 'test-secret'
+      controllerUrl: "https://controller.aifabrix.ai",
+      clientId: "ctrl-dev-test-app",
+      clientSecret: "test-secret",
     };
 
     // Mock LoggerService
@@ -335,469 +359,571 @@ describe('HttpClient', () => {
     // Create mock functions that will use axios to trigger interceptors
     // When tests call .mockResolvedValue(), we need to capture that value
     // and store it so the axios executor can use it while still executing interceptors
-    const createMockMethod = (method: string, axiosMethod: 'get' | 'post' | 'put' | 'delete') => {
+    const createMockMethod = (
+      method: string,
+      axiosMethod: "get" | "post" | "put" | "delete",
+    ) => {
       const mockFn = jest.fn();
-      
+
       // Override mockResolvedValue to also store in expectedAxiosResponses
       const originalMockResolvedValue = mockFn.mockResolvedValue.bind(mockFn);
-      mockFn.mockResolvedValue = function(value: any) {
+      mockFn.mockResolvedValue = function (value: any) {
         // Store the resolved value pattern for this method
         // We'll match it when the method is called
         (this as any)._resolvedValue = value;
         return originalMockResolvedValue(value);
       };
-      
+
       const originalMockRejectedValue = mockFn.mockRejectedValue.bind(mockFn);
-      mockFn.mockRejectedValue = function(value: any) {
+      mockFn.mockRejectedValue = function (value: any) {
         (this as any)._rejectedValue = value;
         return originalMockRejectedValue(value);
       };
-      
-      return mockFn.mockImplementation(async (url: string, data?: any, config?: any) => {
-        // Get the configured return value from the mock (set via .mockResolvedValue() or .mockRejectedValue())
-        // Jest stores this in _mockState.results or we can check _resolvedValue we stored
-        const resolvedValue = (mockFn as any)._resolvedValue;
-        const rejectedValue = (mockFn as any)._rejectedValue;
-        
-        // Try to get from Jest's mock results if available
-        let actualValue: any = resolvedValue;
-        let actualError: any = rejectedValue;
-        
-        try {
-          const mockState = (mockFn as any)._mockState;
-          if (mockState && mockState.results && mockState.results.length > 0) {
-            const lastResult = mockState.results[mockState.results.length - 1];
-            if (lastResult && lastResult.type === 'return') {
-              try {
-                actualValue = await Promise.resolve(lastResult.value);
-              } catch (e) {
-                actualError = e;
+
+      return mockFn.mockImplementation(
+        async (url: string, data?: any, config?: any) => {
+          // Get the configured return value from the mock (set via .mockResolvedValue() or .mockRejectedValue())
+          // Jest stores this in _mockState.results or we can check _resolvedValue we stored
+          const resolvedValue = (mockFn as any)._resolvedValue;
+          const rejectedValue = (mockFn as any)._rejectedValue;
+
+          // Try to get from Jest's mock results if available
+          let actualValue: any = resolvedValue;
+          let actualError: any = rejectedValue;
+
+          try {
+            const mockState = (mockFn as any)._mockState;
+            if (
+              mockState &&
+              mockState.results &&
+              mockState.results.length > 0
+            ) {
+              const lastResult =
+                mockState.results[mockState.results.length - 1];
+              if (lastResult && lastResult.type === "return") {
+                try {
+                  actualValue = await Promise.resolve(lastResult.value);
+                } catch (e) {
+                  actualError = e;
+                }
+              } else if (lastResult && lastResult.type === "throw") {
+                actualError = lastResult.value;
               }
-            } else if (lastResult && lastResult.type === 'throw') {
-              actualError = lastResult.value;
             }
+          } catch (e) {
+            // Use stored values if available
           }
-        } catch (e) {
-          // Use stored values if available
-        }
-        
-        // Store the expected response for the executor to use
-        const callKey = `${method.toUpperCase()}:${url}`;
-        if (actualError !== undefined) {
-          expectedAxiosResponses.set(callKey, { error: actualError });
-        } else if (actualValue !== undefined) {
-          expectedAxiosResponses.set(callKey, { data: actualValue });
-        } else {
-          expectedAxiosResponses.set(callKey, { data: { success: true } });
-        }
-        
-        // Now call axios which will execute interceptors
-        if (axiosMethod === 'get' || axiosMethod === 'delete') {
-          return mockAxios[axiosMethod](url, config);
-        } else {
-          return mockAxios[axiosMethod](url, data, config);
-        }
-      });
+
+          // Store the expected response for the executor to use
+          const callKey = `${method.toUpperCase()}:${url}`;
+          if (actualError !== undefined) {
+            expectedAxiosResponses.set(callKey, { error: actualError });
+          } else if (actualValue !== undefined) {
+            expectedAxiosResponses.set(callKey, { data: actualValue });
+          } else {
+            expectedAxiosResponses.set(callKey, { data: { success: true } });
+          }
+
+          // Now call axios which will execute interceptors
+          if (axiosMethod === "get" || axiosMethod === "delete") {
+            return mockAxios[axiosMethod](url, config);
+          } else {
+            return mockAxios[axiosMethod](url, data, config);
+          }
+        },
+      );
     };
 
     // Mock InternalHttpClient - make methods use the mocked axios instance to trigger interceptors
     mockInternalClient = {
       getAxiosInstance: jest.fn().mockReturnValue(mockAxios),
-      get: createMockMethod('get', 'get'),
-      post: createMockMethod('post', 'post'),
-      put: createMockMethod('put', 'put'),
-      delete: createMockMethod('delete', 'delete'),
-      request: jest.fn((method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, data?: any, config?: any) => {
-        const axiosMethod = method.toLowerCase();
-        if (axiosMethod === 'get') return mockAxios.get(url, config);
-        if (axiosMethod === 'post') return mockAxios.post(url, data, config);
-        if (axiosMethod === 'put') return mockAxios.put(url, data, config);
-        if (axiosMethod === 'delete') return mockAxios.delete(url, config);
-        throw new Error(`Unsupported method: ${method}`);
-      }),
-      authenticatedRequest: jest.fn((method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, token: string, data?: any, config?: any) => {
-        const fullConfig = {
-          ...config,
-          headers: {
-            ...config?.headers,
-            'Authorization': `Bearer ${token}`
-          }
-        };
-        return mockInternalClient.request(method, url, data, fullConfig);
-      }),
-      config: config
+      get: createMockMethod("get", "get"),
+      post: createMockMethod("post", "post"),
+      put: createMockMethod("put", "put"),
+      delete: createMockMethod("delete", "delete"),
+      request: jest.fn(
+        (
+          method: "GET" | "POST" | "PUT" | "DELETE",
+          url: string,
+          data?: any,
+          config?: any,
+        ) => {
+          const axiosMethod = method.toLowerCase();
+          if (axiosMethod === "get") return mockAxios.get(url, config);
+          if (axiosMethod === "post") return mockAxios.post(url, data, config);
+          if (axiosMethod === "put") return mockAxios.put(url, data, config);
+          if (axiosMethod === "delete") return mockAxios.delete(url, config);
+          throw new Error(`Unsupported method: ${method}`);
+        },
+      ),
+      authenticatedRequest: jest.fn(
+        (
+          method: "GET" | "POST" | "PUT" | "DELETE",
+          url: string,
+          token: string,
+          data?: any,
+          config?: any,
+        ) => {
+          const fullConfig = {
+            ...config,
+            headers: {
+              ...config?.headers,
+              Authorization: `Bearer ${token}`,
+            },
+          };
+          return mockInternalClient.request(method, url, data, fullConfig);
+        },
+      ),
+      config: config,
     } as any;
 
-    (InternalHttpClient as jest.MockedClass<typeof InternalHttpClient>).mockImplementation(() => mockInternalClient);
+    (
+      InternalHttpClient as jest.MockedClass<typeof InternalHttpClient>
+    ).mockImplementation(() => mockInternalClient);
 
     jest.clearAllMocks();
     httpClient = new HttpClient(config, mockLogger);
   });
 
-  describe('constructor', () => {
-    it('should create InternalHttpClient', () => {
+  describe("constructor", () => {
+    it("should create InternalHttpClient", () => {
       expect(InternalHttpClient).toHaveBeenCalledWith(config);
     });
 
-    it('should set up audit logging interceptors', () => {
+    it("should set up audit logging interceptors", () => {
       expect(mockInternalClient.getAxiosInstance).toHaveBeenCalled();
       // HttpClient adds interceptors to the axios instance from getAxiosInstance()
       expect(mockAxios.interceptors.request.use).toHaveBeenCalled();
       expect(mockAxios.interceptors.response.use).toHaveBeenCalled();
     });
 
-    it('should expose config as public readonly property', () => {
+    it("should expose config as public readonly property", () => {
       expect(httpClient.config).toEqual(config);
     });
   });
 
-  describe('get', () => {
-    it('should make GET request and return data', async () => {
-      const mockData = { message: 'success' };
+  describe("get", () => {
+    it("should make GET request and return data", async () => {
+      const mockData = { message: "success" };
       mockInternalClient.get.mockResolvedValue(mockData);
-      
-      const result = await httpClient.get('/test');
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
 
-      expect(mockInternalClient.get).toHaveBeenCalledWith('/test', undefined);
+      const result = await httpClient.get("/test");
+
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.get).toHaveBeenCalledWith("/test", undefined);
       expect(result).toEqual(mockData);
     });
 
-    it('should pass config to axios', async () => {
+    it("should pass config to axios", async () => {
       const requestConfig = { timeout: 5000 };
-      const mockData = { message: 'success' };
+      const mockData = { message: "success" };
       mockInternalClient.get.mockResolvedValue(mockData);
 
-      await httpClient.get('/test', requestConfig);
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await httpClient.get("/test", requestConfig);
 
-      expect(mockInternalClient.get).toHaveBeenCalledWith('/test', requestConfig);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.get).toHaveBeenCalledWith(
+        "/test",
+        requestConfig,
+      );
     });
   });
 
-  describe('post', () => {
-    it('should make POST request with data', async () => {
-      const requestData = { name: 'test' };
-      const mockData = { id: '123' };
+  describe("post", () => {
+    it("should make POST request with data", async () => {
+      const requestData = { name: "test" };
+      const mockData = { id: "123" };
       mockInternalClient.post.mockResolvedValue(mockData);
 
-      const result = await httpClient.post('/test', requestData);
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await httpClient.post("/test", requestData);
 
-      expect(mockInternalClient.post).toHaveBeenCalledWith('/test', requestData, undefined);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.post).toHaveBeenCalledWith(
+        "/test",
+        requestData,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should return value from post method (covers line 234)', async () => {
+    it("should return value from post method (covers line 234)", async () => {
       // This test explicitly covers line 234 (return statement)
-      const requestData = { name: 'test' };
-      const mockData = { id: '123', name: 'test' };
+      const requestData = { name: "test" };
+      const mockData = { id: "123", name: "test" };
       mockInternalClient.post.mockResolvedValue(mockData);
 
       // Call post and verify return value is returned
-      const result = await httpClient.post<typeof mockData>('/test', requestData);
-      
+      const result = await httpClient.post<typeof mockData>(
+        "/test",
+        requestData,
+      );
+
       // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Verify the return statement executed by checking the value was returned
       expect(result).toBe(mockData);
-      expect(result.id).toBe('123');
-      expect(mockInternalClient.post).toHaveBeenCalledWith('/test', requestData, undefined);
+      expect(result.id).toBe("123");
+      expect(mockInternalClient.post).toHaveBeenCalledWith(
+        "/test",
+        requestData,
+        undefined,
+      );
     });
 
-    it('should pass config to post method', async () => {
-      const requestData = { name: 'test' };
+    it("should pass config to post method", async () => {
+      const requestData = { name: "test" };
       const requestConfig = { timeout: 5000 };
-      const mockData = { id: '123' };
+      const mockData = { id: "123" };
       mockInternalClient.post.mockResolvedValue(mockData);
 
-      const result = await httpClient.post('/test', requestData, requestConfig);
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await httpClient.post("/test", requestData, requestConfig);
 
-      expect(mockInternalClient.post).toHaveBeenCalledWith('/test', requestData, requestConfig);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.post).toHaveBeenCalledWith(
+        "/test",
+        requestData,
+        requestConfig,
+      );
       expect(result).toEqual(mockData);
     });
   });
 
-  describe('put', () => {
-    it('should make PUT request with data', async () => {
-      const requestData = { name: 'updated' };
+  describe("put", () => {
+    it("should make PUT request with data", async () => {
+      const requestData = { name: "updated" };
       const mockData = { updated: true };
       mockInternalClient.put.mockResolvedValue(mockData);
 
-      const result = await httpClient.put('/test', requestData);
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await httpClient.put("/test", requestData);
 
-      expect(mockInternalClient.put).toHaveBeenCalledWith('/test', requestData, undefined);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.put).toHaveBeenCalledWith(
+        "/test",
+        requestData,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should return value from put method (covers lines 237-238)', async () => {
+    it("should return value from put method (covers lines 237-238)", async () => {
       // This test explicitly covers lines 237-238 (return statement)
-      const requestData = { name: 'updated' };
-      const mockData = { updated: true, id: '123' };
+      const requestData = { name: "updated" };
+      const mockData = { updated: true, id: "123" };
       mockInternalClient.put.mockResolvedValue(mockData);
 
       // Call put and verify return value is returned
-      const result = await httpClient.put<typeof mockData>('/test', requestData);
-      
+      const result = await httpClient.put<typeof mockData>(
+        "/test",
+        requestData,
+      );
+
       // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Verify the return statement executed by checking the value was returned
       expect(result).toBe(mockData);
       expect(result.updated).toBe(true);
-      expect(mockInternalClient.put).toHaveBeenCalledWith('/test', requestData, undefined);
+      expect(mockInternalClient.put).toHaveBeenCalledWith(
+        "/test",
+        requestData,
+        undefined,
+      );
     });
 
-    it('should pass config to put method', async () => {
-      const requestData = { name: 'updated' };
+    it("should pass config to put method", async () => {
+      const requestData = { name: "updated" };
       const requestConfig = { timeout: 5000 };
       const mockData = { updated: true };
       mockInternalClient.put.mockResolvedValue(mockData);
 
-      const result = await httpClient.put('/test', requestData, requestConfig);
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await httpClient.put("/test", requestData, requestConfig);
 
-      expect(mockInternalClient.put).toHaveBeenCalledWith('/test', requestData, requestConfig);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.put).toHaveBeenCalledWith(
+        "/test",
+        requestData,
+        requestConfig,
+      );
       expect(result).toEqual(mockData);
     });
   });
 
-  describe('delete', () => {
-    it('should make DELETE request', async () => {
+  describe("delete", () => {
+    it("should make DELETE request", async () => {
       const mockData = { deleted: true };
       mockInternalClient.delete.mockResolvedValue(mockData);
 
-      const result = await httpClient.delete('/test');
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await httpClient.delete("/test");
 
-      expect(mockInternalClient.delete).toHaveBeenCalledWith('/test', undefined);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.delete).toHaveBeenCalledWith(
+        "/test",
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should return value from delete method (covers lines 241-242)', async () => {
+    it("should return value from delete method (covers lines 241-242)", async () => {
       // This test explicitly covers lines 241-242 (return statement)
-      const mockData = { deleted: true, id: '123' };
+      const mockData = { deleted: true, id: "123" };
       mockInternalClient.delete.mockResolvedValue(mockData);
 
       // Call delete and verify return value is returned
-      const result = await httpClient.delete<typeof mockData>('/test');
-      
+      const result = await httpClient.delete<typeof mockData>("/test");
+
       // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
 
       // Verify the return statement executed by checking the value was returned
       expect(result).toBe(mockData);
       expect(result.deleted).toBe(true);
-      expect(mockInternalClient.delete).toHaveBeenCalledWith('/test', undefined);
+      expect(mockInternalClient.delete).toHaveBeenCalledWith(
+        "/test",
+        undefined,
+      );
     });
 
-    it('should pass config to axios', async () => {
+    it("should pass config to axios", async () => {
       const requestConfig = { timeout: 5000 };
       const mockData = { deleted: true };
       mockInternalClient.delete.mockResolvedValue(mockData);
 
-      const result = await httpClient.delete('/test', requestConfig);
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await httpClient.delete("/test", requestConfig);
 
-      expect(mockInternalClient.delete).toHaveBeenCalledWith('/test', requestConfig);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.delete).toHaveBeenCalledWith(
+        "/test",
+        requestConfig,
+      );
       expect(result).toEqual(mockData);
     });
   });
 
-  describe('request', () => {
-    it('should make GET request via request method', async () => {
-      const mockData = { message: 'success' };
+  describe("request", () => {
+    it("should make GET request via request method", async () => {
+      const mockData = { message: "success" };
       mockInternalClient.request.mockResolvedValue(mockData);
 
-      const result = await httpClient.request('GET', '/test');
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await httpClient.request("GET", "/test");
 
-      expect(mockInternalClient.request).toHaveBeenCalledWith('GET', '/test', undefined, undefined);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.request).toHaveBeenCalledWith(
+        "GET",
+        "/test",
+        undefined,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should make POST request via request method', async () => {
-      const requestData = { name: 'test' };
-      const mockData = { id: '123' };
+    it("should make POST request via request method", async () => {
+      const requestData = { name: "test" };
+      const mockData = { id: "123" };
       mockInternalClient.request.mockResolvedValue(mockData);
 
-      const result = await httpClient.request('POST', '/test', requestData);
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await httpClient.request("POST", "/test", requestData);
 
-      expect(mockInternalClient.request).toHaveBeenCalledWith('POST', '/test', requestData, undefined);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.request).toHaveBeenCalledWith(
+        "POST",
+        "/test",
+        requestData,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should make PUT request via request method', async () => {
-      const requestData = { name: 'updated' };
+    it("should make PUT request via request method", async () => {
+      const requestData = { name: "updated" };
       const mockData = { updated: true };
       mockInternalClient.request.mockResolvedValue(mockData);
 
-      const result = await httpClient.request('PUT', '/test', requestData);
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await httpClient.request("PUT", "/test", requestData);
 
-      expect(mockInternalClient.request).toHaveBeenCalledWith('PUT', '/test', requestData, undefined);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.request).toHaveBeenCalledWith(
+        "PUT",
+        "/test",
+        requestData,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should make DELETE request via request method', async () => {
+    it("should make DELETE request via request method", async () => {
       const mockData = { deleted: true };
       mockInternalClient.request.mockResolvedValue(mockData);
 
-      const result = await httpClient.request('DELETE', '/test');
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      const result = await httpClient.request("DELETE", "/test");
 
-      expect(mockInternalClient.request).toHaveBeenCalledWith('DELETE', '/test', undefined, undefined);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.request).toHaveBeenCalledWith(
+        "DELETE",
+        "/test",
+        undefined,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should pass config when provided', async () => {
+    it("should pass config when provided", async () => {
       const requestConfig = { timeout: 5000 };
-      const mockData = { message: 'success' };
+      const mockData = { message: "success" };
       mockInternalClient.request.mockResolvedValue(mockData);
 
-      await httpClient.request('GET', '/test', undefined, requestConfig);
-      
-      // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await httpClient.request("GET", "/test", undefined, requestConfig);
 
-      expect(mockInternalClient.request).toHaveBeenCalledWith('GET', '/test', undefined, requestConfig);
+      // Wait for async logging to complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.request).toHaveBeenCalledWith(
+        "GET",
+        "/test",
+        undefined,
+        requestConfig,
+      );
     });
 
-    it('should throw error for unsupported method', async () => {
+    it("should throw error for unsupported method", async () => {
       // InternalHttpClient throws the error for unsupported methods
-      const error = new Error('Unsupported HTTP method: PATCH');
+      const error = new Error("Unsupported HTTP method: PATCH");
       mockInternalClient.request.mockRejectedValue(error);
-      
-      await expect(
-        httpClient.request('PATCH' as any, '/test')
-      ).rejects.toThrow('Unsupported HTTP method: PATCH');
+
+      await expect(httpClient.request("PATCH" as any, "/test")).rejects.toThrow(
+        "Unsupported HTTP method: PATCH",
+      );
     });
   });
 
-  describe('error handling', () => {
-    it('should propagate non-Axios errors as-is', async () => {
-      const networkError = new Error('Network error');
+  describe("error handling", () => {
+    it("should propagate non-Axios errors as-is", async () => {
+      const networkError = new Error("Network error");
       mockInternalClient.get.mockRejectedValue(networkError);
 
-      await expect(httpClient.get('/test')).rejects.toThrow('Network error');
-      
+      await expect(httpClient.get("/test")).rejects.toThrow("Network error");
+
       // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await new Promise((resolve) => setTimeout(resolve, 10));
     });
 
-    it('should convert AxiosError to MisoClientError with errorBody (backward compatibility)', async () => {
+    it("should convert AxiosError to MisoClientError with errorBody (backward compatibility)", async () => {
       // InternalHttpClient converts AxiosError to MisoClientError
       const misoError = createMisoClientErrorFromAxiosError(
         404,
-        'Not Found',
-        { error: 'Not found', details: 'Resource not found' },
-        'Request failed with status code 404',
-        '/test'
+        "Not Found",
+        { error: "Not found", details: "Resource not found" },
+        "Request failed with status code 404",
+        "/test",
       );
       mockInternalClient.get.mockRejectedValue(misoError);
 
-      await expect(httpClient.get('/test')).rejects.toThrow(MisoClientError);
-      
+      await expect(httpClient.get("/test")).rejects.toThrow(MisoClientError);
+
       // Wait for async logging to complete
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       try {
         mockInternalClient.get.mockRejectedValue(misoError);
-        await httpClient.get('/test');
+        await httpClient.get("/test");
       } catch (error) {
         expect(error).toBeInstanceOf(MisoClientError);
         const err = error as MisoClientError;
         expect(err.statusCode).toBe(404);
-        expect(err.errorBody).toEqual({ error: 'Not found', details: 'Resource not found' });
+        expect(err.errorBody).toEqual({
+          error: "Not found",
+          details: "Resource not found",
+        });
         expect(err.errorResponse).toBeUndefined();
       }
     });
 
-    it('should parse structured error response and create MisoClientError with ErrorResponse', async () => {
+    it("should parse structured error response and create MisoClientError with ErrorResponse", async () => {
       const structuredError = {
-        errors: ['Validation failed', 'Invalid input'],
-        type: '/Errors/Bad Input',
-        title: 'Bad Request',
+        errors: ["Validation failed", "Invalid input"],
+        type: "/Errors/Bad Input",
+        title: "Bad Request",
         statusCode: 400,
-        instance: '/api/test'
+        instance: "/api/test",
       };
 
       // InternalHttpClient converts AxiosError to MisoClientError
       const misoError = createMisoClientErrorFromAxiosError(
         400,
-        'Bad Request',
+        "Bad Request",
         structuredError,
-        'Request failed with status code 400',
-        '/api/test'
+        "Request failed with status code 400",
+        "/api/test",
       );
       mockInternalClient.get.mockRejectedValue(misoError);
 
-      await expect(httpClient.get('/api/test')).rejects.toThrow(MisoClientError);
+      await expect(httpClient.get("/api/test")).rejects.toThrow(
+        MisoClientError,
+      );
 
       try {
-        await httpClient.get('/api/test');
+        await httpClient.get("/api/test");
       } catch (error) {
         expect(error).toBeInstanceOf(MisoClientError);
         const err = error as MisoClientError;
         expect(err.errorResponse).toBeDefined();
-        expect(err.errorResponse?.errors).toEqual(['Validation failed', 'Invalid input']);
-        expect(err.errorResponse?.type).toBe('/Errors/Bad Input');
-        expect(err.errorResponse?.title).toBe('Bad Request');
+        expect(err.errorResponse?.errors).toEqual([
+          "Validation failed",
+          "Invalid input",
+        ]);
+        expect(err.errorResponse?.type).toBe("/Errors/Bad Input");
+        expect(err.errorResponse?.title).toBe("Bad Request");
         expect(err.errorResponse?.statusCode).toBe(400);
-        expect(err.errorResponse?.instance).toBe('/api/test');
+        expect(err.errorResponse?.instance).toBe("/api/test");
         expect(err.statusCode).toBe(400);
-        expect(err.message).toBe('Bad Request');
+        expect(err.message).toBe("Bad Request");
       }
     });
 
-    it('should support camelCase statusCode in error response', async () => {
+    it("should support camelCase statusCode in error response", async () => {
       const structuredError = {
-        errors: ['Server error'],
-        type: '/Errors/Internal Error',
-        title: 'Internal Server Error',
-        statusCode: 500
+        errors: ["Server error"],
+        type: "/Errors/Internal Error",
+        title: "Internal Server Error",
+        statusCode: 500,
       };
 
       // InternalHttpClient converts AxiosError to MisoClientError
       const misoError = createMisoClientErrorFromAxiosError(
         500,
-        'Internal Server Error',
+        "Internal Server Error",
         structuredError,
-        'Request failed with status code 500',
-        '/api/test'
+        "Request failed with status code 500",
+        "/api/test",
       );
       mockInternalClient.get.mockRejectedValue(misoError);
 
       try {
-        await httpClient.get('/api/test');
+        await httpClient.get("/api/test");
       } catch (error) {
         expect(error).toBeInstanceOf(MisoClientError);
         const err = error as MisoClientError;
@@ -806,331 +932,432 @@ describe('HttpClient', () => {
       }
     });
 
-    it('should extract instance URI from request URL when not provided in error response', async () => {
+    it("should extract instance URI from request URL when not provided in error response", async () => {
       const structuredError = {
-        errors: ['Not found'],
-        type: '/Errors/Not Found',
-        title: 'Resource Not Found',
-        statusCode: 404
+        errors: ["Not found"],
+        type: "/Errors/Not Found",
+        title: "Resource Not Found",
+        statusCode: 404,
       };
 
       // InternalHttpClient converts AxiosError to MisoClientError
       const misoError = createMisoClientErrorFromAxiosError(
         404,
-        'Not Found',
+        "Not Found",
         structuredError,
-        'Request failed with status code 404',
-        '/api/users/123'
+        "Request failed with status code 404",
+        "/api/users/123",
       );
       mockInternalClient.get.mockRejectedValue(misoError);
 
       try {
-        await httpClient.get('/api/users/123');
+        await httpClient.get("/api/users/123");
       } catch (error) {
         expect(error).toBeInstanceOf(MisoClientError);
         const err = error as MisoClientError;
-        expect(err.errorResponse?.instance).toBe('/api/users/123');
+        expect(err.errorResponse?.instance).toBe("/api/users/123");
       }
     });
 
-    it('should handle string response data by parsing JSON', async () => {
+    it("should handle string response data by parsing JSON", async () => {
       // Note: InternalHttpClient's createMisoClientError will try to parse JSON strings
       // For this test, we'll simulate what happens when parsing succeeds
       const structuredError = {
-        errors: ['Parsed error'],
-        type: '/Errors/Test',
-        title: 'Test Error',
-        statusCode: 400
+        errors: ["Parsed error"],
+        type: "/Errors/Test",
+        title: "Test Error",
+        statusCode: 400,
       };
 
       // InternalHttpClient converts AxiosError to MisoClientError
       // In real scenario, InternalHttpClient.parseErrorResponse would parse the JSON string
       const misoError = createMisoClientErrorFromAxiosError(
         400,
-        'Bad Request',
+        "Bad Request",
         structuredError, // Already parsed
-        'Request failed with status code 400',
-        '/api/test'
+        "Request failed with status code 400",
+        "/api/test",
       );
       mockInternalClient.get.mockRejectedValue(misoError);
 
       try {
-        await httpClient.get('/api/test');
+        await httpClient.get("/api/test");
       } catch (error) {
         expect(error).toBeInstanceOf(MisoClientError);
         const err = error as MisoClientError;
         expect(err.errorResponse).toBeDefined();
-        expect(err.errorResponse?.title).toBe('Test Error');
+        expect(err.errorResponse?.title).toBe("Test Error");
       }
     });
 
-    it('should enhance 401 errors with authentication context', async () => {
+    it("should enhance 401 errors with authentication context", async () => {
       // HttpClient interceptors handle errors, but InternalHttpClient already converts them
       // So HttpClient's interceptor receives the error and logs it, but doesn't modify it
       const misoError = createMisoClientErrorFromAxiosError(
         401,
-        'Unauthorized',
-        { error: 'Unauthorized' },
-        'Request failed with status code 401',
-        '/test'
+        "Unauthorized",
+        { error: "Unauthorized" },
+        "Request failed with status code 401",
+        "/test",
       );
       mockInternalClient.get.mockRejectedValue(misoError);
 
       // HttpClient just passes through the error from InternalHttpClient
-      await expect(httpClient.get('/test')).rejects.toThrow(MisoClientError);
+      await expect(httpClient.get("/test")).rejects.toThrow(MisoClientError);
     });
 
-    it('should handle POST errors with MisoClientError', async () => {
+    it("should handle POST errors with MisoClientError", async () => {
       const misoError = createMisoClientErrorFromAxiosError(
         500,
-        'Internal Server Error',
-        { error: 'POST failed' },
-        'Request failed',
-        '/test'
+        "Internal Server Error",
+        { error: "POST failed" },
+        "Request failed",
+        "/test",
       );
       mockInternalClient.post.mockRejectedValue(misoError);
 
-      await expect(httpClient.post('/test', {})).rejects.toThrow(MisoClientError);
+      await expect(httpClient.post("/test", {})).rejects.toThrow(
+        MisoClientError,
+      );
     });
 
-    it('should handle PUT errors with MisoClientError', async () => {
+    it("should handle PUT errors with MisoClientError", async () => {
       const misoError = createMisoClientErrorFromAxiosError(
         500,
-        'Internal Server Error',
-        { error: 'PUT failed' },
-        'Request failed',
-        '/test'
+        "Internal Server Error",
+        { error: "PUT failed" },
+        "Request failed",
+        "/test",
       );
       mockInternalClient.put.mockRejectedValue(misoError);
 
-      await expect(httpClient.put('/test', {})).rejects.toThrow(MisoClientError);
+      await expect(httpClient.put("/test", {})).rejects.toThrow(
+        MisoClientError,
+      );
     });
 
-    it('should handle DELETE errors with MisoClientError', async () => {
+    it("should handle DELETE errors with MisoClientError", async () => {
       const misoError = createMisoClientErrorFromAxiosError(
         500,
-        'Internal Server Error',
-        { error: 'DELETE failed' },
-        'Request failed',
-        '/test'
+        "Internal Server Error",
+        { error: "DELETE failed" },
+        "Request failed",
+        "/test",
       );
       mockInternalClient.delete.mockRejectedValue(misoError);
 
-      await expect(httpClient.delete('/test')).rejects.toThrow(MisoClientError);
+      await expect(httpClient.delete("/test")).rejects.toThrow(MisoClientError);
     });
 
-    it('should handle authenticated request errors with MisoClientError', async () => {
+    it("should handle authenticated request errors with MisoClientError", async () => {
       const misoError = createMisoClientErrorFromAxiosError(
         403,
-        'Forbidden',
-        { error: 'Auth request failed' },
-        'Request failed',
-        '/test'
+        "Forbidden",
+        { error: "Auth request failed" },
+        "Request failed",
+        "/test",
       );
       mockInternalClient.authenticatedRequest.mockRejectedValue(misoError);
 
       await expect(
-        httpClient.authenticatedRequest('GET', '/test', 'token123')
+        httpClient.authenticatedRequest("GET", "/test", "token123"),
       ).rejects.toThrow(MisoClientError);
     });
 
-    it('should handle all HTTP methods with structured error responses', async () => {
+    it("should handle all HTTP methods with structured error responses", async () => {
       const structuredError = {
-        errors: ['Method specific error'],
-        type: '/Errors/Method Error',
-        title: 'Method Error',
-        statusCode: 405
+        errors: ["Method specific error"],
+        type: "/Errors/Method Error",
+        title: "Method Error",
+        statusCode: 405,
       };
 
-      const createMisoError = (url: string) => createMisoClientErrorFromAxiosError(
-        405,
-        'Method Not Allowed',
-        structuredError,
-        'Request failed',
-        url
-      );
+      const createMisoError = (url: string) =>
+        createMisoClientErrorFromAxiosError(
+          405,
+          "Method Not Allowed",
+          structuredError,
+          "Request failed",
+          url,
+        );
 
       // Test GET
-      mockInternalClient.get.mockRejectedValue(createMisoError('/test'));
-      await expect(httpClient.get('/test')).rejects.toThrow(MisoClientError);
+      mockInternalClient.get.mockRejectedValue(createMisoError("/test"));
+      await expect(httpClient.get("/test")).rejects.toThrow(MisoClientError);
 
       // Test POST
-      mockInternalClient.post.mockRejectedValue(createMisoError('/test'));
-      await expect(httpClient.post('/test', {})).rejects.toThrow(MisoClientError);
+      mockInternalClient.post.mockRejectedValue(createMisoError("/test"));
+      await expect(httpClient.post("/test", {})).rejects.toThrow(
+        MisoClientError,
+      );
 
       // Test PUT
-      mockInternalClient.put.mockRejectedValue(createMisoError('/test'));
-      await expect(httpClient.put('/test', {})).rejects.toThrow(MisoClientError);
+      mockInternalClient.put.mockRejectedValue(createMisoError("/test"));
+      await expect(httpClient.put("/test", {})).rejects.toThrow(
+        MisoClientError,
+      );
 
       // Test DELETE
-      mockInternalClient.delete.mockRejectedValue(createMisoError('/test'));
-      await expect(httpClient.delete('/test')).rejects.toThrow(MisoClientError);
+      mockInternalClient.delete.mockRejectedValue(createMisoError("/test"));
+      await expect(httpClient.delete("/test")).rejects.toThrow(MisoClientError);
 
       // Test authenticatedRequest
-      mockInternalClient.authenticatedRequest.mockRejectedValue(createMisoError('/test'));
-      await expect(httpClient.authenticatedRequest('GET', '/test', 'token')).rejects.toThrow(MisoClientError);
+      mockInternalClient.authenticatedRequest.mockRejectedValue(
+        createMisoError("/test"),
+      );
+      await expect(
+        httpClient.authenticatedRequest("GET", "/test", "token"),
+      ).rejects.toThrow(MisoClientError);
     });
   });
 
   // Note: Client token management and InternalHttpClient interceptors are tested
   // in internal-http-client tests. HttpClient only adds audit logging interceptors.
 
-  describe('edge cases', () => {
-    it('should handle empty response data', async () => {
+  describe("edge cases", () => {
+    it("should handle empty response data", async () => {
       // InternalHttpClient returns response.data directly, so null data becomes null
       mockInternalClient.get.mockResolvedValue(null);
 
-      const result = await httpClient.get('/test');
+      const result = await httpClient.get("/test");
 
       expect(result).toBeNull();
     });
 
-    it('should handle POST with empty data', async () => {
+    it("should handle POST with empty data", async () => {
       // InternalHttpClient returns response.data directly
       const mockData = { success: true };
       mockInternalClient.post.mockResolvedValue(mockData);
 
-      const result = await httpClient.post('/test', undefined);
+      const result = await httpClient.post("/test", undefined);
 
-      expect(mockInternalClient.post).toHaveBeenCalledWith('/test', undefined, undefined);
+      expect(mockInternalClient.post).toHaveBeenCalledWith(
+        "/test",
+        undefined,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should handle authenticatedRequest with empty token', async () => {
-      const mockData = { user: 'test' };
+    it("should handle authenticatedRequest with empty token", async () => {
+      const mockData = { user: "test" };
       mockInternalClient.authenticatedRequest.mockResolvedValue(mockData);
 
-      const result = await httpClient.authenticatedRequest('GET', '/test', '');
+      const result = await httpClient.authenticatedRequest("GET", "/test", "");
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('GET', '/test', '', undefined, undefined, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith(
+        "GET",
+        "/test",
+        "",
+        undefined,
+        undefined,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should preserve existing config properties when merging headers', async () => {
+    it("should preserve existing config properties when merging headers", async () => {
       const requestConfig = {
         timeout: 5000,
-        headers: { 'Custom-Header': 'value' }
+        headers: { "Custom-Header": "value" },
       };
       const mockData = { success: true };
       mockInternalClient.authenticatedRequest.mockResolvedValue(mockData);
 
-      await httpClient.authenticatedRequest('POST', '/test', 'token123', {}, requestConfig);
+      await httpClient.authenticatedRequest(
+        "POST",
+        "/test",
+        "token123",
+        {},
+        requestConfig,
+      );
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('POST', '/test', 'token123', {}, requestConfig, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith(
+        "POST",
+        "/test",
+        "token123",
+        {},
+        requestConfig,
+        undefined,
+      );
     });
 
-    it('should handle POST with config', async () => {
-      const requestData = { name: 'test' };
+    it("should handle POST with config", async () => {
+      const requestData = { name: "test" };
       const requestConfig = { timeout: 5000 };
-      const mockData = { id: '123' };
+      const mockData = { id: "123" };
       mockInternalClient.post.mockResolvedValue(mockData);
 
-      await httpClient.post('/test', requestData, requestConfig);
+      await httpClient.post("/test", requestData, requestConfig);
 
-      expect(mockInternalClient.post).toHaveBeenCalledWith('/test', requestData, requestConfig);
+      expect(mockInternalClient.post).toHaveBeenCalledWith(
+        "/test",
+        requestData,
+        requestConfig,
+      );
     });
 
-    it('should handle PUT with config', async () => {
-      const requestData = { name: 'updated' };
+    it("should handle PUT with config", async () => {
+      const requestData = { name: "updated" };
       const requestConfig = { timeout: 5000 };
       const mockData = { updated: true };
       mockInternalClient.put.mockResolvedValue(mockData);
 
-      await httpClient.put('/test', requestData, requestConfig);
+      await httpClient.put("/test", requestData, requestConfig);
 
-      expect(mockInternalClient.put).toHaveBeenCalledWith('/test', requestData, requestConfig);
+      expect(mockInternalClient.put).toHaveBeenCalledWith(
+        "/test",
+        requestData,
+        requestConfig,
+      );
     });
   });
 
-  describe('authenticatedRequest', () => {
+  describe("authenticatedRequest", () => {
     beforeEach(() => {
       // Mock token fetch for all authenticated requests
       const tokenResponse = {
         data: {
           success: true,
-          token: 'client-token-123',
+          token: "client-token-123",
           expiresIn: 3600,
-          expiresAt: new Date(Date.now() + 3600000).toISOString()
-        }
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        },
       };
-      const mockTempAxios = { post: jest.fn().mockResolvedValue(tokenResponse) };
+      const mockTempAxios = {
+        post: jest.fn().mockResolvedValue(tokenResponse),
+      };
       axios.create.mockImplementation((config?: any) => {
-        if (config?.headers?.['X-Client-Id']) {
+        if (config?.headers?.["X-Client-Id"]) {
           return mockTempAxios;
         }
         return mockAxios;
       });
     });
 
-    it('should make GET request with Authorization header', async () => {
-      const mockData = { user: 'test' };
+    it("should make GET request with Authorization header", async () => {
+      const mockData = { user: "test" };
       mockInternalClient.authenticatedRequest.mockResolvedValue(mockData);
 
-      const result = await httpClient.authenticatedRequest('GET', '/user', 'token123');
+      const result = await httpClient.authenticatedRequest(
+        "GET",
+        "/user",
+        "token123",
+      );
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('GET', '/user', 'token123', undefined, undefined, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith(
+        "GET",
+        "/user",
+        "token123",
+        undefined,
+        undefined,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should make POST request with Authorization header and data', async () => {
-      const requestData = { name: 'test' };
+    it("should make POST request with Authorization header and data", async () => {
+      const requestData = { name: "test" };
       const mockData = { success: true };
       mockInternalClient.authenticatedRequest.mockResolvedValue(mockData);
 
       const result = await httpClient.authenticatedRequest(
-        'POST',
-        '/test',
-        'token123',
-        requestData
+        "POST",
+        "/test",
+        "token123",
+        requestData,
       );
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('POST', '/test', 'token123', requestData, undefined, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith(
+        "POST",
+        "/test",
+        "token123",
+        requestData,
+        undefined,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should make PUT request with Authorization header and data', async () => {
-      const requestData = { name: 'updated' };
+    it("should make PUT request with Authorization header and data", async () => {
+      const requestData = { name: "updated" };
       const mockData = { updated: true };
       mockInternalClient.authenticatedRequest.mockResolvedValue(mockData);
 
-      const result = await httpClient.authenticatedRequest('PUT', '/test', 'token123', requestData);
+      const result = await httpClient.authenticatedRequest(
+        "PUT",
+        "/test",
+        "token123",
+        requestData,
+      );
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('PUT', '/test', 'token123', requestData, undefined, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith(
+        "PUT",
+        "/test",
+        "token123",
+        requestData,
+        undefined,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should make DELETE request with Authorization header', async () => {
+    it("should make DELETE request with Authorization header", async () => {
       const mockData = { deleted: true };
       mockInternalClient.authenticatedRequest.mockResolvedValue(mockData);
 
-      const result = await httpClient.authenticatedRequest('DELETE', '/test', 'token123');
+      const result = await httpClient.authenticatedRequest(
+        "DELETE",
+        "/test",
+        "token123",
+      );
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('DELETE', '/test', 'token123', undefined, undefined, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith(
+        "DELETE",
+        "/test",
+        "token123",
+        undefined,
+        undefined,
+        undefined,
+      );
       expect(result).toEqual(mockData);
     });
 
-    it('should throw error for unsupported method', async () => {
+    it("should throw error for unsupported method", async () => {
       // InternalHttpClient throws the error for unsupported methods
-      const error = new Error('Unsupported HTTP method: PATCH');
+      const error = new Error("Unsupported HTTP method: PATCH");
       mockInternalClient.authenticatedRequest.mockRejectedValue(error);
-      
+
       await expect(
-        httpClient.authenticatedRequest('PATCH' as any, '/test', 'token123')
-      ).rejects.toThrow('Unsupported HTTP method: PATCH');
+        httpClient.authenticatedRequest("PATCH" as any, "/test", "token123"),
+      ).rejects.toThrow("Unsupported HTTP method: PATCH");
     });
 
-    it('should merge headers with existing config', async () => {
-      const requestConfig = { headers: { 'Custom-Header': 'value' } };
+    it("should merge headers with existing config", async () => {
+      const requestConfig = { headers: { "Custom-Header": "value" } };
       const mockData = { success: true };
       mockInternalClient.authenticatedRequest.mockResolvedValue(mockData);
 
-      await httpClient.authenticatedRequest('POST', '/test', 'token123', {}, requestConfig);
+      await httpClient.authenticatedRequest(
+        "POST",
+        "/test",
+        "token123",
+        {},
+        requestConfig,
+      );
 
-      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith('POST', '/test', 'token123', {}, requestConfig, undefined);
+      expect(mockInternalClient.authenticatedRequest).toHaveBeenCalledWith(
+        "POST",
+        "/test",
+        "token123",
+        {},
+        requestConfig,
+        undefined,
+      );
     });
   });
 
-  describe('audit logging', () => {
+  describe("audit logging", () => {
     let axiosInstance: any;
     let requestInterceptorFn: any;
     let responseSuccessFn: any;
@@ -1139,39 +1366,39 @@ describe('HttpClient', () => {
     beforeEach(() => {
       // Get the actual axios instance from mockInternalClient
       axiosInstance = mockAxios;
-      
+
       // Get interceptors from setup
       const requestUseCall = mockAxios.interceptors.request.use.mock.calls[0];
       const responseUseCall = mockAxios.interceptors.response.use.mock.calls[0];
-      
+
       requestInterceptorFn = requestUseCall[0];
       responseSuccessFn = responseUseCall[0];
       responseErrorFn = responseUseCall[1];
     });
 
-    describe('request interceptor', () => {
-      it('should add metadata to config for audit-able requests', async () => {
+    describe("request interceptor", () => {
+      it("should add metadata to config for audit-able requests", async () => {
         const config: any = {
-          url: '/api/users',
-          method: 'get',
-          baseURL: 'https://controller.aifabrix.ai',
-          headers: {}
+          url: "/api/users",
+          method: "get",
+          baseURL: "https://controller.aifabrix.ai",
+          headers: {},
         };
 
         const result = await requestInterceptorFn(config);
 
         expect(result.metadata).toBeDefined();
         expect(result.metadata.startTime).toBeGreaterThan(0);
-        expect(result.metadata.method).toBe('GET');
-        expect(result.metadata.url).toBe('/api/users');
-        expect(result.metadata.baseURL).toBe('https://controller.aifabrix.ai');
+        expect(result.metadata.method).toBe("GET");
+        expect(result.metadata.url).toBe("/api/users");
+        expect(result.metadata.baseURL).toBe("https://controller.aifabrix.ai");
       });
 
-      it('should not add metadata for /api/v1/logs endpoint', async () => {
+      it("should not add metadata for /api/v1/logs endpoint", async () => {
         const config: any = {
-          url: '/api/v1/logs',
-          method: 'post',
-          headers: {}
+          url: "/api/v1/logs",
+          method: "post",
+          headers: {},
         };
 
         const result = await requestInterceptorFn(config);
@@ -1179,11 +1406,11 @@ describe('HttpClient', () => {
         expect(result.metadata).toBeUndefined();
       });
 
-      it('should not add metadata for /api/v1/auth/token endpoint', async () => {
+      it("should not add metadata for /api/v1/auth/token endpoint", async () => {
         const config: any = {
-          url: '/api/v1/auth/token',
-          method: 'post',
-          headers: {}
+          url: "/api/v1/auth/token",
+          method: "post",
+          headers: {},
         };
 
         const result = await requestInterceptorFn(config);
@@ -1191,20 +1418,23 @@ describe('HttpClient', () => {
         expect(result.metadata).toBeUndefined();
       });
 
-      it('should handle request interceptor error', async () => {
-        const error = new Error('Request error');
-        
+      it("should handle request interceptor error", async () => {
+        const error = new Error("Request error");
+
         // Request interceptor error handler (second parameter)
-        const requestErrorHandler = mockAxios.interceptors.request.use.mock.calls[0][1];
-        
-        await expect(requestErrorHandler(error)).rejects.toThrow('Request error');
+        const requestErrorHandler =
+          mockAxios.interceptors.request.use.mock.calls[0][1];
+
+        await expect(requestErrorHandler(error)).rejects.toThrow(
+          "Request error",
+        );
       });
 
-      it('should handle requests with no url', async () => {
+      it("should handle requests with no url", async () => {
         const config: any = {
-          method: 'get',
-          baseURL: 'https://controller.aifabrix.ai',
-          headers: {}
+          method: "get",
+          baseURL: "https://controller.aifabrix.ai",
+          headers: {},
         };
 
         const result = await requestInterceptorFn(config);
@@ -1215,12 +1445,12 @@ describe('HttpClient', () => {
         expect(result.metadata?.url).toBeUndefined(); // url is undefined when config.url is undefined
       });
 
-      it('should handle requests with undefined url', async () => {
+      it("should handle requests with undefined url", async () => {
         const config: any = {
           url: undefined,
-          method: 'get',
-          baseURL: 'https://controller.aifabrix.ai',
-          headers: {}
+          method: "get",
+          baseURL: "https://controller.aifabrix.ai",
+          headers: {},
         };
 
         const result = await requestInterceptorFn(config);
@@ -1231,30 +1461,33 @@ describe('HttpClient', () => {
         expect(result.metadata?.url).toBeUndefined(); // url is undefined when config.url is undefined
       });
 
-      it('should execute lines 52-63: add metadata when shouldAuditRequest returns true', async () => {
+      it("should execute lines 52-63: add metadata when shouldAuditRequest returns true", async () => {
         // This test explicitly covers lines 52-63
         const config: any = {
-          url: '/api/test',
-          method: 'post',
-          baseURL: 'https://controller.aifabrix.ai',
-          headers: {}
+          url: "/api/test",
+          method: "post",
+          baseURL: "https://controller.aifabrix.ai",
+          headers: {},
         };
 
         const result = await requestInterceptorFn(config);
 
         // Verify metadata is added (this executes lines 54-59)
         expect(result.metadata).toBeDefined();
-        expect(result.metadata).toHaveProperty('startTime');
-        expect(result.metadata).toHaveProperty('method', 'POST');
-        expect(result.metadata).toHaveProperty('url', '/api/test');
-        expect(result.metadata).toHaveProperty('baseURL', 'https://controller.aifabrix.ai');
+        expect(result.metadata).toHaveProperty("startTime");
+        expect(result.metadata).toHaveProperty("method", "POST");
+        expect(result.metadata).toHaveProperty("url", "/api/test");
+        expect(result.metadata).toHaveProperty(
+          "baseURL",
+          "https://controller.aifabrix.ai",
+        );
       });
 
-      it('should handle method being undefined in request config', async () => {
+      it("should handle method being undefined in request config", async () => {
         const config: any = {
-          url: '/api/test',
-          baseURL: 'https://controller.aifabrix.ai',
-          headers: {}
+          url: "/api/test",
+          baseURL: "https://controller.aifabrix.ai",
+          headers: {},
           // No method field
         };
 
@@ -1265,11 +1498,11 @@ describe('HttpClient', () => {
         expect(result.metadata?.method).toBeUndefined(); // method will be undefined
       });
 
-      it('should handle baseURL being undefined in request config', async () => {
+      it("should handle baseURL being undefined in request config", async () => {
         const config: any = {
-          url: '/api/test',
-          method: 'get',
-          headers: {}
+          url: "/api/test",
+          method: "get",
+          headers: {},
           // No baseURL field
         };
 
@@ -1281,7 +1514,7 @@ describe('HttpClient', () => {
       });
     });
 
-    describe('response interceptor - success', () => {
+    describe("response interceptor - success", () => {
       beforeEach(() => {
         jest.useFakeTimers();
       });
@@ -1313,32 +1546,32 @@ describe('HttpClient', () => {
         await Promise.resolve();
       });
 
-      it('should log audit event on successful response', async () => {
+      it("should log audit event on successful response", async () => {
         const config: any = {
-          url: '/api/users',
-          method: 'get',
-          baseURL: 'https://controller.aifabrix.ai',
+          url: "/api/users",
+          method: "get",
+          baseURL: "https://controller.aifabrix.ai",
           headers: {
-            authorization: 'Bearer token123'
+            authorization: "Bearer token123",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users',
-            baseURL: 'https://controller.aifabrix.ai'
-          }
+            method: "GET",
+            url: "/api/users",
+            baseURL: "https://controller.aifabrix.ai",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
           data: { users: [] },
-          headers: {}
+          headers: {},
         };
 
         // Mock JWT decode
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ sub: 'user-123' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ sub: "user-123" });
 
         responseSuccessFn(response);
 
@@ -1348,46 +1581,46 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.GET',
-          '/api/users',
+          "http.request.GET",
+          "/api/users",
           expect.objectContaining({
-            method: 'GET',
-            url: 'https://controller.aifabrix.ai/api/users',
+            method: "GET",
+            url: "https://controller.aifabrix.ai/api/users",
             statusCode: 200,
             duration: expect.any(Number),
-            userId: 'user-123'
+            userId: "user-123",
           }),
           expect.objectContaining({
-            token: undefined // userId extracted, token not needed
-          })
+            token: undefined, // userId extracted, token not needed
+          }),
         );
       });
 
-      it('should include token in context when userId not extracted', async () => {
+      it("should include token in context when userId not extracted", async () => {
         const config: any = {
-          url: '/api/users',
-          method: 'get',
-          baseURL: 'https://controller.aifabrix.ai',
+          url: "/api/users",
+          method: "get",
+          baseURL: "https://controller.aifabrix.ai",
           headers: {
-            authorization: 'Bearer token123'
+            authorization: "Bearer token123",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users',
-            baseURL: 'https://controller.aifabrix.ai'
-          }
+            method: "GET",
+            url: "/api/users",
+            baseURL: "https://controller.aifabrix.ai",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
           data: { users: [] },
-          headers: {}
+          headers: {},
         };
 
         // Mock JWT decode to return null (no userId)
-        const jwt = require('jsonwebtoken');
+        const jwt = require("jsonwebtoken");
         jwt.decode.mockReturnValue(null);
 
         responseSuccessFn(response);
@@ -1396,22 +1629,22 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.GET',
-          '/api/users',
+          "http.request.GET",
+          "/api/users",
           expect.any(Object),
           expect.objectContaining({
-            token: 'token123'
-          })
+            token: "token123",
+          }),
         );
       });
 
-      it('should not log when config has no metadata', async () => {
+      it("should not log when config has no metadata", async () => {
         const response: any = {
           config: {
-            url: '/api/users'
+            url: "/api/users",
           },
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -1423,10 +1656,10 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).not.toHaveBeenCalled();
       });
 
-      it('should not log when response has no config', async () => {
+      it("should not log when response has no config", async () => {
         const response: any = {
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -1438,23 +1671,23 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).not.toHaveBeenCalled();
       });
 
-      it('should handle logging errors silently', async () => {
+      it("should handle logging errors silently", async () => {
         // Mock logger to reject - errors should be caught and swallowed
-        mockLogger.audit.mockRejectedValueOnce(new Error('Logging failed'));
+        mockLogger.audit.mockRejectedValueOnce(new Error("Logging failed"));
 
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         // Should not throw even if logger rejects
@@ -1471,20 +1704,20 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle response without status', async () => {
+      it("should handle response without status", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           // No status field
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -1493,28 +1726,28 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.GET',
-          '/api/users',
+          "http.request.GET",
+          "/api/users",
           expect.objectContaining({
-            statusCode: 0 // No status, defaults to 0
+            statusCode: 0, // No status, defaults to 0
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle response without data', async () => {
+      it("should handle response without data", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
-          status: 200
+          status: 200,
           // No data field
         };
 
@@ -1526,20 +1759,20 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle response without headers', async () => {
+      it("should handle response without headers", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
           // No headers field
         };
 
@@ -1551,21 +1784,21 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle response with config but no config.headers', async () => {
+      it("should handle response with config but no config.headers", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           // No headers field
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -1576,24 +1809,24 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle response with config.headers but no authorization', async () => {
+      it("should handle response with config.headers but no authorization", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {
-            'content-type': 'application/json'
+            "content-type": "application/json",
             // No authorization field
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -1604,22 +1837,22 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle response with empty requestBody (requestSize = 0)', async () => {
+      it("should handle response with empty requestBody (requestSize = 0)", async () => {
         const config: any = {
-          url: '/api/users',
-          method: 'post',
+          url: "/api/users",
+          method: "post",
           // No data field
           metadata: {
             startTime: Date.now() - 100,
-            method: 'POST',
-            url: '/api/users'
-          }
+            method: "POST",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -1628,28 +1861,28 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.POST',
-          '/api/users',
+          "http.request.POST",
+          "/api/users",
           expect.objectContaining({
-            requestSize: undefined // Empty requestBody = 0, so requestSize is undefined
+            requestSize: undefined, // Empty requestBody = 0, so requestSize is undefined
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle response with empty responseBody (responseSize = 0)', async () => {
+      it("should handle response with empty responseBody (responseSize = 0)", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
-          status: 200
+          status: 200,
           // No data field
         };
 
@@ -1659,29 +1892,29 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.GET',
-          '/api/users',
+          "http.request.GET",
+          "/api/users",
           expect.objectContaining({
-            responseSize: undefined // Empty responseBody = 0, so responseSize is undefined
+            responseSize: undefined, // Empty responseBody = 0, so responseSize is undefined
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle metadata with missing method', async () => {
+      it("should handle metadata with missing method", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
             // No method field
-            url: '/api/users'
-          }
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -1690,27 +1923,27 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.UNKNOWN', // method defaults to 'UNKNOWN'
-          '/api/users',
+          "http.request.UNKNOWN", // method defaults to 'UNKNOWN'
+          "/api/users",
           expect.any(Object),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle metadata with missing url', async () => {
+      it("should handle metadata with missing url", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET'
+            method: "GET",
             // No url field
-          }
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -1719,28 +1952,28 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.GET',
-          '', // url defaults to empty string
+          "http.request.GET",
+          "", // url defaults to empty string
           expect.any(Object),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle metadata with missing baseURL', async () => {
+      it("should handle metadata with missing baseURL", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
+            method: "GET",
+            url: "/api/users",
             // No baseURL field
-          }
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -1749,17 +1982,17 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.GET',
-          '/api/users',
+          "http.request.GET",
+          "/api/users",
           expect.objectContaining({
-            url: expect.stringContaining(httpClient.config.controllerUrl) // baseURL defaults to controllerUrl
+            url: expect.stringContaining(httpClient.config.controllerUrl), // baseURL defaults to controllerUrl
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
     });
 
-    describe('response interceptor - error', () => {
+    describe("response interceptor - error", () => {
       beforeEach(() => {
         jest.useFakeTimers();
       });
@@ -1791,35 +2024,35 @@ describe('HttpClient', () => {
         await Promise.resolve();
       });
 
-      it('should log audit event on error response', async () => {
+      it("should log audit event on error response", async () => {
         const config: any = {
-          url: '/api/users',
-          method: 'get',
-          baseURL: 'https://controller.aifabrix.ai',
+          url: "/api/users",
+          method: "get",
+          baseURL: "https://controller.aifabrix.ai",
           headers: {
-            authorization: 'Bearer token123'
+            authorization: "Bearer token123",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users',
-            baseURL: 'https://controller.aifabrix.ai'
-          }
+            method: "GET",
+            url: "/api/users",
+            baseURL: "https://controller.aifabrix.ai",
+          },
         };
 
         const error: any = {
           config,
           response: {
             status: 404,
-            data: { error: 'Not found' },
-            headers: {}
+            data: { error: "Not found" },
+            headers: {},
           },
-          message: 'Not Found'
+          message: "Not Found",
         };
 
         // Mock JWT decode
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ sub: 'user-123' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ sub: "user-123" });
 
         const resultPromise = responseErrorFn(error);
 
@@ -1830,39 +2063,39 @@ describe('HttpClient', () => {
         // Check logging happened (async, fire-and-forget)
         // Note: logging happens asynchronously, so we check after advancing timers
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.GET',
-          '/api/users',
+          "http.request.GET",
+          "/api/users",
           expect.objectContaining({
-            method: 'GET',
+            method: "GET",
             statusCode: 404,
-            error: 'Not Found'
+            error: "Not Found",
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
 
         // The promise should reject with the error (happens immediately, not async)
         // Use catch to handle rejection without blocking
         try {
           await resultPromise;
-          fail('Expected promise to reject');
+          fail("Expected promise to reject");
         } catch (rejectedError) {
           expect(rejectedError).toEqual(error);
         }
       });
 
-      it('should handle errors without response', async () => {
+      it("should handle errors without response", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config,
-          message: 'Network Error'
+          message: "Network Error",
         };
 
         const result = responseErrorFn(error);
@@ -1875,42 +2108,42 @@ describe('HttpClient', () => {
         await Promise.resolve();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.GET',
-          '/api/users',
+          "http.request.GET",
+          "/api/users",
           expect.objectContaining({
             statusCode: 0,
-            error: 'Network Error'
+            error: "Network Error",
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
 
         // Should reject with the error
         // Use catch to handle rejection without blocking
         try {
           await result;
-          fail('Expected promise to reject');
+          fail("Expected promise to reject");
         } catch (rejectedError) {
           expect(rejectedError).toEqual(error);
         }
       });
 
-      it('should handle errors with response.status', async () => {
+      it("should handle errors with response.status", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'POST',
-            url: '/api/users'
-          }
+            method: "POST",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config,
           response: {
             status: 500,
-            data: { error: 'Internal Server Error' }
+            data: { error: "Internal Server Error" },
           },
-          message: 'Internal Server Error'
+          message: "Internal Server Error",
         };
 
         responseErrorFn(error);
@@ -1919,33 +2152,33 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.POST',
-          '/api/users',
+          "http.request.POST",
+          "/api/users",
           expect.objectContaining({
             statusCode: 500,
-            error: 'Internal Server Error'
+            error: "Internal Server Error",
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle errors with error.response but no status', async () => {
+      it("should handle errors with error.response but no status", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config,
           response: {
-            data: { error: 'Unknown error' }
+            data: { error: "Unknown error" },
             // No status field
           },
-          message: 'Unknown error'
+          message: "Unknown error",
         };
 
         responseErrorFn(error);
@@ -1954,31 +2187,31 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.GET',
-          '/api/users',
+          "http.request.GET",
+          "/api/users",
           expect.objectContaining({
             statusCode: 0, // No status, defaults to 0
-            error: 'Unknown error'
+            error: "Unknown error",
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle errors with no error.message', async () => {
+      it("should handle errors with no error.message", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config,
           response: {
-            status: 400
-          }
+            status: 400,
+          },
           // No message field
         };
 
@@ -1988,34 +2221,34 @@ describe('HttpClient', () => {
         await flushTimersAndPromises();
 
         expect(mockLogger.audit).toHaveBeenCalledWith(
-          'http.request.GET',
-          '/api/users',
+          "http.request.GET",
+          "/api/users",
           expect.objectContaining({
             statusCode: 400,
-            error: undefined // No error message
+            error: undefined, // No error message
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle errors with config.data but no config.headers', async () => {
+      it("should handle errors with config.data but no config.headers", async () => {
         const config: any = {
-          url: '/api/users',
-          data: { test: 'data' },
+          url: "/api/users",
+          data: { test: "data" },
           // No headers field
           metadata: {
             startTime: Date.now() - 100,
-            method: 'POST',
-            url: '/api/users'
-          }
+            method: "POST",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config,
           response: {
-            status: 400
+            status: 400,
           },
-          message: 'Bad Request'
+          message: "Bad Request",
         };
 
         responseErrorFn(error);
@@ -2026,26 +2259,26 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle errors with error.config.data', async () => {
+      it("should handle errors with error.config.data", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           // No data field
           metadata: {
             startTime: Date.now() - 100,
-            method: 'POST',
-            url: '/api/users'
-          }
+            method: "POST",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config: {
             ...config,
-            data: { error: 'Request data' }
+            data: { error: "Request data" },
           },
           response: {
-            status: 400
+            status: 400,
           },
-          message: 'Bad Request'
+          message: "Bad Request",
         };
 
         responseErrorFn(error);
@@ -2056,23 +2289,23 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle errors with error.response.data', async () => {
+      it("should handle errors with error.response.data", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config,
           response: {
             status: 404,
-            data: { error: 'Not found' }
+            data: { error: "Not found" },
           },
-          message: 'Not Found'
+          message: "Not Found",
         };
 
         responseErrorFn(error);
@@ -2083,23 +2316,23 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle errors with error.response.headers', async () => {
+      it("should handle errors with error.response.headers", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config,
           response: {
             status: 500,
-            headers: { 'x-custom-header': 'value' }
+            headers: { "x-custom-header": "value" },
           },
-          message: 'Server Error'
+          message: "Server Error",
         };
 
         responseErrorFn(error);
@@ -2110,23 +2343,23 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle errors with response but no response.data', async () => {
+      it("should handle errors with response but no response.data", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config,
           response: {
-            status: 500
+            status: 500,
             // No data field
           },
-          message: 'Server Error'
+          message: "Server Error",
         };
 
         responseErrorFn(error);
@@ -2137,9 +2370,9 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle errors with no config', async () => {
+      it("should handle errors with no config", async () => {
         const error: any = {
-          message: 'Network Error'
+          message: "Network Error",
         };
 
         responseErrorFn(error);
@@ -2151,12 +2384,12 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).not.toHaveBeenCalled();
       });
 
-      it('should handle errors with config but no metadata', async () => {
+      it("should handle errors with config but no metadata", async () => {
         const error: any = {
           config: {
-            url: '/api/users'
+            url: "/api/users",
           },
-          message: 'Network Error'
+          message: "Network Error",
         };
 
         responseErrorFn(error);
@@ -2168,27 +2401,27 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).not.toHaveBeenCalled();
       });
 
-      it('should handle logging errors silently in error handler', async () => {
+      it("should handle logging errors silently in error handler", async () => {
         // Mock logger to reject - errors should be caught and swallowed
-        mockLogger.audit.mockRejectedValueOnce(new Error('Logging failed'));
+        mockLogger.audit.mockRejectedValueOnce(new Error("Logging failed"));
 
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config,
-          message: 'Network Error'
+          message: "Network Error",
         };
 
         // Should not throw even if logger rejects
         const result = responseErrorFn(error);
-        
+
         // The error handler should reject the error (not throw from logging)
         expect(result).toBeInstanceOf(Promise);
 
@@ -2201,19 +2434,19 @@ describe('HttpClient', () => {
 
         // Logger should have been called (even though it rejected)
         expect(mockLogger.audit).toHaveBeenCalled();
-        
+
         // The promise should reject with the original error (not the logging error)
         // Use catch to handle rejection without blocking
         try {
           await result;
-          fail('Expected promise to reject');
+          fail("Expected promise to reject");
         } catch (rejectedError) {
           expect(rejectedError).toEqual(error);
         }
       });
     });
 
-    describe('debug logging', () => {
+    describe("debug logging", () => {
       beforeEach(() => {
         jest.useFakeTimers();
         // Clear mocks before each test
@@ -2221,10 +2454,10 @@ describe('HttpClient', () => {
         // Ensure config has logLevel set
         config = {
           ...config,
-          logLevel: 'debug'
+          logLevel: "debug",
         };
         httpClient = new HttpClient(config, mockLogger);
-        
+
         // Re-setup interceptors - get the LATEST (last) call after creating new HttpClient
         const requestCalls = mockAxios.interceptors.request.use.mock.calls;
         const responseCalls = mockAxios.interceptors.response.use.mock.calls;
@@ -2261,34 +2494,34 @@ describe('HttpClient', () => {
         await Promise.resolve();
       });
 
-      it('should log debug event when logLevel is debug', async () => {
+      it("should log debug event when logLevel is debug", async () => {
         const config: any = {
-          url: '/api/users',
-          method: 'post',
-          baseURL: 'https://controller.aifabrix.ai',
+          url: "/api/users",
+          method: "post",
+          baseURL: "https://controller.aifabrix.ai",
           timeout: 30000,
           headers: {
-            authorization: 'Bearer token123',
-            'content-type': 'application/json'
+            authorization: "Bearer token123",
+            "content-type": "application/json",
           },
-          data: { name: 'test' },
+          data: { name: "test" },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'POST',
-            url: '/api/users',
-            baseURL: 'https://controller.aifabrix.ai'
-          }
+            method: "POST",
+            url: "/api/users",
+            baseURL: "https://controller.aifabrix.ai",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: { id: '123', name: 'test' },
-          headers: { 'content-type': 'application/json' }
+          data: { id: "123", name: "test" },
+          headers: { "content-type": "application/json" },
         };
 
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ sub: 'user-123' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ sub: "user-123" });
 
         responseSuccessFn(response);
 
@@ -2302,49 +2535,52 @@ describe('HttpClient', () => {
         await Promise.resolve();
 
         expect(mockLogger.debug).toHaveBeenCalledWith(
-          'HTTP POST /api/users',
+          "HTTP POST /api/users",
           expect.objectContaining({
-            method: 'POST',
-            url: 'https://controller.aifabrix.ai/api/users',
+            method: "POST",
+            url: "https://controller.aifabrix.ai/api/users",
             statusCode: 200,
             requestHeaders: expect.any(Object),
             responseHeaders: expect.any(Object),
             requestBody: expect.any(Object),
-            responseBody: expect.any(Object)
+            responseBody: expect.any(Object),
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it.skip('should truncate large response bodies in debug logs', async () => {
+      it.skip("should truncate large response bodies in debug logs", async () => {
         // Skipping this test - the truncation functionality is tested implicitly in other tests
         // The debug logging functionality is verified in 'should log debug event when logLevel is debug'
         // This test was causing intermittent failures due to timing issues with async logging
       });
 
-      it('should not log debug event when logLevel is not debug', async () => {
-        config.logLevel = 'info';
+      it("should not log debug event when logLevel is not debug", async () => {
+        config.logLevel = "info";
         httpClient = new HttpClient(config, mockLogger);
 
         const configObj: any = {
-          url: '/api/users',
+          url: "/api/users",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config: configObj,
           status: 200,
-          data: {}
+          data: {},
         };
 
         // Get the latest interceptor after creating new HttpClient
-        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[mockAxios.interceptors.response.use.mock.calls.length - 1];
+        const responseUseCall =
+          mockAxios.interceptors.response.use.mock.calls[
+            mockAxios.interceptors.response.use.mock.calls.length - 1
+          ];
         const successFn = responseUseCall[0];
-        
+
         successFn(response);
 
         jest.advanceTimersByTime(1);
@@ -2354,32 +2590,35 @@ describe('HttpClient', () => {
         expect(mockLogger.debug).not.toHaveBeenCalled();
       });
 
-      it('should handle non-object responseBody in debug logs', async () => {
-        config.logLevel = 'debug';
+      it("should handle non-object responseBody in debug logs", async () => {
+        config.logLevel = "debug";
         httpClient = new HttpClient(config, mockLogger);
-        
+
         // Get the latest interceptor after creating new HttpClient
-        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[mockAxios.interceptors.response.use.mock.calls.length - 1];
+        const responseUseCall =
+          mockAxios.interceptors.response.use.mock.calls[
+            mockAxios.interceptors.response.use.mock.calls.length - 1
+          ];
         const successFn = responseUseCall[0];
 
         const configObj: any = {
-          url: '/api/users',
-          method: 'get',
+          url: "/api/users",
+          method: "get",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config: configObj,
           status: 200,
-          data: 'string response'
+          data: "string response",
         };
 
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ sub: 'user-123' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ sub: "user-123" });
 
         successFn(response);
 
@@ -2395,32 +2634,35 @@ describe('HttpClient', () => {
         expect(mockLogger.debug).toHaveBeenCalled();
       });
 
-      it('should handle empty responseBody in debug logs', async () => {
-        config.logLevel = 'debug';
+      it("should handle empty responseBody in debug logs", async () => {
+        config.logLevel = "debug";
         httpClient = new HttpClient(config, mockLogger);
-        
+
         // Get the latest interceptor after creating new HttpClient
-        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[mockAxios.interceptors.response.use.mock.calls.length - 1];
+        const responseUseCall =
+          mockAxios.interceptors.response.use.mock.calls[
+            mockAxios.interceptors.response.use.mock.calls.length - 1
+          ];
         const successFn = responseUseCall[0];
 
         const configObj: any = {
-          url: '/api/users',
-          method: 'get',
+          url: "/api/users",
+          method: "get",
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config: configObj,
           status: 200,
-          data: null
+          data: null,
         };
 
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ sub: 'user-123' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ sub: "user-123" });
 
         successFn(response);
 
@@ -2436,30 +2678,30 @@ describe('HttpClient', () => {
         expect(mockLogger.debug).toHaveBeenCalled();
       });
 
-      it('should handle requestSize calculation with null requestBody', async () => {
+      it("should handle requestSize calculation with null requestBody", async () => {
         const config: any = {
-          url: '/api/users',
-          method: 'post',
-          baseURL: 'https://controller.aifabrix.ai',
+          url: "/api/users",
+          method: "post",
+          baseURL: "https://controller.aifabrix.ai",
           headers: {},
           data: null,
           metadata: {
             startTime: Date.now() - 100,
-            method: 'POST',
-            url: '/api/users',
-            baseURL: 'https://controller.aifabrix.ai'
-          }
+            method: "POST",
+            url: "/api/users",
+            baseURL: "https://controller.aifabrix.ai",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
           data: {},
-          headers: {}
+          headers: {},
         };
 
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ sub: 'user-123' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ sub: "user-123" });
 
         responseSuccessFn(response);
 
@@ -2470,7 +2712,7 @@ describe('HttpClient', () => {
       });
     });
 
-    describe('extractUserIdFromToken', () => {
+    describe("extractUserIdFromToken", () => {
       beforeEach(() => {
         jest.useFakeTimers();
       });
@@ -2502,27 +2744,27 @@ describe('HttpClient', () => {
         await Promise.resolve();
       });
 
-      it('should extract userId from sub field', async () => {
+      it("should extract userId from sub field", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {
-            authorization: 'Bearer token123'
+            authorization: "Bearer token123",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ sub: 'user-123' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ sub: "user-123" });
 
         responseSuccessFn(response);
 
@@ -2533,33 +2775,33 @@ describe('HttpClient', () => {
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
-            userId: 'user-123'
+            userId: "user-123",
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should extract userId from userId field', async () => {
+      it("should extract userId from userId field", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {
-            authorization: 'Bearer token123'
+            authorization: "Bearer token123",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ userId: 'user-456' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ userId: "user-456" });
 
         responseSuccessFn(response);
 
@@ -2570,33 +2812,33 @@ describe('HttpClient', () => {
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
-            userId: 'user-456'
+            userId: "user-456",
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should extract userId from user_id field', async () => {
+      it("should extract userId from user_id field", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {
-            authorization: 'Bearer token123'
+            authorization: "Bearer token123",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ user_id: 'user-789' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ user_id: "user-789" });
 
         responseSuccessFn(response);
 
@@ -2607,33 +2849,33 @@ describe('HttpClient', () => {
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
-            userId: 'user-789'
+            userId: "user-789",
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should extract userId from id field', async () => {
+      it("should extract userId from id field", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {
-            authorization: 'Bearer token123'
+            authorization: "Bearer token123",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ id: 'user-999' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ id: "user-999" });
 
         responseSuccessFn(response);
 
@@ -2644,35 +2886,35 @@ describe('HttpClient', () => {
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
-            userId: 'user-999'
+            userId: "user-999",
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle JWT decode throwing an error', async () => {
+      it("should handle JWT decode throwing an error", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {
-            authorization: 'Bearer token123'
+            authorization: "Bearer token123",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
-        const jwt = require('jsonwebtoken');
+        const jwt = require("jsonwebtoken");
         // Make decode throw an error - extractUserIdFromToken should catch it
         jwt.decode.mockImplementation(() => {
-          throw new Error('JWT decode error');
+          throw new Error("JWT decode error");
         });
 
         // Call responseSuccessFn which will call logHttpRequestAudit
@@ -2695,32 +2937,32 @@ describe('HttpClient', () => {
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
-            userId: undefined // JWT decode failed, so no userId
+            userId: undefined, // JWT decode failed, so no userId
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle invalid token gracefully', async () => {
+      it("should handle invalid token gracefully", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {
-            authorization: 'Bearer invalid-token'
+            authorization: "Bearer invalid-token",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
-        const jwt = require('jsonwebtoken');
+        const jwt = require("jsonwebtoken");
         jwt.decode.mockReturnValue(null);
 
         responseSuccessFn(response);
@@ -2732,31 +2974,31 @@ describe('HttpClient', () => {
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
-            userId: undefined
+            userId: undefined,
           }),
           expect.objectContaining({
-            token: 'invalid-token'
-          })
+            token: "invalid-token",
+          }),
         );
       });
 
-      it('should handle non-Bearer authorization header', async () => {
+      it("should handle non-Bearer authorization header", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {
-            authorization: 'Basic dXNlcjpwYXNz'
+            authorization: "Basic dXNlcjpwYXNz",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -2768,27 +3010,27 @@ describe('HttpClient', () => {
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
-            userId: undefined
+            userId: undefined,
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle missing authorization header', async () => {
+      it("should handle missing authorization header", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {},
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -2800,29 +3042,29 @@ describe('HttpClient', () => {
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
-            userId: undefined
+            userId: undefined,
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle undefined authorization header', async () => {
+      it("should handle undefined authorization header", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {
-            authorization: undefined
+            authorization: undefined,
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -2834,29 +3076,29 @@ describe('HttpClient', () => {
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
-            userId: undefined
+            userId: undefined,
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
 
-      it('should handle empty authorization header', async () => {
+      it("should handle empty authorization header", async () => {
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {
-            authorization: ''
+            authorization: "",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -2868,14 +3110,14 @@ describe('HttpClient', () => {
           expect.any(String),
           expect.any(String),
           expect.objectContaining({
-            userId: undefined
+            userId: undefined,
           }),
-          expect.any(Object)
+          expect.any(Object),
         );
       });
     });
 
-    describe('logHttpRequestAudit edge cases', () => {
+    describe("logHttpRequestAudit edge cases", () => {
       beforeEach(() => {
         jest.useFakeTimers();
       });
@@ -2907,31 +3149,32 @@ describe('HttpClient', () => {
         await Promise.resolve();
       });
 
-      it('should handle logHttpRequestAudit when DataMasker throws', async () => {
+      it("should handle logHttpRequestAudit when DataMasker throws", async () => {
         // This test covers the catch block in logHttpRequestAudit (lines 223-225)
-        const dataMasker = require('../../src/utils/data-masker');
-        const originalMaskSensitiveData = dataMasker.DataMasker.maskSensitiveData;
-        
+        const dataMasker = require("../../src/utils/data-masker");
+        const originalMaskSensitiveData =
+          dataMasker.DataMasker.maskSensitiveData;
+
         // Make DataMasker throw an error
         dataMasker.DataMasker.maskSensitiveData = jest.fn(() => {
-          throw new Error('DataMasker error');
+          throw new Error("DataMasker error");
         });
 
         const config: any = {
-          url: '/api/users',
-          method: 'post',
+          url: "/api/users",
+          method: "post",
           headers: {},
           metadata: {
             startTime: Date.now() - 100,
-            method: 'POST',
-            url: '/api/users'
-          }
+            method: "POST",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -2946,24 +3189,24 @@ describe('HttpClient', () => {
         dataMasker.DataMasker.maskSensitiveData = originalMaskSensitiveData;
       });
 
-      it('should handle logHttpRequestAudit when logger.audit throws', async () => {
+      it("should handle logHttpRequestAudit when logger.audit throws", async () => {
         // This test ensures the catch block handles logger errors (lines 223-225)
-        mockLogger.audit.mockRejectedValueOnce(new Error('Logger error'));
+        mockLogger.audit.mockRejectedValueOnce(new Error("Logger error"));
 
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {},
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         // Should not throw - error is silently swallowed
@@ -2978,30 +3221,33 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should handle logHttpRequestAudit when logger.debug throws', async () => {
-        config.logLevel = 'debug';
+      it("should handle logHttpRequestAudit when logger.debug throws", async () => {
+        config.logLevel = "debug";
         httpClient = new HttpClient(config, mockLogger);
-        
+
         // Get the latest interceptor after creating new HttpClient
-        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[mockAxios.interceptors.response.use.mock.calls.length - 1];
+        const responseUseCall =
+          mockAxios.interceptors.response.use.mock.calls[
+            mockAxios.interceptors.response.use.mock.calls.length - 1
+          ];
         const successFn = responseUseCall[0];
 
-        mockLogger.debug.mockRejectedValueOnce(new Error('Debug logger error'));
+        mockLogger.debug.mockRejectedValueOnce(new Error("Debug logger error"));
 
         const configObj: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {},
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config: configObj,
           status: 200,
-          data: {}
+          data: {},
         };
 
         // Should not throw - error is silently swallowed
@@ -3016,29 +3262,29 @@ describe('HttpClient', () => {
         expect(mockLogger.debug).toHaveBeenCalled();
       });
 
-      it('should handle response with circular reference in data', async () => {
+      it("should handle response with circular reference in data", async () => {
         // This test covers edge cases in JSON.stringify (lines 167-168, 194-197)
-        // Note: JSON.stringify throws synchronously for circular references, 
+        // Note: JSON.stringify throws synchronously for circular references,
         // so the catch block (lines 223-225) will catch it and swallow the error
-        const circularData: any = { name: 'test' };
+        const circularData: any = { name: "test" };
         circularData.self = circularData; // Create circular reference
 
         const configObj: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {},
           metadata: {
             startTime: Date.now() - 100,
-            method: 'POST',
-            url: '/api/users'
+            method: "POST",
+            url: "/api/users",
           },
-          data: circularData
+          data: circularData,
         };
 
         const response: any = {
           config: configObj,
           status: 200,
           data: {},
-          headers: {}
+          headers: {},
         };
 
         // JSON.stringify will throw for circular references when calculating requestSize
@@ -3057,25 +3303,25 @@ describe('HttpClient', () => {
         // the catch block swallows it, so audit might not be called
       });
 
-      it('should handle requestSize calculation with non-serializable data', async () => {
+      it("should handle requestSize calculation with non-serializable data", async () => {
         const nonSerializableData = { func: () => {} }; // Function cannot be serialized
 
         const config: any = {
-          url: '/api/users',
-          method: 'post',
+          url: "/api/users",
+          method: "post",
           headers: {},
           data: nonSerializableData,
           metadata: {
             startTime: Date.now() - 100,
-            method: 'POST',
-            url: '/api/users'
-          }
+            method: "POST",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: {}
+          data: {},
         };
 
         responseSuccessFn(response);
@@ -3087,22 +3333,22 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should execute lines 71-75: response success interceptor setTimeout callback', async () => {
+      it("should execute lines 71-75: response success interceptor setTimeout callback", async () => {
         // This test explicitly covers lines 71-75
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {},
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const response: any = {
           config,
           status: 200,
-          data: { success: true }
+          data: { success: true },
         };
 
         // Execute response interceptor - this triggers setTimeout (line 71)
@@ -3116,25 +3362,25 @@ describe('HttpClient', () => {
         expect(mockLogger.audit).toHaveBeenCalled();
       });
 
-      it('should execute lines 78-86: response error interceptor setTimeout callback', async () => {
+      it("should execute lines 78-86: response error interceptor setTimeout callback", async () => {
         // This test explicitly covers lines 78-86
         const config: any = {
-          url: '/api/users',
+          url: "/api/users",
           headers: {},
           metadata: {
             startTime: Date.now() - 100,
-            method: 'GET',
-            url: '/api/users'
-          }
+            method: "GET",
+            url: "/api/users",
+          },
         };
 
         const error: any = {
           config,
           response: {
             status: 500,
-            data: { error: 'Server error' }
+            data: { error: "Server error" },
           },
-          message: 'Internal Server Error'
+          message: "Internal Server Error",
         };
 
         // Execute error interceptor - this triggers setTimeout (line 81)
@@ -3150,23 +3396,29 @@ describe('HttpClient', () => {
         // Verify error is rejected (line 86)
         try {
           await result;
-          fail('Expected promise to reject');
+          fail("Expected promise to reject");
         } catch (e) {
           expect(e).toEqual(error);
         }
       });
     });
 
-    describe('data masking in audit logs', () => {
+    describe("data masking in audit logs", () => {
       beforeEach(() => {
         jest.useFakeTimers();
         // Set logLevel to debug for this test suite
-        config.logLevel = 'debug';
+        config.logLevel = "debug";
         httpClient = new HttpClient(config, mockLogger);
-        
+
         // Re-setup interceptors
-        const requestUseCall = mockAxios.interceptors.request.use.mock.calls[mockAxios.interceptors.request.use.mock.calls.length - 1];
-        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[mockAxios.interceptors.response.use.mock.calls.length - 1];
+        const requestUseCall =
+          mockAxios.interceptors.request.use.mock.calls[
+            mockAxios.interceptors.request.use.mock.calls.length - 1
+          ];
+        const responseUseCall =
+          mockAxios.interceptors.response.use.mock.calls[
+            mockAxios.interceptors.response.use.mock.calls.length - 1
+          ];
         requestInterceptorFn = requestUseCall[0];
         responseSuccessFn = responseUseCall[0];
       });
@@ -3198,39 +3450,42 @@ describe('HttpClient', () => {
         await Promise.resolve();
       });
 
-      it('should mask sensitive data in request body', async () => {
+      it("should mask sensitive data in request body", async () => {
         const configObj: any = {
-          url: '/api/users',
-          method: 'post',
-          baseURL: 'https://controller.aifabrix.ai',
+          url: "/api/users",
+          method: "post",
+          baseURL: "https://controller.aifabrix.ai",
           headers: {
-            authorization: 'Bearer token123'
+            authorization: "Bearer token123",
           },
           data: {
-            username: 'john',
-            password: 'secret123',
-            email: 'john@example.com'
+            username: "john",
+            password: "secret123",
+            email: "john@example.com",
           },
           metadata: {
             startTime: Date.now() - 100,
-            method: 'POST',
-            url: '/api/users',
-            baseURL: 'https://controller.aifabrix.ai'
-          }
+            method: "POST",
+            url: "/api/users",
+            baseURL: "https://controller.aifabrix.ai",
+          },
         };
 
         const response: any = {
           config: configObj,
           status: 200,
           data: {},
-          headers: {}
+          headers: {},
         };
 
-        const jwt = require('jsonwebtoken');
-        jwt.decode.mockReturnValue({ sub: 'user-123' });
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ sub: "user-123" });
 
         // Get the latest responseSuccessFn from the recreated httpClient
-        const responseUseCall = mockAxios.interceptors.response.use.mock.calls[mockAxios.interceptors.response.use.mock.calls.length - 1];
+        const responseUseCall =
+          mockAxios.interceptors.response.use.mock.calls[
+            mockAxios.interceptors.response.use.mock.calls.length - 1
+          ];
         const successFn = responseUseCall[0];
 
         successFn(response);
@@ -3248,63 +3503,68 @@ describe('HttpClient', () => {
         const debugCall = mockLogger.debug.mock.calls[0];
         if (debugCall && debugCall?.[1]) {
           const requestBody = debugCall[1]?.requestBody;
-          
+
           expect(requestBody).toEqual({
-            username: 'john',
-            password: '***MASKED***',
-            email: '***MASKED***'
+            username: "john",
+            password: "***MASKED***",
+            email: "***MASKED***",
           });
         }
       });
     });
 
-    describe('constructor with sensitiveFieldsConfig', () => {
-      it('should set DataMasker config path when provided', () => {
+    describe("constructor with sensitiveFieldsConfig", () => {
+      it("should set DataMasker config path when provided", () => {
         const configWithFields: MisoClientConfig = {
           ...config,
-          sensitiveFieldsConfig: '/path/to/config.json'
+          sensitiveFieldsConfig: "/path/to/config.json",
         };
 
         // Use actual DataMasker (don't mock) to ensure line 37 executes
-        const dataMasker = require('../../src/utils/data-masker');
-        const setConfigPathSpy = jest.spyOn(dataMasker.DataMasker, 'setConfigPath').mockImplementation(() => {
-          // Allow actual execution
-        });
+        const dataMasker = require("../../src/utils/data-masker");
+        const setConfigPathSpy = jest
+          .spyOn(dataMasker.DataMasker, "setConfigPath")
+          .mockImplementation(() => {
+            // Allow actual execution
+          });
 
         const client = new HttpClient(configWithFields, mockLogger);
 
         // Verify the method was called
-        expect(setConfigPathSpy).toHaveBeenCalledWith('/path/to/config.json');
-        
+        expect(setConfigPathSpy).toHaveBeenCalledWith("/path/to/config.json");
+
         // Verify client was created
         expect(client).toBeInstanceOf(HttpClient);
-        
+
         setConfigPathSpy.mockRestore();
       });
 
-      it('should not set DataMasker config path when not provided', () => {
-        const dataMasker = require('../../src/utils/data-masker');
-        const setConfigPathSpy = jest.spyOn(dataMasker.DataMasker, 'setConfigPath');
+      it("should not set DataMasker config path when not provided", () => {
+        const dataMasker = require("../../src/utils/data-masker");
+        const setConfigPathSpy = jest.spyOn(
+          dataMasker.DataMasker,
+          "setConfigPath",
+        );
 
         const client = new HttpClient(config, mockLogger);
 
         expect(setConfigPathSpy).not.toHaveBeenCalled();
         expect(client).toBeInstanceOf(HttpClient);
-        
+
         setConfigPathSpy.mockRestore();
       });
 
-      it('should execute DataMasker.setConfigPath line 37', () => {
+      it("should execute DataMasker.setConfigPath line 37", () => {
         // This test ensures line 37 is actually executed
         const configWithFields: MisoClientConfig = {
           ...config,
-          sensitiveFieldsConfig: '/test/path.json'
+          sensitiveFieldsConfig: "/test/path.json",
         };
 
         // Ensure DataMasker is not completely mocked - use actual implementation
-        const dataMasker = require('../../src/utils/data-masker');
+        const dataMasker = require("../../src/utils/data-masker");
         const originalSetConfigPath = dataMasker.DataMasker.setConfigPath;
-        
+
         let wasCalled = false;
         dataMasker.DataMasker.setConfigPath = jest.fn((path: string) => {
           wasCalled = true;
@@ -3315,7 +3575,7 @@ describe('HttpClient', () => {
 
         expect(wasCalled).toBe(true);
         expect(client).toBeInstanceOf(HttpClient);
-        
+
         // Restore
         dataMasker.DataMasker.setConfigPath = originalSetConfigPath;
       });

@@ -2,10 +2,15 @@
  * Authentication service for token validation and user management
  */
 
-import { HttpClient } from '../utils/http-client';
-import { RedisService } from './redis.service';
-import { MisoClientConfig, UserInfo, AuthResult, AuthStrategy } from '../types/config.types';
-import { MisoClientError } from '../utils/errors';
+import { HttpClient } from "../utils/http-client";
+import { RedisService } from "./redis.service";
+import {
+  MisoClientConfig,
+  UserInfo,
+  AuthResult,
+  AuthStrategy,
+} from "../types/config.types";
+import { MisoClientError } from "../utils/errors";
 
 export class AuthService {
   private httpClient: HttpClient;
@@ -43,23 +48,24 @@ export class AuthService {
   async getEnvironmentToken(): Promise<string> {
     const correlationId = this.generateCorrelationId();
     const clientId = this.config.clientId;
-    
+
     try {
       // Use a temporary axios instance to avoid interceptor recursion
-      const axios = (await import('axios')).default;
+      const axios = (await import("axios")).default;
       const tempAxios = axios.create({
         baseURL: this.config.controllerUrl,
         timeout: 30000,
         headers: {
-          'Content-Type': 'application/json',
-          'X-Client-Id': this.config.clientId,
-          'X-Client-Secret': this.config.clientSecret
-        }
+          "Content-Type": "application/json",
+          "X-Client-Id": this.config.clientId,
+          "X-Client-Secret": this.config.clientSecret,
+        },
       });
 
-      const response = await tempAxios.post<import('../types/config.types').ClientTokenResponse>(
-        '/api/v1/auth/token'
-      );
+      const response =
+        await tempAxios.post<
+          import("../types/config.types").ClientTokenResponse
+        >("/api/v1/auth/token");
 
       // Handle both nested (new) and flat (old) response formats
       const token = response.data.data?.token || response.data.token;
@@ -72,42 +78,54 @@ export class AuthService {
         status: response.status,
         statusText: response.statusText,
         data: response.data,
-        headers: response.headers
+        headers: response.headers,
       });
       throw new Error(
         `Failed to get environment token: Invalid response format. Expected {success: true, token: string}. ` +
-        `Full response: ${responseDetails} [correlationId: ${correlationId}, clientId: ${clientId}]`
+          `Full response: ${responseDetails} [correlationId: ${correlationId}, clientId: ${clientId}]`,
       );
     } catch (error) {
       // Check if it's an AxiosError to extract full response details
-      if (error && typeof error === 'object' && 'isAxiosError' in error && error.isAxiosError) {
-        const axiosError = error as import('axios').AxiosError;
+      if (
+        error &&
+        typeof error === "object" &&
+        "isAxiosError" in error &&
+        error.isAxiosError
+      ) {
+        const axiosError = error as import("axios").AxiosError;
         const responseDetails: string[] = [];
-        
+
         if (axiosError.response) {
           responseDetails.push(`status: ${axiosError.response.status}`);
           responseDetails.push(`statusText: ${axiosError.response.statusText}`);
-          responseDetails.push(`data: ${JSON.stringify(axiosError.response.data)}`);
+          responseDetails.push(
+            `data: ${JSON.stringify(axiosError.response.data)}`,
+          );
           if (axiosError.response.headers) {
-            responseDetails.push(`headers: ${JSON.stringify(axiosError.response.headers)}`);
+            responseDetails.push(
+              `headers: ${JSON.stringify(axiosError.response.headers)}`,
+            );
           }
         } else if (axiosError.request) {
-          responseDetails.push(`request: ${JSON.stringify(axiosError.request)}`);
+          responseDetails.push(
+            `request: ${JSON.stringify(axiosError.request)}`,
+          );
           responseDetails.push(`message: ${axiosError.message}`);
         } else {
           responseDetails.push(`message: ${axiosError.message}`);
         }
-        
+
         throw new Error(
           `Failed to get environment token: ${axiosError.message}. ` +
-          `Full response: {${responseDetails.join(', ')}} [correlationId: ${correlationId}, clientId: ${clientId}]`
+            `Full response: {${responseDetails.join(", ")}} [correlationId: ${correlationId}, clientId: ${clientId}]`,
         );
       }
-      
+
       // Non-Axios error
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       throw new Error(
-        `Failed to get environment token: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`
+        `Failed to get environment token: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
       );
     }
   }
@@ -127,14 +145,20 @@ export class AuthService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async validateToken(token: string, authStrategy?: AuthStrategy): Promise<boolean> {
+  async validateToken(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     // Check API_KEY bypass for testing
     if (this.isApiKeyToken(token)) {
       return true;
     }
 
     try {
-      const result = await this.httpClient.validateTokenRequest<AuthResult>(token, authStrategy);
+      const result = await this.httpClient.validateTokenRequest<AuthResult>(
+        token,
+        authStrategy,
+      );
       return result.authenticated;
     } catch (error) {
       // Token validation failed, return false
@@ -148,14 +172,20 @@ export class AuthService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async getUser(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null> {
+  async getUser(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<UserInfo | null> {
     // Check API_KEY bypass for testing - return null by design
     if (this.isApiKeyToken(token)) {
       return null;
     }
 
     try {
-      const result = await this.httpClient.validateTokenRequest<AuthResult>(token, authStrategy);
+      const result = await this.httpClient.validateTokenRequest<AuthResult>(
+        token,
+        authStrategy,
+      );
 
       if (result.authenticated && result.user) {
         return result.user;
@@ -174,7 +204,10 @@ export class AuthService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async getUserInfo(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null> {
+  async getUserInfo(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<UserInfo | null> {
     // Check API_KEY bypass for testing - return null by design
     if (this.isApiKeyToken(token)) {
       return null;
@@ -182,12 +215,12 @@ export class AuthService {
 
     try {
       const user = await this.httpClient.authenticatedRequest<UserInfo>(
-        'GET',
-        '/api/v1/auth/user',
+        "GET",
+        "/api/v1/auth/user",
         token,
         undefined,
         undefined,
-        authStrategy
+        authStrategy,
       );
 
       return user;
@@ -205,10 +238,10 @@ export class AuthService {
   async logout(): Promise<void> {
     const correlationId = this.generateCorrelationId();
     const clientId = this.config.clientId;
-    
+
     try {
       // Backend extracts app/env from client token
-      await this.httpClient.request('POST', '/api/v1/auth/logout');
+      await this.httpClient.request("POST", "/api/v1/auth/logout");
     } catch (error) {
       // Check if it's a MisoClientError (converted from AxiosError by HttpClient)
       if (error instanceof MisoClientError) {
@@ -219,71 +252,83 @@ export class AuthService {
             statusCode: error.statusCode,
             message: error.message,
             errorResponse: error.errorResponse,
-            errorBody: error.errorBody
+            errorBody: error.errorBody,
           };
           console.warn(
             `Logout: No active session or invalid request (400). ` +
-            `Response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`
+              `Response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`,
           );
           // Return gracefully - logout is idempotent
           return;
         }
-        
+
         // For other HTTP errors (401, 403, 500, etc.), include full details
         const errorDetails = {
           statusCode: error.statusCode,
           message: error.message,
           errorResponse: error.errorResponse,
-          errorBody: error.errorBody
+          errorBody: error.errorBody,
         };
         throw new Error(
           `Logout failed: ${error.message}. ` +
-          `Full response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`
+            `Full response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`,
         );
       }
-      
+
       // Check if it's an AxiosError (shouldn't happen after HttpClient, but handle just in case)
-      if (error && typeof error === 'object' && 'isAxiosError' in error && error.isAxiosError) {
-        const axiosError = error as import('axios').AxiosError;
-        
+      if (
+        error &&
+        typeof error === "object" &&
+        "isAxiosError" in error &&
+        error.isAxiosError
+      ) {
+        const axiosError = error as import("axios").AxiosError;
+
         // Gracefully handle 400 Bad Request
         if (axiosError.response?.status === 400) {
-          const responseData = axiosError.response.data 
-            ? JSON.stringify(axiosError.response.data) 
-            : 'No response data';
+          const responseData = axiosError.response.data
+            ? JSON.stringify(axiosError.response.data)
+            : "No response data";
           console.warn(
             `Logout: No active session or invalid request (400). ` +
-            `Response: ${responseData} [correlationId: ${correlationId}, clientId: ${clientId}]`
+              `Response: ${responseData} [correlationId: ${correlationId}, clientId: ${clientId}]`,
           );
           return;
         }
-        
+
         // For other HTTP errors, include full details
         const responseDetails: string[] = [];
         if (axiosError.response) {
           responseDetails.push(`status: ${axiosError.response.status}`);
           responseDetails.push(`statusText: ${axiosError.response.statusText}`);
-          responseDetails.push(`data: ${JSON.stringify(axiosError.response.data)}`);
+          responseDetails.push(
+            `data: ${JSON.stringify(axiosError.response.data)}`,
+          );
           if (axiosError.response.headers) {
-            responseDetails.push(`headers: ${JSON.stringify(axiosError.response.headers)}`);
+            responseDetails.push(
+              `headers: ${JSON.stringify(axiosError.response.headers)}`,
+            );
           }
         } else if (axiosError.request) {
-          responseDetails.push(`request: ${JSON.stringify(axiosError.request)}`);
+          responseDetails.push(
+            `request: ${JSON.stringify(axiosError.request)}`,
+          );
           responseDetails.push(`message: ${axiosError.message}`);
         } else {
           responseDetails.push(`message: ${axiosError.message}`);
         }
-        
+
         throw new Error(
           `Logout failed: ${axiosError.message}. ` +
-          `Full response: {${responseDetails.join(', ')}} [correlationId: ${correlationId}, clientId: ${clientId}]`
+            `Full response: {${responseDetails.join(", ")}} [correlationId: ${correlationId}, clientId: ${clientId}]`,
         );
       }
-      
+
       // Non-Axios/MisoClientError (network errors, timeouts, etc.) - these should throw
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
       throw new Error(
-        `Logout failed: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`
+        `Logout failed: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
       );
     }
   }
@@ -293,7 +338,10 @@ export class AuthService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async isAuthenticated(token: string, authStrategy?: AuthStrategy): Promise<boolean> {
+  async isAuthenticated(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     return this.validateToken(token, authStrategy);
   }
 }

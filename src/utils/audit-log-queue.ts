@@ -3,10 +3,10 @@
  * Reduces network overhead by batching audit logs
  */
 
-import { EventEmitter } from 'events';
-import { LogEntry, MisoClientConfig } from '../types/config.types';
-import { HttpClient } from './http-client';
-import { RedisService } from '../services/redis.service';
+import { EventEmitter } from "events";
+import { LogEntry, MisoClientConfig } from "../types/config.types";
+import { HttpClient } from "./http-client";
+import { RedisService } from "../services/redis.service";
 
 interface QueuedLogEntry {
   entry: LogEntry;
@@ -24,7 +24,12 @@ export class AuditLogQueue {
   private isFlushing = false;
   private eventEmitter?: EventEmitter;
 
-  constructor(httpClient: HttpClient, redis: RedisService, config: MisoClientConfig, eventEmitter?: EventEmitter) {
+  constructor(
+    httpClient: HttpClient,
+    redis: RedisService,
+    config: MisoClientConfig,
+    eventEmitter?: EventEmitter,
+  ) {
     this.httpClient = httpClient;
     this.redis = redis;
     this.config = config;
@@ -32,12 +37,12 @@ export class AuditLogQueue {
     const auditConfig = config.audit || {};
     this.batchSize = auditConfig.batchSize ?? 10;
     this.batchInterval = auditConfig.batchInterval ?? 100;
-    
+
     // Setup graceful shutdown handler (Node.js only)
-    if (typeof process !== 'undefined') {
-      process.on('SIGINT', () => this.flush(true));
-      process.on('SIGTERM', () => this.flush(true));
-      process.on('beforeExit', () => this.flush(true));
+    if (typeof process !== "undefined") {
+      process.on("SIGINT", () => this.flush(true));
+      process.on("SIGTERM", () => this.flush(true));
+      process.on("beforeExit", () => this.flush(true));
     }
   }
 
@@ -48,7 +53,7 @@ export class AuditLogQueue {
   async add(entry: LogEntry): Promise<void> {
     this.queue.push({
       entry,
-      timestamp: Date.now()
+      timestamp: Date.now(),
     });
 
     // Flush if batch size reached
@@ -96,12 +101,12 @@ export class AuditLogQueue {
         return;
       }
 
-      const logEntries = entries.map(e => e.entry);
+      const logEntries = entries.map((e) => e.entry);
 
       // If emitEvents is enabled, emit batch event and skip HTTP/Redis
       if (this.config.emitEvents && this.eventEmitter) {
         // Emit batch event - same payload structure as REST API
-        this.eventEmitter.emit('log:batch', logEntries);
+        this.eventEmitter.emit("log:batch", logEntries);
         this.isFlushing = false;
         return;
       }
@@ -111,7 +116,7 @@ export class AuditLogQueue {
         const queueName = `audit-logs:${this.config.clientId}`;
         const success = await this.redis.rpush(
           queueName,
-          JSON.stringify(logEntries)
+          JSON.stringify(logEntries),
         );
 
         if (success) {
@@ -122,13 +127,13 @@ export class AuditLogQueue {
 
       // Fallback to HTTP batch endpoint
       try {
-        await this.httpClient.request('POST', '/api/v1/logs/batch', {
-          logs: logEntries.map(e => ({
+        await this.httpClient.request("POST", "/api/v1/logs/batch", {
+          logs: logEntries.map((e) => ({
             ...e,
             // Remove fields that backend extracts from credentials
             environment: undefined,
-            application: undefined
-          }))
+            application: undefined,
+          })),
         });
       } catch (error) {
         // Failed to send logs - could implement retry logic here
@@ -159,4 +164,3 @@ export class AuditLogQueue {
     this.queue = [];
   }
 }
-

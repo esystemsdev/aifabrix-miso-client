@@ -3,12 +3,12 @@
  */
 
 // Mock dotenv/config to prevent real file loading
-jest.mock('dotenv/config', () => ({}), { virtual: true });
+jest.mock("dotenv/config", () => ({}), { virtual: true });
 
-import { loadConfig } from '../../src/utils/config-loader';
-import { MisoClientConfig } from '../../src/types/config.types';
+import { loadConfig } from "../../src/utils/config-loader";
+import { MisoClientConfig } from "../../src/types/config.types";
 
-describe('ConfigLoader', () => {
+describe("ConfigLoader", () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -21,51 +21,52 @@ describe('ConfigLoader', () => {
     process.env = originalEnv;
   });
 
-  describe('loadConfig', () => {
-    describe('default values', () => {
-      it('should load configuration with defaults when env vars are not set', () => {
+  describe("loadConfig", () => {
+    describe("default values", () => {
+      it("should load configuration with defaults when env vars are not set", () => {
         // Set required fields
-        process.env.MISO_CLIENTID = 'test-client-id';
-        process.env.MISO_CLIENTSECRET = 'test-secret';
+        process.env.MISO_CLIENTID = "test-client-id";
+        process.env.MISO_CLIENTSECRET = "test-secret";
         delete process.env.MISO_CONTROLLER_URL;
         delete process.env.REDIS_HOST;
 
         const config = loadConfig();
 
         expect(config).toMatchObject({
-          controllerUrl: 'https://controller.aifabrix.ai',
-          clientId: 'test-client-id',
-          clientSecret: 'test-secret',
-          logLevel: 'debug',
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "test-client-id",
+          clientSecret: "test-secret",
+          logLevel: "debug",
         });
       });
     });
 
-    describe('environment variables', () => {
-      it('should load configuration from environment variables', () => {
-        process.env.MISO_CONTROLLER_URL = 'https://custom-controller.example.com';
-        process.env.MISO_CLIENTID = 'ctrl-prod-my-custom-app';
-        process.env.MISO_CLIENTSECRET = 'secret-123';
-        process.env.MISO_LOG_LEVEL = 'error';
+    describe("environment variables", () => {
+      it("should load configuration from environment variables", () => {
+        process.env.MISO_CONTROLLER_URL =
+          "https://custom-controller.example.com";
+        process.env.MISO_CLIENTID = "ctrl-prod-my-custom-app";
+        process.env.MISO_CLIENTSECRET = "secret-123";
+        process.env.MISO_LOG_LEVEL = "error";
 
         const config = loadConfig();
 
         expect(config).toMatchObject({
-          controllerUrl: 'https://custom-controller.example.com',
-          clientId: 'ctrl-prod-my-custom-app',
-          clientSecret: 'secret-123',
-          logLevel: 'error',
+          controllerUrl: "https://custom-controller.example.com",
+          clientId: "ctrl-prod-my-custom-app",
+          clientSecret: "secret-123",
+          logLevel: "error",
         });
       });
 
-      it('should handle all log levels', () => {
-        const logLevels = ['debug', 'info', 'warn', 'error'] as const;
+      it("should handle all log levels", () => {
+        const logLevels = ["debug", "info", "warn", "error"] as const;
 
         // Set required fields
-        process.env.MISO_CLIENTID = 'test-client-id';
-        process.env.MISO_CLIENTSECRET = 'test-secret';
+        process.env.MISO_CLIENTID = "test-client-id";
+        process.env.MISO_CLIENTSECRET = "test-secret";
 
-        logLevels.forEach(level => {
+        logLevels.forEach((level) => {
           process.env.MISO_LOG_LEVEL = level;
           const config = loadConfig();
           expect(config.logLevel).toBe(level);
@@ -73,14 +74,14 @@ describe('ConfigLoader', () => {
       });
     });
 
-    describe('Redis configuration', () => {
+    describe("Redis configuration", () => {
       beforeEach(() => {
         // Set required fields for all Redis tests
-        process.env.MISO_CLIENTID = 'test-client-id';
-        process.env.MISO_CLIENTSECRET = 'test-secret';
+        process.env.MISO_CLIENTID = "test-client-id";
+        process.env.MISO_CLIENTSECRET = "test-secret";
       });
 
-      it('should not include Redis config when REDIS_HOST is not set', () => {
+      it("should not include Redis config when REDIS_HOST is not set", () => {
         delete process.env.REDIS_HOST;
 
         const config = loadConfig();
@@ -88,21 +89,21 @@ describe('ConfigLoader', () => {
         expect(config.redis).toBeUndefined();
       });
 
-      it('should load basic Redis configuration', () => {
-        process.env.REDIS_HOST = 'redis.example.com';
-        process.env.REDIS_PORT = '6380';
+      it("should load basic Redis configuration", () => {
+        process.env.REDIS_HOST = "redis.example.com";
+        process.env.REDIS_PORT = "6380";
 
         const config = loadConfig();
 
         expect(config.redis).toBeDefined();
         expect(config.redis).toMatchObject({
-          host: 'redis.example.com',
+          host: "redis.example.com",
           port: 6380,
         });
       });
 
-      it('should use default Redis port when not specified', () => {
-        process.env.REDIS_HOST = 'redis.example.com';
+      it("should use default Redis port when not specified", () => {
+        process.env.REDIS_HOST = "redis.example.com";
         delete process.env.REDIS_PORT;
 
         const config = loadConfig();
@@ -110,146 +111,154 @@ describe('ConfigLoader', () => {
         expect(config.redis?.port).toBe(6379);
       });
 
-      it('should include optional Redis password', () => {
-        process.env.REDIS_HOST = 'redis.example.com';
-        process.env.REDIS_PASSWORD = 'secret-password';
+      it("should include optional Redis password", () => {
+        process.env.REDIS_HOST = "redis.example.com";
+        process.env.REDIS_PASSWORD = "secret-password";
 
         const config = loadConfig();
 
-        expect(config.redis?.password).toBe('secret-password');
+        expect(config.redis?.password).toBe("secret-password");
       });
 
-      it('should include optional Redis database number', () => {
-        process.env.REDIS_HOST = 'redis.example.com';
-        process.env.REDIS_DB = '2';
+      it("should include optional Redis database number", () => {
+        process.env.REDIS_HOST = "redis.example.com";
+        process.env.REDIS_DB = "2";
 
         const config = loadConfig();
 
         expect(config.redis?.db).toBe(2);
       });
 
-      it('should include optional Redis key prefix', () => {
-        process.env.REDIS_HOST = 'redis.example.com';
-        process.env.REDIS_KEY_PREFIX = 'myapp:';
+      it("should include optional Redis key prefix", () => {
+        process.env.REDIS_HOST = "redis.example.com";
+        process.env.REDIS_KEY_PREFIX = "myapp:";
 
         const config = loadConfig();
 
-        expect(config.redis?.keyPrefix).toBe('myapp:');
+        expect(config.redis?.keyPrefix).toBe("myapp:");
       });
 
-      it('should load complete Redis configuration', () => {
-        process.env.REDIS_HOST = 'redis.example.com';
-        process.env.REDIS_PORT = '6380';
-        process.env.REDIS_PASSWORD = 'secret-password';
-        process.env.REDIS_DB = '3';
-        process.env.REDIS_KEY_PREFIX = 'prod:miso:';
+      it("should load complete Redis configuration", () => {
+        process.env.REDIS_HOST = "redis.example.com";
+        process.env.REDIS_PORT = "6380";
+        process.env.REDIS_PASSWORD = "secret-password";
+        process.env.REDIS_DB = "3";
+        process.env.REDIS_KEY_PREFIX = "prod:miso:";
 
         const config = loadConfig();
 
         expect(config.redis).toMatchObject({
-          host: 'redis.example.com',
+          host: "redis.example.com",
           port: 6380,
-          password: 'secret-password',
+          password: "secret-password",
           db: 3,
-          keyPrefix: 'prod:miso:',
+          keyPrefix: "prod:miso:",
         });
       });
     });
 
-    describe('error cases', () => {
-      it('should throw error when MISO_CLIENTID is missing', () => {
+    describe("error cases", () => {
+      it("should throw error when MISO_CLIENTID is missing", () => {
         delete process.env.MISO_CLIENTID;
         delete process.env.MISO_CLIENT_ID;
         delete process.env.MISO_CLIENTSECRET;
         delete process.env.MISO_CLIENT_SECRET;
 
-        expect(() => loadConfig()).toThrow('MISO_CLIENTID environment variable is required');
+        expect(() => loadConfig()).toThrow(
+          "MISO_CLIENTID environment variable is required",
+        );
       });
 
-      it('should throw error when MISO_CLIENTSECRET is missing', () => {
-        process.env.MISO_CLIENTID = 'test-client-id';
+      it("should throw error when MISO_CLIENTSECRET is missing", () => {
+        process.env.MISO_CLIENTID = "test-client-id";
         delete process.env.MISO_CLIENTSECRET;
         delete process.env.MISO_CLIENT_SECRET;
 
-        expect(() => loadConfig()).toThrow('MISO_CLIENTSECRET environment variable is required');
+        expect(() => loadConfig()).toThrow(
+          "MISO_CLIENTSECRET environment variable is required",
+        );
       });
 
-      it('should throw error when clientId is empty string', () => {
-        process.env.MISO_CLIENTID = '';
+      it("should throw error when clientId is empty string", () => {
+        process.env.MISO_CLIENTID = "";
         delete process.env.MISO_CLIENT_ID;
-        process.env.MISO_CLIENTSECRET = 'test-secret';
+        process.env.MISO_CLIENTSECRET = "test-secret";
 
-        expect(() => loadConfig()).toThrow('MISO_CLIENTID environment variable is required');
+        expect(() => loadConfig()).toThrow(
+          "MISO_CLIENTID environment variable is required",
+        );
       });
 
-      it('should throw error when clientSecret is empty string', () => {
-        process.env.MISO_CLIENTID = 'test-client-id';
-        process.env.MISO_CLIENTSECRET = '';
+      it("should throw error when clientSecret is empty string", () => {
+        process.env.MISO_CLIENTID = "test-client-id";
+        process.env.MISO_CLIENTSECRET = "";
 
-        expect(() => loadConfig()).toThrow('MISO_CLIENTSECRET environment variable is required');
+        expect(() => loadConfig()).toThrow(
+          "MISO_CLIENTSECRET environment variable is required",
+        );
       });
 
-      it('should accept MISO_CLIENT_ID as alternative to MISO_CLIENTID', () => {
+      it("should accept MISO_CLIENT_ID as alternative to MISO_CLIENTID", () => {
         delete process.env.MISO_CLIENTID;
-        process.env.MISO_CLIENT_ID = 'test-client-id';
-        process.env.MISO_CLIENTSECRET = 'test-secret';
+        process.env.MISO_CLIENT_ID = "test-client-id";
+        process.env.MISO_CLIENTSECRET = "test-secret";
 
         const config = loadConfig();
-        expect(config.clientId).toBe('test-client-id');
+        expect(config.clientId).toBe("test-client-id");
       });
 
-      it('should accept MISO_CLIENT_SECRET as alternative to MISO_CLIENTSECRET', () => {
-        process.env.MISO_CLIENTID = 'test-client-id';
+      it("should accept MISO_CLIENT_SECRET as alternative to MISO_CLIENTSECRET", () => {
+        process.env.MISO_CLIENTID = "test-client-id";
         delete process.env.MISO_CLIENTSECRET;
-        process.env.MISO_CLIENT_SECRET = 'test-secret';
+        process.env.MISO_CLIENT_SECRET = "test-secret";
 
         const config = loadConfig();
-        expect(config.clientSecret).toBe('test-secret');
+        expect(config.clientSecret).toBe("test-secret");
       });
     });
 
-    describe('optional configuration', () => {
+    describe("optional configuration", () => {
       beforeEach(() => {
-        process.env.MISO_CLIENTID = 'test-client-id';
-        process.env.MISO_CLIENTSECRET = 'test-secret';
+        process.env.MISO_CLIENTID = "test-client-id";
+        process.env.MISO_CLIENTSECRET = "test-secret";
       });
 
-      it('should include encryptionKey when ENCRYPTION_KEY is set', () => {
-        process.env.ENCRYPTION_KEY = 'encryption-key-123';
+      it("should include encryptionKey when ENCRYPTION_KEY is set", () => {
+        process.env.ENCRYPTION_KEY = "encryption-key-123";
 
         const config = loadConfig();
-        expect(config.encryptionKey).toBe('encryption-key-123');
+        expect(config.encryptionKey).toBe("encryption-key-123");
       });
 
-      it('should not include encryptionKey when ENCRYPTION_KEY is not set', () => {
+      it("should not include encryptionKey when ENCRYPTION_KEY is not set", () => {
         delete process.env.ENCRYPTION_KEY;
 
         const config = loadConfig();
         expect(config.encryptionKey).toBeUndefined();
       });
 
-      it('should include apiKey when API_KEY is set', () => {
-        process.env.API_KEY = 'api-key-123';
+      it("should include apiKey when API_KEY is set", () => {
+        process.env.API_KEY = "api-key-123";
 
         const config = loadConfig();
-        expect(config.apiKey).toBe('api-key-123');
+        expect(config.apiKey).toBe("api-key-123");
       });
 
-      it('should not include apiKey when API_KEY is not set', () => {
+      it("should not include apiKey when API_KEY is not set", () => {
         delete process.env.API_KEY;
 
         const config = loadConfig();
         expect(config.apiKey).toBeUndefined();
       });
 
-      it('should include sensitiveFieldsConfig when MISO_SENSITIVE_FIELDS_CONFIG is set', () => {
-        process.env.MISO_SENSITIVE_FIELDS_CONFIG = '/path/to/config.json';
+      it("should include sensitiveFieldsConfig when MISO_SENSITIVE_FIELDS_CONFIG is set", () => {
+        process.env.MISO_SENSITIVE_FIELDS_CONFIG = "/path/to/config.json";
 
         const config = loadConfig();
-        expect(config.sensitiveFieldsConfig).toBe('/path/to/config.json');
+        expect(config.sensitiveFieldsConfig).toBe("/path/to/config.json");
       });
 
-      it('should not include sensitiveFieldsConfig when MISO_SENSITIVE_FIELDS_CONFIG is not set', () => {
+      it("should not include sensitiveFieldsConfig when MISO_SENSITIVE_FIELDS_CONFIG is not set", () => {
         delete process.env.MISO_SENSITIVE_FIELDS_CONFIG;
 
         const config = loadConfig();
