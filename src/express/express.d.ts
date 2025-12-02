@@ -1,9 +1,11 @@
 /**
  * Express Response Type Extensions
  * Extends Express Response with standardized response helper methods
+ *
+ * Note: PaginationMeta is inlined to avoid `import type` syntax which
+ * causes Jest parsing issues in consuming projects (Jest tries to parse
+ * .d.ts files as JavaScript in CommonJS mode).
  */
-
-import type { PaginationMeta } from "./response-helper";
 
 declare global {
   namespace Express {
@@ -25,9 +27,18 @@ declare global {
       /**
        * Paginated list response (200)
        * @param items - Array of items
-       * @param meta - Pagination metadata
+       * @param meta - Pagination metadata (currentPage, pageSize, totalItems, totalPages?, type)
        */
-      paginated: <T>(items: T[], meta: PaginationMeta) => Response;
+      paginated: <T>(
+        items: T[],
+        meta: {
+          currentPage: number;
+          pageSize: number;
+          totalItems: number;
+          totalPages?: number;
+          type: string;
+        },
+      ) => Response;
 
       /**
        * No content response (204)
