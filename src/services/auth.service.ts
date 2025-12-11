@@ -9,6 +9,8 @@ import {
   UserInfo,
   AuthResult,
   AuthStrategy,
+  LoginResponse,
+  LogoutResponse,
 } from "../types/config.types";
 import { MisoClientError } from "../utils/errors";
 
@@ -131,12 +133,100 @@ export class AuthService {
   }
 
   /**
-   * Initiate login flow by redirecting to controller
-   * Returns the login URL for browser redirect or manual navigation
+   * Initiate login flow by calling controller
+   * Returns the login URL and state for browser redirect or manual navigation
+   * @param params - Login parameters
+   * @param params.redirect - Required callback URL where Keycloak redirects after authentication
+   * @param params.state - Optional CSRF protection token (auto-generated if omitted)
+   * @returns Login response with loginUrl and state
    */
-  login(redirectUri: string): string {
-    // Backend will extract environment and application from client token
-    return `${this.config.controllerUrl}/api/v1/auth/login?redirect=${encodeURIComponent(redirectUri)}`;
+  async login(params: {
+    redirect: string;
+    state?: string;
+  }): Promise<LoginResponse> {
+    const correlationId = this.generateCorrelationId();
+    const clientId = this.config.clientId;
+
+    try {
+      // Build query parameters
+      const queryParams: Record<string, string> = {
+        redirect: params.redirect,
+      };
+
+      // Add state if provided
+      if (params.state) {
+        queryParams.state = params.state;
+      }
+
+      // Make GET request with query parameters
+      const response = await this.httpClient.request<LoginResponse>(
+        "GET",
+        "/api/v1/auth/login",
+        undefined,
+        {
+          params: queryParams,
+        },
+      );
+
+      return response;
+    } catch (error) {
+      // Check if it's a MisoClientError (converted from AxiosError by HttpClient)
+      if (error instanceof MisoClientError) {
+        const errorDetails = {
+          statusCode: error.statusCode,
+          message: error.message,
+          errorResponse: error.errorResponse,
+          errorBody: error.errorBody,
+        };
+        throw new Error(
+          `Login failed: ${error.message}. ` +
+            `Full response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`,
+        );
+      }
+
+      // Check if it's an AxiosError (shouldn't happen after HttpClient, but handle just in case)
+      if (
+        error &&
+        typeof error === "object" &&
+        "isAxiosError" in error &&
+        error.isAxiosError
+      ) {
+        const axiosError = error as import("axios").AxiosError;
+        const responseDetails: string[] = [];
+
+        if (axiosError.response) {
+          responseDetails.push(`status: ${axiosError.response.status}`);
+          responseDetails.push(`statusText: ${axiosError.response.statusText}`);
+          responseDetails.push(
+            `data: ${JSON.stringify(axiosError.response.data)}`,
+          );
+          if (axiosError.response.headers) {
+            responseDetails.push(
+              `headers: ${JSON.stringify(axiosError.response.headers)}`,
+            );
+          }
+        } else if (axiosError.request) {
+          responseDetails.push(
+            `request: ${JSON.stringify(axiosError.request)}`,
+          );
+          responseDetails.push(`message: ${axiosError.message}`);
+        } else {
+          responseDetails.push(`message: ${axiosError.message}`);
+        }
+
+        throw new Error(
+          `Login failed: ${axiosError.message}. ` +
+            `Full response: {${responseDetails.join(", ")}} [correlationId: ${correlationId}, clientId: ${clientId}]`,
+        );
+      }
+
+      // Non-Axios/MisoClientError (network errors, timeouts, etc.)
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      throw new Error(
+        `Login failed: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
+      );
+    }
   }
 
   /**
@@ -234,20 +324,29 @@ export class AuthService {
    * Logout user
    * Gracefully handles cases where there's no active session (400 Bad Request)
    * Only throws errors for unexpected failures (network errors, 5xx errors, etc.)
+   * @param params - Logout parameters
+   * @param params.token - Access token to invalidate
+   * @returns Logout response with success message
    */
-  async logout(): Promise<void> {
+  async logout(params: { token: string }): Promise<LogoutResponse> {
     const correlationId = this.generateCorrelationId();
     const clientId = this.config.clientId;
 
     try {
       // Backend extracts app/env from client token
-      await this.httpClient.request("POST", "/api/v1/auth/logout");
+      const response = await this.httpClient.request<LogoutResponse>(
+        "POST",
+        "/api/v1/auth/logout",
+        { token: params.token },
+      );
+
+      return response;
     } catch (error) {
       // Check if it's a MisoClientError (converted from AxiosError by HttpClient)
       if (error instanceof MisoClientError) {
         // Gracefully handle 400 Bad Request (no session, already logged out, etc.)
         if (error.statusCode === 400) {
-          // Log the response for debugging but don't throw
+          // Log the response for debugging but return a success response
           const errorDetails = {
             statusCode: error.statusCode,
             message: error.message,
@@ -258,8 +357,12 @@ export class AuthService {
             `Logout: No active session or invalid request (400). ` +
               `Response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`,
           );
-          // Return gracefully - logout is idempotent
-          return;
+          // Return a success response - logout is idempotent
+          return {
+            success: true,
+            message: "Logout successful (no active session)",
+            timestamp: new Date().toISOString(),
+          };
         }
 
         // For other HTTP errors (401, 403, 500, etc.), include full details
@@ -293,7 +396,12 @@ export class AuthService {
             `Logout: No active session or invalid request (400). ` +
               `Response: ${responseData} [correlationId: ${correlationId}, clientId: ${clientId}]`,
           );
-          return;
+          // Return a success response - logout is idempotent
+          return {
+            success: true,
+            message: "Logout successful (no active session)",
+            timestamp: new Date().toISOString(),
+          };
         }
 
         // For other HTTP errors, include full details

@@ -236,19 +236,37 @@ async function runIntegrationTests(): Promise<void> {
     }
   });
 
-  await runner.runTest('login returns URL', async () => {
-    const loginUrl = client.login('http://localhost:3000/callback');
-    if (!loginUrl || typeof loginUrl !== 'string') {
-      throw new Error('login should return a URL string');
+  await runner.runTest('login returns response with loginUrl', async () => {
+    const response = await client.login({
+      redirect: 'http://localhost:3000/callback',
+    });
+    if (!response || typeof response !== 'object') {
+      throw new Error('login should return a response object');
     }
-    if (!loginUrl.includes('/api/v1/auth/login')) {
+    if (!response.success) {
+      throw new Error('login response should have success: true');
+    }
+    if (!response.data || !response.data.loginUrl) {
+      throw new Error('login response should have data.loginUrl');
+    }
+    if (!response.data.loginUrl.includes('/api/v1/auth/login')) {
       throw new Error('login URL should contain /api/v1/auth/login');
+    }
+    if (!response.data.state) {
+      throw new Error('login response should have state');
     }
   });
 
   await runner.runTest('logout endpoint', async () => {
     // Logout should not throw (even if no session)
-    await client.logout();
+    // Note: In a real scenario, you would pass a valid token
+    const result = await client.logout({ token: 'test-token' });
+    if (!result || typeof result !== 'object') {
+      throw new Error('logout should return a response object');
+    }
+    if (!result.success) {
+      throw new Error('logout response should have success: true');
+    }
   });
 
   await runner.runTest('isAuthenticated with API_KEY', async () => {

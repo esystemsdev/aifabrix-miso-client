@@ -156,6 +156,21 @@ export interface ClientTokenResponse {
   timestamp?: string;
 }
 
+export interface LoginResponse {
+  success: boolean;
+  data: {
+    loginUrl: string;
+    state: string;
+  };
+  timestamp: string;
+}
+
+export interface LogoutResponse {
+  success: boolean;
+  message: string;
+  timestamp: string;
+}
+
 /**
  * RFC 7807-style structured error response
  */

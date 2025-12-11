@@ -6,6 +6,7 @@ import { AuthService } from "../../src/services/auth.service";
 import { HttpClient } from "../../src/utils/http-client";
 import { RedisService } from "../../src/services/redis.service";
 import { MisoClientConfig } from "../../src/types/config.types";
+import { MisoClientError } from "../../src/utils/errors";
 
 // Mock HttpClient
 jest.mock("../../src/utils/http-client");
@@ -53,14 +54,72 @@ describe("AuthService", () => {
   });
 
   describe("login", () => {
-    it("should generate correct login URL", () => {
-      const loginUrl = authService.login("/dashboard");
+    it("should call login endpoint with query parameters", async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          loginUrl: "https://keycloak.example.com/auth?redirect=...",
+          state: "abc123",
+        },
+        timestamp: new Date().toISOString(),
+      };
+      mockHttpClient.request.mockResolvedValue(mockResponse);
 
-      expect(loginUrl).toContain(
-        "https://controller.aifabrix.ai/api/v1/auth/login",
+      const result = await authService.login({
+        redirect: "http://localhost:3000/callback",
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        "GET",
+        "/api/v1/auth/login",
+        undefined,
+        {
+          params: {
+            redirect: "http://localhost:3000/callback",
+          },
+        },
       );
-      expect(loginUrl).toContain("redirect=%2Fdashboard");
-      // No longer includes environment/application - backend extracts from client credentials
+    });
+
+    it("should include state parameter when provided", async () => {
+      const mockResponse = {
+        success: true,
+        data: {
+          loginUrl: "https://keycloak.example.com/auth?redirect=...",
+          state: "custom-state-123",
+        },
+        timestamp: new Date().toISOString(),
+      };
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await authService.login({
+        redirect: "http://localhost:3000/callback",
+        state: "custom-state-123",
+      });
+
+      expect(result).toEqual(mockResponse);
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        "GET",
+        "/api/v1/auth/login",
+        undefined,
+        {
+          params: {
+            redirect: "http://localhost:3000/callback",
+            state: "custom-state-123",
+          },
+        },
+      );
+    });
+
+    it("should throw error on failure", async () => {
+      mockHttpClient.request.mockRejectedValue(
+        new Error("Login failed: Network error"),
+      );
+
+      await expect(
+        authService.login({ redirect: "http://localhost:3000/callback" }),
+      ).rejects.toThrow("Login failed");
     });
   });
 
@@ -142,29 +201,76 @@ describe("AuthService", () => {
   });
 
   describe("logout", () => {
-    it("should call logout endpoint", async () => {
-      mockHttpClient.request.mockResolvedValue({});
+    it("should call logout endpoint with token in body", async () => {
+      const mockResponse = {
+        success: true,
+        message: "Logout successful",
+        timestamp: new Date().toISOString(),
+      };
+      mockHttpClient.request.mockResolvedValue(mockResponse);
 
-      await authService.logout();
+      const result = await authService.logout({ token: "test-token-123" });
 
+      expect(result).toEqual(mockResponse);
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         "POST",
         "/api/v1/auth/logout",
+        { token: "test-token-123" },
       );
     });
 
-    it("should throw error on failure", async () => {
-      mockHttpClient.request.mockRejectedValue(new Error("Logout failed"));
+    it("should return success response on 400 error (no active session)", async () => {
+      const error = new MisoClientError(
+        "No active session",
+        undefined,
+        {},
+        400,
+      );
 
-      await expect(authService.logout()).rejects.toThrow("Logout failed");
+      mockHttpClient.request.mockRejectedValue(error);
+
+      // Mock console.warn to suppress expected warning in test output
+      const consoleWarnSpy = jest
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
+
+      const result = await authService.logout({ token: "test-token-123" });
+
+      expect(result).toEqual({
+        success: true,
+        message: "Logout successful (no active session)",
+        timestamp: expect.any(String),
+      });
+
+      // Verify warning was logged
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Logout: No active session or invalid request (400)"),
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    it("should throw error on other failures", async () => {
+      const error = new MisoClientError(
+        "Internal server error",
+        undefined,
+        {},
+        500,
+      );
+
+      mockHttpClient.request.mockRejectedValue(error);
+
+      await expect(
+        authService.logout({ token: "test-token-123" }),
+      ).rejects.toThrow("Logout failed");
     });
 
     it("should handle non-Error thrown values", async () => {
       mockHttpClient.request.mockRejectedValue("String error");
 
-      await expect(authService.logout()).rejects.toThrow(
-        "Logout failed: Unknown error",
-      );
+      await expect(
+        authService.logout({ token: "test-token-123" }),
+      ).rejects.toThrow("Logout failed: Unknown error");
     });
   });
 

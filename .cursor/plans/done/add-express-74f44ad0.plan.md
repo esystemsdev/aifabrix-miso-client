@@ -1,4 +1,81 @@
-<!-- 74f44ad0-852f-4dae-bc06-a074ffb343ec b55e724f-61de-4293-8715-7a42f138d9f6 -->
+---
+name: Extract Express.js Utilities from Miso-Controller to Miso-Client
+overview: ""
+todos:
+  - id: c3826fb9-8c1a-4350-aff0-0d1bb6c0bb2b
+    content: Read all 9 source files from miso-controller
+    status: pending
+  - id: 3087d460-8d40-4c9e-8466-9ef1729f834e
+    content: Create src/express/ directory structure
+    status: pending
+  - id: a75cc951-9a3e-45f7-9db4-951fb38e51c6
+    content: Extract response-helper.ts, remove circular dependency
+    status: pending
+  - id: c52b43c5-5bf0-4629-956b-26087e1dcf26
+    content: Extract response-middleware.ts, update imports
+    status: pending
+  - id: f1dbe71d-5124-48ba-95c9-b135f3537354
+    content: Extract async-handler.ts, update imports
+    status: pending
+  - id: a7c5d01a-5442-4d1a-bd40-d4099845b9c4
+    content: Extract validation-helper.ts, update imports
+    status: pending
+  - id: 3992a4da-421d-405b-a8a0-e942f0decbe5
+    content: Extract error-types.ts from api.types.ts (AppError only)
+    status: pending
+  - id: 6a2b562a-4d59-4cfe-816d-81958aeadd4f
+    content: Extract error-handler.ts, remove LoggerService, remove Prisma
+    status: pending
+  - id: ab22c1d2-8a3f-4f64-b494-d9e89ff8c504
+    content: Extract error-response.ts, update imports
+    status: pending
+  - id: 96bc7df8-e1d2-4d84-b03c-3f86a28cccdb
+    content: Extract encryption.ts, replace EncryptionService
+    status: pending
+  - id: b374e717-8b3e-4c23-a45d-27eea8d89eef
+    content: Extract express.d.ts (Response only, no Request)
+    status: pending
+  - id: 9344e223-5a09-4e80-8eda-aa7ac8dcfae2
+    content: Add applySorting() function to src/utils/sort.utils.ts
+    status: pending
+  - id: 48f837ae-82f6-491f-8862-9dd2d1f3f59d
+    content: Verify parseSortParams() and applySorting() are exported in src/index.ts
+    status: pending
+  - id: ad1ee00c-37e9-4600-bf03-f7268004b30e
+    content: Create src/express/index.ts barrel export
+    status: pending
+  - id: 163c1663-52e4-4c7b-a72c-0e4023b8a27c
+    content: Update src/index.ts to export Express utilities
+    status: pending
+  - id: a2739e42-49ca-416a-ad18-2bcc1100ed62
+    content: Update package.json (peerDeps, devDeps, description)
+    status: pending
+  - id: 410e4662-d1e8-4dcd-889a-6e6e4f2a9d2c
+    content: Delete src/services/encryption.service.ts
+    status: pending
+  - id: ddbd4557-f79c-404a-a1c1-10fd05fdb682
+    content: Delete .github/workflows/npm-publish.yml (existing automatic workflow)
+    status: pending
+  - id: 23f4504d-12ec-400b-9f21-d9adb2a12006
+    content: Create 8 test files with 80%+ coverage (7 Express + 1 sort utilities)
+    status: pending
+  - id: ba94f13f-fe68-449a-b47f-df804415f4f4
+    content: Create GitHub workflows (version-bump, publish)
+    status: pending
+  - id: 2a3563c4-6a5e-492c-82ef-a92396d369c0
+    content: Create .npmignore and pre-publish check script
+    status: pending
+  - id: 9e4c143c-dcb3-4de6-bb6d-02b333cb7654
+    content: Update README.md with Express utilities docs
+    status: pending
+  - id: 30c1f096-09db-4b63-b451-3746e8c86917
+    content: Create CHANGELOG.md
+    status: pending
+  - id: 88d81e0f-f296-4f08-a82a-4dad92e77106
+    content: Run full validation (build, lint, test, coverage)
+    status: pending
+---
+
 # Extract Express.js Utilities from Miso-Controller to Miso-Client
 
 ## Overview
@@ -309,8 +386,8 @@ export function applySorting<T extends Record<string, unknown>>(
 
 1. **[`src/services/encryption.service.ts`](src/services/encryption.service.ts)** → Replace with `src/express/encryption.ts` (or `src/utils/encryption.ts`)
 
-            - Keep in utils for backward compatibility
-            - Export both from `src/express` and `src/utils`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Keep in utils for backward compatibility
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Export both from `src/express` and `src/utils`
 
 ### Files to DELETE:
 
@@ -871,14 +948,14 @@ After this extraction, miso-controller should:
 
 4. **Delete old utility files:**
 
-            - `src/utils/async-handler.util.ts`
-            - `src/utils/response.util.ts`
-            - `src/middleware/response-helpers.middleware.ts`
-            - `src/services/validation.helper.service.ts`
-            - `src/utils/error-handler.util.ts`
-            - `src/utils/error-response.util.ts`
-            - `src/utils/encryption.util.ts`
-            - Parts of `src/types/api.types.ts` (extract AppError, keep rest)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `src/utils/async-handler.util.ts`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `src/utils/response.util.ts`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `src/middleware/response-helpers.middleware.ts`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `src/services/validation.helper.service.ts`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `src/utils/error-handler.util.ts`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `src/utils/error-response.util.ts`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `src/utils/encryption.util.ts`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Parts of `src/types/api.types.ts` (extract AppError, keep rest)
 
 ---
 
@@ -886,11 +963,11 @@ After this extraction, miso-controller should:
 
 - **Read and analyze source files:** 1 hour
 - **Extract and adapt files (9 files):** 5 hours
-        - Response helpers: 1 hour
-        - Async handler: 30 minutes
-        - Validation helper: 1 hour
-        - Error handling (3 files): 2 hours
-        - Encryption: 30 minutes
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Response helpers: 1 hour
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Async handler: 30 minutes
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Validation helper: 1 hour
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Error handling (3 files): 2 hours
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Encryption: 30 minutes
 - **Replace EncryptionService:** 30 minutes
 - **Add applySorting() utility:** 30 minutes
 - **Tests (8 files):** 3.5 hours (7 Express + 1 sort utilities)
@@ -910,30 +987,3 @@ After this extraction, miso-controller should:
 - ❌ Extracting AI Fabrix-specific middleware (unified-auth, RBAC, audit)
 - ❌ Extracting Request type augmentation (AI Fabrix-specific)
 - ❌ Modifying miso-controller files (they handle their side separately)
-
-### To-dos
-
-- [ ] Read all 9 source files from miso-controller
-- [ ] Create src/express/ directory structure
-- [ ] Extract response-helper.ts, remove circular dependency
-- [ ] Extract response-middleware.ts, update imports
-- [ ] Extract async-handler.ts, update imports
-- [ ] Extract validation-helper.ts, update imports
-- [ ] Extract error-types.ts from api.types.ts (AppError only)
-- [ ] Extract error-handler.ts, remove LoggerService, remove Prisma
-- [ ] Extract error-response.ts, update imports
-- [ ] Extract encryption.ts, replace EncryptionService
-- [ ] Extract express.d.ts (Response only, no Request)
-- [ ] Add applySorting() function to src/utils/sort.utils.ts
-- [ ] Verify parseSortParams() and applySorting() are exported in src/index.ts
-- [ ] Create src/express/index.ts barrel export
-- [ ] Update src/index.ts to export Express utilities
-- [ ] Update package.json (peerDeps, devDeps, description)
-- [ ] Delete src/services/encryption.service.ts
-- [ ] Delete .github/workflows/npm-publish.yml (existing automatic workflow)
-- [ ] Create 8 test files with 80%+ coverage (7 Express + 1 sort utilities)
-- [ ] Create GitHub workflows (version-bump, publish)
-- [ ] Create .npmignore and pre-publish check script
-- [ ] Update README.md with Express utilities docs
-- [ ] Create CHANGELOG.md
-- [ ] Run full validation (build, lint, test, coverage)

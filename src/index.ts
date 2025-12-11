@@ -131,11 +131,18 @@ export class MisoClient {
   }
 
   /**
-   * Initiate login flow by redirecting to controller
-   * Returns the login URL for browser redirect or manual navigation
+   * Initiate login flow by calling controller
+   * Returns the login URL and state for browser redirect or manual navigation
+   * @param params - Login parameters
+   * @param params.redirect - Required callback URL where Keycloak redirects after authentication
+   * @param params.state - Optional CSRF protection token (auto-generated if omitted)
+   * @returns Login response with loginUrl and state
    */
-  login(redirectUri: string): string {
-    return this.auth.login(redirectUri);
+  async login(params: {
+    redirect: string;
+    state?: string;
+  }): Promise<import("./types/config.types").LoginResponse> {
+    return this.auth.login(params);
   }
 
   /**
@@ -188,9 +195,14 @@ export class MisoClient {
 
   /**
    * Logout user
+   * @param params - Logout parameters
+   * @param params.token - Access token to invalidate
+   * @returns Logout response with success message
    */
-  async logout(): Promise<void> {
-    return this.auth.logout();
+  async logout(params: {
+    token: string;
+  }): Promise<import("./types/config.types").LogoutResponse> {
+    return this.auth.logout(params);
   }
 
   // ==================== AUTHORIZATION METHODS ====================
