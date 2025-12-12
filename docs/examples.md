@@ -260,16 +260,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, [client]);
 
-  const login = () => {
-    client.login(window.location.href);
+  const login = async () => {
+    try {
+      const response = await client.login({ redirect: window.location.href });
+      // Redirect to login URL
+      window.location.href = response.data.loginUrl;
+    } catch (error) {
+      console.error('Login error:', error);
+    }
   };
 
   const logout = async () => {
     try {
-      await client.logout();
-      await client.log.audit('user.logout', 'authentication', {
-        userId: user?.id,
-      });
+      const token = localStorage.getItem('auth_token');
+      if (token) {
+        await client.logout({ token });
+        await client.log.audit('user.logout', 'authentication', {
+          userId: user?.id,
+        });
+      }
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
