@@ -30,6 +30,7 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 - Token revocation support
 - Secure token storage
 - Data encryption/decryption (AES-256-GCM)
+- **Authenticated redirect validation**: Login redirect URLs are validated server-side against registered app domains. All redirect requests require valid client credentials, preventing open redirect attacks and making it very difficult to use wrong redirect URLs.
 
 ### 📊 Compliance & Audit
 

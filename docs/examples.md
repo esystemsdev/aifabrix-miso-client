@@ -262,9 +262,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async () => {
     try {
-      const response = await client.login({ redirect: window.location.href });
-      // Redirect to login URL
+      // Redirect to dashboard after login - miso-controller handles OAuth callback internally
+      const response = await client.login({ redirect: 'https://myapp.com/dashboard' });
+      // Redirect user to Keycloak login page
       window.location.href = response.data.loginUrl;
+      // After authentication, controller redirects to https://myapp.com/dashboard
     } catch (error) {
       console.error('Login error:', error);
     }
