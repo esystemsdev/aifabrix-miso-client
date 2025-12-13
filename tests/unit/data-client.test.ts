@@ -24,6 +24,14 @@ jest.mock("../../src/index", () => {
     getDefaultAuthStrategy: jest.fn().mockReturnValue({
       methods: ["bearer", "client-token"],
     }),
+    login: jest.fn().mockResolvedValue({
+      success: true,
+      data: {
+        loginUrl: "https://keycloak.example.com/auth?redirect=...",
+        state: "abc123",
+      },
+      timestamp: new Date().toISOString(),
+    }),
   });
 
   return {
@@ -50,7 +58,7 @@ jest.mock("jsonwebtoken", () => ({
 // Mock browser APIs
 let mockLocalStorage: Record<string, string> = {};
 const mockWindow = {
-  location: { href: "" },
+  location: { href: "", origin: "https://example.com" },
 };
 const mockFetch = jest.fn();
 
@@ -170,18 +178,88 @@ describe("DataClient", () => {
       expect(dataClient.isAuthenticated()).toBe(false);
     });
 
-    it("should redirect to login", () => {
-      dataClient.redirectToLogin();
-      expect(mockWindow.location.href).toBe("/login");
+    it("should redirect to login via controller", async () => {
+      mockWindow.location.href = "https://example.com/current-page";
+      const misoClientInstance = (dataClient as any).misoClient;
+      
+      await dataClient.redirectToLogin();
+      
+      expect(misoClientInstance.login).toHaveBeenCalledWith({
+        redirect: "https://example.com/current-page",
+      });
+      expect(mockWindow.location.href).toBe("https://keycloak.example.com/auth?redirect=...");
     });
 
-    it("should redirect to custom login URL", () => {
-      const client = new DataClient({
-        ...config,
-        loginUrl: "/custom-login",
+    it("should redirect to login with custom redirect URL", async () => {
+      mockWindow.location.href = "https://example.com/current-page";
+      const misoClientInstance = (dataClient as any).misoClient;
+      
+      await dataClient.redirectToLogin("https://example.com/dashboard");
+      
+      expect(misoClientInstance.login).toHaveBeenCalledWith({
+        redirect: "https://example.com/dashboard",
       });
-      client.redirectToLogin();
-      expect(mockWindow.location.href).toBe("/custom-login");
+      expect(mockWindow.location.href).toBe("https://keycloak.example.com/auth?redirect=...");
+    });
+
+    it("should fallback to static loginUrl when misoClient is not available", async () => {
+      const client = new DataClient({
+        baseUrl: "https://api.example.com",
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "test-client",
+        },
+      });
+      // Manually set misoClient to null to test fallback
+      (client as any).misoClient = null;
+      
+      await client.redirectToLogin();
+      
+      expect(mockWindow.location.href).toBe("https://example.com/login");
+    });
+
+    it("should fallback to custom static loginUrl when misoClient is not available", async () => {
+      const client = new DataClient({
+        baseUrl: "https://api.example.com",
+        loginUrl: "/custom-login",
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "test-client",
+        },
+      });
+      // Manually set misoClient to null to test fallback
+      (client as any).misoClient = null;
+      
+      await client.redirectToLogin();
+      
+      expect(mockWindow.location.href).toBe("https://example.com/custom-login");
+    });
+
+    it("should fallback to static loginUrl when controller login fails", async () => {
+      mockWindow.location.href = "https://example.com/current-page";
+      const misoClientInstance = (dataClient as any).misoClient;
+      (misoClientInstance.login as jest.Mock).mockRejectedValue(new Error("Controller error"));
+      
+      await dataClient.redirectToLogin();
+      
+      expect(mockWindow.location.href).toBe("https://example.com/login");
+    });
+
+    it("should fallback when controller returns no loginUrl", async () => {
+      mockWindow.location.href = "https://example.com/current-page";
+      const misoClientInstance = (dataClient as any).misoClient;
+      (misoClientInstance.login as jest.Mock).mockResolvedValue({
+        success: true,
+        data: {
+          state: "abc123",
+          // No loginUrl
+        },
+        timestamp: new Date().toISOString(),
+      });
+      
+      await dataClient.redirectToLogin();
+      
+      expect(mockWindow.location.href).toBe("https://example.com/login");
     });
   });
 
@@ -501,6 +579,7 @@ describe("DataClient", () => {
     }, 10000);
 
     it("should throw AuthenticationError on 401", async () => {
+      mockWindow.location.href = "https://example.com/current-page";
       mockFetch.mockResolvedValue({
         ok: false,
         status: 401,
@@ -511,7 +590,10 @@ describe("DataClient", () => {
       await expect(dataClient.get("/api/users")).rejects.toThrow(
         AuthenticationError,
       );
-      expect(mockWindow.location.href).toBe("/login");
+      // Wait for async redirect to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Should redirect to controller login URL
+      expect(mockWindow.location.href).toBe("https://keycloak.example.com/auth?redirect=...");
     }, 10000);
   });
 

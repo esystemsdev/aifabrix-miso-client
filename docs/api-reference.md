@@ -371,16 +371,33 @@ if (dataClient.isAuthenticated()) {
 }
 ```
 
-#### `redirectToLogin(): void`
+#### `redirectToLogin(redirectUrl?: string): Promise<void>`
 
-Redirect to login page.
+Redirect to login page via controller. Calls the controller's login endpoint with the current page URL (or provided redirect URL) as the redirect parameter, then redirects to the controller's login URL for proper OAuth flow handling.
+
+**Parameters:**
+
+- `redirectUrl` - Optional redirect URL to return to after login (defaults to current page URL: `window.location.href`)
+
+**How it works:**
+
+1. Calls `misoClient.login({ redirect: redirectUrl || currentUrl })` to get controller login URL
+2. Redirects browser to the controller's login URL
+3. Controller handles OAuth flow and redirects back to the specified URL after authentication
+4. Falls back to static `loginUrl` config if misoClient is unavailable or controller call fails
 
 **Example:**
 
 ```typescript
+// Redirect with current page as redirect (default)
 if (!dataClient.isAuthenticated()) {
-  dataClient.redirectToLogin();
+  await dataClient.redirectToLogin();
 }
+
+// Redirect with custom redirect URL
+await dataClient.redirectToLogin('https://myapp.com/dashboard');
+
+// After authentication, controller redirects to the specified URL
 ```
 
 #### `setInterceptors(config: InterceptorConfig): void`

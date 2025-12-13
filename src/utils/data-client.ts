@@ -209,12 +209,51 @@ export class DataClient {
   }
 
   /**
-   * Redirect to login page
+   * Redirect to login page via controller
+   * Calls the controller login endpoint with redirect parameter
+   * @param redirectUrl - Optional redirect URL to return to after login (defaults to current page URL)
    */
-  redirectToLogin(): void {
+  async redirectToLogin(redirectUrl?: string): Promise<void> {
     if (!isBrowser()) return;
-    const loginUrl = this.config.loginUrl || "/login";
-    (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = loginUrl;
+    
+    // If misoClient is not available, fallback to static loginUrl
+    if (!this.misoClient) {
+      const loginUrl = this.config.loginUrl || "/login";
+      const fullUrl = /^https?:\/\//i.test(loginUrl)
+        ? loginUrl
+        : `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}${loginUrl.startsWith("/") ? loginUrl : `/${loginUrl}`}`;
+      (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fullUrl;
+      return;
+    }
+
+    try {
+      // Get redirect URL - use provided URL or current page URL
+      const currentUrl = (globalThis as unknown as { window: { location: { href: string } } }).window.location.href;
+      const finalRedirectUrl = redirectUrl || currentUrl;
+      
+      // Call controller login endpoint with redirect parameter
+      const response = await this.misoClient.login({ redirect: finalRedirectUrl });
+      
+      // Redirect to the login URL returned by controller
+      if (response.data?.loginUrl) {
+        (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = response.data.loginUrl;
+      } else {
+        // Fallback if loginUrl not in response
+        const loginUrl = this.config.loginUrl || "/login";
+        const fullUrl = /^https?:\/\//i.test(loginUrl)
+          ? loginUrl
+          : `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}${loginUrl.startsWith("/") ? loginUrl : `/${loginUrl}`}`;
+        (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fullUrl;
+      }
+    } catch (error) {
+      // On error, fallback to static loginUrl
+      console.error("Failed to get login URL from controller:", error);
+      const loginUrl = this.config.loginUrl || "/login";
+      const fullUrl = /^https?:\/\//i.test(loginUrl)
+        ? loginUrl
+        : `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}${loginUrl.startsWith("/") ? loginUrl : `/${loginUrl}`}`;
+      (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fullUrl;
+    }
   }
 
   /**
@@ -773,7 +812,10 @@ export class DataClient {
    */
   private handleAuthError(): void {
     if (isBrowser()) {
-      this.redirectToLogin();
+      // Fire and forget - redirect doesn't need to complete before throwing error
+      this.redirectToLogin().catch((error) => {
+        console.error("Failed to redirect to login:", error);
+      });
     }
   }
 

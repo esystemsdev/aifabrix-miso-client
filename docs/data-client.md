@@ -445,27 +445,39 @@ if (dataClient.isAuthenticated()) {
   // User is authenticated
   const users = await dataClient.get('/api/users');
 } else {
-  // Redirect to login
-  dataClient.redirectToLogin();
+  // Redirect to login via controller
+  await dataClient.redirectToLogin();
+  // After authentication, user will be redirected back to current page
 }
+```
+
+### Redirect to Login with Custom URL
+
+```typescript
+// Redirect to login and return to dashboard after authentication
+await dataClient.redirectToLogin('https://myapp.com/dashboard');
+
+// Controller handles OAuth flow and redirects to dashboard after login
 ```
 
 ### Automatic Login Redirect
 
-DataClient automatically redirects to the login page on 401 errors:
+DataClient automatically redirects to the login page on 401 errors via the controller:
 
 ```typescript
 const dataClient = new DataClient({
   baseUrl: 'https://api.example.com',
   misoConfig: { /* ... */ },
-  loginUrl: '/login', // Custom login URL
+  loginUrl: '/login', // Fallback login URL if controller unavailable
 });
 
-// On 401 error, automatically redirects to /login
+// On 401 error, automatically calls controller login endpoint
+// and redirects to controller's login URL
 try {
   await dataClient.get('/api/protected');
 } catch (error) {
-  // User will be redirected to /login
+  // User will be redirected to controller login URL
+  // After authentication, controller redirects back to current page
 }
 ```
 
@@ -1010,7 +1022,7 @@ Creates a new DataClient instance.
 ##### Utility Methods
 
 - `isAuthenticated(): boolean` - Check if user is authenticated
-- `redirectToLogin(): void` - Redirect to login page
+- `redirectToLogin(redirectUrl?: string): Promise<void>` - Redirect to login page via controller with optional redirect URL
 - `setInterceptors(config: InterceptorConfig): void` - Configure interceptors
 - `setAuditConfig(config: Partial<AuditConfig>): void` - Update audit configuration
 - `clearCache(): void` - Clear all cached responses
