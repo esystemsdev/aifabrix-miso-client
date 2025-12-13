@@ -44,10 +44,19 @@ export interface AuthStrategy {
 }
 
 export interface MisoClientConfig {
-  // REQUIRED: Only these 3 fields needed
+  // REQUIRED: Only these 3 fields needed (unless using client token pattern)
   controllerUrl: string;
   clientId: string;
-  clientSecret: string;
+  clientSecret?: string; // Optional if using clientToken pattern
+
+  // Optional: Pre-obtained client token (for browser usage - avoids exposing clientSecret)
+  clientToken?: string;
+  
+  // Optional: Client token expiration time
+  clientTokenExpiresAt?: Date | string;
+  
+  // Optional: Callback to refresh client token when expired (for browser usage)
+  onClientTokenRefresh?: () => Promise<{ token: string; expiresIn: number }>;
 
   // Optional: Redis for caching
   redis?: RedisConfig;

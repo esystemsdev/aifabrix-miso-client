@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-12-13
+
+### Added
+
+- **DataClient Browser Wrapper** - Browser-compatible HTTP client wrapper around MisoClient
+  - Enhanced HTTP client capabilities for React/front-end applications
+  - ISO 27001 compliant audit logging with configurable levels (minimal, standard, detailed, full)
+  - Automatic sensitive data masking using DataMasker before audit logging
+  - Request/response interceptors for custom request/response transformation
+  - Response caching with configurable TTL and cache size limits
+  - Automatic retry logic with exponential backoff for retryable errors
+  - Request deduplication for concurrent duplicate requests
+  - Request metrics tracking (response times, error rates, cache hit rates)
+  - Custom error types (NetworkError, TimeoutError, AuthenticationError)
+  - Browser compatibility checks with SSR support
+  - Token management from localStorage with multiple key support
+  - Automatic login redirect on authentication errors
+  - Support for all HTTP methods (GET, POST, PUT, PATCH, DELETE)
+  - Request cancellation via AbortController
+  - Per-request timeout support
+  - Integration with MisoClient for authentication and audit logging
+  - **Client Token Pattern** - Secure browser usage without exposing clientSecret
+    - Support for server-provided client tokens (`clientToken`, `clientTokenExpiresAt`)
+    - Token refresh callback pattern (`onClientTokenRefresh`) for browser applications
+    - Automatic token refresh with proactive expiration handling (60s buffer)
+    - Memory-only token storage (never persisted to localStorage)
+
+### Changed
+
+- **MisoClientConfig** - `clientSecret` is now optional when using client token pattern
+  - Added `clientToken?: string` - Pre-obtained client token for browser usage
+  - Added `clientTokenExpiresAt?: Date | string` - Token expiration tracking
+  - Added `onClientTokenRefresh?: () => Promise<{ token: string; expiresIn: number }>` - Refresh callback
+  - `InternalHttpClient` now supports both clientSecret (server-side) and clientToken (browser) patterns
+
 ## [2.1.2] - 2025-12-11
 
 ### Added

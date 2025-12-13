@@ -30,6 +30,17 @@ export class InternalHttpClient {
   constructor(config: MisoClientConfig) {
     this.config = config;
 
+    // Initialize client token from config if provided
+    if (config.clientToken) {
+      this.clientToken = config.clientToken;
+      if (config.clientTokenExpiresAt) {
+        this.tokenExpiresAt =
+          typeof config.clientTokenExpiresAt === "string"
+            ? new Date(config.clientTokenExpiresAt)
+            : config.clientTokenExpiresAt;
+      }
+    }
+
     this.axios = axios.create({
       baseURL: config.controllerUrl,
       timeout: 30000,
@@ -83,6 +94,7 @@ export class InternalHttpClient {
   /**
    * Get client token, fetching if needed
    * Proactively refreshes if token will expire within 60 seconds
+   * Supports client token refresh callback pattern for browser usage
    */
   private async getClientToken(): Promise<string | null> {
     const now = new Date();
@@ -101,13 +113,62 @@ export class InternalHttpClient {
       return this.tokenRefreshPromise;
     }
 
-    // Fetch new token (either expired or about to expire soon)
-    this.tokenRefreshPromise = this.fetchClientToken();
+    // Check if we have a refresh callback (browser pattern)
+    if (this.config.onClientTokenRefresh) {
+      this.tokenRefreshPromise = this.refreshClientTokenFromCallback();
+      try {
+        const token = await this.tokenRefreshPromise;
+        return token;
+      } finally {
+        this.tokenRefreshPromise = null;
+      }
+    }
+
+    // Fallback: Fetch new token using clientSecret (server-side only)
+    if (this.config.clientSecret) {
+      this.tokenRefreshPromise = this.fetchClientToken();
+      try {
+        const token = await this.tokenRefreshPromise;
+        return token;
+      } finally {
+        this.tokenRefreshPromise = null;
+      }
+    }
+
+    // No clientSecret and no refresh callback - return null
+    return null;
+  }
+
+  /**
+   * Refresh client token using callback (for browser usage)
+   */
+  private async refreshClientTokenFromCallback(): Promise<string> {
+    if (!this.config.onClientTokenRefresh) {
+      throw new Error(
+        "Client token expired and no refresh callback provided",
+      );
+    }
+
     try {
-      const token = await this.tokenRefreshPromise;
-      return token;
-    } finally {
-      this.tokenRefreshPromise = null;
+      const result = await this.config.onClientTokenRefresh();
+
+      // Update token and expiration
+      this.clientToken = result.token;
+
+      if (result.expiresIn) {
+        // Set expiration with 30 second buffer before actual expiration
+        const bufferExpiresIn = result.expiresIn - 30;
+        this.tokenExpiresAt = new Date(
+          Date.now() + bufferExpiresIn * 1000,
+        );
+      }
+
+      return this.clientToken;
+    } catch (error) {
+      // Clear token on refresh failure
+      this.clientToken = null;
+      this.tokenExpiresAt = null;
+      throw error;
     }
   }
 
@@ -122,9 +183,15 @@ export class InternalHttpClient {
   }
 
   /**
-   * Fetch client token from controller
+   * Fetch client token from controller using clientSecret (server-side only)
    */
   private async fetchClientToken(): Promise<string> {
+    if (!this.config.clientSecret) {
+      throw new Error(
+        "Cannot fetch client token: clientSecret is required but not provided",
+      );
+    }
+
     const correlationId = this.generateCorrelationId();
     const clientId = this.config.clientId;
 

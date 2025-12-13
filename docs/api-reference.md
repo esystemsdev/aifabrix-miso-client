@@ -5,6 +5,7 @@ Complete reference documentation for the AI Fabrix Miso Client SDK.
 ## Table of Contents
 
 - [MisoClient](#misoclient)
+- [DataClient](#dataclient)
 - [Configuration Types](#configuration-types)
 - [Authentication Methods](#authentication-methods)
 - [Authorization Methods](#authorization-methods)
@@ -90,6 +91,535 @@ if (client.isInitialized()) {
   // Client is ready to use
 }
 ```
+
+## DataClient
+
+The DataClient is a browser-compatible HTTP client wrapper around MisoClient that provides enhanced HTTP capabilities for React, Vue, Angular, and other front-end applications.
+
+### ⚠️ Security Warning: Browser Usage
+
+**IMPORTANT:** Never expose `clientSecret` in browser/client-side code. Client secrets are sensitive credentials that should only be used in server-side environments.
+
+For browser applications, use the **Server-Provided Client Token Pattern** (see [Authentication](#dataclient-authentication) section below).
+
+### Constructor
+
+```typescript
+constructor(config: DataClientConfig)
+```
+
+Creates a new DataClient instance with the provided configuration.
+
+**Parameters:**
+
+- `config` - Configuration object (see [DataClient Configuration Types](#dataclient-configuration-types))
+
+**Browser-Safe Example (Recommended):**
+
+```typescript
+import { DataClient } from '@aifabrix/miso-client';
+
+// Server provides client token (see Authentication section)
+const initialClientToken = window.INITIAL_CLIENT_TOKEN; // From server
+const tokenExpiresAt = window.INITIAL_CLIENT_TOKEN_EXPIRES_AT;
+
+// Create DataClient instance WITHOUT clientSecret
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: 'https://controller.aifabrix.ai',
+    clientId: 'ctrl-dev-my-app',
+    // ❌ DO NOT include clientSecret in browser code
+    
+    // ✅ Use server-provided token
+    clientToken: initialClientToken,
+    clientTokenExpiresAt: tokenExpiresAt,
+    
+    // ✅ Refresh callback calls your server endpoint
+    onClientTokenRefresh: async () => {
+      const response = await fetch('/api/client-token', {
+        credentials: 'include', // Include cookies for auth
+      });
+      return await response.json(); // { token: string, expiresIn: number }
+    },
+  },
+});
+```
+
+**Server-Side Only Example:**
+
+```typescript
+// ✅ SAFE: Server-side only (Node.js/Express)
+import { DataClient } from '@aifabrix/miso-client';
+
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: 'https://controller.aifabrix.ai',
+    clientId: 'ctrl-dev-my-app',
+    clientSecret: process.env.MISO_CLIENTSECRET, // ✅ Safe in server environment
+  },
+});
+```
+
+### HTTP Methods
+
+#### `get<T>(endpoint: string, options?: ApiRequestOptions): Promise<T>`
+
+Make a GET request with caching support.
+
+**Parameters:**
+
+- `endpoint` - API endpoint path
+- `options` - Optional request options (see [ApiRequestOptions](#apirequestoptions))
+
+**Returns:** Promise resolving to response data
+
+**Example:**
+
+```typescript
+const users = await dataClient.get<User[]>('/api/users');
+```
+
+#### `post<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T>`
+
+Make a POST request.
+
+**Parameters:**
+
+- `endpoint` - API endpoint path
+- `data` - Request body data (will be JSON stringified)
+- `options` - Optional request options
+
+**Returns:** Promise resolving to response data
+
+**Example:**
+
+```typescript
+const newUser = await dataClient.post<User>('/api/users', {
+  name: 'John Doe',
+  email: 'john@example.com',
+});
+```
+
+#### `put<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T>`
+
+Make a PUT request.
+
+**Example:**
+
+```typescript
+const updatedUser = await dataClient.put<User>('/api/users/123', {
+  name: 'Jane Doe',
+});
+```
+
+#### `patch<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T>`
+
+Make a PATCH request.
+
+**Example:**
+
+```typescript
+const patchedUser = await dataClient.patch<User>('/api/users/123', {
+  email: 'newemail@example.com',
+});
+```
+
+#### `delete<T>(endpoint: string, options?: ApiRequestOptions): Promise<T>`
+
+Make a DELETE request.
+
+**Example:**
+
+```typescript
+await dataClient.delete('/api/users/123');
+```
+
+### Authentication {#dataclient-authentication}
+
+#### ⚠️ Security: Client Token Pattern for Browser
+
+For browser applications, use the **Server-Provided Client Token Pattern** to avoid exposing `clientSecret`:
+
+**Server-Side: Token Refresh Endpoint**
+
+```typescript
+// Server: Express.js example
+import express from 'express';
+import { MisoClient } from '@aifabrix/miso-client';
+
+const app = express();
+
+// Secure token refresh endpoint
+app.get('/api/client-token', 
+  authenticateUser,           // ✅ User must be authenticated
+  rateLimit({ window: '15m', max: 10 }), // ✅ Rate limiting
+  async (req, res) => {
+    // Server uses clientSecret securely
+    const serverClient = new MisoClient({
+      controllerUrl: 'https://controller.aifabrix.ai',
+      clientId: 'ctrl-dev-my-app',
+      clientSecret: process.env.MISO_CLIENTSECRET, // ✅ Environment variable
+    });
+    
+    const token = await serverClient.getEnvironmentToken();
+    
+    // Return token with short expiration for browser
+    res.json({
+      token: token,
+      expiresIn: 1800, // 30 minutes (shorter than server-side)
+    });
+  }
+);
+
+// Initial page load: Provide token to browser
+app.get('/', authenticateUser, async (req, res) => {
+  const serverClient = new MisoClient({
+    controllerUrl: 'https://controller.aifabrix.ai',
+    clientId: 'ctrl-dev-my-app',
+    clientSecret: process.env.MISO_CLIENTSECRET,
+  });
+  
+  const token = await serverClient.getEnvironmentToken();
+  
+  res.render('index', {
+    initialClientToken: token,
+    initialClientTokenExpiresAt: Date.now() + 1800000, // 30 minutes
+  });
+});
+```
+
+**Browser-Side: Use Client Token**
+
+```typescript
+// Browser: Use server-provided token
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: 'https://controller.aifabrix.ai',
+    clientId: 'ctrl-dev-my-app',
+    // ❌ NO clientSecret
+    
+    // Initial token from server
+    clientToken: window.INITIAL_CLIENT_TOKEN,
+    clientTokenExpiresAt: new Date(window.INITIAL_CLIENT_TOKEN_EXPIRES_AT),
+    
+    // Refresh callback - calls your server endpoint
+    onClientTokenRefresh: async () => {
+      const response = await fetch('/api/client-token', {
+        credentials: 'include', // Include cookies for user auth
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to refresh client token');
+      }
+      
+      return await response.json(); // { token: string, expiresIn: number }
+    },
+  },
+});
+```
+
+#### User Token Management
+
+DataClient automatically retrieves user authentication tokens from `localStorage` using configurable keys:
+
+```typescript
+// Default token keys: ['token', 'accessToken', 'authToken']
+// DataClient checks these keys in order
+
+// Store token in localStorage
+localStorage.setItem('token', 'your-jwt-token');
+
+// DataClient automatically uses the token for authenticated requests
+const users = await dataClient.get('/api/users');
+```
+
+#### Custom Token Keys
+
+```typescript
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  tokenKeys: ['myAppToken', 'authToken'], // Custom token keys
+});
+```
+
+#### Skip Authentication
+
+```typescript
+// Make unauthenticated request
+const publicData = await dataClient.get('/api/public', {
+  skipAuth: true,
+});
+```
+
+### Utility Methods
+
+#### `isAuthenticated(): boolean`
+
+Check if user is authenticated (token exists in localStorage).
+
+**Returns:** `true` if authenticated, `false` otherwise
+
+**Example:**
+
+```typescript
+if (dataClient.isAuthenticated()) {
+  const users = await dataClient.get('/api/users');
+}
+```
+
+#### `redirectToLogin(): void`
+
+Redirect to login page.
+
+**Example:**
+
+```typescript
+if (!dataClient.isAuthenticated()) {
+  dataClient.redirectToLogin();
+}
+```
+
+#### `setInterceptors(config: InterceptorConfig): void`
+
+Configure request/response/error interceptors.
+
+**Parameters:**
+
+- `config` - Interceptor configuration (see [InterceptorConfig](#interceptorconfig))
+
+**Example:**
+
+```typescript
+dataClient.setInterceptors({
+  onRequest: async (url, options) => {
+    return { ...options, headers: { ...options.headers, 'X-Custom': 'value' } };
+  },
+  onResponse: async (response, data) => {
+    return { ...data, timestamp: Date.now() };
+  },
+  onError: async (error) => {
+    console.error('Request failed:', error);
+    return error;
+  },
+});
+```
+
+#### `setAuditConfig(config: Partial<AuditConfig>): void`
+
+Update audit logging configuration.
+
+**Parameters:**
+
+- `config` - Partial audit configuration
+
+**Example:**
+
+```typescript
+dataClient.setAuditConfig({
+  level: 'detailed',
+  maxResponseSize: 20000,
+});
+```
+
+#### `clearCache(): void`
+
+Clear all cached responses.
+
+**Example:**
+
+```typescript
+dataClient.clearCache();
+```
+
+#### `getMetrics(): RequestMetrics`
+
+Get request metrics.
+
+**Returns:** Request metrics object (see [RequestMetrics](#requestmetrics))
+
+**Example:**
+
+```typescript
+const metrics = dataClient.getMetrics();
+console.log('Total requests:', metrics.totalRequests);
+console.log('Error rate:', metrics.errorRate);
+console.log('Cache hit rate:', metrics.cacheHitRate);
+```
+
+### DataClient Configuration Types
+
+#### `DataClientConfig`
+
+Configuration for DataClient instance.
+
+```typescript
+interface DataClientConfig {
+  baseUrl: string;
+  misoConfig: MisoClientConfig;
+  tokenKeys?: string[];
+  loginUrl?: string;
+  cache?: CacheConfig;
+  retry?: RetryConfig;
+  audit?: AuditConfig;
+  timeout?: number;
+  defaultHeaders?: Record<string, string>;
+}
+```
+
+**Security Notes:**
+
+- **Browser Applications:** Use `clientToken` and `onClientTokenRefresh` in `misoConfig` instead of `clientSecret`
+- **Server Applications:** Can safely use `clientSecret` in `misoConfig` (stored in environment variables)
+- See [Authentication](#dataclient-authentication) section for the Client Token Pattern
+
+**MisoClientConfig Browser-Safe Fields:**
+
+```typescript
+interface MisoClientConfig {
+  controllerUrl: string;
+  clientId: string;
+  // ❌ DO NOT use clientSecret in browser code
+  clientSecret?: string; // Server-side only
+  
+  // ✅ Browser-safe: Server-provided client token
+  clientToken?: string;
+  clientTokenExpiresAt?: Date | number;
+  onClientTokenRefresh?: () => Promise<{ token: string; expiresIn: number }>;
+  
+  // ... other fields
+}
+```
+
+#### `ApiRequestOptions`
+
+Extended RequestInit with DataClient-specific options.
+
+```typescript
+interface ApiRequestOptions extends RequestInit {
+  skipAuth?: boolean;
+  retries?: number;
+  signal?: AbortSignal;
+  timeout?: number;
+  cache?: {
+    enabled?: boolean;
+    ttl?: number;
+    key?: string;
+  };
+  skipAudit?: boolean;
+}
+```
+
+#### `InterceptorConfig`
+
+Configuration for request/response/error interceptors.
+
+```typescript
+interface InterceptorConfig {
+  onRequest?: RequestInterceptor;
+  onResponse?: ResponseInterceptor;
+  onError?: ErrorInterceptor;
+}
+```
+
+#### `RequestMetrics`
+
+Request metrics structure.
+
+```typescript
+interface RequestMetrics {
+  totalRequests: number;
+  totalFailures: number;
+  averageResponseTime: number;
+  responseTimeDistribution: {
+    min: number;
+    max: number;
+    p50: number;
+    p95: number;
+    p99: number;
+  };
+  errorRate: number;
+  cacheHitRate: number;
+}
+```
+
+#### `CacheConfig`
+
+Cache configuration.
+
+```typescript
+interface CacheConfig {
+  enabled?: boolean;
+  defaultTTL?: number;
+  maxSize?: number;
+}
+```
+
+#### `RetryConfig`
+
+Retry configuration.
+
+```typescript
+interface RetryConfig {
+  enabled?: boolean;
+  maxRetries?: number;
+  baseDelay?: number;
+  maxDelay?: number;
+}
+```
+
+### DataClient Error Types
+
+#### `NetworkError`
+
+Thrown on network failures (connection errors, CORS issues, etc.).
+
+```typescript
+class NetworkError extends ApiError {
+  constructor(message: string, originalError?: Error);
+}
+```
+
+#### `TimeoutError`
+
+Thrown when a request exceeds the timeout.
+
+```typescript
+class TimeoutError extends ApiError {
+  constructor(message: string, timeout: number);
+}
+```
+
+#### `AuthenticationError`
+
+Thrown on 401 Unauthorized responses.
+
+```typescript
+class AuthenticationError extends ApiError {
+  constructor(message: string, response?: Response);
+}
+```
+
+#### `ApiError`
+
+Base error class for API errors.
+
+```typescript
+class ApiError extends Error {
+  statusCode?: number;
+  response?: Response;
+  originalError?: Error;
+}
+```
+
+**See Also:**
+
+- [DataClient Documentation](./data-client.md) - Complete DataClient guide with examples and security best practices
+- [DataClient Examples](./examples.md#dataclient-examples) - Code examples
+- [DataClient Security Guide](./data-client.md#authentication) - Browser security patterns and Client Token Pattern
 
 ## Configuration Types
 

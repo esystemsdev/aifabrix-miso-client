@@ -96,6 +96,7 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 - Works with any framework (Express, Next.js, NestJS, Fastify)
 - TypeScript-first with full type definitions
 - Browser and Node.js support
+- **DataClient Browser Wrapper** - Enhanced HTTP client for React/Vue/Angular with ISO 27001 audit logging, caching, retry logic, and more
 
 **Flexible Configuration**
 
@@ -150,6 +151,49 @@ const isValid = await client.auth.validateToken(token);
 → [Full Getting Started Guide](docs/getting-started.md)  
 → [Environment configuration example](examples/env-config-example.ts)  
 → [Manual configuration example](examples/manual-config-example.ts)
+
+### Browser/Frontend Usage (DataClient)
+
+For React, Vue, Angular, or other front-end applications, use **DataClient** - a browser-compatible HTTP client wrapper with ISO 27001 audit logging, caching, retry logic, and more:
+
+**⚠️ Security Warning:** Never expose `clientSecret` in browser/client-side code. Use the Server-Provided Client Token Pattern instead.
+
+```typescript
+import { DataClient } from '@aifabrix/miso-client';
+
+// Server provides client token (from initial page load or API endpoint)
+const initialClientToken = window.INITIAL_CLIENT_TOKEN; // From server
+const tokenExpiresAt = window.INITIAL_CLIENT_TOKEN_EXPIRES_AT;
+
+// Browser-safe configuration WITHOUT clientSecret
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: 'https://controller.aifabrix.ai',
+    clientId: 'ctrl-dev-my-app',
+    // ❌ DO NOT include clientSecret in browser code
+    
+    // ✅ Use server-provided token
+    clientToken: initialClientToken,
+    clientTokenExpiresAt: tokenExpiresAt,
+    
+    // ✅ Refresh callback calls your server endpoint
+    onClientTokenRefresh: async () => {
+      const response = await fetch('/api/client-token', {
+        credentials: 'include', // Include cookies for auth
+      });
+      return await response.json(); // { token: string, expiresIn: number }
+    },
+  },
+});
+
+// Make authenticated requests with automatic audit logging
+const users = await dataClient.get('/api/users');
+const newUser = await dataClient.post('/api/users', { name: 'John' });
+```
+
+→ [DataClient Documentation](docs/data-client.md) - Includes security guide and Client Token Pattern  
+→ [DataClient API Reference](docs/api-reference.md#dataclient)
 
 ---
 

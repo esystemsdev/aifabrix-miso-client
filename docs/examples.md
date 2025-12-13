@@ -6,6 +6,7 @@ Practical examples demonstrating how to use the AI Fabrix Miso Client SDK in var
 
 - [Express.js Middleware](#expressjs-middleware)
 - [React Authentication](#react-authentication)
+- [DataClient Browser Wrapper](#dataclient-browser-wrapper)
 - [Next.js API Routes](#nextjs-api-routes)
 - [NestJS Guards](#nestjs-guards)
 - [Fastify Plugin](#fastify-plugin)

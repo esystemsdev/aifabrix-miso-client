@@ -508,6 +508,7 @@ app.post('/create-post', authMiddleware, async (req, res) => {
 
 - **[Express.js Middleware](examples.md#expressjs-middleware)** - Complete Express setup
 - **[React Authentication](examples.md#react-authentication)** - Frontend auth
+- **[DataClient Browser Wrapper](data-client.md)** - Enhanced HTTP client for React/Vue/Angular with ISO 27001 audit logging
 - **[Next.js API Routes](examples.md#nextjs-api-routes)** - Server-side rendering
 - **[NestJS Guards](examples.md#nestjs-guards)** - Decorator-based auth
 
@@ -538,7 +539,7 @@ A: No, but highly recommended. Without Redis, role checks go directly to the con
 A: SDK falls back gracefully. Authentication might fail, but your app won't crash.
 
 **Q: Can I use this with [my framework]?**  
-A: Yes! It's framework-agnostic. We have examples for Express, React, Next.js, NestJS, Fastify...
+A: Yes! It's framework-agnostic. We have examples for Express, React, Next.js, NestJS, Fastify... For browser/frontend applications, use **DataClient** - a browser-compatible HTTP client wrapper with ISO 27001 audit logging, caching, and retry logic.
 
 **Q: Is it secure?**  
 A: Yes. Tokens are validated with Keycloak. Secrets are in .env (not in code). Logs go through API key authentication.

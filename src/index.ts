@@ -515,3 +515,18 @@ export {
 
 // Export Express ErrorResponse with alias to avoid conflict with SDK ErrorResponse
 export { ErrorResponse as ExpressErrorResponse } from "./express/error-response";
+
+// Export DataClient browser wrapper
+export { DataClient, dataClient } from "./utils/data-client";
+export type {
+  DataClientConfig,
+  ApiRequestOptions,
+  InterceptorConfig,
+  RequestMetrics,
+  AuditConfig as DataClientAuditConfig,
+  CacheEntry,
+  NetworkError,
+  TimeoutError,
+  AuthenticationError,
+  ApiError as DataClientApiError,
+} from "./types/data-client.types";
