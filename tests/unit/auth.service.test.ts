@@ -326,6 +326,75 @@ describe("AuthService", () => {
       expect(mockTempAxios.post).toHaveBeenCalledWith("/api/v1/auth/token");
     });
 
+    it("should use default endpoint when clientTokenUri is not configured", async () => {
+      config = {
+        controllerUrl: "https://controller.aifabrix.ai",
+        clientId: "ctrl-dev-test-app",
+        clientSecret: "test-secret",
+      };
+      (mockHttpClient as any).config = config;
+      authService = new AuthService(mockHttpClient, mockRedisService);
+
+      mockTempAxios.post.mockResolvedValue({
+        data: {
+          success: true,
+          token: "env-token-123",
+        },
+      });
+
+      await authService.getEnvironmentToken();
+
+      expect(mockTempAxios.post).toHaveBeenCalledWith("/api/v1/auth/token");
+    });
+
+    it("should use custom clientTokenUri when configured", async () => {
+      config = {
+        controllerUrl: "https://controller.aifabrix.ai",
+        clientId: "ctrl-dev-test-app",
+        clientSecret: "test-secret",
+        clientTokenUri: "/api/custom/token",
+      };
+      (mockHttpClient as any).config = config;
+      authService = new AuthService(mockHttpClient, mockRedisService);
+
+      mockTempAxios.post.mockResolvedValue({
+        data: {
+          success: true,
+          token: "env-token-123",
+        },
+      });
+
+      await authService.getEnvironmentToken();
+
+      expect(mockTempAxios.post).toHaveBeenCalledWith("/api/custom/token");
+    });
+
+    it("should handle nested token response format with custom URI", async () => {
+      config = {
+        controllerUrl: "https://controller.aifabrix.ai",
+        clientId: "ctrl-dev-test-app",
+        clientSecret: "test-secret",
+        clientTokenUri: "/api/v1/auth/client-token",
+      };
+      (mockHttpClient as any).config = config;
+      authService = new AuthService(mockHttpClient, mockRedisService);
+
+      mockTempAxios.post.mockResolvedValue({
+        data: {
+          success: true,
+          data: {
+            token: "nested-token-123",
+            expiresIn: 1800,
+          },
+        },
+      });
+
+      const result = await authService.getEnvironmentToken();
+
+      expect(result).toBe("nested-token-123");
+      expect(mockTempAxios.post).toHaveBeenCalledWith("/api/v1/auth/client-token");
+    });
+
     it("should throw error on invalid response", async () => {
       mockTempAxios.post.mockResolvedValue({
         data: {

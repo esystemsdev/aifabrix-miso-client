@@ -264,6 +264,75 @@ describe("ConfigLoader", () => {
         const config = loadConfig();
         expect(config.sensitiveFieldsConfig).toBeUndefined();
       });
+
+      it("should include clientTokenUri when MISO_CLIENT_TOKEN_URI is set", () => {
+        process.env.MISO_CLIENT_TOKEN_URI = "/api/custom/token";
+
+        const config = loadConfig();
+        expect(config.clientTokenUri).toBe("/api/custom/token");
+      });
+
+      it("should not include clientTokenUri when MISO_CLIENT_TOKEN_URI is not set", () => {
+        delete process.env.MISO_CLIENT_TOKEN_URI;
+
+        const config = loadConfig();
+        expect(config.clientTokenUri).toBeUndefined();
+      });
+
+      it("should parse MISO_ALLOWED_ORIGINS as comma-separated list", () => {
+        process.env.MISO_ALLOWED_ORIGINS =
+          "http://localhost:3000,https://example.com,http://localhost:*";
+
+        const config = loadConfig();
+        expect(config.allowedOrigins).toEqual([
+          "http://localhost:3000",
+          "https://example.com",
+          "http://localhost:*",
+        ]);
+      });
+
+      it("should trim whitespace from origins", () => {
+        process.env.MISO_ALLOWED_ORIGINS =
+          " http://localhost:3000 , https://example.com ";
+
+        const config = loadConfig();
+        expect(config.allowedOrigins).toEqual([
+          "http://localhost:3000",
+          "https://example.com",
+        ]);
+      });
+
+      it("should filter out empty origins", () => {
+        process.env.MISO_ALLOWED_ORIGINS =
+          "http://localhost:3000,,https://example.com,";
+
+        const config = loadConfig();
+        expect(config.allowedOrigins).toEqual([
+          "http://localhost:3000",
+          "https://example.com",
+        ]);
+      });
+
+      it("should not include allowedOrigins when MISO_ALLOWED_ORIGINS is not set", () => {
+        delete process.env.MISO_ALLOWED_ORIGINS;
+
+        const config = loadConfig();
+        expect(config.allowedOrigins).toBeUndefined();
+      });
+
+      it("should handle single origin", () => {
+        process.env.MISO_ALLOWED_ORIGINS = "http://localhost:3000";
+
+        const config = loadConfig();
+        expect(config.allowedOrigins).toEqual(["http://localhost:3000"]);
+      });
+
+      it("should handle empty MISO_ALLOWED_ORIGINS", () => {
+        process.env.MISO_ALLOWED_ORIGINS = "";
+
+        const config = loadConfig();
+        expect(config.allowedOrigins).toBeUndefined();
+      });
     });
   });
 });

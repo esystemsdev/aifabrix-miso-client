@@ -5,19 +5,21 @@ This command validates that a plan has been implemented correctly according to i
 ## Purpose
 
 The command:
+
 1. Analyzes a plan file (from `.cursor/plans/`) to extract implementation requirements
 2. Validates that all tasks are completed
 3. Verifies that all mentioned files exist and are implemented
 4. Checks that tests exist for new/modified code
 5. Runs code quality validation (format → lint → test)
 6. Validates against cursor rules
-7. Generates a comprehensive validation report
+7. Attaches validation results to the plan file itself (adds/updates `## Validation` section)
 
 ## Usage
 
 Run this command in chat with `/validate-implementation [plan-file-path]`
 
 **Examples**:
+
 - `/validate-implementation` - Validates the most recently modified plan file
 - `/validate-implementation .cursor/plans/68-data-client-browser-wrapper.plan.md` - Validates a specific plan
 
@@ -26,13 +28,16 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 ### 1. Plan Analysis
 
 **Extracts from Plan File**:
+
 - All tasks with checkboxes (`- [ ]` or `- [x]`)
 - All files mentioned (paths, new files, modified files)
 - All services, types, utilities mentioned
 - Test requirements (unit tests, integration tests)
 - Documentation requirements
+- **Existing validation section** (if present) - Will be replaced with new validation results
 
 **Validates Task Completion**:
+
 - Checks if all tasks are marked as complete (`- [x]`)
 - Identifies incomplete tasks (`- [ ]`)
 - Reports completion percentage
@@ -40,6 +45,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 ### 2. File Existence Validation
 
 **Checks for**:
+
 - All mentioned files exist at specified paths
 - New files are created (if marked as "New" in plan)
 - Modified files exist and contain expected changes
@@ -47,6 +53,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 - Test files exist for new/modified code
 
 **Validates File Content**:
+
 - Checks if mentioned classes/functions exist in files
 - Verifies expected imports are present
 - Validates that key changes are implemented
@@ -55,12 +62,14 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 ### 3. Test Coverage Validation
 
 **Checks for**:
+
 - Unit test files exist for new services/modules
 - Integration test files exist (if required by plan)
 - Test structure mirrors code structure
 - Test files are in correct locations (`tests/unit/` mirrors `src/`)
 
 **Validates Test Quality**:
+
 - Tests use proper fixtures and mocks
 - Tests cover error cases
 - Tests use async patterns where needed
@@ -90,6 +99,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
    - Check test execution time (< 0.5 seconds for unit tests)
 
 **Validates Code Against Cursor Rules**:
+
 - Reads relevant rules from repository-specific cursor rules
 - Checks for violations in:
   - Code reuse (no duplication, use utilities)
@@ -107,6 +117,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 ### 5. Implementation Completeness Check
 
 **Validates**:
+
 - All service methods are implemented
 - All type definitions are updated
 - All utilities are implemented
@@ -116,11 +127,13 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 
 ### 6. Report Generation
 
-**Creates Validation Report**:
-- Location: `.cursor/plans/<plan-name>-VALIDATION-REPORT.md`
+**Attaches Validation Section to Plan File**:
+
+- Updates the plan file itself by adding/updating a `## Validation` section
+- Location: Same plan file (`.cursor/plans/<plan-name>.plan.md`)
 - Contains:
   - Executive summary (overall status)
-  - Task completion status
+- **Note**: If a validation section already exists, it will be replaced with the new validation results
   - File existence validation results
   - Test coverage analysis
   - Code quality validation results
@@ -131,43 +144,38 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 
 ## Output
 
-### Validation Report Structure
+### Validation Section Structure
 
-```markdown
-# <Plan Name> - Validation Report
+## Validation
 
 **Date**: [Generated date]
-**Plan**: [Plan file path]
 **Status**: ✅ COMPLETE / ⚠️ INCOMPLETE / ❌ FAILED
 
-## Executive Summary
+### Executive Summary
+
 [Overall status and completion percentage]
 
-## Task Completion
-- Total tasks: [number]
-- Completed: [number]
-- Incomplete: [number]
-- Completion: [percentage]%
+### File Existence Validation
 
-### Incomplete Tasks
-- [List of incomplete tasks]
-
-## File Existence Validation
 - ✅/❌ [File path] - [Status]
 - ✅/❌ [File path] - [Status]
 
-## Test Coverage
+### Test Coverage
+
 - ✅/❌ Unit tests exist
 - ✅/❌ Integration tests exist
 - Test coverage: [percentage]%
 
-## Code Quality Validation
-- ✅/❌ Format: PASSED
-- ✅/❌ Lint: PASSED (0 errors, 0 warnings)
-- ✅/❌ Tests: PASSED (all tests pass, < 0.5 seconds)
+### Code Quality Validation
 
-## Cursor Rules Compliance
+**STEP 1 - FORMAT**: ✅/❌ PASSED
+**STEP 2 - LINT**: ✅/❌ PASSED (0 errors, 0 warnings)
+**STEP 3 - TEST**: ✅/❌ PASSED (all tests pass, < 0.5 seconds)
+
+### Cursor Rules Compliance
+
 - ✅/❌ Code reuse: PASSED
+- ✅/❌ Error handling: PASSED
 - ✅/❌ Error handling: PASSED
 - ✅/❌ Logging: PASSED
 - ✅/❌ Type safety: PASSED
@@ -179,7 +187,8 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 - ✅/❌ Security: PASSED
 - ✅/❌ Public API naming: PASSED
 
-## Implementation Completeness
+### Implementation Completeness
+
 - ✅/❌ Services: COMPLETE
 - ✅/❌ Types: COMPLETE
 - ✅/❌ Utilities: COMPLETE
@@ -187,24 +196,29 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 - ✅/❌ Documentation: COMPLETE
 - ✅/❌ Exports: COMPLETE
 
-## Issues and Recommendations
+### Issues and Recommendations
+
 [List of issues found and recommendations]
 
-## Final Validation Checklist
+### Final Validation Checklist
+
 - [x] All tasks completed
 - [x] All files exist
 - [x] Tests exist and pass
 - [x] Code quality validation passes
 - [x] Cursor rules compliance verified
 - [x] Implementation complete
-```
+
+**Result**: ✅/❌ **VALIDATION PASSED/FAILED** - [Summary message]
+
+```yaml
 
 ## Execution Behavior
 
 **Automatic Execution**:
 - The command executes automatically without asking for user input
 - Shows progress during validation
-- Reports results in the validation report
+- Attaches validation results to the plan file itself (adds/updates `## Validation` section)
 - Only asks for user input if critical issues require confirmation
 
 **Error Handling**:
@@ -228,9 +242,9 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 - **Plan File Detection**: If no plan file is specified, the command finds the most recently modified plan file in `.cursor/plans/`
 - **Task Parsing**: Extracts tasks from markdown checkboxes (`- [ ]` or `- [x]`)
 - **File Detection**: Identifies file paths mentioned in plan (code blocks, file references, paths in text)
-- **Test Detection**: Looks for test files in `tests/unit/` directory that mirror `src/` structure
-- **Rule Validation**: Reads rules from repository-specific cursor rules
-- **Report Location**: Validation reports are saved in `.cursor/plans/` with suffix `-VALIDATION-REPORT.md`
+- **Validation Section Update**: Adds or updates the `## Validation` section in the plan file itself with validation results
+- **Report Location**: Validation results are attached directly to the plan file (no separate report file created)
+- **Report Location**: Validation results are attached directly to the plan file (no separate report file created)
 
 ## Integration with Plans
 
@@ -261,10 +275,8 @@ This will validate:
 - [ ] Task 3: Update documentation
 
 ## Validation
-
 After completing all tasks, run:
 /validate-implementation .cursor/plans/example-plan.plan.md
 
-This will generate a validation report confirming all requirements are met.
-```
+The validation results will be added to this plan file as a `## Validation` section below.
 

@@ -18,6 +18,7 @@ import {
 } from "../types/data-client.types";
 import { DataMasker } from "./data-masker";
 import jwt from "jsonwebtoken";
+import { extractClientTokenInfo, ClientTokenInfo } from "./token-utils";
 
 /**
  * Check if running in browser environment
@@ -39,6 +40,30 @@ function getLocalStorage(key: string): string | null {
     return (globalThis as unknown as { localStorage: { getItem: (key: string) => string | null } }).localStorage.getItem(key);
   } catch {
     return null;
+  }
+}
+
+/**
+ * Set value in localStorage (browser only)
+ */
+function setLocalStorage(key: string, value: string): void {
+  if (!isBrowser()) return;
+  try {
+    (globalThis as unknown as { localStorage: { setItem: (key: string, value: string) => void } }).localStorage.setItem(key, value);
+  } catch {
+    // Ignore localStorage errors (SSR, private browsing, etc.)
+  }
+}
+
+/**
+ * Remove value from localStorage (browser only)
+ */
+function removeLocalStorage(key: string): void {
+  if (!isBrowser()) return;
+  try {
+    (globalThis as unknown as { localStorage: { removeItem: (key: string) => void } }).localStorage.removeItem(key);
+  } catch {
+    // Ignore localStorage errors (SSR, private browsing, etc.)
   }
 }
 
@@ -965,6 +990,170 @@ export class DataClient {
       method: "DELETE",
     });
     return this.request<T>("DELETE", endpoint, finalOptions);
+  }
+
+  /**
+   * Get environment token (browser-side)
+   * Checks localStorage cache first, then calls backend endpoint if needed
+   * Uses clientTokenUri from config or defaults to /api/v1/auth/client-token
+   * 
+   * @returns Client token string
+   * @throws Error if token fetch fails
+   */
+  async getEnvironmentToken(): Promise<string> {
+    if (!isBrowser()) {
+      throw new Error("getEnvironmentToken() is only available in browser environment");
+    }
+
+    const cacheKey = "miso:client-token";
+    const expiresAtKey = "miso:client-token-expires-at";
+
+    // Check cache first
+    const cachedToken = getLocalStorage(cacheKey);
+    const expiresAtStr = getLocalStorage(expiresAtKey);
+
+    if (cachedToken && expiresAtStr) {
+      const expiresAt = parseInt(expiresAtStr, 10);
+      const now = Date.now();
+
+      // If token is still valid, return cached token
+      if (expiresAt > now) {
+        return cachedToken;
+      }
+
+      // Token expired, remove from cache
+      removeLocalStorage(cacheKey);
+      removeLocalStorage(expiresAtKey);
+    }
+
+    // Cache miss or expired - fetch from backend
+    const clientTokenUri =
+      this.config.misoConfig?.clientTokenUri || "/api/v1/auth/client-token";
+
+    // Build full URL
+    const fullUrl = /^https?:\/\//i.test(clientTokenUri)
+      ? clientTokenUri
+      : `${this.config.baseUrl}${clientTokenUri}`;
+
+    try {
+      // Make request to backend endpoint
+      const response = await fetch(fullUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // Include cookies for CORS
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `Failed to get environment token: ${response.status} ${response.statusText}. ${errorText}`,
+        );
+      }
+
+      const data = (await response.json()) as {
+        data?: { token?: string; expiresIn?: number };
+        token?: string;
+        accessToken?: string;
+        access_token?: string;
+        expiresIn?: number;
+        expires_in?: number;
+      };
+
+      // Extract token from response (support both nested and flat formats)
+      const token =
+        data.data?.token || data.token || data.accessToken || data.access_token;
+
+      if (!token || typeof token !== "string") {
+        throw new Error(
+          "Invalid response format: token not found in response",
+        );
+      }
+
+      // Calculate expiration time (default to 1 hour if not provided)
+      const expiresIn =
+        data.data?.expiresIn || data.expiresIn || data.expires_in || 3600;
+      const expiresAt = Date.now() + expiresIn * 1000;
+
+      // Cache token
+      setLocalStorage(cacheKey, token);
+      setLocalStorage(expiresAtKey, expiresAt.toString());
+
+      // Log audit event if misoClient available
+      if (this.misoClient && !this.shouldSkipAudit(clientTokenUri)) {
+        try {
+          await this.misoClient.log.audit(
+            "client.token.request.success",
+            clientTokenUri,
+            {
+              method: "POST",
+              url: clientTokenUri,
+              statusCode: response.status,
+              cached: false,
+            },
+            {},
+          );
+        } catch (auditError) {
+          // Silently fail audit logging to avoid breaking requests
+          console.warn("Failed to log audit event:", auditError);
+        }
+      }
+
+      return token;
+    } catch (error) {
+      // Log audit event for error if misoClient available
+      if (this.misoClient && !this.shouldSkipAudit(clientTokenUri)) {
+        try {
+          const errorMessage =
+            error instanceof Error ? error.message : "Unknown error";
+          await this.misoClient.log.audit(
+            "client.token.request.failed",
+            clientTokenUri,
+            {
+              method: "POST",
+              url: clientTokenUri,
+              statusCode: 0,
+              error: errorMessage,
+              cached: false,
+            },
+            {},
+          );
+        } catch (auditError) {
+          // Silently fail audit logging to avoid breaking requests
+          console.warn("Failed to log audit event:", auditError);
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get client token information (browser-side)
+   * Extracts application and environment info from client token
+   * 
+   * @returns Client token info or null if token not available
+   */
+  getClientTokenInfo(): ClientTokenInfo | null {
+    if (!isBrowser()) {
+      return null;
+    }
+
+    // Try to get token from cache first
+    const cachedToken = getLocalStorage("miso:client-token");
+    if (cachedToken) {
+      return extractClientTokenInfo(cachedToken);
+    }
+
+    // Try to get token from config (if provided)
+    const configToken = this.config.misoConfig?.clientToken;
+    if (configToken) {
+      return extractClientTokenInfo(configToken);
+    }
+
+    // No token available
+    return null;
   }
 }
 

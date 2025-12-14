@@ -90,6 +90,12 @@ export interface MisoClientConfig {
   // Optional: Default authentication strategy
   // If not specified, defaults to ['bearer', 'client-token']
   authStrategy?: AuthStrategy;
+
+  // Optional: Client token endpoint URI (default: '/api/v1/auth/token')
+  clientTokenUri?: string;
+
+  // Optional: Allowed origins for CORS validation
+  allowedOrigins?: string[];
 }
 
 export interface AuditConfig {

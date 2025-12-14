@@ -474,6 +474,11 @@ export { HttpClient } from "./utils/http-client";
 
 // Export utilities
 export { loadConfig } from "./utils/config-loader";
+export { validateOrigin } from "./utils/origin-validator";
+export { getEnvironmentToken } from "./utils/environment-token";
+export { extractClientTokenInfo } from "./utils/token-utils";
+export type { ClientTokenInfo } from "./utils/token-utils";
+export type { OriginValidationResult } from "./utils/origin-validator";
 
 // Export pagination, filter, sort utilities
 export * from "./utils/pagination.utils";

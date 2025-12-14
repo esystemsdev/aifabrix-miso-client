@@ -541,6 +541,137 @@ const dataClient = new DataClient({
 });
 ```
 
+### Get Environment Token (Browser-Side)
+
+DataClient provides a browser-side method to fetch environment tokens with automatic caching:
+
+```typescript
+// Get environment token (checks cache first, then calls backend)
+const token = await dataClient.getEnvironmentToken();
+
+// Token is automatically cached in localStorage
+// Cache keys: 'miso:client-token' and 'miso:client-token-expires-at'
+// Cache expires based on expiresIn from backend response
+```
+
+**Configuration:**
+
+The `getEnvironmentToken()` method uses `clientTokenUri` from `misoConfig` or defaults to `/api/v1/auth/client-token`:
+
+```typescript
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: 'https://controller.aifabrix.ai',
+    clientId: 'ctrl-dev-my-app',
+    // Optional: Custom client token endpoint URI
+    clientTokenUri: '/api/v1/auth/client-token', // Default
+  },
+});
+```
+
+**Server-Side Route Example:**
+
+Create a server-side route that validates origin and returns the token:
+
+```typescript
+// Server: Express.js example
+import express from 'express';
+import { MisoClient, getEnvironmentToken } from '@aifabrix/miso-client';
+
+const app = express();
+const misoClient = new MisoClient({
+  controllerUrl: 'https://controller.aifabrix.ai',
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: process.env.MISO_CLIENTSECRET,
+  // Configure allowed origins for CORS validation
+  allowedOrigins: [
+    'http://localhost:3000',
+    'https://myapp.com',
+    'http://localhost:*', // Wildcard port support
+  ],
+});
+
+// Client token endpoint with origin validation
+app.post('/api/v1/auth/client-token', async (req, res) => {
+  try {
+    // getEnvironmentToken validates origin and logs audit events
+    const token = await getEnvironmentToken(misoClient, req);
+    
+    res.json({
+      token,
+      expiresIn: 1800, // 30 minutes
+    });
+  } catch (error) {
+    res.status(403).json({
+      error: 'Origin validation failed or token fetch failed',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+```
+
+**Environment Variable Configuration:**
+
+Configure allowed origins via environment variable:
+
+```bash
+# .env file
+MISO_ALLOWED_ORIGINS=http://localhost:3000,https://myapp.com,http://localhost:*
+```
+
+**Security Best Practices:**
+
+1. **Always validate origins** - Configure `allowedOrigins` in server-side MisoClient config
+2. **Use HTTPS in production** - Never allow HTTP origins in production
+3. **Rate limit endpoints** - Implement rate limiting on client token endpoints
+4. **Require authentication** - Ensure user is authenticated before issuing client tokens
+5. **Short expiration times** - Use shorter expiration times for browser tokens (e.g., 30 minutes)
+
+### Get Client Token Info
+
+Extract application and environment information from the client token:
+
+```typescript
+// Get token info (application, environment, applicationId, clientId)
+const tokenInfo = dataClient.getClientTokenInfo();
+
+if (tokenInfo) {
+  console.log('Application:', tokenInfo.application);
+  console.log('Environment:', tokenInfo.environment);
+  console.log('Application ID:', tokenInfo.applicationId);
+  console.log('Client ID:', tokenInfo.clientId);
+} else {
+  console.log('No client token available');
+}
+```
+
+**Use Cases:**
+
+- Display current application/environment in UI
+- Debug token information
+- Conditional logic based on environment
+
+**Example: Display Current Environment**
+
+```typescript
+function EnvironmentBadge() {
+  const dataClient = useDataClient(); // Your hook or context
+  const tokenInfo = dataClient.getClientTokenInfo();
+  
+  if (!tokenInfo) {
+    return <div>No environment info</div>;
+  }
+  
+  return (
+    <div>
+      <span>Environment: {tokenInfo.environment || 'unknown'}</span>
+      <span>Application: {tokenInfo.application || 'unknown'}</span>
+    </div>
+  );
+}
+```
+
 ## ISO 27001 Audit Logging
 
 DataClient automatically logs all HTTP requests/responses for ISO 27001 compliance with sensitive data masking.
@@ -1050,6 +1181,8 @@ Creates a new DataClient instance.
 - `isAuthenticated(): boolean` - Check if user is authenticated
 - `redirectToLogin(redirectUrl?: string): Promise<void>` - Redirect to login page via controller with optional redirect URL
 - `logout(redirectUrl?: string): Promise<void>` - Logout user, clear tokens and cache, and redirect
+- `getEnvironmentToken(): Promise<string>` - Get environment/client token (browser-side with caching)
+- `getClientTokenInfo(): ClientTokenInfo | null` - Extract application and environment info from client token
 - `setInterceptors(config: InterceptorConfig): void` - Configure interceptors
 - `setAuditConfig(config: Partial<AuditConfig>): void` - Update audit configuration
 - `clearCache(): void` - Clear all cached responses

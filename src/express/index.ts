@@ -38,5 +38,12 @@ export {
 // Encryption
 export { EncryptionUtil } from "./encryption";
 
+// Origin validation and environment token utilities
+export { validateOrigin } from "../utils/origin-validator";
+export { getEnvironmentToken } from "../utils/environment-token";
+export { extractClientTokenInfo } from "../utils/token-utils";
+export type { ClientTokenInfo } from "../utils/token-utils";
+export type { OriginValidationResult } from "../utils/origin-validator";
+
 // Type augmentation (imported for side effects)
 import "./express.d.ts";

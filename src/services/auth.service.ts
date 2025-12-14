@@ -64,10 +64,11 @@ export class AuthService {
         },
       });
 
+      const tokenUri = this.config.clientTokenUri || "/api/v1/auth/token";
       const response =
         await tempAxios.post<
           import("../types/config.types").ClientTokenResponse
-        >("/api/v1/auth/token");
+        >(tokenUri);
 
       // Handle both nested (new) and flat (old) response formats
       const token = response.data.data?.token || response.data.token;

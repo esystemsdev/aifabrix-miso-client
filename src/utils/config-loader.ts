@@ -101,5 +101,21 @@ export function loadConfig(): MisoClientConfig {
     }
   }
 
+  // Optional client token URI
+  if (process.env.MISO_CLIENT_TOKEN_URI) {
+    config.clientTokenUri = process.env.MISO_CLIENT_TOKEN_URI;
+  }
+
+  // Optional allowed origins for CORS validation
+  // Format: MISO_ALLOWED_ORIGINS=http://localhost:3000,https://example.com,http://localhost:*
+  if (process.env.MISO_ALLOWED_ORIGINS) {
+    const origins = process.env.MISO_ALLOWED_ORIGINS.split(",")
+      .map((origin) => origin.trim())
+      .filter((origin) => origin.length > 0);
+    if (origins.length > 0) {
+      config.allowedOrigins = origins;
+    }
+  }
+
   return config;
 }
