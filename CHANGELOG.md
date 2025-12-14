@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-12-14
+
+### Added
+
+- **DataClient `logout()` method** - Logout functionality for browser applications
+  - Calls controller logout API to invalidate server-side session
+  - Clears authentication tokens from localStorage (all configured token keys)
+  - Clears HTTP response cache
+  - Redirects to logout URL or login page
+  - Supports optional `redirectUrl` parameter for custom redirect after logout
+  - Gracefully handles API failures (always clears local state)
+  - SSR compatible (no-op in non-browser environments)
+
+- **DataClient `logoutUrl` configuration** - Custom logout redirect URL
+  - Optional `logoutUrl` property in `DataClientConfig`
+  - Falls back to `loginUrl` config if not provided
+  - Supports both relative paths and absolute URLs
+  - Defaults to `/login` if neither `logoutUrl` nor `loginUrl` is configured
+
+### Changed
+
+- **DataClient configuration** - Added `logoutUrl` option to `DataClientConfig` interface
+  - New optional property: `logoutUrl?: string`
+  - Follows same pattern as `loginUrl` configuration
+
 ## [2.2.1] - 2025-12-13
 
 ### Fixed

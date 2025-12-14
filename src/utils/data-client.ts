@@ -257,6 +257,57 @@ export class DataClient {
   }
 
   /**
+   * Logout user and redirect
+   * Calls logout API, clears tokens from localStorage, clears cache, and redirects
+   * @param redirectUrl - Optional redirect URL after logout (defaults to logoutUrl or loginUrl)
+   */
+  async logout(redirectUrl?: string): Promise<void> {
+    if (!isBrowser()) return;
+    
+    const token = this.getToken();
+    
+    // Call logout API if misoClient available and token exists
+    if (this.misoClient && token) {
+      try {
+        await this.misoClient.logout({ token });
+      } catch (error) {
+        // Log error but continue with cleanup (logout should always clear local state)
+        console.error("Logout API call failed:", error);
+      }
+    }
+    
+    // Clear tokens from localStorage (always, even if API call failed)
+    const keys = this.config.tokenKeys || ["token", "accessToken", "authToken"];
+    keys.forEach(key => {
+      try {
+        const storage = (globalThis as unknown as { localStorage: { removeItem: (key: string) => void } }).localStorage;
+        if (storage) {
+          storage.removeItem(key);
+        }
+      } catch (e) {
+        // Ignore localStorage errors (SSR, private browsing, etc.)
+      }
+    });
+    
+    // Clear HTTP cache
+    this.clearCache();
+    
+    // Determine redirect URL: redirectUrl param > logoutUrl config > loginUrl config > '/login'
+    const finalRedirectUrl = redirectUrl || 
+      this.config.logoutUrl || 
+      this.config.loginUrl || 
+      "/login";
+    
+    // Construct full URL
+    const fullUrl = /^https?:\/\//i.test(finalRedirectUrl)
+      ? finalRedirectUrl
+      : `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}${finalRedirectUrl.startsWith("/") ? finalRedirectUrl : `/${finalRedirectUrl}`}`;
+    
+    // Redirect
+    (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fullUrl;
+  }
+
+  /**
    * Set interceptors
    */
   setInterceptors(config: InterceptorConfig): void {

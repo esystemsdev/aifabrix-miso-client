@@ -113,6 +113,11 @@ export interface DataClientConfig {
   loginUrl?: string;
   
   /**
+   * Logout redirect URL (default: falls back to loginUrl or '/login')
+   */
+  logoutUrl?: string;
+  
+  /**
    * Cache configuration
    */
   cache?: CacheConfig;

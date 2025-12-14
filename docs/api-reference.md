@@ -400,6 +400,46 @@ await dataClient.redirectToLogin('https://myapp.com/dashboard');
 // After authentication, controller redirects to the specified URL
 ```
 
+#### `logout(redirectUrl?: string): Promise<void>`
+
+Logout user, clear authentication state, and redirect. Calls the controller logout API (if available), clears tokens from localStorage, clears HTTP cache, and redirects to logout URL or login page.
+
+**Parameters:**
+
+- `redirectUrl` - Optional redirect URL after logout (defaults to `logoutUrl` config, then `loginUrl` config, then `/login`)
+
+**How it works:**
+
+1. Gets current token from localStorage
+2. Calls `misoClient.logout({ token })` if misoClient and token available
+3. Clears all configured token keys from localStorage
+4. Clears HTTP response cache
+5. Redirects to logout URL (redirectUrl param > logoutUrl config > loginUrl config > '/login')
+
+**Note:** Logout always clears local state (tokens, cache) even if the API call fails. This ensures users are logged out locally regardless of network issues.
+
+**Example:**
+
+```typescript
+// Basic logout - redirects to loginUrl or '/login'
+await dataClient.logout();
+
+// Logout and redirect to home page
+await dataClient.logout('/home');
+
+// Logout and redirect to custom URL
+await dataClient.logout('https://myapp.com/goodbye');
+
+// Configure logoutUrl in config
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  logoutUrl: '/goodbye', // Custom logout page
+});
+
+await dataClient.logout(); // Redirects to /goodbye
+```
+
 #### `setInterceptors(config: InterceptorConfig): void`
 
 Configure request/response/error interceptors.

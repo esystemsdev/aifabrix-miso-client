@@ -32,6 +32,11 @@ jest.mock("../../src/index", () => {
       },
       timestamp: new Date().toISOString(),
     }),
+    logout: jest.fn().mockResolvedValue({
+      success: true,
+      message: "Logout successful",
+      timestamp: new Date().toISOString(),
+    }),
   });
 
   return {
@@ -260,6 +265,201 @@ describe("DataClient", () => {
       await dataClient.redirectToLogin();
       
       expect(mockWindow.location.href).toBe("https://example.com/login");
+    });
+
+    it("should logout and redirect to loginUrl", async () => {
+      mockLocalStorage["token"] = "test-token-123";
+      const misoClientInstance = (dataClient as any).misoClient;
+      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
+        success: true,
+        message: "Logout successful",
+        timestamp: new Date().toISOString(),
+      });
+      
+      await dataClient.logout();
+      
+      expect(misoClientInstance.logout).toHaveBeenCalledWith({
+        token: "test-token-123",
+      });
+      expect(mockWindow.location.href).toBe("https://example.com/login");
+      expect(mockLocalStorage["token"]).toBeUndefined();
+    });
+
+    it("should logout with custom redirectUrl", async () => {
+      mockLocalStorage["token"] = "test-token-123";
+      const misoClientInstance = (dataClient as any).misoClient;
+      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
+        success: true,
+        message: "Logout successful",
+        timestamp: new Date().toISOString(),
+      });
+      
+      await dataClient.logout("/home");
+      
+      expect(misoClientInstance.logout).toHaveBeenCalledWith({
+        token: "test-token-123",
+      });
+      expect(mockWindow.location.href).toBe("https://example.com/home");
+      expect(mockLocalStorage["token"]).toBeUndefined();
+    });
+
+    it("should logout with logoutUrl config", async () => {
+      const client = new DataClient({
+        ...config,
+        logoutUrl: "/goodbye",
+      });
+      mockLocalStorage["token"] = "test-token-123";
+      const misoClientInstance = (client as any).misoClient;
+      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
+        success: true,
+        message: "Logout successful",
+        timestamp: new Date().toISOString(),
+      });
+      
+      await client.logout();
+      
+      expect(mockWindow.location.href).toBe("https://example.com/goodbye");
+      expect(mockLocalStorage["token"]).toBeUndefined();
+    });
+
+    it("should logout and clear tokens from localStorage", async () => {
+      mockLocalStorage["token"] = "test-token-123";
+      mockLocalStorage["accessToken"] = "access-token-456";
+      const misoClientInstance = (dataClient as any).misoClient;
+      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
+        success: true,
+        message: "Logout successful",
+        timestamp: new Date().toISOString(),
+      });
+      
+      await dataClient.logout();
+      
+      expect(mockLocalStorage["token"]).toBeUndefined();
+      expect(mockLocalStorage["accessToken"]).toBeUndefined();
+    });
+
+    it("should logout and clear cache", async () => {
+      mockLocalStorage["token"] = "test-token-123";
+      const misoClientInstance = (dataClient as any).misoClient;
+      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
+        success: true,
+        message: "Logout successful",
+        timestamp: new Date().toISOString(),
+      });
+      
+      // Add something to cache
+      (dataClient as any).cache.set("test-key", {
+        data: "test-data",
+        expiresAt: Date.now() + 10000,
+        key: "test-key",
+      });
+      
+      await dataClient.logout();
+      
+      expect((dataClient as any).cache.size).toBe(0);
+    });
+
+    it("should logout even if API call fails", async () => {
+      mockLocalStorage["token"] = "test-token-123";
+      const misoClientInstance = (dataClient as any).misoClient;
+      (misoClientInstance.logout as jest.Mock) = jest.fn().mockRejectedValue(new Error("API error"));
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
+      
+      await dataClient.logout();
+      
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Logout API call failed:",
+        expect.any(Error),
+      );
+      expect(mockWindow.location.href).toBe("https://example.com/login");
+      expect(mockLocalStorage["token"]).toBeUndefined();
+      
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("should logout when misoClient not available", async () => {
+      const client = new DataClient({
+        baseUrl: "https://api.example.com",
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "test-client",
+        },
+      });
+      // Manually set misoClient to null to test fallback
+      (client as any).misoClient = null;
+      mockLocalStorage["token"] = "test-token-123";
+      
+      await client.logout();
+      
+      expect(mockWindow.location.href).toBe("https://example.com/login");
+      expect(mockLocalStorage["token"]).toBeUndefined();
+    });
+
+    it("should logout when no token exists", async () => {
+      const misoClientInstance = (dataClient as any).misoClient;
+      (misoClientInstance.logout as jest.Mock) = jest.fn();
+      
+      await dataClient.logout();
+      
+      // Should not call logout API when no token
+      expect(misoClientInstance.logout).not.toHaveBeenCalled();
+      expect(mockWindow.location.href).toBe("https://example.com/login");
+    });
+
+    it("should handle multiple token keys", async () => {
+      const client = new DataClient({
+        ...config,
+        tokenKeys: ["customToken", "anotherToken"],
+      });
+      mockLocalStorage["customToken"] = "custom-token-123";
+      mockLocalStorage["anotherToken"] = "another-token-456";
+      const misoClientInstance = (client as any).misoClient;
+      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
+        success: true,
+        message: "Logout successful",
+        timestamp: new Date().toISOString(),
+      });
+      
+      await client.logout();
+      
+      expect(mockLocalStorage["customToken"]).toBeUndefined();
+      expect(mockLocalStorage["anotherToken"]).toBeUndefined();
+    });
+
+    it("should construct full URL from relative logoutUrl", async () => {
+      const client = new DataClient({
+        ...config,
+        logoutUrl: "/goodbye",
+      });
+      mockLocalStorage["token"] = "test-token-123";
+      const misoClientInstance = (client as any).misoClient;
+      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
+        success: true,
+        message: "Logout successful",
+        timestamp: new Date().toISOString(),
+      });
+      
+      await client.logout();
+      
+      expect(mockWindow.location.href).toBe("https://example.com/goodbye");
+    });
+
+    it("should handle absolute logoutUrl", async () => {
+      const client = new DataClient({
+        ...config,
+        logoutUrl: "https://myapp.com/goodbye",
+      });
+      mockLocalStorage["token"] = "test-token-123";
+      const misoClientInstance = (client as any).misoClient;
+      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
+        success: true,
+        message: "Logout successful",
+        timestamp: new Date().toISOString(),
+      });
+      
+      await client.logout();
+      
+      expect(mockWindow.location.href).toBe("https://myapp.com/goodbye");
     });
   });
 

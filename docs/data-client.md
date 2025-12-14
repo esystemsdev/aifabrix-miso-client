@@ -460,6 +460,32 @@ await dataClient.redirectToLogin('https://myapp.com/dashboard');
 // Controller handles OAuth flow and redirects to dashboard after login
 ```
 
+### Logout User
+
+```typescript
+// Basic logout - redirects to login page
+await dataClient.logout();
+
+// Logout and redirect to home page
+await dataClient.logout('/home');
+
+// Configure custom logout URL
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  logoutUrl: '/goodbye', // Custom logout page
+});
+
+await dataClient.logout(); // Redirects to /goodbye
+```
+
+**What logout does:**
+
+- Calls controller logout API to invalidate server-side session
+- Clears authentication tokens from localStorage
+- Clears HTTP response cache
+- Redirects to logout URL or login page
+
 ### Automatic Login Redirect
 
 DataClient automatically redirects to the login page on 401 errors via the controller:
@@ -1023,6 +1049,7 @@ Creates a new DataClient instance.
 
 - `isAuthenticated(): boolean` - Check if user is authenticated
 - `redirectToLogin(redirectUrl?: string): Promise<void>` - Redirect to login page via controller with optional redirect URL
+- `logout(redirectUrl?: string): Promise<void>` - Logout user, clear tokens and cache, and redirect
 - `setInterceptors(config: InterceptorConfig): void` - Configure interceptors
 - `setAuditConfig(config: Partial<AuditConfig>): void` - Update audit configuration
 - `clearCache(): void` - Clear all cached responses
