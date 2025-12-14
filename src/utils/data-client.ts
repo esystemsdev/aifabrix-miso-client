@@ -227,6 +227,55 @@ export class DataClient {
   }
 
   /**
+   * Check if client token is available (from localStorage cache or config)
+   */
+  private hasClientToken(): boolean {
+    if (!isBrowser()) {
+      // Server-side: check if misoClient config has clientSecret
+      if (this.misoClient && this.config.misoConfig?.clientSecret) {
+        return true;
+      }
+      return false;
+    }
+    
+    // Browser-side: check localStorage cache
+    const cachedToken = getLocalStorage("miso:client-token");
+    if (cachedToken) {
+      const expiresAtStr = getLocalStorage("miso:client-token-expires-at");
+      if (expiresAtStr) {
+        const expiresAt = parseInt(expiresAtStr, 10);
+        if (expiresAt > Date.now()) {
+          return true; // Valid cached token
+        }
+      }
+    }
+    
+    // Check config token
+    if (this.config.misoConfig?.clientToken) {
+      return true;
+    }
+    
+    // Check if misoClient config has onClientTokenRefresh callback (browser pattern)
+    if (this.config.misoConfig?.onClientTokenRefresh) {
+      return true; // Has means to get client token
+    }
+    
+    // Check if misoClient config has clientSecret (server-side fallback)
+    if (this.config.misoConfig?.clientSecret) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Check if any authentication token is available (user token OR client token)
+   */
+  private hasAnyToken(): boolean {
+    return this.getToken() !== null || this.hasClientToken();
+  }
+
+  /**
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
@@ -420,6 +469,7 @@ export class DataClient {
 
   /**
    * Log audit event (ISO 27001 compliance)
+   * Skips audit logging if no authentication token is available (user token OR client token)
    */
   private async logAuditEvent(
     method: string,
@@ -435,6 +485,14 @@ export class DataClient {
     responseBody?: unknown,
   ): Promise<void> {
     if (this.shouldSkipAudit(url) || !this.misoClient) return;
+
+    // Skip audit logging if no authentication token is available
+    // This prevents 401 errors when attempting to audit log unauthenticated requests
+    if (!this.hasAnyToken()) {
+      // Silently skip audit logging for unauthenticated requests
+      // This is expected behavior and prevents 401 errors
+      return;
+    }
 
     try {
       const token = this.getToken();
@@ -532,8 +590,19 @@ export class DataClient {
         { token: token || undefined },
       );
     } catch (auditError) {
-      // Silently fail audit logging to avoid breaking requests
-      console.warn("Failed to log audit event:", auditError);
+      // Handle audit logging errors gracefully
+      // Don't fail main request if audit logging fails
+      const error = auditError as Error & { statusCode?: number; response?: { status?: number } };
+      const statusCode = error.statusCode || error.response?.status;
+      
+      if (statusCode === 401) {
+        // User not authenticated - this is expected for unauthenticated requests
+        // Silently skip to avoid noise (we already check hasAnyToken() before attempting)
+        // This catch block handles edge cases where token becomes unavailable between check and audit call
+      } else {
+        // Other errors - log warning but don't fail request
+        console.warn("Failed to log audit event:", auditError);
+      }
     }
   }
 

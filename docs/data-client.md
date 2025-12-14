@@ -4,25 +4,21 @@ The **DataClient** is a browser-compatible HTTP client wrapper around MisoClient
 
 ## Table of Contents
 
-- [Overview](#overview)
-- [Installation](#installation)
+- [Introduction](#introduction)
 - [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [HTTP Methods](#http-methods)
-- [Authentication](#authentication)
-- [ISO 27001 Audit Logging](#iso-27001-audit-logging)
-- [Caching](#caching)
-- [Retry Logic](#retry-logic)
-- [Interceptors](#interceptors)
-- [Request Metrics](#request-metrics)
-- [Error Handling](#error-handling)
-- [Browser Compatibility](#browser-compatibility)
+- [Developer Journey](#developer-journey)
+  - [Step 1: Server Setup](#step-1-server-setup)
+  - [Step 2: Browser Setup](#step-2-browser-setup)
+  - [Step 3: Making API Requests](#step-3-making-api-requests)
+  - [Step 4: Advanced Features](#step-4-advanced-features)
 - [API Reference](#api-reference)
-- [Examples](#examples)
+- [Troubleshooting](#troubleshooting)
 
-## Overview
+## Introduction
 
-DataClient extends the standard `fetch` API with:
+### What is DataClient?
+
+DataClient is a browser-compatible HTTP client that wraps MisoClient functionality for front-end applications. It provides:
 
 - **ISO 27001 Compliant Audit Logging** - Automatic audit trail for all HTTP requests with sensitive data masking
 - **Response Caching** - In-memory cache with configurable TTL for GET requests
@@ -32,7 +28,15 @@ DataClient extends the standard `fetch` API with:
 - **Browser Compatibility** - Works in React, Vue, Angular, and other front-end frameworks
 - **SSR Support** - Graceful degradation for server-side rendering
 
-## Installation
+### ⚠️ Security Warning: Browser Usage
+
+**IMPORTANT:** Never expose `clientSecret` in browser/client-side code. Client secrets are sensitive credentials that should only be used in server-side environments.
+
+For browser applications, use the **Server-Provided Client Token Pattern** (see [Step 2: Browser Setup](#step-2-browser-setup) below).
+
+## Quick Start
+
+### Installation
 
 DataClient is included in the `@aifabrix/miso-client` package:
 
@@ -40,557 +44,53 @@ DataClient is included in the `@aifabrix/miso-client` package:
 npm install @aifabrix/miso-client
 ```
 
-## ⚠️ Security Warning: Browser Usage
+### Configuration
 
-**IMPORTANT:** Never expose `clientSecret` in browser/client-side code. Client secrets are sensitive credentials that should only be used in server-side environments.
+**Use standard `.env` parameters** - AI Fabrix builder automatically manages these environment variables:
 
-For browser applications, use the **Server-Provided Client Token Pattern** (see [Authentication](#authentication) section below).
-
-## Quick Start
-
-### Browser-Safe Configuration (Recommended)
-
-```typescript
-import { DataClient } from '@aifabrix/miso-client';
-
-// Server provides client token (see Authentication section)
-const initialClientToken = window.INITIAL_CLIENT_TOKEN; // From server
-const tokenExpiresAt = window.INITIAL_CLIENT_TOKEN_EXPIRES_AT;
-
-// Create DataClient instance WITHOUT clientSecret
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    // ❌ DO NOT include clientSecret in browser code
-    
-    // ✅ Use server-provided token
-    clientToken: initialClientToken,
-    clientTokenExpiresAt: tokenExpiresAt,
-    
-    // ✅ Refresh callback calls your server endpoint
-    onClientTokenRefresh: async () => {
-      const response = await fetch('/api/client-token', {
-        credentials: 'include', // Include cookies for auth
-      });
-      return await response.json(); // { token: string, expiresIn: number }
-    },
-  },
-});
-
-// Make authenticated requests
-const users = await dataClient.get('/api/users');
-const newUser = await dataClient.post('/api/users', {
-  name: 'John Doe',
-  email: 'john@example.com',
-});
+```bash
+# .env file
+# MISO Application Client Credentials (per application)
+MISO_CLIENTID=dataplane_client_id123
+MISO_CLIENTSECRET=dataplane_client_secret123
+# MISO Controller URL
+MISO_CONTROLLER_URL=https://controller.aifabrix.ai
+# Allowed origins for CORS validation (comma-separated)
+MISO_ALLOWED_ORIGINS=https://myapp.com,http://localhost:*
 ```
 
-### Server-Side Only Configuration
+**Never hard-code credentials** - Always use environment variables for security and flexibility.
+
+### 5-Minute Setup
+
+1. **Create a server endpoint** that provides client tokens (see [Step 1](#step-1-server-setup))
+2. **Initialize DataClient** in your browser code (see [Step 2](#step-2-browser-setup))
+3. **Start making requests** (see [Step 3](#step-3-making-api-requests))
+
+## Developer Journey
+
+Follow these steps to integrate DataClient into your application.
+
+### Step 1: Server Setup
+
+**You need to:** Create a secure server endpoint that provides client tokens to your browser application.
+
+**Here's how:** Create an Express endpoint using the `getEnvironmentToken` helper function.
+
+#### Create the Client Token Endpoint
 
 ```typescript
-// ✅ SAFE: Server-side only (Node.js/Express)
-import { DataClient } from '@aifabrix/miso-client';
-
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    clientSecret: process.env.MISO_CLIENTSECRET, // ✅ Safe in server environment
-  },
-});
-```
-
-## Configuration
-
-### ⚠️ Security: Browser vs Server Configuration
-
-**Browser Applications (React, Vue, Angular):**
-
-- ❌ **NEVER** include `clientSecret` in configuration
-- ✅ Use server-provided `clientToken` with refresh callback
-- ✅ See the Authentication section below for the Client Token Pattern
-
-**Server Applications (Node.js, Express):**
-
-- ✅ Can use `clientSecret` (stored in environment variables)
-- ✅ Full MisoClient features available
-
-### Basic Configuration
-
-#### Browser-Safe Configuration (Recommended)
-
-```typescript
-import { DataClient, DataClientConfig } from '@aifabrix/miso-client';
-
-const config: DataClientConfig = {
-  // Required: Base URL for API requests
-  baseUrl: 'https://api.example.com',
-  
-  // Required: MisoClient configuration for authentication and audit logging
-  misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    // ❌ DO NOT include clientSecret in browser code
-    
-    // ✅ Server-provided client token (see Client Token Pattern section)
-    clientToken: initialClientToken, // From server endpoint or initial page load
-    clientTokenExpiresAt: initialExpiresAt,
-    
-    // ✅ Refresh callback - calls your server endpoint
-    onClientTokenRefresh: async () => {
-      const response = await fetch('/api/client-token', {
-        credentials: 'include',
-      });
-      const data = await response.json();
-      return {
-        token: data.token,
-        expiresIn: data.expiresIn,
-      };
-    },
-  },
-  
-  // Optional: Token storage keys in localStorage (default: ['token', 'accessToken', 'authToken'])
-  tokenKeys: ['token', 'accessToken'],
-  
-  // Optional: Login redirect URL (default: '/login')
-  loginUrl: '/login',
-  
-  // Optional: Default request timeout in milliseconds (default: 30000)
-  timeout: 30000,
-  
-  // Optional: Default headers for all requests
-  defaultHeaders: {
-    'X-Custom-Header': 'value',
-  },
-};
-```
-
-#### Server-Side Configuration
-
-```typescript
-// ✅ SAFE: Server-side only
-const config: DataClientConfig = {
-  baseUrl: 'https://api.example.com',
-  misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    clientSecret: process.env.MISO_CLIENTSECRET, // ✅ Safe in server environment
-  },
-};
-```
-
-### Cache Configuration
-
-```typescript
-const config: DataClientConfig = {
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  
-  cache: {
-    // Enable/disable caching (default: true)
-    enabled: true,
-    
-    // Default TTL in seconds (default: 300 = 5 minutes)
-    defaultTTL: 300,
-    
-    // Maximum cache size in entries (default: 100)
-    maxSize: 100,
-  },
-};
-```
-
-### Retry Configuration
-
-```typescript
-const config: DataClientConfig = {
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  
-  retry: {
-    // Enable/disable retry logic (default: true)
-    enabled: true,
-    
-    // Maximum number of retries (default: 3)
-    maxRetries: 3,
-    
-    // Base delay in milliseconds for exponential backoff (default: 1000)
-    baseDelay: 1000,
-    
-    // Maximum delay in milliseconds (default: 10000)
-    maxDelay: 10000,
-  },
-};
-```
-
-### ISO 27001 Audit Configuration
-
-```typescript
-const config: DataClientConfig = {
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  
-  audit: {
-    // Enable/disable audit logging (default: true)
-    enabled: true,
-    
-    // Audit detail level (default: 'standard')
-    // - minimal: Only method, URL, status, duration, userId
-    // - standard: Includes headers and bodies (masked)
-    // - detailed: Includes sizes and more metadata
-    // - full: Complete audit trail with all details
-    level: 'standard',
-    
-    // Batch size for queued audit logs (default: 10)
-    batchSize: 10,
-    
-    // Maximum response size to include in audit logs (default: 10000)
-    maxResponseSize: 10000,
-    
-    // Maximum size before skipping masking (default: 50000)
-    maxMaskingSize: 50000,
-    
-    // Endpoints to skip audit logging (e.g., ['/health', '/metrics'])
-    skipEndpoints: ['/health', '/metrics'],
-  },
-};
-```
-
-## HTTP Methods
-
-DataClient provides methods for all standard HTTP verbs:
-
-### GET Request
-
-```typescript
-// Simple GET request
-const users = await dataClient.get<User[]>('/api/users');
-
-// GET with options
-const user = await dataClient.get<User>('/api/users/123', {
-  headers: {
-    'X-Custom-Header': 'value',
-  },
-  cache: {
-    enabled: true,
-    ttl: 600, // 10 minutes
-  },
-});
-```
-
-### POST Request
-
-```typescript
-// POST with data
-const newUser = await dataClient.post<User>('/api/users', {
-  name: 'John Doe',
-  email: 'john@example.com',
-});
-
-// POST with options
-const result = await dataClient.post<CreateResponse>('/api/users', userData, {
-  skipAuth: false,
-  timeout: 10000,
-});
-```
-
-### PUT Request
-
-```typescript
-const updatedUser = await dataClient.put<User>('/api/users/123', {
-  name: 'Jane Doe',
-  email: 'jane@example.com',
-});
-```
-
-### PATCH Request
-
-```typescript
-const patchedUser = await dataClient.patch<User>('/api/users/123', {
-  email: 'newemail@example.com',
-});
-```
-
-### DELETE Request
-
-```typescript
-await dataClient.delete('/api/users/123');
-```
-
-## Authentication
-
-### ⚠️ Security: Client Token Pattern for Browser
-
-For browser applications, use the **Server-Provided Client Token Pattern** to avoid exposing `clientSecret`:
-
-#### Server-Side: Token Refresh Endpoint
-
-```typescript
-// Server: Express.js example
+// server.ts (Express.js example)
 import express from 'express';
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, getEnvironmentToken, loadConfig } from '@aifabrix/miso-client';
 
 const app = express();
 
-// Secure token refresh endpoint
-app.get('/api/client-token', 
-  authenticateUser,           // ✅ User must be authenticated
-  rateLimit({ window: '15m', max: 10 }), // ✅ Rate limiting
-  async (req, res) => {
-    // Server uses clientSecret securely
-    const serverClient = new MisoClient({
-      controllerUrl: 'https://controller.aifabrix.ai',
-      clientId: 'ctrl-dev-my-app',
-      clientSecret: process.env.MISO_CLIENTSECRET, // ✅ Environment variable
-    });
-    
-    const token = await serverClient.getEnvironmentToken();
-    
-    // Return token with short expiration for browser
-    res.json({
-      token: token,
-      expiresIn: 1800, // 30 minutes (shorter than server-side)
-    });
-  }
-);
-
-// Initial page load: Provide token to browser
-app.get('/', authenticateUser, async (req, res) => {
-  const serverClient = new MisoClient({
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    clientSecret: process.env.MISO_CLIENTSECRET,
-  });
-  
-  const token = await serverClient.getEnvironmentToken();
-  
-  res.render('index', {
-    initialClientToken: token,
-    initialClientTokenExpiresAt: Date.now() + 1800000, // 30 minutes
-  });
-});
-```
-
-#### Browser-Side: Use Client Token
-
-```typescript
-// Browser: Use server-provided token
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    // ❌ NO clientSecret
-    
-    // Initial token from server
-    clientToken: window.INITIAL_CLIENT_TOKEN,
-    clientTokenExpiresAt: new Date(window.INITIAL_CLIENT_TOKEN_EXPIRES_AT),
-    
-    // Refresh callback - calls your server endpoint
-    onClientTokenRefresh: async () => {
-      const response = await fetch('/api/client-token', {
-        credentials: 'include', // Include cookies for user auth
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to refresh client token');
-      }
-      
-      return await response.json(); // { token: string, expiresIn: number }
-    },
-  },
-});
-```
-
-### User Token Management
-
-DataClient automatically retrieves user authentication tokens from `localStorage` using configurable keys:
-
-```typescript
-// Default token keys: ['token', 'accessToken', 'authToken']
-// DataClient checks these keys in order
-
-// Store token in localStorage
-localStorage.setItem('token', 'your-jwt-token');
-
-// DataClient automatically uses the token for authenticated requests
-const users = await dataClient.get('/api/users');
-```
-
-### Custom Token Keys
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  tokenKeys: ['myAppToken', 'authToken'], // Custom token keys
-});
-```
-
-### Skip Authentication
-
-```typescript
-// Make unauthenticated request
-const publicData = await dataClient.get('/api/public', {
-  skipAuth: true,
-});
-```
-
-### Check Authentication Status
-
-```typescript
-if (dataClient.isAuthenticated()) {
-  // User is authenticated
-  const users = await dataClient.get('/api/users');
-} else {
-  // Redirect to login via controller
-  await dataClient.redirectToLogin();
-  // After authentication, user will be redirected back to current page
-}
-```
-
-### Redirect to Login with Custom URL
-
-```typescript
-// Redirect to login and return to dashboard after authentication
-await dataClient.redirectToLogin('https://myapp.com/dashboard');
-
-// Controller handles OAuth flow and redirects to dashboard after login
-```
-
-### Logout User
-
-```typescript
-// Basic logout - redirects to login page
-await dataClient.logout();
-
-// Logout and redirect to home page
-await dataClient.logout('/home');
-
-// Configure custom logout URL
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  logoutUrl: '/goodbye', // Custom logout page
-});
-
-await dataClient.logout(); // Redirects to /goodbye
-```
-
-**What logout does:**
-
-- Calls controller logout API to invalidate server-side session
-- Clears authentication tokens from localStorage
-- Clears HTTP response cache
-- Redirects to logout URL or login page
-
-### Automatic Login Redirect
-
-DataClient automatically redirects to the login page on 401 errors via the controller:
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  loginUrl: '/login', // Fallback login URL if controller unavailable
-});
-
-// On 401 error, automatically calls controller login endpoint
-// and redirects to controller's login URL
-try {
-  await dataClient.get('/api/protected');
-} catch (error) {
-  // User will be redirected to controller login URL
-  // After authentication, controller redirects back to current page
-}
-```
-
-### Client Token Refresh
-
-When using the client token pattern, DataClient automatically refreshes expired tokens:
-
-```typescript
-// Token refresh happens automatically when:
-// 1. Token expires (checked with 60s buffer)
-// 2. Audit logging requires client token
-// 3. Token refresh callback is called
-
-// The refresh callback should:
-// - Require user authentication
-// - Implement rate limiting
-// - Return { token: string, expiresIn: number }
-// - Handle errors gracefully
-
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    clientToken: initialToken,
-    clientTokenExpiresAt: initialExpiresAt,
-    onClientTokenRefresh: async () => {
-      // This is called automatically when token expires
-      const response = await fetch('/api/client-token', {
-        credentials: 'include',
-      });
-      return await response.json();
-    },
-  },
-});
-```
-
-### Get Environment Token (Browser-Side)
-
-DataClient provides a browser-side method to fetch environment tokens with automatic caching:
-
-```typescript
-// Get environment token (checks cache first, then calls backend)
-const token = await dataClient.getEnvironmentToken();
-
-// Token is automatically cached in localStorage
-// Cache keys: 'miso:client-token' and 'miso:client-token-expires-at'
-// Cache expires based on expiresIn from backend response
-```
-
-**Configuration:**
-
-The `getEnvironmentToken()` method uses `clientTokenUri` from `misoConfig` or defaults to `/api/v1/auth/client-token`:
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    // Optional: Custom client token endpoint URI
-    clientTokenUri: '/api/v1/auth/client-token', // Default
-  },
-});
-```
-
-**Server-Side Route Example:**
-
-Create a server-side route that validates origin and returns the token:
-
-```typescript
-// Server: Express.js example
-import express from 'express';
-import { MisoClient, getEnvironmentToken } from '@aifabrix/miso-client';
-
-const app = express();
-const misoClient = new MisoClient({
-  controllerUrl: 'https://controller.aifabrix.ai',
-  clientId: 'ctrl-dev-my-app',
-  clientSecret: process.env.MISO_CLIENTSECRET,
-  // Configure allowed origins for CORS validation
-  allowedOrigins: [
-    'http://localhost:3000',
-    'https://myapp.com',
-    'http://localhost:*', // Wildcard port support
-  ],
-});
+// Option 1: Use loadConfig() helper (recommended - automatically loads all .env parameters)
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const config = loadConfig(); // Automatically loads MISO_ALLOWED_ORIGINS, MISO_CLIENTID, etc.
+const misoClient = new MisoClient(config);
+await misoClient.initialize();
 
 // Client token endpoint with origin validation
 app.post('/api/v1/auth/client-token', async (req, res) => {
@@ -611,24 +111,461 @@ app.post('/api/v1/auth/client-token', async (req, res) => {
 });
 ```
 
-**Environment Variable Configuration:**
+**What happens:**
 
-Configure allowed origins via environment variable:
+1. Browser makes POST request to `/api/v1/auth/client-token`
+2. `getEnvironmentToken()` validates the request origin against `allowedOrigins`
+3. If valid, it fetches a client token from the controller
+4. Token is returned to the browser with expiration time
+5. Audit events are automatically logged for ISO 27001 compliance
 
-```bash
-# .env file
-MISO_ALLOWED_ORIGINS=http://localhost:3000,https://myapp.com,http://localhost:*
+**Manual configuration** - If you need custom logic:
+
+```typescript
+const misoClient = new MisoClient({
+  controllerUrl: process.env.MISO_CONTROLLER_URL,
+  clientId: process.env.MISO_CLIENTID,
+  clientSecret: process.env.MISO_CLIENTSECRET,
+  // Parse MISO_ALLOWED_ORIGINS manually
+  allowedOrigins: process.env.MISO_ALLOWED_ORIGINS?.split(',').map(o => o.trim()),
+});
 ```
 
 **Security Best Practices:**
 
-1. **Always validate origins** - Configure `allowedOrigins` in server-side MisoClient config
-2. **Use HTTPS in production** - Never allow HTTP origins in production
-3. **Rate limit endpoints** - Implement rate limiting on client token endpoints
-4. **Require authentication** - Ensure user is authenticated before issuing client tokens
-5. **Short expiration times** - Use shorter expiration times for browser tokens (e.g., 30 minutes)
+1. ✅ **Always validate origins** - Configure `allowedOrigins` in server-side MisoClient config
+2. ✅ **Use HTTPS in production** - Never allow HTTP origins in production
+3. ✅ **Rate limit endpoints** - Implement rate limiting on client token endpoints
+4. ✅ **Require authentication** - Ensure user is authenticated before issuing client tokens
+5. ✅ **Short expiration times** - Use shorter expiration times for browser tokens (e.g., 30 minutes)
 
-### Get Client Token Info
+### Step 2: Browser Setup
+
+**You need to:** Initialize DataClient in your browser application without exposing `clientSecret`.
+
+**Here's how:** Use the server-provided client token pattern.
+
+**Note:** In browser environments, environment variables are typically injected at build time (via build tools like Vite, Webpack, etc.) or passed from the server. The examples below show both patterns.
+
+#### Basic Browser Setup
+
+```typescript
+// browser.ts (React/Vue/Angular)
+import { DataClient } from '@aifabrix/miso-client';
+
+// Create DataClient instance WITHOUT clientSecret
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: process.env.MISO_CONTROLLER_URL,
+    clientId: process.env.MISO_CLIENTID,
+    // ❌ DO NOT include clientSecret in browser code
+    
+    // ✅ Use server-provided token endpoint
+    clientTokenUri: '/api/v1/auth/client-token', // Default if not specified
+    
+    // Optional: Initial token from server (if provided on page load)
+    // clientToken: window.INITIAL_CLIENT_TOKEN,
+    // clientTokenExpiresAt: window.INITIAL_CLIENT_TOKEN_EXPIRES_AT,
+  },
+});
+```
+
+**What happens:**
+
+1. DataClient is initialized without `clientSecret` (safe for browser)
+2. When a client token is needed, `dataClient.getEnvironmentToken()` is called automatically
+3. It checks localStorage cache first
+4. If cache miss/expired, it calls your server endpoint (`/api/v1/auth/client-token`)
+5. Token is cached in localStorage for future use
+
+#### Using getEnvironmentToken (Browser-Side)
+
+**You need to:** Get a client token for audit logging or other purposes.
+
+**Here's how:** Call `dataClient.getEnvironmentToken()` - it handles caching automatically.
+
+```typescript
+// Get environment token (checks cache first, then calls backend)
+const token = await dataClient.getEnvironmentToken();
+
+// Token is automatically cached in localStorage
+// Cache keys: 'miso:client-token' and 'miso:client-token-expires-at'
+// Cache expires based on expiresIn from backend response
+```
+
+**What happens:**
+
+1. Checks localStorage cache for valid token
+2. If cached and valid, returns immediately
+3. If cache miss or expired, calls your server endpoint (`/api/v1/auth/client-token`)
+4. Caches the new token with expiration time
+5. Returns the token
+
+**Configuration:**
+
+The `getEnvironmentToken()` method uses `clientTokenUri` from `misoConfig` or defaults to `/api/v1/auth/client-token`:
+
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: process.env.MISO_CONTROLLER_URL,
+    clientId: process.env.MISO_CLIENTID,
+    // Optional: Custom client token endpoint URI
+    clientTokenUri: '/api/v1/auth/client-token', // Default
+  },
+});
+```
+
+#### User Token Management
+
+DataClient automatically retrieves user authentication tokens from `localStorage`:
+
+```typescript
+// Default token keys: ['token', 'accessToken', 'authToken']
+// DataClient checks these keys in order
+
+// Store token in localStorage
+localStorage.setItem('token', 'your-jwt-token');
+
+// DataClient automatically uses the token for authenticated requests
+const users = await dataClient.get('/api/users');
+```
+
+**Custom Token Keys:**
+
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  tokenKeys: ['myAppToken', 'authToken'], // Custom token keys
+});
+```
+
+### Step 3: Making API Requests
+
+**You need to:** Make HTTP requests to your API with automatic authentication and audit logging.
+
+**Here's how:** Use DataClient's HTTP methods.
+
+#### GET Request
+
+```typescript
+// Simple GET request
+const users = await dataClient.get<User[]>('/api/users');
+
+// GET with options
+const user = await dataClient.get<User>('/api/users/123', {
+  headers: {
+    'X-Custom-Header': 'value',
+  },
+  cache: {
+    enabled: true,
+    ttl: 600, // 10 minutes
+  },
+});
+```
+
+#### POST Request
+
+```typescript
+// POST with data
+const newUser = await dataClient.post<User>('/api/users', {
+  name: 'John Doe',
+  email: 'john@example.com',
+});
+
+// POST with options
+const result = await dataClient.post<CreateResponse>('/api/users', userData, {
+  skipAuth: false,
+  timeout: 10000,
+});
+```
+
+#### PUT, PATCH, DELETE Requests
+
+```typescript
+// PUT request
+const updatedUser = await dataClient.put<User>('/api/users/123', {
+  name: 'Jane Doe',
+  email: 'jane@example.com',
+});
+
+// PATCH request
+const patchedUser = await dataClient.patch<User>('/api/users/123', {
+  email: 'newemail@example.com',
+});
+
+// DELETE request
+await dataClient.delete('/api/users/123');
+```
+
+#### Skip Authentication
+
+```typescript
+// Make unauthenticated request
+const publicData = await dataClient.get('/api/public', {
+  skipAuth: true,
+});
+```
+
+#### Authentication Status
+
+```typescript
+// Check if user is authenticated
+if (dataClient.isAuthenticated()) {
+  const users = await dataClient.get('/api/users');
+} else {
+  // Redirect to login via controller
+  await dataClient.redirectToLogin();
+}
+```
+
+#### Redirect to Login
+
+```typescript
+// Redirect to login and return to current page after authentication
+await dataClient.redirectToLogin();
+
+// Redirect to login and return to dashboard after authentication
+await dataClient.redirectToLogin('https://myapp.com/dashboard');
+```
+
+#### Logout User
+
+```typescript
+// Basic logout - redirects to login page
+await dataClient.logout();
+
+// Logout and redirect to home page
+await dataClient.logout('/home');
+
+// Configure custom logout URL
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  logoutUrl: '/goodbye', // Custom logout page
+});
+
+await dataClient.logout(); // Redirects to /goodbye
+```
+
+**What logout does:**
+
+- Calls controller logout API to invalidate server-side session
+- Clears authentication tokens from localStorage
+- Clears HTTP response cache
+- Redirects to logout URL or login page
+
+### Step 4: Advanced Features
+
+#### Caching
+
+DataClient provides in-memory caching for GET requests:
+
+```typescript
+// First request - fetches from API
+const users1 = await dataClient.get('/api/users');
+
+// Second request - returns from cache (if within TTL)
+const users2 = await dataClient.get('/api/users');
+```
+
+**Configuration:**
+
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  cache: {
+    enabled: true,
+    defaultTTL: 300, // 5 minutes
+    maxSize: 100, // Maximum 100 cached entries
+  },
+});
+```
+
+**Per-Request Cache Control:**
+
+```typescript
+// Disable cache for this request
+const users = await dataClient.get('/api/users', {
+  cache: {
+    enabled: false,
+  },
+});
+
+// Custom TTL for this request
+const user = await dataClient.get('/api/users/123', {
+  cache: {
+    ttl: 600, // 10 minutes
+  },
+});
+
+// Clear all cached responses
+dataClient.clearCache();
+```
+
+#### Retry Logic
+
+DataClient automatically retries failed requests with exponential backoff:
+
+**Retryable Errors:**
+
+- Network errors (connection failures, timeouts)
+- 5xx server errors
+- 408 Request Timeout
+- 429 Too Many Requests
+
+**Non-Retryable Errors:**
+
+- 4xx client errors (except 401/403)
+- 401 Unauthorized
+- 403 Forbidden
+
+**Configuration:**
+
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  retry: {
+    enabled: true,
+    maxRetries: 3,
+    baseDelay: 1000, // 1 second
+    maxDelay: 10000, // 10 seconds
+  },
+});
+```
+
+**Per-Request Retry Control:**
+
+```typescript
+// Disable retry for this request
+const result = await dataClient.get('/api/users', {
+  retries: 0,
+});
+
+// Custom retry count
+const result = await dataClient.get('/api/users', {
+  retries: 5,
+});
+```
+
+#### ISO 27001 Audit Logging
+
+DataClient automatically logs all HTTP requests/responses for ISO 27001 compliance with sensitive data masking.
+
+**Audit Levels:**
+
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  audit: {
+    enabled: true,
+    level: 'standard', // minimal | standard | detailed | full
+    skipEndpoints: ['/health', '/metrics'],
+  },
+});
+```
+
+**Audit Level Details:**
+
+- **minimal**: Only method, URL, status, duration, userId
+- **standard**: Includes headers and bodies (masked) - **default**
+- **detailed**: Includes sizes and more metadata
+- **full**: Complete audit trail with all details
+
+**Sensitive Data Masking:**
+
+DataClient automatically masks sensitive data before logging:
+
+- Passwords, tokens, API keys
+- PII (email, phone, SSN, etc.)
+- Financial data (credit cards, bank accounts)
+- Custom sensitive fields (configurable)
+
+**Skip Audit:**
+
+```typescript
+// Skip audit for specific endpoints (global config)
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  audit: {
+    skipEndpoints: ['/health', '/metrics', '/ping'],
+  },
+});
+
+// Skip audit for specific request
+await dataClient.get('/api/users', {
+  skipAudit: true,
+});
+
+// Update audit configuration at runtime
+dataClient.setAuditConfig({
+  level: 'detailed',
+  maxResponseSize: 20000,
+});
+```
+
+#### Interceptors
+
+DataClient supports request, response, and error interceptors:
+
+```typescript
+dataClient.setInterceptors({
+  onRequest: async (url, options) => {
+    // Transform request before sending
+    return {
+      ...options,
+      headers: {
+        ...options.headers,
+        'X-Custom-Header': 'value',
+      },
+    };
+  },
+  onResponse: async (response, data) => {
+    // Transform response data
+    return {
+      ...data,
+      timestamp: Date.now(),
+    };
+  },
+  onError: async (error) => {
+    // Transform error
+    console.error('Request failed:', error);
+    return error;
+  },
+});
+```
+
+#### Request Metrics
+
+Track request metrics for monitoring and performance analysis:
+
+```typescript
+const metrics = dataClient.getMetrics();
+
+console.log('Total requests:', metrics.totalRequests);
+console.log('Total failures:', metrics.totalFailures);
+console.log('Average response time:', metrics.averageResponseTime, 'ms');
+console.log('Error rate:', metrics.errorRate);
+console.log('Cache hit rate:', metrics.cacheHitRate);
+console.log('Response time distribution:', metrics.responseTimeDistribution);
+```
+
+#### Get Client Token Info
 
 Extract application and environment information from the client token:
 
@@ -646,514 +583,6 @@ if (tokenInfo) {
 }
 ```
 
-**Use Cases:**
-
-- Display current application/environment in UI
-- Debug token information
-- Conditional logic based on environment
-
-**Example: Display Current Environment**
-
-```typescript
-function EnvironmentBadge() {
-  const dataClient = useDataClient(); // Your hook or context
-  const tokenInfo = dataClient.getClientTokenInfo();
-  
-  if (!tokenInfo) {
-    return <div>No environment info</div>;
-  }
-  
-  return (
-    <div>
-      <span>Environment: {tokenInfo.environment || 'unknown'}</span>
-      <span>Application: {tokenInfo.application || 'unknown'}</span>
-    </div>
-  );
-}
-```
-
-## ISO 27001 Audit Logging
-
-DataClient automatically logs all HTTP requests/responses for ISO 27001 compliance with sensitive data masking.
-
-### Audit Levels
-
-#### Minimal Level
-
-Logs only basic information:
-
-- Request method
-- URL
-- Status code
-- Duration
-- User ID (if available)
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  audit: {
-    level: 'minimal',
-  },
-});
-```
-
-#### Standard Level (Default)
-
-Includes headers and bodies (masked):
-
-- All minimal level fields
-- Request headers (masked)
-- Response headers (masked)
-- Request body (masked)
-- Response body (masked)
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  audit: {
-    level: 'standard',
-  },
-});
-```
-
-#### Detailed Level
-
-Includes sizes and more metadata:
-
-- All standard level fields
-- Request size
-- Response size
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  audit: {
-    level: 'detailed',
-  },
-});
-```
-
-#### Full Level
-
-Complete audit trail with all details.
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  audit: {
-    level: 'full',
-  },
-});
-```
-
-### Sensitive Data Masking
-
-DataClient automatically masks sensitive data before logging:
-
-- Passwords, tokens, API keys
-- PII (email, phone, SSN, etc.)
-- Financial data (credit cards, bank accounts)
-- Custom sensitive fields (configurable)
-
-```typescript
-// Sensitive data is automatically masked in audit logs
-await dataClient.post('/api/users', {
-  username: 'john',
-  password: 'secret123', // Will be masked as ***MASKED***
-  email: 'john@example.com', // Will be masked as ***MASKED***
-});
-```
-
-### Skip Audit for Specific Endpoints
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  audit: {
-    skipEndpoints: ['/health', '/metrics', '/ping'],
-  },
-});
-
-// This request won't be audited
-await dataClient.get('/health');
-```
-
-### Skip Audit for Specific Requests
-
-```typescript
-// Skip audit for this specific request
-await dataClient.get('/api/users', {
-  skipAudit: true,
-});
-```
-
-### Update Audit Configuration
-
-```typescript
-// Update audit configuration at runtime
-dataClient.setAuditConfig({
-  level: 'detailed',
-  maxResponseSize: 20000,
-});
-```
-
-## Caching
-
-DataClient provides in-memory caching for GET requests to improve performance.
-
-### Basic Caching
-
-```typescript
-// First request - fetches from API
-const users1 = await dataClient.get('/api/users');
-
-// Second request - returns from cache (if within TTL)
-const users2 = await dataClient.get('/api/users');
-```
-
-### Cache Configuration
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  cache: {
-    enabled: true,
-    defaultTTL: 300, // 5 minutes
-    maxSize: 100, // Maximum 100 cached entries
-  },
-});
-```
-
-### Per-Request Cache Control
-
-```typescript
-// Disable cache for this request
-const users = await dataClient.get('/api/users', {
-  cache: {
-    enabled: false,
-  },
-});
-
-// Custom TTL for this request
-const user = await dataClient.get('/api/users/123', {
-  cache: {
-    ttl: 600, // 10 minutes
-  },
-});
-
-// Custom cache key
-const data = await dataClient.get('/api/data', {
-  cache: {
-    key: 'custom-cache-key',
-    ttl: 300,
-  },
-});
-```
-
-### Clear Cache
-
-```typescript
-// Clear all cached responses
-dataClient.clearCache();
-```
-
-## Retry Logic
-
-DataClient automatically retries failed requests with exponential backoff.
-
-### Retryable Errors
-
-- Network errors (connection failures, timeouts)
-- 5xx server errors
-- 408 Request Timeout
-- 429 Too Many Requests
-
-### Non-Retryable Errors
-
-- 4xx client errors (except 401/403)
-- 401 Unauthorized
-- 403 Forbidden
-
-### Retry Configuration
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  retry: {
-    enabled: true,
-    maxRetries: 3,
-    baseDelay: 1000, // 1 second
-    maxDelay: 10000, // 10 seconds
-  },
-});
-```
-
-### Per-Request Retry Control
-
-```typescript
-// Disable retry for this request
-const result = await dataClient.get('/api/users', {
-  retries: 0,
-});
-
-// Custom retry count
-const result = await dataClient.get('/api/users', {
-  retries: 5,
-});
-```
-
-## Interceptors
-
-DataClient supports request, response, and error interceptors for custom transformation.
-
-### Request Interceptor
-
-```typescript
-dataClient.setInterceptors({
-  onRequest: async (url, options) => {
-    // Transform request before sending
-    return {
-      ...options,
-      headers: {
-        ...options.headers,
-        'X-Custom-Header': 'value',
-      },
-    };
-  },
-});
-```
-
-### Response Interceptor
-
-```typescript
-dataClient.setInterceptors({
-  onResponse: async (response, data) => {
-    // Transform response data
-    return {
-      ...data,
-      timestamp: Date.now(),
-    };
-  },
-});
-```
-
-### Error Interceptor
-
-```typescript
-dataClient.setInterceptors({
-  onError: async (error, response) => {
-    // Transform error
-    if (error instanceof AuthenticationError) {
-      // Handle authentication errors
-      console.error('Authentication failed');
-    }
-    return error;
-  },
-});
-```
-
-### Multiple Interceptors
-
-```typescript
-dataClient.setInterceptors({
-  onRequest: async (url, options) => {
-    // Add request ID
-    return {
-      ...options,
-      headers: {
-        ...options.headers,
-        'X-Request-ID': generateRequestId(),
-      },
-    };
-  },
-  onResponse: async (response, data) => {
-    // Log response
-    console.log('Response received:', data);
-    return data;
-  },
-  onError: async (error) => {
-    // Log error
-    console.error('Request failed:', error);
-    return error;
-  },
-});
-```
-
-## Request Metrics
-
-DataClient tracks request metrics for monitoring and performance analysis.
-
-### Get Metrics
-
-```typescript
-const metrics = dataClient.getMetrics();
-
-console.log('Total requests:', metrics.totalRequests);
-console.log('Total failures:', metrics.totalFailures);
-console.log('Average response time:', metrics.averageResponseTime, 'ms');
-console.log('Error rate:', metrics.errorRate);
-console.log('Cache hit rate:', metrics.cacheHitRate);
-console.log('Response time distribution:', metrics.responseTimeDistribution);
-```
-
-### Metrics Structure
-
-```typescript
-interface RequestMetrics {
-  totalRequests: number;
-  totalFailures: number;
-  averageResponseTime: number;
-  responseTimeDistribution: {
-    min: number;
-    max: number;
-    p50: number;  // 50th percentile
-    p95: number;  // 95th percentile
-    p99: number;  // 99th percentile
-  };
-  errorRate: number;        // 0-1
-  cacheHitRate: number;      // 0-1
-}
-```
-
-## Error Handling
-
-DataClient provides custom error types for better error handling.
-
-### Error Types
-
-#### NetworkError
-
-Thrown on network failures (connection errors, CORS issues, etc.)
-
-```typescript
-try {
-  await dataClient.get('/api/users');
-} catch (error) {
-  if (error instanceof NetworkError) {
-    console.error('Network error:', error.message);
-  }
-}
-```
-
-#### TimeoutError
-
-Thrown when a request exceeds the timeout
-
-```typescript
-try {
-  await dataClient.get('/api/users', { timeout: 1000 });
-} catch (error) {
-  if (error instanceof TimeoutError) {
-    console.error('Request timeout:', error.message);
-  }
-}
-```
-
-#### AuthenticationError
-
-Thrown on 401 Unauthorized responses
-
-```typescript
-try {
-  await dataClient.get('/api/protected');
-} catch (error) {
-  if (error instanceof AuthenticationError) {
-    // User will be automatically redirected to login
-    console.error('Authentication required');
-  }
-}
-```
-
-#### ApiError
-
-Base error class for API errors
-
-```typescript
-try {
-  await dataClient.get('/api/users');
-} catch (error) {
-  if (error instanceof ApiError) {
-    console.error('API error:', error.message);
-    console.error('Status code:', error.statusCode);
-    console.error('Response:', error.response);
-  }
-}
-```
-
-## Browser Compatibility
-
-DataClient is designed for browser environments but gracefully handles SSR scenarios.
-
-### Browser Detection
-
-DataClient automatically detects browser environment and uses appropriate APIs:
-
-- `localStorage` for token storage
-- `window.location` for redirects
-- `fetch` API for HTTP requests
-- `AbortController` for request cancellation
-
-### SSR Support
-
-DataClient gracefully degrades in server-side rendering environments:
-
-```typescript
-// Works in both browser and SSR
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-});
-
-// isAuthenticated() returns false in SSR
-if (dataClient.isAuthenticated()) {
-  // Browser-only code
-}
-```
-
-### Request Cancellation
-
-```typescript
-// Create AbortController
-const controller = new AbortController();
-
-// Make request with signal
-const promise = dataClient.get('/api/users', {
-  signal: controller.signal,
-});
-
-// Cancel request
-controller.abort();
-
-try {
-  await promise;
-} catch (error) {
-  // Request was cancelled
-}
-```
-
-### Timeout Handling
-
-```typescript
-// Per-request timeout
-const result = await dataClient.get('/api/users', {
-  timeout: 5000, // 5 seconds
-});
-
-// Global timeout configuration
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  timeout: 30000, // 30 seconds default
-});
-```
-
 ## API Reference
 
 ### DataClient Class
@@ -1166,9 +595,7 @@ constructor(config: DataClientConfig)
 
 Creates a new DataClient instance.
 
-#### Methods
-
-##### HTTP Methods
+#### HTTP Methods
 
 - `get<T>(endpoint: string, options?: ApiRequestOptions): Promise<T>`
 - `post<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T>`
@@ -1176,10 +603,10 @@ Creates a new DataClient instance.
 - `patch<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T>`
 - `delete<T>(endpoint: string, options?: ApiRequestOptions): Promise<T>`
 
-##### Utility Methods
+#### Utility Methods
 
 - `isAuthenticated(): boolean` - Check if user is authenticated
-- `redirectToLogin(redirectUrl?: string): Promise<void>` - Redirect to login page via controller with optional redirect URL
+- `redirectToLogin(redirectUrl?: string): Promise<void>` - Redirect to login page via controller
 - `logout(redirectUrl?: string): Promise<void>` - Logout user, clear tokens and cache, and redirect
 - `getEnvironmentToken(): Promise<string>` - Get environment/client token (browser-side with caching)
 - `getClientTokenInfo(): ClientTokenInfo | null` - Extract application and environment info from client token
@@ -1188,9 +615,182 @@ Creates a new DataClient instance.
 - `clearCache(): void` - Clear all cached responses
 - `getMetrics(): RequestMetrics` - Get request metrics
 
-### Type Definitions
+### Configuration Types
 
-See [TypeScript definitions](../src/types/data-client.types.ts) for complete type definitions.
+#### DataClientConfig
+
+```typescript
+interface DataClientConfig {
+  baseUrl: string;
+  misoConfig: MisoClientConfig;
+  tokenKeys?: string[];
+  loginUrl?: string;
+  logoutUrl?: string;
+  cache?: CacheConfig;
+  retry?: RetryConfig;
+  audit?: AuditConfig;
+  timeout?: number;
+  defaultHeaders?: Record<string, string>;
+}
+```
+
+#### ApiRequestOptions
+
+```typescript
+interface ApiRequestOptions extends RequestInit {
+  skipAuth?: boolean;
+  retries?: number;
+  signal?: AbortSignal;
+  timeout?: number;
+  cache?: {
+    enabled?: boolean;
+    ttl?: number;
+    key?: string;
+  };
+  skipAudit?: boolean;
+}
+```
+
+### Error Types
+
+- `NetworkError` - Network failures (connection errors, CORS issues, etc.)
+- `TimeoutError` - Request timeout exceeded
+- `AuthenticationError` - 401 Unauthorized responses
+- `ApiError` - Base error class for API errors
+
+**See Also:**
+
+- [Complete API Reference](./api-reference.md#dataclient) - Full API documentation
+- [TypeScript Definitions](../src/types/data-client.types.ts) - Complete type definitions
+
+## Troubleshooting
+
+### Token Not Found
+
+If authentication fails, ensure the user token is stored in localStorage with one of the configured keys:
+
+```typescript
+// Store user token (for API authentication)
+localStorage.setItem('token', 'your-jwt-token');
+
+// Verify token is accessible
+console.log(localStorage.getItem('token'));
+```
+
+### Client Token Refresh Fails
+
+If client token refresh fails:
+
+1. **Check Server Endpoint** - Ensure `/api/v1/auth/client-token` endpoint is accessible
+2. **Verify Authentication** - Ensure user is authenticated (cookies/session)
+3. **Check Rate Limiting** - Verify rate limits aren't blocking requests
+4. **Inspect Network** - Check browser DevTools Network tab for errors
+5. **Server Logs** - Check server logs for token refresh requests
+
+**Debug Example:**
+
+```typescript
+// Debug client token refresh
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: process.env.MISO_CONTROLLER_URL,
+    clientId: process.env.MISO_CLIENTID,
+    clientTokenUri: '/api/v1/auth/client-token',
+  },
+});
+
+try {
+  const token = await dataClient.getEnvironmentToken();
+  console.log('Token retrieved successfully');
+} catch (error) {
+  console.error('Token fetch failed:', error);
+  // Check Network tab for request details
+}
+```
+
+### Audit Logs Not Appearing
+
+Ensure MisoClient is properly configured and audit logging is enabled:
+
+**Browser Applications:**
+
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: process.env.MISO_CONTROLLER_URL,
+    clientId: process.env.MISO_CLIENTID,
+    // ❌ NO clientSecret in browser
+    audit: {
+      enabled: true, // Ensure audit is enabled
+    },
+  },
+});
+```
+
+**Server Applications:**
+
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: process.env.MISO_CONTROLLER_URL,
+    clientId: process.env.MISO_CLIENTID,
+    clientSecret: process.env.MISO_CLIENTSECRET, // ✅ Safe on server
+    audit: {
+      enabled: true,
+    },
+  },
+});
+```
+
+### Cache Not Working
+
+Verify cache is enabled and check cache TTL:
+
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  cache: {
+    enabled: true, // Ensure cache is enabled
+    defaultTTL: 300,
+  },
+});
+```
+
+### Origin Validation Fails
+
+If origin validation fails on the server endpoint:
+
+1. **Check Allowed Origins** - Verify `allowedOrigins` includes your browser origin
+2. **Check Origin Header** - Ensure browser sends `Origin` header correctly
+3. **Wildcard Ports** - Use `http://localhost:*` for local development
+4. **HTTPS in Production** - Never allow HTTP origins in production
+
+**Debug Example:**
+
+```typescript
+// Server-side: Log origin for debugging
+app.post('/api/v1/auth/client-token', async (req, res) => {
+  console.log('Origin:', req.headers.origin);
+  console.log('Referer:', req.headers.referer);
+  console.log('Allowed origins:', misoClient.getConfig().allowedOrigins);
+  
+  try {
+    const token = await getEnvironmentToken(misoClient, req);
+    res.json({ token, expiresIn: 1800 });
+  } catch (error) {
+    console.error('Origin validation failed:', error);
+    res.status(403).json({ error: 'Origin validation failed' });
+  }
+});
+```
 
 ## Examples
 
@@ -1200,25 +800,16 @@ See [TypeScript definitions](../src/types/data-client.types.ts) for complete typ
 import { DataClient } from '@aifabrix/miso-client';
 import { useEffect, useState } from 'react';
 
-// ✅ Browser-safe configuration with client token pattern
+// ✅ Browser-safe configuration
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+// Note: In browser environments, you may need to inject env vars at build time
+// or use a config object passed from the server
 const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
+  baseUrl: window.API_BASE_URL || process.env.API_BASE_URL || 'https://api.example.com',
   misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    // ❌ NO clientSecret in browser code
-    
-    // ✅ Server-provided client token (from initial page load or API)
-    clientToken: window.INITIAL_CLIENT_TOKEN,
-    clientTokenExpiresAt: new Date(window.INITIAL_CLIENT_TOKEN_EXPIRES_AT),
-    
-    // ✅ Refresh callback - calls your server endpoint
-    onClientTokenRefresh: async () => {
-      const response = await fetch('/api/client-token', {
-        credentials: 'include',
-      });
-      return await response.json();
-    },
+    controllerUrl: window.MISO_CONTROLLER_URL || process.env.MISO_CONTROLLER_URL,
+    clientId: window.MISO_CLIENTID || process.env.MISO_CLIENTID,
+    clientTokenUri: '/api/v1/auth/client-token',
   },
 });
 
@@ -1260,20 +851,13 @@ import { DataClient } from '@aifabrix/miso-client';
 import { ref, onMounted } from 'vue';
 
 // ✅ Browser-safe configuration
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
 const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
   misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    // ❌ NO clientSecret in browser code
-    clientToken: window.INITIAL_CLIENT_TOKEN,
-    clientTokenExpiresAt: new Date(window.INITIAL_CLIENT_TOKEN_EXPIRES_AT),
-    onClientTokenRefresh: async () => {
-      const response = await fetch('/api/client-token', {
-        credentials: 'include',
-      });
-      return await response.json();
-    },
+    controllerUrl: process.env.MISO_CONTROLLER_URL,
+    clientId: process.env.MISO_CLIENTID,
+    clientTokenUri: '/api/v1/auth/client-token',
   },
 });
 
@@ -1303,9 +887,14 @@ export default {
 ```typescript
 import { DataClient, NetworkError, AuthenticationError, TimeoutError } from '@aifabrix/miso-client';
 
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
 const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: process.env.MISO_CONTROLLER_URL,
+    clientId: process.env.MISO_CLIENTID,
+    // ... other config
+  },
 });
 
 async function fetchData() {
@@ -1326,178 +915,6 @@ async function fetchData() {
     throw error;
   }
 }
-```
-
-### Caching Example
-
-```typescript
-// Enable caching for frequently accessed data
-const users = await dataClient.get('/api/users', {
-  cache: {
-    ttl: 600, // Cache for 10 minutes
-  },
-});
-
-// Disable cache for real-time data
-const liveData = await dataClient.get('/api/live', {
-  cache: {
-    enabled: false,
-  },
-});
-```
-
-### Interceptor Example
-
-```typescript
-// Add request ID to all requests
-dataClient.setInterceptors({
-  onRequest: async (url, options) => {
-    return {
-      ...options,
-      headers: {
-        ...options.headers,
-        'X-Request-ID': crypto.randomUUID(),
-      },
-    };
-  },
-});
-
-// Transform all responses
-dataClient.setInterceptors({
-  onResponse: async (response, data) => {
-    return {
-      success: true,
-      data,
-      timestamp: Date.now(),
-    };
-  },
-});
-```
-
-## Best Practices
-
-1. **Use TypeScript** - DataClient is fully typed for better developer experience
-2. **Configure Audit Logging** - Set appropriate audit level for your compliance needs
-3. **Use Caching Wisely** - Cache static data, disable for real-time data
-4. **Handle Errors Properly** - Use custom error types for better error handling
-5. **Monitor Metrics** - Track request metrics for performance optimization
-6. **Set Appropriate Timeouts** - Configure timeouts based on your API response times
-7. **Use Interceptors** - Add common headers, transform responses, handle errors globally
-
-## Troubleshooting
-
-### Token Not Found
-
-If authentication fails, ensure the user token is stored in localStorage with one of the configured keys:
-
-```typescript
-// Store user token (for API authentication)
-localStorage.setItem('token', 'your-jwt-token');
-
-// Verify token is accessible
-console.log(localStorage.getItem('token'));
-```
-
-### Client Token Refresh Fails
-
-If client token refresh fails:
-
-1. **Check Server Endpoint** - Ensure `/api/client-token` endpoint is accessible
-2. **Verify Authentication** - Ensure user is authenticated (cookies/session)
-3. **Check Rate Limiting** - Verify rate limits aren't blocking requests
-4. **Inspect Network** - Check browser DevTools Network tab for errors
-5. **Server Logs** - Check server logs for token refresh requests
-
-```typescript
-// Debug client token refresh
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    clientToken: initialToken,
-    clientTokenExpiresAt: initialExpiresAt,
-    onClientTokenRefresh: async () => {
-      try {
-        console.log('Refreshing client token...');
-        const response = await fetch('/api/client-token', {
-          credentials: 'include',
-        });
-        
-        if (!response.ok) {
-          console.error('Token refresh failed:', response.status, response.statusText);
-          throw new Error(`Token refresh failed: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Token refreshed successfully');
-        return data;
-      } catch (error) {
-        console.error('Token refresh error:', error);
-        throw error;
-      }
-    },
-  },
-});
-```
-
-### Audit Logs Not Appearing
-
-Ensure MisoClient is properly configured and audit logging is enabled:
-
-**Browser Applications:**
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    // ❌ NO clientSecret in browser
-    clientToken: initialClientToken, // From server
-    clientTokenExpiresAt: initialExpiresAt,
-    onClientTokenRefresh: async () => {
-      const response = await fetch('/api/client-token', {
-        credentials: 'include',
-      });
-      return await response.json();
-    },
-    audit: {
-      enabled: true, // Ensure audit is enabled
-    },
-  },
-});
-```
-
-**Server Applications:**
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: {
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    clientSecret: process.env.MISO_CLIENTSECRET, // ✅ Safe on server
-    audit: {
-      enabled: true,
-    },
-  },
-});
-```
-
-### Cache Not Working
-
-Verify cache is enabled and check cache TTL:
-
-```typescript
-const dataClient = new DataClient({
-  baseUrl: 'https://api.example.com',
-  misoConfig: { /* ... */ },
-  cache: {
-    enabled: true, // Ensure cache is enabled
-    defaultTTL: 300,
-  },
-});
 ```
 
 ## See Also

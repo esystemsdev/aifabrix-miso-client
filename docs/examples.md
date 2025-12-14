@@ -6,7 +6,6 @@ Practical examples demonstrating how to use the AI Fabrix Miso Client SDK in var
 
 - [Express.js Middleware](#expressjs-middleware)
 - [React Authentication](#react-authentication)
-- [DataClient Browser Wrapper](#dataclient-browser-wrapper)
 - [Next.js API Routes](#nextjs-api-routes)
 - [NestJS Guards](#nestjs-guards)
 - [Fastify Plugin](#fastify-plugin)
@@ -23,18 +22,20 @@ Practical examples demonstrating how to use the AI Fabrix Miso Client SDK in var
 
 ### Basic Authentication Middleware
 
+**You need to:** Protect Express routes with authentication middleware.
+
+**Here's how:** Create middleware that validates tokens and attaches user info to requests.
+
 ```typescript
 import express from 'express';
 import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 const app = express();
 
-// Load configuration from .env file
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
 const client = new MisoClient(loadConfig());
-
 await client.initialize();
 
-// Simple authentication middleware
 export async function authMiddleware(
   req: express.Request,
   res: express.Response,
@@ -71,15 +72,24 @@ app.get('/protected', authMiddleware, (req, res) => {
 });
 ```
 
+**What happens:**
+
+1. Middleware extracts token from request headers
+2. Validates token with controller
+3. Fetches user info and attaches to request
+4. Calls next() to continue request processing
+
 ### Role-Based Authorization Middleware
 
+**You need to:** Protect routes based on user roles or permissions.
+
+**Here's how:** Create reusable middleware functions for role and permission checks.
+
 ```typescript
-// Simple role-based authorization middleware
 export function requireRole(role: string) {
   return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     try {
       const token = client.getToken(req);
-
       if (!token) {
         return res.status(401).json({ error: 'No token provided' });
       }
@@ -106,12 +116,10 @@ export function requireRole(role: string) {
   };
 }
 
-// Simple permission-based authorization middleware
 export function requirePermission(permission: string) {
   return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
     try {
       const token = client.getToken(req);
-
       if (!token) {
         return res.status(401).json({ error: 'No token provided' });
       }
@@ -138,7 +146,7 @@ export function requirePermission(permission: string) {
   };
 }
 
-// Usage examples
+// Usage
 app.get('/admin', authMiddleware, requireRole('admin'), (req, res) => {
   res.json({ message: 'Admin panel' });
 });
@@ -148,66 +156,11 @@ app.delete('/posts/:id', authMiddleware, requirePermission('delete:posts'), (req
 });
 ```
 
-### Complete Express.js Application
-
-```typescript
-import express from 'express';
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
-
-const app = express();
-app.use(express.json());
-
-const client = new MisoClient(loadConfig());
-
-await client.initialize();
-
-// Middleware
-app.use(async (req, res, next) => {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (token) {
-    try {
-      const user = await client.getUser(token);
-      req.user = user;
-    } catch (error) {
-      // Token might be invalid, continue without user
-    }
-  }
-  next();
-});
-
-// Routes
-app.get('/posts', async (req, res) => {
-  try {
-    await client.log.info('Posts accessed', {
-      userId: req.user?.id,
-      ip: req.ip
-    });
-    res.json({ posts: [] });
-  } catch (error) {
-    await client.log.error('Failed to fetch posts', { error: error.message });
-    res.status(500).json({ error: 'Failed to fetch posts' });
-  }
-});
-
-app.post('/posts', authMiddleware, requirePermission('create:posts'), async (req, res) => {
-  try {
-    await client.log.audit('post.created', 'posts', {
-      userId: req.user?.id,
-      postTitle: req.body.title
-    });
-    res.json({ message: 'Post created' });
-  } catch (error) {
-    await client.log.error('Failed to create post', { error: error.message });
-    res.status(500).json({ error: 'Failed to create post' });
-  }
-});
-
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
-});
-```
-
 ## React Authentication
+
+**You need to:** Add authentication to your React application with context and protected routes.
+
+**Here's how:** Create an authentication context and protected route component.
 
 ### Authentication Context
 
@@ -239,7 +192,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         await client.initialize();
 
-        // Check for existing token in localStorage
         const token = localStorage.getItem('auth_token');
         if (token) {
           const isValid = await client.validateToken(token);
@@ -263,11 +215,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async () => {
     try {
-      // Redirect to dashboard after login - miso-controller handles OAuth callback internally
       const response = await client.login({ redirect: 'https://myapp.com/dashboard' });
-      // Redirect user to Keycloak login page
       window.location.href = response.data.loginUrl;
-      // After authentication, controller redirects to https://myapp.com/dashboard
     } catch (error) {
       console.error('Login error:', error);
     }
@@ -394,11 +343,6 @@ function App() {
               <AdminPanel />
             </ProtectedRoute>
           } />
-          <Route path="/posts" element={
-            <ProtectedRoute requiredPermission="edit:posts">
-              <PostEditor />
-            </ProtectedRoute>
-          } />
         </Routes>
       </Router>
     </AuthProvider>
@@ -408,15 +352,17 @@ function App() {
 
 ## Next.js API Routes
 
-### API Route with Authentication
+**You need to:** Add authentication to Next.js API routes.
+
+**Here's how:** Validate tokens and check permissions in API route handlers.
 
 ```typescript
 // pages/api/posts.ts
 import { NextApiRequest, NextApiResponse } from 'next';
 import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
 const client = new MisoClient(loadConfig());
-
 await client.initialize();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -469,62 +415,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 ```
 
-### Middleware for Next.js
-
-```typescript
-// middleware.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
-
-const client = new MisoClient(loadConfig());
-
-await client.initialize();
-
-export async function middleware(request: NextRequest) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '');
-
-  // Skip authentication for public routes
-  if (request.nextUrl.pathname.startsWith('/api/public')) {
-    return NextResponse.next();
-  }
-
-  if (!token) {
-    return NextResponse.json({ error: 'No token provided' }, { status: 401 });
-  }
-
-  try {
-    const isValid = await client.validateToken(token);
-    if (!isValid) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const user = await client.getUser(token);
-
-    // Add user to headers for API routes
-    const requestHeaders = new Headers(request.headers);
-    requestHeaders.set('x-user-id', user?.id || '');
-    requestHeaders.set('x-user-roles', JSON.stringify(user?.roles || []));
-
-    return NextResponse.next({
-      request: {
-        headers: requestHeaders
-      }
-    });
-  } catch (error) {
-    await client.log.error('Middleware error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      path: request.nextUrl.pathname
-    });
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-export const config = {
-  matcher: '/api/:path*'
-};
-```
-
 ## NestJS Guards
+
+**You need to:** Create authentication and authorization guards for NestJS.
+
+**Here's how:** Implement guards that validate tokens and check roles/permissions.
 
 ### Authentication Guard
 
@@ -538,6 +433,7 @@ export class AuthGuard implements CanActivate {
   private client: MisoClient;
 
   constructor() {
+    // ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
     this.client = new MisoClient(loadConfig());
     this.client.initialize();
   }
@@ -626,33 +522,11 @@ export class RoleGuard implements CanActivate {
     }
   }
 }
-```
 
-### Usage in Controller
-
-```typescript
-// posts.controller.ts
-import { Controller, Get, Post, UseGuards, SetMetadata, Request } from '@nestjs/common';
-import { AuthGuard } from './auth.guard';
-import { RoleGuard } from './role.guard';
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
-
+// Usage in Controller
 @Controller('posts')
 @UseGuards(AuthGuard)
 export class PostsController {
-  private readonly client: MisoClient;
-
-  constructor(private readonly postsService: PostsService) {
-    this.client = new MisoClient(loadConfig());
-    this.client.initialize();
-  }
-
-  @Get()
-  async findAll(@Request() req) {
-    await this.client.log.info('Posts accessed', { userId: req.user.id });
-    return this.postsService.findAll();
-  }
-
   @Post()
   @UseGuards(RoleGuard)
   @SetMetadata('roles', ['admin', 'editor'])
@@ -668,30 +542,22 @@ export class PostsController {
 
 ## Fastify Plugin
 
+**You need to:** Add authentication to Fastify applications.
+
+**Here's how:** Create a Fastify plugin that decorates the instance with MisoClient.
+
 ```typescript
 // miso-plugin.ts
 import { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
-interface MisoPluginOptions {
-  controllerUrl: string;
-  clientId: string;
-  clientSecret: string;
-  redis?: {
-    host: string;
-    port: number;
-    password?: string;
-  };
-}
-
-const misoPlugin: FastifyPluginAsync<MisoPluginOptions> = async (fastify, options) => {
-  const client = new MisoClient(options);
+const misoPlugin: FastifyPluginAsync = async (fastify) => {
+  // ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+  const client = new MisoClient(loadConfig());
   await client.initialize();
 
-  // Decorate fastify instance
   fastify.decorate('miso', client);
 
-  // Add authentication hook
   fastify.addHook('preHandler', async (request: FastifyRequest, reply) => {
     const token = request.headers.authorization?.replace('Bearer ', '');
 
@@ -708,7 +574,6 @@ const misoPlugin: FastifyPluginAsync<MisoPluginOptions> = async (fastify, option
     }
   });
 
-  // Add logging hook
   fastify.addHook('onResponse', async (request: FastifyRequest, reply) => {
     await client.log.info('Request completed', {
       method: request.method,
@@ -719,20 +584,13 @@ const misoPlugin: FastifyPluginAsync<MisoPluginOptions> = async (fastify, option
   });
 };
 
-// Usage in main file
+// Usage
 import Fastify from 'fastify';
-
 const fastify = Fastify();
-
-await fastify.register(misoPlugin, {
-  controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  clientId: process.env.MISO_CLIENTID!,
-  clientSecret: process.env.MISO_CLIENTSECRET!
-});
+await fastify.register(misoPlugin);
 
 fastify.get('/posts', async (request, reply) => {
   const token = request.headers.authorization?.replace('Bearer ', '');
-
   if (!token) {
     return reply.status(401).send({ error: 'No token provided' });
   }
@@ -748,14 +606,16 @@ fastify.get('/posts', async (request, reply) => {
 
 ## Background Jobs
 
-### Job Processing with Authentication
+**You need to:** Add logging and authentication context to background job processing.
+
+**Here's how:** Use MisoClient logging in job processors.
 
 ```typescript
 // job-processor.ts
 import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
 const client = new MisoClient(loadConfig());
-
 await client.initialize();
 
 interface Job {
@@ -774,7 +634,6 @@ class JobProcessor {
         userId: job.userId
       });
 
-      // Simulate job processing
       await this.performJob(job);
 
       await client.log.info('Job completed', {
@@ -795,195 +654,53 @@ class JobProcessor {
 
   private async performJob(job: Job) {
     // Job-specific logic here
-    switch (job.type) {
-      case 'email':
-        await this.sendEmail(job.data);
-        break;
-      case 'report':
-        await this.generateReport(job.data);
-        break;
-      default:
-        throw new Error(`Unknown job type: ${job.type}`);
-    }
-  }
-
-  private async sendEmail(data: any) {
-    // Email sending logic
-  }
-
-  private async generateReport(data: any) {
-    // Report generation logic
   }
 }
-
-// Usage
-const processor = new JobProcessor();
-
-// Process jobs from queue
-setInterval(async () => {
-  const jobs = await getJobsFromQueue(); // Your queue implementation
-  for (const job of jobs) {
-    await processor.processJob(job);
-  }
-}, 5000);
 ```
 
 ## Error Handling
 
-### Comprehensive Error Handling
+**You need to:** Handle SDK errors gracefully with structured error responses.
+
+**Here's how:** Use MisoClientError to access structured error details.
+
+### Basic Error Handling
 
 ```typescript
 import { MisoClient, loadConfig, MisoClientError } from '@aifabrix/miso-client';
 
-const client = new MisoClient(loadConfig());
-
-await client.initialize();
-
-class ErrorHandler {
-  async handleAuthError(error: any, context: any) {
-    await client.log.error('Authentication error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      context
-    });
-
-    // Determine appropriate response
-    if (error.message.includes('token')) {
-      return { status: 401, message: 'Invalid token' };
-    }
-
-    if (error.message.includes('permission')) {
-      return { status: 403, message: 'Insufficient permissions' };
-    }
-
-    return { status: 500, message: 'Internal server error' };
-  }
-
-  async handleBusinessError(error: any, context: any) {
-    await client.log.error('Business logic error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      context
-    });
-
-    return { status: 400, message: 'Bad request' };
-  }
-
-  async handleSystemError(error: any, context: any) {
-    await client.log.error('System error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-      context
-    });
-
-    return { status: 500, message: 'Internal server error' };
-  }
-}
-
-// Usage in Express route
-app.post('/api/data', async (req, res) => {
-  const errorHandler = new ErrorHandler();
-
-  try {
-    const token = client.getToken(req);
-
-    if (!token) {
-      const response = await errorHandler.handleAuthError(new Error('No token provided'), {
-        path: req.path,
-        method: req.method
-      });
-      return res.status(response.status).json({ error: response.message });
-    }
-
-    const isValid = await client.validateToken(token);
-    if (!isValid) {
-      const response = await errorHandler.handleAuthError(new Error('Invalid token'), {
-        path: req.path,
-        method: req.method
-      });
-      return res.status(response.status).json({ error: response.message });
-    }
-
-    // Business logic here
-    const result = await processData(req.body);
-    res.json(result);
-  } catch (error) {
-    let response;
-
-    if (error instanceof AuthError) {
-      response = await errorHandler.handleAuthError(error, { path: req.path });
-    } else if (error instanceof BusinessError) {
-      response = await errorHandler.handleBusinessError(error, { path: req.path });
-    } else {
-      response = await errorHandler.handleSystemError(error, { path: req.path });
-    }
-
-    res.status(response.status).json({ error: response.message });
-  }
-});
-```
-
-### Handling Structured Errors
-
-The SDK provides structured error responses following RFC 7807. Here's how to handle them:
-
-#### Basic Structured Error Handling
-
-```typescript
-import { MisoClient, MisoClientError } from '@aifabrix/miso-client';
-
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
 const client = new MisoClient(loadConfig());
 await client.initialize();
 
 try {
-  const token = 'your-token';
   const user = await client.getUser(token);
 } catch (error) {
   if (error instanceof MisoClientError && error.errorResponse) {
-    // Structured error response available
     console.error('Error Type:', error.errorResponse.type);
     console.error('Error Title:', error.errorResponse.title);
     console.error('Error Messages:', error.errorResponse.errors);
     console.error('Status Code:', error.errorResponse.statusCode);
-    console.error('Instance URI:', error.errorResponse.instance);
-    
-    // Error message is automatically set from title or first error
-    console.error('Message:', error.message);
   } else if (error instanceof MisoClientError) {
-    // Fallback for non-structured errors (backward compatibility)
     console.error('Error Body:', error.errorBody);
     console.error('Status Code:', error.statusCode);
   }
 }
 ```
 
-#### Express Route with Structured Error Handling
+### Express Error Handler
 
 ```typescript
 import express from 'express';
-import { MisoClient, MisoClientError } from '@aifabrix/miso-client';
-
-const app = express();
-const client = new MisoClient(loadConfig());
-await client.initialize();
+import { MisoClientError } from '@aifabrix/miso-client';
 
 app.get('/api/user', async (req, res) => {
   try {
-    const token = client.getToken(req);
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
     const user = await client.getUser(token);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
     res.json(user);
   } catch (error) {
     if (error instanceof MisoClientError) {
-      // Check for structured error response
       if (error.errorResponse) {
-        // Use structured error details
         return res.status(error.errorResponse.statusCode).json({
           error: error.errorResponse.title,
           errors: error.errorResponse.errors,
@@ -991,139 +708,35 @@ app.get('/api/user', async (req, res) => {
           instance: error.errorResponse.instance
         });
       } else {
-        // Fallback to status code and error body
-        const statusCode = error.statusCode || 500;
-        return res.status(statusCode).json({
+        return res.status(error.statusCode || 500).json({
           error: error.message,
           details: error.errorBody
         });
       }
     }
-
-    // Unknown error
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 ```
 
-#### Error Handler Utility with Structured Errors
+**What happens:**
 
-```typescript
-import { MisoClientError, ErrorResponse } from '@aifabrix/miso-client';
-
-class StructuredErrorHandler {
-  handleError(error: unknown, defaultMessage: string = 'An error occurred') {
-    if (error instanceof MisoClientError) {
-      // Structured error response
-      if (error.errorResponse) {
-        return {
-          statusCode: error.errorResponse.statusCode,
-          message: error.errorResponse.title,
-          errors: error.errorResponse.errors,
-          type: error.errorResponse.type,
-          instance: error.errorResponse.instance
-        };
-      }
-      
-      // Non-structured error (backward compatibility)
-      return {
-        statusCode: error.statusCode || 500,
-        message: error.message || defaultMessage,
-        errors: error.errorBody ? [String(error.errorBody)] : [defaultMessage]
-      };
-    }
-
-    // Generic error
-    return {
-      statusCode: 500,
-      message: error instanceof Error ? error.message : defaultMessage,
-      errors: [error instanceof Error ? error.message : defaultMessage]
-    };
-  }
-}
-
-// Usage
-const errorHandler = new StructuredErrorHandler();
-
-app.post('/api/data', async (req, res) => {
-  try {
-    const result = await processRequest(req);
-    res.json(result);
-  } catch (error) {
-    const errorResponse = errorHandler.handleError(error);
-    res.status(errorResponse.statusCode).json({
-      error: errorResponse.message,
-      errors: errorResponse.errors,
-      ...(errorResponse.type && { type: errorResponse.type }),
-      ...(errorResponse.instance && { instance: errorResponse.instance })
-    });
-  }
-});
-```
-
-#### Logging Structured Errors
-
-```typescript
-import { MisoClient, MisoClientError } from '@aifabrix/miso-client';
-
-const client = new MisoClient(loadConfig());
-await client.initialize();
-
-async function processWithErrorLogging<T>(
-  operation: () => Promise<T>,
-  context: Record<string, unknown>
-): Promise<T> {
-  try {
-    return await operation();
-  } catch (error) {
-    // Log structured error details
-    if (error instanceof MisoClientError) {
-      const logContext = {
-        ...context,
-        errorMessage: error.message,
-        statusCode: error.statusCode
-      };
-
-      // Add structured error details if available
-      if (error.errorResponse) {
-        logContext.errorType = error.errorResponse.type;
-        logContext.errorTitle = error.errorResponse.title;
-        logContext.errors = error.errorResponse.errors;
-        logContext.instance = error.errorResponse.instance;
-      } else if (error.errorBody) {
-        logContext.errorBody = error.errorBody;
-      }
-
-      await client.log.error('Operation failed', logContext);
-    } else {
-      // Generic error logging
-      await client.log.error('Operation failed', {
-        ...context,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
-    }
-
-    throw error;
-  }
-}
-
-// Usage
-await processWithErrorLogging(
-  async () => await client.validateToken(token),
-  { operation: 'validateToken', userId: 'user-123' }
-);
-```
+- SDK automatically parses RFC 7807 structured error responses
+- Provides detailed error information including type, title, and specific error messages
+- Falls back to legacy error format for backward compatibility
 
 ## Testing
+
+**You need to:** Test your application with mocked MisoClient.
+
+**Here's how:** Mock the SDK methods in your tests.
 
 ### Unit Tests with Mocks
 
 ```typescript
 // miso-client.test.ts
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+import { MisoClient } from '@aifabrix/miso-client';
 
-// Mock the HTTP client
 jest.mock('@aifabrix/miso-client', () => ({
   MisoClient: jest.fn().mockImplementation(() => ({
     initialize: jest.fn().mockResolvedValue(undefined),
@@ -1134,7 +747,6 @@ jest.mock('@aifabrix/miso-client', () => ({
       email: 'test@example.com',
       roles: ['user', 'admin']
     }),
-    getRoles: jest.fn().mockResolvedValue(['user', 'admin']),
     hasRole: jest.fn().mockResolvedValue(true),
     hasPermission: jest.fn().mockResolvedValue(true),
     log: {
@@ -1160,96 +772,28 @@ describe('MisoClient', () => {
     const isValid = await client.validateToken('valid-token');
     expect(isValid).toBe(true);
   });
-
-  it('should get user information', async () => {
-    const user = await client.getUser('valid-token');
-    expect(user).toEqual({
-      id: 'user-123',
-      username: 'testuser',
-      email: 'test@example.com',
-      roles: ['user', 'admin']
-    });
-  });
-
-  it('should check user roles', async () => {
-    const hasAdminRole = await client.hasRole('valid-token', 'admin');
-    expect(hasAdminRole).toBe(true);
-  });
-});
-```
-
-### Integration Tests
-
-```typescript
-// integration.test.ts
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
-
-describe('MisoClient Integration', () => {
-  let client: MisoClient;
-
-  beforeAll(async () => {
-    client = new MisoClient({
-      controllerUrl: process.env.TEST_MISO_CONTROLLER_URL!,
-      clientId: process.env.TEST_MISO_CLIENTID!,
-      clientSecret: process.env.TEST_MISO_CLIENTSECRET!
-    });
-    await client.initialize();
-  });
-
-  afterAll(async () => {
-    await client.disconnect();
-  });
-
-  it('should connect to Redis', () => {
-    expect(client.isRedisConnected()).toBe(true);
-  });
-
-  it('should handle invalid tokens gracefully', async () => {
-    const isValid = await client.validateToken('invalid-token');
-    expect(isValid).toBe(false);
-  });
-
-  it('should log events successfully', async () => {
-    await expect(client.log.info('Test message')).resolves.not.toThrow();
-  });
 });
 ```
 
 ## Pagination
 
-### Parse Pagination Params from Query String
+**You need to:** Parse pagination parameters and create paginated responses.
+
+**Here's how:** Use pagination utilities from the SDK.
+
+### Parse and Use Pagination
 
 ```typescript
-import { parsePaginationParams } from '@aifabrix/miso-client';
-import express from 'express';
-
-const app = express();
-
-app.get('/api/applications', (req, res) => {
-  // Parse pagination from query string: ?page=2&page_size=25
-  const { currentPage, pageSize } = parsePaginationParams(req.query);
-  
-  console.log(`Page: ${currentPage}, Size: ${pageSize}`);
-  // Output: Page: 2, Size: 25
-  
-  // Use in your database query or API call
-  // const offset = (currentPage - 1) * pageSize;
-});
-```
-
-### Create Paginated Response
-
-```typescript
-import { createPaginatedListResponse } from '@aifabrix/miso-client';
+import { parsePaginationParams, createPaginatedListResponse } from '@aifabrix/miso-client';
 import express from 'express';
 
 const app = express();
 
 app.get('/api/applications', async (req, res) => {
-  // Parse pagination params
+  // Parse pagination from query string: ?page=2&page_size=25
   const { currentPage, pageSize } = parsePaginationParams(req.query);
   
-  // Fetch data (example)
+  // Fetch data
   const allItems = await fetchAllApplications();
   const totalItems = allItems.length;
   const pageItems = allItems.slice(
@@ -1267,96 +811,18 @@ app.get('/api/applications', async (req, res) => {
   );
   
   res.json(response);
-  // Returns: {
-  //   meta: {
-  //     totalItems: 120,
-  //     currentPage: 2,
-  //     pageSize: 25,
-  //     type: 'application'
-  //   },
-  //   data: [...]
-  // }
+  // Returns: { meta: { totalItems, currentPage, pageSize, type }, data: [...] }
 });
-```
-
-### Apply Pagination to Array (for Mocks/Tests)
-
-```typescript
-import { applyPaginationToArray, createPaginatedListResponse } from '@aifabrix/miso-client';
-
-// Mock data for testing
-const mockApplications = [
-  { id: 1, name: 'App 1', status: 'active' },
-  { id: 2, name: 'App 2', status: 'active' },
-  { id: 3, name: 'App 3', status: 'inactive' },
-  // ... 47 more items
-];
-
-// Apply pagination
-const page1 = applyPaginationToArray(mockApplications, 1, 25);
-// Returns: first 25 items
-
-const page2 = applyPaginationToArray(mockApplications, 2, 25);
-// Returns: items 26-50
-
-// Create full paginated response for testing
-const response = createPaginatedListResponse(
-  page1,
-  mockApplications.length,
-  1,
-  25,
-  'application'
-);
 ```
 
 ## Filtering
 
-### Using FilterBuilder for Dynamic Filtering
+**You need to:** Build and parse filter queries for dynamic filtering.
+
+**Here's how:** Use FilterBuilder to construct filters and parse them from query strings.
 
 ```typescript
-import { FilterBuilder, buildQueryString } from '@aifabrix/miso-client';
-
-// Build filters dynamically based on user input
-function buildFilters(status?: string, region?: string, dateFrom?: string) {
-  const filterBuilder = new FilterBuilder();
-  
-  if (status) {
-    filterBuilder.add('status', 'eq', status);
-  }
-  
-  if (region) {
-    filterBuilder.add('region', 'in', [region]);
-  }
-  
-  if (dateFrom) {
-    filterBuilder.add('created_at', 'gte', dateFrom);
-  }
-  
-  return filterBuilder;
-}
-
-// Usage in Express route
-app.get('/api/applications', (req, res) => {
-  const { status, region, dateFrom } = req.query;
-  
-  const filterBuilder = buildFilters(
-    status as string,
-    region as string,
-    dateFrom as string
-  );
-  
-  const queryString = filterBuilder.toQueryString();
-  // Returns: "filter=status:eq:active&filter=region:in:eu&filter=created_at:gte:2024-01-01"
-  
-  // Use queryString in API call
-  const url = `/api/applications?${queryString}`;
-});
-```
-
-### Parse Filter Params from Query String
-
-```typescript
-import { parseFilterParams } from '@aifabrix/miso-client';
+import { FilterBuilder, parseFilterParams, buildQueryString } from '@aifabrix/miso-client';
 import express from 'express';
 
 const app = express();
@@ -1365,152 +831,29 @@ app.get('/api/applications', (req, res) => {
   // Parse filters from query string: ?filter=status:eq:active&filter=region:in:eu,us
   const filters = parseFilterParams(req.query);
   
-  // Returns: [
-  //   { field: 'status', op: 'eq', value: 'active' },
-  //   { field: 'region', op: 'in', value: ['eu', 'us'] }
-  // ]
-  
-  // Use filters in your database query
-  filters.forEach(filter => {
-    console.log(`${filter.field} ${filter.op} ${filter.value}`);
-  });
-});
-```
-
-### Build Query String from FilterQuery
-
-```typescript
-import { FilterBuilder, buildQueryString } from '@aifabrix/miso-client';
-
-// Build complete query with filters, sort, pagination
-const filterBuilder = new FilterBuilder()
-  .add('status', 'eq', 'active')
-  .add('region', 'in', ['eu', 'us']);
-
-const queryString = buildQueryString({
-  filters: filterBuilder.build(),
-  sort: ['-updated_at', 'name'],
-  page: 1,
-  pageSize: 25
-});
-
-// Returns: "filter=status:eq:active&filter=region:in:eu,us&sort=-updated_at&sort=name&page=1&page_size=25"
-
-// Use in API call
-const url = `/api/applications?${queryString}`;
-```
-
-### Apply Filters Locally (for Mocks/Tests)
-
-```typescript
-import { applyFilters, FilterBuilder } from '@aifabrix/miso-client';
-
-// Mock data
-const mockApplications = [
-  { id: 1, status: 'active', region: 'eu' },
-  { id: 2, status: 'active', region: 'us' },
-  { id: 3, status: 'inactive', region: 'eu' },
-];
-
-// Build filters
-const filterBuilder = new FilterBuilder()
-  .add('status', 'eq', 'active')
-  .add('region', 'eq', 'eu');
-
-// Apply filters locally
-const filtered = applyFilters(mockApplications, filterBuilder.build());
-// Returns: [{ id: 1, status: 'active', region: 'eu' }]
-```
-
-### Combined Filter + Pagination + Sort
-
-```typescript
-import {
-  FilterBuilder,
-  buildQueryString,
-  parsePaginationParams,
-  parseFilterParams,
-  parseSortParams,
-  buildSortString
-} from '@aifabrix/miso-client';
-import express from 'express';
-
-const app = express();
-
-app.get('/api/applications', (req, res) => {
-  // Parse all query params
-  const { currentPage, pageSize } = parsePaginationParams(req.query);
-  const filters = parseFilterParams(req.query);
-  const sortOptions = parseSortParams(req.query);
-  
-  // Build complete query
+  // Build complete query with filters, sort, pagination
   const filterBuilder = new FilterBuilder();
   filters.forEach(filter => {
     filterBuilder.add(filter.field, filter.op, filter.value);
   });
   
-  const sortStrings = buildSortString(sortOptions);
-  
   const queryString = buildQueryString({
     filters: filterBuilder.build(),
-    sort: sortStrings,
-    page: currentPage,
-    pageSize: pageSize
+    sort: ['-updated_at', 'name'],
+    page: 1,
+    pageSize: 25
   });
   
-  // Use queryString in API call or database query
+  // Use queryString in API call
   const url = `/api/applications?${queryString}`;
-  
-  // ... fetch and return data
 });
 ```
 
 ## Sorting
 
-### Parse Sort Params from Query String
+**You need to:** Parse and build sort parameters.
 
-```typescript
-import { parseSortParams } from '@aifabrix/miso-client';
-import express from 'express';
-
-const app = express();
-
-app.get('/api/applications', (req, res) => {
-  // Parse sort from query string: ?sort=-updated_at&sort=name
-  const sortOptions = parseSortParams(req.query);
-  
-  // Returns: [
-  //   { field: 'updated_at', order: 'desc' },
-  //   { field: 'name', order: 'asc' }
-  // ]
-  
-  // Use in your database query
-  sortOptions.forEach(sort => {
-    console.log(`Sort by ${sort.field} ${sort.order}`);
-  });
-});
-```
-
-### Build Sort String from SortOption[]
-
-```typescript
-import { buildSortString } from '@aifabrix/miso-client';
-
-// Convert SortOption[] to query string format
-const sortOptions = [
-  { field: 'updated_at', order: 'desc' },
-  { field: 'name', order: 'asc' }
-];
-
-const sortStrings = buildSortString(sortOptions);
-// Returns: ['-updated_at', 'name']
-
-// Use in query string
-const queryString = `sort=${sortStrings.join('&sort=')}`;
-// Returns: "sort=-updated_at&sort=name"
-```
-
-### Dynamic Sorting in API Route
+**Here's how:** Use sort utilities to handle query string sorting.
 
 ```typescript
 import { parseSortParams, buildSortString } from '@aifabrix/miso-client';
@@ -1519,109 +862,24 @@ import express from 'express';
 const app = express();
 
 app.get('/api/applications', (req, res) => {
-  // Parse sort params with defaults
-  const defaultSort = [{ field: 'created_at', order: 'desc' as const }];
-  const sortOptions = req.query.sort 
-    ? parseSortParams(req.query)
-    : defaultSort;
+  // Parse sort from query string: ?sort=-updated_at&sort=name
+  const sortOptions = parseSortParams(req.query);
+  // Returns: [{ field: 'updated_at', order: 'desc' }, { field: 'name', order: 'asc' }]
   
-  // Convert to query string format for API call
+  // Convert to query string format
   const sortStrings = buildSortString(sortOptions);
+  // Returns: ['-updated_at', 'name']
   
   // Use in API call
   const url = `/api/applications?sort=${sortStrings.join('&sort=')}`;
-  
-  // ... fetch and return data
 });
 ```
 
 ## Snake_case Error Handling
 
-### Using ApiErrorException
+**You need to:** Handle errors in snake_case format for API compatibility.
 
-```typescript
-import { ApiErrorException, ErrorResponseSnakeCase } from '@aifabrix/miso-client';
-
-async function fetchApplication(id: string) {
-  try {
-    // Some API call that might throw ApiErrorException
-    const response = await fetch(`/api/applications/${id}`);
-    
-    if (!response.ok) {
-      const errorData: ErrorResponseSnakeCase = await response.json();
-      throw new ApiErrorException(errorData);
-    }
-    
-    return await response.json();
-  } catch (error) {
-    if (error instanceof ApiErrorException) {
-      console.error('Status code:', error.status_code);
-      console.error('Errors:', error.errors);
-      console.error('Type:', error.type);
-      console.error('Request key:', error.request_key);
-      
-      // Handle specific error codes
-      if (error.status_code === 404) {
-        throw new Error('Application not found');
-      }
-      
-      throw error;
-    }
-    throw error;
-  }
-}
-```
-
-### Using transform_error_to_snake_case
-
-```typescript
-import { transform_error_to_snake_case } from '@aifabrix/miso-client';
-import axios from 'axios';
-
-async function callApi(url: string) {
-  try {
-    const response = await axios.get(url);
-    return response.data;
-  } catch (error) {
-    // Transform any error to standardized snake_case format
-    const standardizedError = transform_error_to_snake_case(error);
-    
-    console.error('Error status:', standardizedError.status_code);
-    console.error('Error messages:', standardizedError.errors);
-    console.error('Error type:', standardizedError.type);
-    console.error('Instance:', standardizedError.instance);
-    
-    // Handle based on status code
-    if (standardizedError.status_code === 401) {
-      // Redirect to login
-    } else if (standardizedError.status_code === 403) {
-      // Show forbidden message
-    }
-    
-    throw standardizedError;
-  }
-}
-```
-
-### Using handle_api_error_snake_case
-
-```typescript
-import { handle_api_error_snake_case } from '@aifabrix/miso-client';
-import axios from 'axios';
-
-async function callApi(url: string) {
-  try {
-    const response = await axios.get(url);
-    return response.data;
-  } catch (error) {
-    // Transform and throw as ApiErrorException
-    handle_api_error_snake_case(error);
-    // This will never return (throws ApiErrorException)
-  }
-}
-```
-
-### Express Error Handler with Snake_case Errors
+**Here's how:** Use snake_case error utilities.
 
 ```typescript
 import { ApiErrorException, transform_error_to_snake_case } from '@aifabrix/miso-client';
@@ -1632,7 +890,6 @@ const app = express();
 // Error handler middleware
 app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof ApiErrorException) {
-    // Already a snake_case ApiErrorException
     return res.status(err.status_code).json({
       error: {
         errors: err.errors,
@@ -1645,46 +902,24 @@ app.use((err: unknown, req: express.Request, res: express.Response, next: expres
     });
   }
   
-  // Transform other errors to snake_case format
   const standardizedError = transform_error_to_snake_case(err);
-  
   res.status(standardizedError.status_code || 500).json({
     error: standardizedError
   });
 });
 ```
 
-### ErrorResponseSnakeCase Type Usage
-
-```typescript
-import { ErrorResponseSnakeCase, ErrorEnvelope } from '@aifabrix/miso-client';
-
-// Handle envelope format errors
-async function handleErrorResponse(response: Response) {
-  const envelope: ErrorEnvelope = await response.json();
-  const error: ErrorResponseSnakeCase = envelope.error;
-  
-  console.error('Error status:', error.status_code);
-  console.error('Error messages:', error.errors);
-  console.error('Error type:', error.type);
-  console.error('Request key:', error.request_key);
-  
-  // Use error for logging or user feedback
-  return error;
-}
-```
-
 ## Event Emission Mode
 
-### Using Event Emission Mode in Your Application
+**You need to:** Embed the SDK directly and receive logs as events instead of HTTP calls.
 
-When embedding the SDK directly in your own application, enable `emitEvents = true` to receive logs as Node.js events instead of HTTP calls. This eliminates HTTP overhead and allows saving logs directly to the database.
+**Here's how:** Enable `emitEvents = true` and listen to log events.
 
 ```typescript
 import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
 import { db } from './database';
 
-// Create client with emitEvents enabled
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
 const client = new MisoClient({
   ...loadConfig(),
   emitEvents: true
@@ -1714,7 +949,6 @@ client.log.on('log', async (logEntry: LogEntry) => {
 // Listen to batch events (for audit logs with batching)
 client.log.on('log:batch', async (logEntries: LogEntry[]) => {
   try {
-    // Batch insert to database
     await db.logs.insertMany(
       logEntries.map(entry => ({
         timestamp: entry.timestamp,
@@ -1738,69 +972,12 @@ await client.log.error('Operation failed', { error: 'details' });
 await client.log.audit('user.created', 'users', { userId: '123' });
 ```
 
-### Complete Setup for Direct SDK Embedding
+**What happens:**
 
-```typescript
-import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
-import { db } from './database';
-
-const client = new MisoClient({
-  ...loadConfig(),
-  emitEvents: true,
-  audit: {
-    batchSize: 10,
-    batchInterval: 100
-  }
-});
-
-await client.initialize();
-
-// Single log event handler
-client.log.on('log', async (logEntry: LogEntry) => {
-  try {
-    await db.logs.insert({
-      timestamp: logEntry.timestamp,
-      level: logEntry.level,
-      message: logEntry.message,
-      context: logEntry.context,
-      userId: logEntry.userId,
-      correlationId: logEntry.correlationId,
-      requestId: logEntry.requestId,
-      sessionId: logEntry.sessionId,
-      stackTrace: logEntry.stackTrace,
-      environment: logEntry.environment,
-      application: logEntry.application,
-      applicationId: logEntry.applicationId
-    });
-  } catch (error) {
-    console.error('Failed to save log:', error);
-  }
-});
-
-// Batch event handler
-client.log.on('log:batch', async (logEntries: LogEntry[]) => {
-  try {
-    await db.logs.insertMany(
-      logEntries.map(entry => ({
-        timestamp: entry.timestamp,
-        level: entry.level,
-        message: entry.message,
-        context: entry.context,
-        userId: entry.userId,
-        correlationId: entry.correlationId,
-        requestId: entry.requestId,
-        sessionId: entry.sessionId,
-        stackTrace: entry.stackTrace,
-        environment: entry.environment,
-        application: entry.application,
-        applicationId: entry.applicationId
-      }))
-    );
-  } catch (error) {
-    console.error('Failed to save batch logs:', error);
-  }
-});
-```
+- When `emitEvents = true`, logs are emitted as Node.js events
+- HTTP/Redis operations are skipped
+- Your event listeners save logs directly to your database
+- Same payload structure as REST API for consistency
 
 **Configuration:**
 
@@ -1809,16 +986,5 @@ client.log.on('log:batch', async (logEntries: LogEntry[]) => {
 MISO_EMIT_EVENTS=true
 ```
 
-**Benefits:**
-
-- Zero HTTP overhead when embedding the SDK directly in your application
-- Single codebase - use the same logger in both client and controller
-- Direct database saves without HTTP round-trips
-- Same payload structure as REST API for consistency
-
 → [Event Emission Mode Guide](configuration.md#event-emission-mode)  
 → [Event Emission Mode Example](../examples/event-emission-mode.example.ts)
-
----
-
-These examples demonstrate various ways to integrate the AI Fabrix Miso Client SDK into different frameworks and scenarios. Each example includes proper error handling, logging, and authentication patterns.

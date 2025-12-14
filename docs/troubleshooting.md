@@ -12,739 +12,508 @@ Common issues and solutions when using the AI Fabrix Miso Client SDK.
 - [Logging Issues](#logging-issues)
 - [Browser-Specific Issues](#browser-specific-issues)
 - [Debugging Tips](#debugging-tips)
-- [Error Codes](#error-codes)
 - [Getting Help](#getting-help)
 
 ## Connection Issues
 
 ### Controller Connection Failed
 
-**Symptoms:**
+**You need to:** Fix connection issues with the controller.
 
-- `Failed to connect to controller`
-- `Network error` or `ECONNREFUSED`
-- Timeout errors
+**Here's how:** Verify configuration and test connectivity.
 
-**Possible Causes:**
+```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
-1. Incorrect controller URL
-2. Network connectivity issues
-3. Controller service is down
-4. Firewall blocking connections
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const config = loadConfig(); // Automatically loads from .env
+console.log('Controller URL:', config.controllerUrl);
 
-**Solutions:**
+const client = new MisoClient(config);
+```
 
-1. **Verify Controller URL**:
+**What happens:**
 
-   ```typescript
-   import { MisoClient, loadConfig } from '@aifabrix/miso-client';
-   
-   // Check if URL is correct
-   console.log('Controller URL:', process.env.MISO_CONTROLLER_URL);
+- `loadConfig()` validates all required environment variables
+- Throws error if `MISO_CLIENTID` or `MISO_CLIENTSECRET` not set
+- Automatically loads `MISO_CONTROLLER_URL` from environment
 
-   // Test connectivity - loadConfig() automatically loads from .env
-   const client = new MisoClient(loadConfig());
-   ```
+**Test connectivity:**
 
-2. **Test Network Connectivity**:
+```bash
+# Test if controller is reachable
+curl -I https://controller.aifabrix.ai/health
 
-   ```bash
-   # Test if controller is reachable
-   curl -I https://controller.aifabrix.ai/health
+# Test from your application environment
+ping controller.aifabrix.ai
+```
 
-   # Test from your application environment
-   ping controller.aifabrix.ai
-   ```
+**Check firewall settings:**
 
-3. **Check Firewall Settings**:
+```bash
+# Check if port is blocked
+telnet controller.aifabrix.ai 443
 
-   ```bash
-   # Check if port is blocked
-   telnet controller.aifabrix.ai 443
-
-   # Check firewall rules
-   sudo ufw status
-   ```
-
-4. **Verify Environment Variables**:
-
-   ```typescript
-   import { loadConfig } from '@aifabrix/miso-client';
-   
-   // LoadConfig validates all required variables automatically
-   const config = loadConfig(); // Throws error if MISO_CLIENTID or MISO_CLIENTSECRET not set
-   ```
+# Check firewall rules
+sudo ufw status
+```
 
 ### SSL/TLS Certificate Issues
 
-**Symptoms:**
+**You need to:** Fix SSL certificate verification errors.
 
-- `SSL certificate verification failed`
-- `CERT_UNTRUSTED` errors
-- `UNABLE_TO_VERIFY_LEAF_SIGNATURE`
+**Here's how:** Update Node.js and CA certificates.
 
-**Solutions:**
+```bash
+# Update to latest Node.js version
+node --version
+npm install -g n
+n latest
 
-1. **Update Node.js**:
+# On Ubuntu/Debian
+sudo apt-get update && sudo apt-get install ca-certificates
 
-   ```bash
-   # Update to latest Node.js version
-   node --version
-   npm install -g n
-   n latest
-   ```
+# On CentOS/RHEL
+sudo yum update ca-certificates
+```
 
-2. **Update CA Certificates**:
+**Development only (self-signed certificates):**
 
-   ```bash
-   # On Ubuntu/Debian
-   sudo apt-get update && sudo apt-get install ca-certificates
-
-   # On CentOS/RHEL
-   sudo yum update ca-certificates
-   ```
-
-3. **Configure SSL Options** (Development Only):
-
-   ```typescript
-   // Only for development with self-signed certificates
-   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-   ```
+```typescript
+// Only for development with self-signed certificates
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+```
 
 ## Authentication Problems
 
 ### Token Validation Failed
 
-**Symptoms:**
+**You need to:** Fix token validation failures.
 
-- `validateToken()` returns `false`
-- `401 Unauthorized` errors
-- `Invalid token` messages
+**Here's how:** Check token format and debug validation.
 
-**Possible Causes:**
+```typescript
+// Verify token format
+const token = req.headers.authorization?.replace('Bearer ', '');
 
-1. Expired token
-2. Malformed token
-3. Wrong token format
-4. Controller authentication issues
+if (!token) {
+  console.error('No token provided');
+  return;
+}
 
-**Solutions:**
+// Check if token looks like a JWT
+const parts = token.split('.');
+if (parts.length !== 3) {
+  console.error('Invalid token format');
+  return;
+}
+```
 
-1. **Check Token Format**:
+**Debug token validation:**
 
-   ```typescript
-   // Verify token format
-   const token = req.headers.authorization?.replace('Bearer ', '');
+```typescript
+try {
+  const isValid = await client.validateToken(token);
+  console.log('Token validation result:', isValid);
 
-   if (!token) {
-     console.error('No token provided');
-     return;
-   }
+  if (!isValid) {
+    const user = await client.getUser(token);
+    console.log('User info:', user);
+  }
+} catch (error) {
+  console.error('Token validation error:', error);
+}
+```
 
-   // Check if token looks like a JWT
-   const parts = token.split('.');
-   if (parts.length !== 3) {
-     console.error('Invalid token format');
-     return;
-   }
-   ```
+**Check token expiration:**
 
-2. **Debug Token Validation**:
-
-   ```typescript
-   try {
-     const isValid = await client.validateToken(token);
-     console.log('Token validation result:', isValid);
-
-     if (!isValid) {
-       // Try to get more details
-       const user = await client.getUser(token);
-       console.log('User info:', user);
-     }
-   } catch (error) {
-     console.error('Token validation error:', error);
-   }
-   ```
-
-3. **Check Token Expiration**:
-
-   ```typescript
-   // Decode JWT payload (for debugging)
-   function decodeJWT(token: string) {
-     try {
-       const payload = JSON.parse(atob(token.split('.')[1]));
-       console.log('Token payload:', payload);
-       console.log('Expires at:', new Date(payload.exp * 1000));
-       console.log('Current time:', new Date());
-       return payload;
-     } catch (error) {
-       console.error('Failed to decode token:', error);
-       return null;
-     }
-   }
-   ```
+```typescript
+// Decode JWT payload (for debugging)
+function decodeJWT(token: string) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    console.log('Token payload:', payload);
+    console.log('Expires at:', new Date(payload.exp * 1000));
+    console.log('Current time:', new Date());
+    return payload;
+  } catch (error) {
+    console.error('Failed to decode token:', error);
+    return null;
+  }
+}
+```
 
 ### User Information Not Retrieved
 
-**Symptoms:**
+**You need to:** Fix issues retrieving user information.
 
-- `getUser()` returns `null`
-- User object is incomplete
-- Missing user roles
+**Here's how:** Verify token validity first, then fetch user info.
 
-**Solutions:**
+```typescript
+const isValid = await client.validateToken(token);
+if (!isValid) {
+  console.error('Token is invalid, cannot get user info');
+  return;
+}
 
-1. **Verify Token Validity First**:
-
-   ```typescript
-   const isValid = await client.validateToken(token);
-   if (!isValid) {
-     console.error('Token is invalid, cannot get user info');
-     return;
-   }
-
-   const user = await client.getUser(token);
-   console.log('User info:', user);
-   ```
-
-2. **Check Controller Response**:
-
-   ```typescript
-   // Enable debug logging
-   const client = new MisoClient(loadConfig());
-   ```
+const user = await client.getUser(token);
+console.log('User info:', user);
+```
 
 ## Redis Connection Issues
 
 ### Redis Connection Failed
 
-**Symptoms:**
+**You need to:** Fix Redis connection failures.
 
-- `Failed to connect to Redis`
-- `ECONNREFUSED` for Redis
-- Cache operations fail silently
+**Here's how:** Check Redis server status and configuration.
 
-**Possible Causes:**
+**Check Redis server status:**
 
-1. Redis server is not running
-2. Wrong Redis configuration
-3. Network connectivity issues
-4. Authentication failures
+```bash
+# Check if Redis is running
+redis-cli ping
 
-**Solutions:**
+# Check Redis status
+systemctl status redis
 
-1. **Check Redis Server Status**:
+# Check Redis logs
+tail -f /var/log/redis/redis-server.log
+```
 
-   ```bash
-   # Check if Redis is running
-   redis-cli ping
+**Verify Redis configuration:**
 
-   # Check Redis status
-   systemctl status redis
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const client = new MisoClient(loadConfig());
 
-   # Check Redis logs
-   tail -f /var/log/redis/redis-server.log
-   ```
+await client.initialize();
+console.log('Redis connected:', client.isRedisConnected());
+```
 
-2. **Verify Redis Configuration**:
+**Test Redis connection manually:**
 
-   ```typescript
-   const client = new MisoClient({
-     controllerUrl: process.env.MISO_CONTROLLER_URL!,
-     clientId: process.env.MISO_CLIENTID!,
-     clientSecret: process.env.MISO_CLIENTSECRET!,
-     redis: {
-       host: 'localhost', // Verify host
-       port: 6379, // Verify port
-       password: 'your-password', // Verify password
-       db: 0 // Verify database
-     }
-   });
+```bash
+# Test Redis connection
+redis-cli -h localhost -p 6379 -a your-password ping
 
-   // Test Redis connection
-   await client.initialize();
-   console.log('Redis connected:', client.isRedisConnected());
-   ```
+# Test specific database
+redis-cli -h localhost -p 6379 -a your-password -n 0 ping
+```
 
-3. **Test Redis Connection Manually**:
+**Handle Redis failures gracefully:**
 
-   ```bash
-   # Test Redis connection
-   redis-cli -h localhost -p 6379 -a your-password ping
+```typescript
+try {
+  await client.initialize();
+} catch (error) {
+  console.warn('Redis connection failed, using controller fallback:', error);
+  // Client will automatically fall back to controller
+}
+```
 
-   # Test specific database
-   redis-cli -h localhost -p 6379 -a your-password -n 0 ping
-   ```
+**What happens:**
 
-4. **Handle Redis Failures Gracefully**:
-
-   ```typescript
-   try {
-     await client.initialize();
-   } catch (error) {
-     console.warn('Redis connection failed, using controller fallback:', error);
-     // Client will automatically fall back to controller
-   }
-   ```
+- SDK automatically falls back to controller when Redis fails
+- No errors thrown - graceful degradation
+- Cache operations skipped, direct controller calls used
 
 ### Redis Performance Issues
 
-**Symptoms:**
+**You need to:** Improve Redis performance.
 
-- Slow cache operations
-- High Redis memory usage
-- Timeout errors
+**Here's how:** Monitor Redis and optimize configuration.
 
-**Solutions:**
+**Monitor Redis performance:**
 
-1. **Monitor Redis Performance**:
+```bash
+# Check Redis memory usage
+redis-cli info memory
 
-   ```bash
-   # Check Redis memory usage
-   redis-cli info memory
+# Check Redis performance
+redis-cli --latency
 
-   # Check Redis performance
-   redis-cli --latency
+# Monitor Redis commands
+redis-cli monitor
+```
 
-   # Monitor Redis commands
-   redis-cli monitor
-   ```
+**Optimize cache configuration:**
 
-2. **Optimize Cache Configuration**:
-
-   ```typescript
-   const client = new MisoClient({
-     // ... other config
-     cache: {
-       roleTTL: 300, // Shorter TTL for better performance
-       permissionTTL: 300 // Shorter TTL for better performance
-     }
-   });
-   ```
-
-3. **Configure Redis Connection Pool**:
-
-   ```typescript
-   // The SDK automatically handles connection pooling
-   // But you can monitor connection status
-   setInterval(() => {
-     console.log('Redis connected:', client.isRedisConnected());
-   }, 30000);
-   ```
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const client = new MisoClient({
+  ...loadConfig(),
+  cache: {
+    roleTTL: 300, // Shorter TTL for better performance
+    permissionTTL: 300
+  }
+});
+```
 
 ## Performance Issues
 
 ### Slow Authentication Checks
 
-**Symptoms:**
+**You need to:** Improve authentication performance.
 
-- `validateToken()` takes too long
-- High response times
-- Timeout errors
+**Here's how:** Enable Redis caching and optimize cache TTL.
 
-**Solutions:**
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const client = new MisoClient({
+  ...loadConfig(),
+  redis: {
+    host: process.env.REDIS_HOST,
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+    password: process.env.REDIS_PASSWORD
+  },
+  cache: {
+    roleTTL: 600, // 10 minutes
+    permissionTTL: 300 // 5 minutes
+  }
+});
+```
 
-1. **Enable Redis Caching**:
+**Batch permission checks:**
 
-   ```typescript
-   const client = new MisoClient({
-     controllerUrl: process.env.MISO_CONTROLLER_URL!,
-     clientId: process.env.MISO_CLIENTID!,
-     clientSecret: process.env.MISO_CLIENTSECRET!,
-     redis: {
-       host: process.env.REDIS_HOST!,
-       port: parseInt(process.env.REDIS_PORT!),
-       password: process.env.REDIS_PASSWORD
-     }
-   });
-   ```
-
-2. **Optimize Cache TTL**:
-
-   ```typescript
-   const client = new MisoClient({
-     // ... other config
-     cache: {
-       roleTTL: 600, // 10 minutes
-       permissionTTL: 300 // 5 minutes
-     }
-   });
-   ```
-
-3. **Batch Permission Checks**:
-
-   ```typescript
-   // Instead of multiple individual checks
-   const permissions = await client.getPermissions(token);
-   const hasCreatePermission = permissions.includes('create:posts');
-   const hasEditPermission = permissions.includes('edit:posts');
-   ```
+```typescript
+// Instead of multiple individual checks
+const permissions = await client.getPermissions(token);
+const hasCreatePermission = permissions.includes('create:posts');
+const hasEditPermission = permissions.includes('edit:posts');
+```
 
 ### Memory Usage Issues
 
-**Symptoms:**
+**You need to:** Monitor and reduce memory usage.
 
-- High memory consumption
-- Memory leaks
-- Out of memory errors
+**Here's how:** Add memory monitoring and properly dispose resources.
 
-**Solutions:**
+```typescript
+// Add memory monitoring
+setInterval(() => {
+  const memUsage = process.memoryUsage();
+  console.log('Memory usage:', {
+    rss: Math.round(memUsage.rss / 1024 / 1024) + ' MB',
+    heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + ' MB',
+    heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + ' MB'
+  });
+}, 60000);
+```
 
-1. **Monitor Memory Usage**:
+**Properly dispose resources:**
 
-   ```typescript
-   // Add memory monitoring
-   setInterval(() => {
-     const memUsage = process.memoryUsage();
-     console.log('Memory usage:', {
-       rss: Math.round(memUsage.rss / 1024 / 1024) + ' MB',
-       heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024) + ' MB',
-       heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024) + ' MB'
-     });
-   }, 60000);
-   ```
+```typescript
+// Always disconnect when done
+process.on('SIGINT', async () => {
+  await client.disconnect();
+  process.exit(0);
+});
 
-2. **Properly Dispose Resources**:
-
-   ```typescript
-   // Always disconnect when done
-   process.on('SIGINT', async () => {
-     await client.disconnect();
-     process.exit(0);
-   });
-
-   process.on('SIGTERM', async () => {
-     await client.disconnect();
-     process.exit(0);
-   });
-   ```
+process.on('SIGTERM', async () => {
+  await client.disconnect();
+  process.exit(0);
+});
+```
 
 ## Configuration Errors
 
 ### Invalid Configuration
 
-**Symptoms:**
+**You need to:** Fix configuration errors.
 
-- `Invalid configuration` errors
-- Client initialization fails
-- Unexpected behavior
+**Here's how:** Validate configuration at startup.
 
-**Solutions:**
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+// loadConfig() automatically validates required variables
+const config = loadConfig(); // Throws error if invalid
+const client = new MisoClient(config);
+```
 
-1. **Validate Configuration**:
+**Check environment variables:**
 
-   ```typescript
-   function validateConfig(config: any): config is MisoClientConfig {
-     if (!config.controllerUrl) {
-       throw new Error('controllerUrl is required');
-     }
-     if (!config.clientId) {
-       throw new Error('clientId is required');
-     }
-     if (!config.clientSecret) {
-       throw new Error('clientSecret is required');
-     }
-     return true;
-   }
-
-   const config = {
-     controllerUrl: process.env.MISO_CONTROLLER_URL!,
-     clientId: process.env.MISO_CLIENTID!,
-     clientSecret: process.env.MISO_CLIENTSECRET!
-   };
-
-   validateConfig(config);
-   const client = new MisoClient(config);
-   ```
-
-2. **Check Environment Variables**:
-
-   ```typescript
-   // Log configuration (without sensitive data)
-   console.log('Configuration:', {
-     controllerUrl: process.env.MISO_CONTROLLER_URL,
-     clientId: process.env.MISO_CLIENTID,
-     redisHost: process.env.REDIS_HOST,
-     redisPort: process.env.REDIS_PORT
-     // Don't log passwords or secrets!
-   });
-   ```
+```typescript
+// Log configuration (without sensitive data)
+console.log('Configuration:', {
+  controllerUrl: process.env.MISO_CONTROLLER_URL,
+  clientId: process.env.MISO_CLIENTID,
+  redisHost: process.env.REDIS_HOST,
+  redisPort: process.env.REDIS_PORT
+  // Don't log passwords or secrets!
+});
+```
 
 ### Missing Environment Variables
 
-**Symptoms:**
+**You need to:** Fix missing environment variables.
 
-- `undefined` values in configuration
-- Runtime errors
-- Application crashes
+**Here's how:** Use `loadConfig()` which validates all required variables.
 
-**Solutions:**
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+// loadConfig() throws error if MISO_CLIENTID or MISO_CLIENTSECRET not set
+const config = loadConfig();
+const client = new MisoClient(config);
+```
 
-1. **Use Default Values**:
+**What happens:**
 
-   ```typescript
-   const client = new MisoClient({
-     controllerUrl: process.env.MISO_CONTROLLER_URL || 'https://controller.aifabrix.ai',
-     clientId: process.env.MISO_CLIENTID || '',
-     clientSecret: process.env.MISO_CLIENTSECRET || '',
-     redis: {
-       host: process.env.REDIS_HOST || 'localhost',
-       port: parseInt(process.env.REDIS_PORT || '6379'),
-       password: process.env.REDIS_PASSWORD
-     }
-   });
-   
-   // Validate required fields (loadConfig() does this automatically)
-   if (!client.getConfig().clientId || !client.getConfig().clientSecret) {
-     throw new Error('MISO_CLIENTID and MISO_CLIENTSECRET are required');
-   }
-   ```
-
-2. **Validate Required Variables**:
-
-   ```typescript
-   const requiredEnvVars = ['MISO_CONTROLLER_URL', 'MISO_CLIENTID', 'MISO_CLIENTSECRET'];
-
-   for (const envVar of requiredEnvVars) {
-     if (!process.env[envVar]) {
-       throw new Error(`${envVar} environment variable is required`);
-     }
-   }
-   ```
+- `loadConfig()` automatically validates all required environment variables
+- Throws clear error messages if variables are missing
+- No need for manual validation
 
 ## Logging Issues
 
 ### Event Emission Mode Not Working
 
-**Symptoms:**
+**You need to:** Fix event emission mode when `emitEvents = true`.
 
-- Logs are not being emitted as events when `emitEvents = true`
-- Event listeners are not being called
-- Logs still being sent via HTTP/Redis instead of events
+**Here's how:** Verify configuration and register event listeners before logging.
 
-**Possible Causes:**
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const client = new MisoClient({
+  ...loadConfig(),
+  emitEvents: true // Ensure this is set to true
+});
 
-1. `emitEvents` not set to `true` in config
-2. Event listeners not registered before logging
-3. Event emission disabled by configuration
+await client.initialize();
 
-**Solutions:**
+// Register event listeners BEFORE using logger
+client.log.on('log', (logEntry: LogEntry) => {
+  console.log('Log event received:', logEntry);
+  // Save to database
+});
 
-1. **Verify Configuration:**
+// Now use logger - events will be emitted
+await client.log.info('Test message');
+```
 
-   ```typescript
-   const client = new MisoClient({
-     ...loadConfig(),
-     emitEvents: true // Ensure this is set to true
-   });
+**Check environment variable:**
 
-   await client.initialize();
+```bash
+# .env file
+MISO_EMIT_EVENTS=true
+```
 
-   // Register event listeners BEFORE using logger
-   client.log.on('log', (logEntry: LogEntry) => {
-     console.log('Log event received:', logEntry);
-     // Save to database
-   });
+**What happens:**
 
-   // Now use logger - events will be emitted
-   await client.log.info('Test message');
-   ```
-
-2. **Check Environment Variable:**
-
-   ```bash
-   # .env file
-   MISO_EMIT_EVENTS=true
-   ```
-
-3. **Verify Event Listeners Are Registered:**
-
-   ```typescript
-   // Register listeners BEFORE any logging operations
-   client.log.on('log', (logEntry: LogEntry) => {
-     // Handle log event
-   });
-
-   client.log.on('log:batch', (logEntries: LogEntry[]) => {
-     // Handle batch event
-   });
-   ```
-
-4. **Test Event Emission:**
-
-   ```typescript
-   const eventSpy = jest.fn();
-   client.log.on('log', eventSpy);
-   
-   await client.log.info('Test');
-   
-   expect(eventSpy).toHaveBeenCalled();
-   ```
-
-**Note:** When `emitEvents = true`, logs are emitted as events and HTTP/Redis operations are completely skipped. This is by design for applications that embed the SDK directly.
+- When `emitEvents = true`, logs are emitted as events
+- HTTP/Redis operations are completely skipped
+- Event listeners must be registered before logging operations
 
 → [Event Emission Mode Guide](configuration.md#event-emission-mode)
 
 ### Logs Not Appearing
 
-**Symptoms:**
+**You need to:** Fix missing log output.
 
-- No log output
-- Missing audit trails
-- Silent failures
+**Here's how:** Check log level configuration and test logging.
 
-**Solutions:**
+```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+const client = new MisoClient({
+  ...loadConfig(),
+  logLevel: 'debug' // Ensure appropriate log level
+});
 
-1. **Check Log Level Configuration**:
+// Test different log levels
+await client.log.info('Test info message');
+await client.log.error('Test error message');
+await client.log.audit('test.action', 'test-resource', { test: true });
+```
 
-   ```typescript
-   const client = new MisoClient({
-     // ... other config
-     logLevel: 'debug' // Ensure appropriate log level
-   });
-   ```
+**Test controller logging endpoint:**
 
-2. **Test Logging**:
-
-   ```typescript
-   // Test different log levels
-   await client.log.info('Test info message');
-   await client.log.error('Test error message');
-   await client.log.audit('test.action', 'test-resource', { test: true });
-   ```
-
-3. **Check Controller Logging Endpoint**:
-
-   ```bash
-   # Test controller logging endpoint
-   curl -X POST https://controller.aifabrix.ai/logs \
-     -H "Content-Type: application/json" \
-     -d '{"level":"info","message":"test","environment":"dev","application":"test-app"}'
-   ```
+```bash
+# Test controller logging endpoint
+curl -X POST https://controller.aifabrix.ai/logs \
+  -H "Content-Type: application/json" \
+  -d '{"level":"info","message":"test","environment":"dev","application":"test-app"}'
+```
 
 ### Log Performance Issues
 
-**Symptoms:**
+**You need to:** Improve logging performance.
 
-- Slow logging operations
-- High I/O usage
-- Application slowdown
+**Here's how:** Use appropriate log levels and batch operations.
 
-**Solutions:**
-
-1. **Use Appropriate Log Levels**:
-
-   ```typescript
-   // Production: Use warn or error only
-   const client = new MisoClient({
-     // ... other config
-     logLevel: 'warn'
-   });
-   ```
-
-2. **Batch Log Operations**:
-
-   ```typescript
-   // Instead of logging immediately
-   const logQueue: any[] = [];
-
-   function queueLog(level: string, message: string, context?: any) {
-     logQueue.push({ level, message, context, timestamp: new Date() });
-   }
-
-   // Process logs in batches
-   setInterval(async () => {
-     if (logQueue.length > 0) {
-       const logs = logQueue.splice(0, 100); // Process 100 at a time
-       for (const log of logs) {
-         await client.log[log.level](log.message, log.context);
-       }
-     }
-   }, 5000);
-   ```
+```typescript
+// Production: Use warn or error only
+const client = new MisoClient({
+  ...loadConfig(),
+  logLevel: 'warn'
+});
+```
 
 ## Browser-Specific Issues
 
 ### CORS Issues
 
-**Symptoms:**
+**You need to:** Fix CORS policy errors.
 
-- `CORS policy` errors
-- `Access-Control-Allow-Origin` errors
-- Requests blocked by browser
+**Here's how:** Configure CORS on controller or use proxy in development.
 
-**Solutions:**
+**Configure CORS on Controller:**
 
-1. **Configure CORS on Controller**:
+```typescript
+// Controller should allow your domain
+app.use(
+  cors({
+    origin: ['https://yourdomain.com', 'http://localhost:3000'],
+    credentials: true
+  })
+);
+```
 
-   ```typescript
-   // Controller should allow your domain
-   app.use(
-     cors({
-       origin: ['https://yourdomain.com', 'http://localhost:3000'],
-       credentials: true
-     })
-   );
-   ```
+**Use proxy in development:**
 
-2. **Use Proxy in Development**:
-
-   ```javascript
-   // package.json
-   {
-     "proxy": "https://controller.aifabrix.ai"
-   }
-   ```
+```javascript
+// package.json
+{
+  "proxy": "https://controller.aifabrix.ai"
+}
+```
 
 ### Token Storage Issues
 
-**Symptoms:**
+**You need to:** Fix token persistence issues.
 
-- Tokens not persisted
-- Login required on every page refresh
-- Security warnings
+**Here's how:** Use secure token storage and handle expiration.
 
-**Solutions:**
+```typescript
+// Store token securely
+function storeToken(token: string) {
+  // Use httpOnly cookies in production
+  if (process.env.NODE_ENV === 'production') {
+    // Set httpOnly cookie
+    document.cookie = `auth_token=${token}; secure; httpOnly; sameSite=strict`;
+  } else {
+    // Use localStorage in development
+    localStorage.setItem('auth_token', token);
+  }
+}
 
-1. **Use Secure Token Storage**:
-
-   ```typescript
-   // Store token securely
-   function storeToken(token: string) {
-     // Use httpOnly cookies in production
-     if (process.env.NODE_ENV === 'production') {
-       // Set httpOnly cookie
-       document.cookie = `auth_token=${token}; secure; httpOnly; sameSite=strict`;
-     } else {
-       // Use localStorage in development
-       localStorage.setItem('auth_token', token);
-     }
-   }
-   ```
-
-2. **Handle Token Expiration**:
-
-   ```typescript
-   // Check token expiration
-   function isTokenExpired(token: string): boolean {
-     try {
-       const payload = JSON.parse(atob(token.split('.')[1]));
-       return Date.now() >= payload.exp * 1000;
-     } catch {
-       return true;
-     }
-   }
-   ```
+// Check token expiration
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true;
+  }
+}
+```
 
 ## Debugging Tips
 
 ### Enable Debug Logging
 
 ```typescript
+// ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
 const client = new MisoClient({
-  controllerUrl: process.env.MISO_CONTROLLER_URL!,
-  clientId: process.env.MISO_CLIENTID!,
-  clientSecret: process.env.MISO_CLIENTSECRET!,
+  ...loadConfig(),
   logLevel: 'debug'
 });
 
@@ -810,7 +579,9 @@ async function testServices() {
 
 ### Structured Error Responses
 
-The SDK automatically parses RFC 7807-style structured error responses from the controller. When available, errors provide detailed information:
+**You need to:** Handle structured error responses from the controller.
+
+**Here's how:** Use MisoClientError to access structured error details.
 
 ```typescript
 import { MisoClientError } from '@aifabrix/miso-client';
@@ -836,39 +607,11 @@ try {
 }
 ```
 
-#### Understanding Structured Errors
+**What happens:**
 
-Structured errors provide more context than traditional error messages:
-
-- **`type`**: A URI that identifies the error type (e.g., "/Errors/Bad Input")
-- **`title`**: A human-readable summary of the error
-- **`errors`**: An array of specific error messages
-- **`statusCode`**: The HTTP status code (supports both `statusCode` and `status_code`)
-- **`instance`**: The URI of the specific request that failed
-
-#### Backward Compatibility
-
-The SDK maintains full backward compatibility. If the controller returns a non-structured error response, it's still wrapped in `MisoClientError` with the raw response available in `errorBody`:
-
-```typescript
-try {
-  await client.get('/api/endpoint');
-} catch (error) {
-  if (error instanceof MisoClientError) {
-    // Check for structured error first
-    if (error.errorResponse) {
-      // New structured format
-      console.log('Structured errors:', error.errorResponse.errors);
-    } else if (error.errorBody) {
-      // Legacy format (still supported)
-      console.log('Error body:', error.errorBody);
-    }
-    
-    // Status code is always available
-    console.log('Status:', error.statusCode);
-  }
-}
-```
+- SDK automatically parses RFC 7807-style structured error responses
+- Provides detailed error information including type, title, and specific error messages
+- Falls back to legacy error format for backward compatibility
 
 ## Getting Help
 
@@ -883,8 +626,9 @@ try {
 2. **Enable Debug Logging**:
 
    ```typescript
+   // ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
    const client = new MisoClient({
-     // ... config
+     ...loadConfig(),
      logLevel: 'debug'
    });
    ```
@@ -892,11 +636,8 @@ try {
 3. **Test with Minimal Configuration**:
 
    ```typescript
-   const client = new MisoClient({
-     controllerUrl: 'https://controller.aifabrix.ai',
-     clientId: 'ctrl-test-app',
-     clientSecret: 'test-secret'
-   });
+   // ✅ Use standard .env parameters (AI Fabrix builder automatically manages these)
+   const client = new MisoClient(loadConfig());
    ```
 
 ### Community Support
@@ -946,9 +687,7 @@ When reporting issues, please include:
          stack: error.stack,
          name: error.name,
          statusCode: error.statusCode,
-         // Structured error details (if available)
          errorResponse: error.errorResponse,
-         // Legacy error body (if available)
          errorBody: error.errorBody
        });
      } else {
@@ -965,5 +704,3 @@ When reporting issues, please include:
    - Clear steps to reproduce the issue
    - Expected vs actual behavior
    - Any relevant logs or error messages
-
-This troubleshooting guide should help you resolve most common issues with the AI Fabrix Miso Client SDK. If you continue to experience problems, please reach out to our support team with the information requested above.

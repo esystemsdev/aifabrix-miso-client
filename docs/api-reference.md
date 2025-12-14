@@ -247,53 +247,52 @@ For browser applications, use the **Server-Provided Client Token Pattern** to av
 ```typescript
 // Server: Express.js example
 import express from 'express';
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, getEnvironmentToken } from '@aifabrix/miso-client';
 
 const app = express();
 
-// Secure token refresh endpoint
-app.get('/api/client-token', 
+// Initialize MisoClient on server
+const misoClient = new MisoClient({
+  controllerUrl: 'https://controller.aifabrix.ai',
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: process.env.MISO_CLIENTSECRET, // ✅ Environment variable
+  allowedOrigins: [
+    'http://localhost:3000',
+    'https://myapp.com',
+    'http://localhost:*', // Wildcard port support
+  ],
+});
+
+await misoClient.initialize();
+
+// Secure token refresh endpoint with origin validation
+app.post('/api/v1/auth/client-token', 
   authenticateUser,           // ✅ User must be authenticated
   rateLimit({ window: '15m', max: 10 }), // ✅ Rate limiting
   async (req, res) => {
-    // Server uses clientSecret securely
-    const serverClient = new MisoClient({
-      controllerUrl: 'https://controller.aifabrix.ai',
-      clientId: 'ctrl-dev-my-app',
-      clientSecret: process.env.MISO_CLIENTSECRET, // ✅ Environment variable
-    });
-    
-    const token = await serverClient.getEnvironmentToken();
-    
-    // Return token with short expiration for browser
-    res.json({
-      token: token,
-      expiresIn: 1800, // 30 minutes (shorter than server-side)
-    });
+    try {
+      // getEnvironmentToken validates origin and logs audit events
+      const token = await getEnvironmentToken(misoClient, req);
+      
+      // Return token with short expiration for browser
+      res.json({
+        token: token,
+        expiresIn: 1800, // 30 minutes (shorter than server-side)
+      });
+    } catch (error) {
+      res.status(403).json({
+        error: 'Origin validation failed or token fetch failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
   }
 );
-
-// Initial page load: Provide token to browser
-app.get('/', authenticateUser, async (req, res) => {
-  const serverClient = new MisoClient({
-    controllerUrl: 'https://controller.aifabrix.ai',
-    clientId: 'ctrl-dev-my-app',
-    clientSecret: process.env.MISO_CLIENTSECRET,
-  });
-  
-  const token = await serverClient.getEnvironmentToken();
-  
-  res.render('index', {
-    initialClientToken: token,
-    initialClientTokenExpiresAt: Date.now() + 1800000, // 30 minutes
-  });
-});
 ```
 
 **Browser-Side: Use Client Token**
 
 ```typescript
-// Browser: Use server-provided token
+// Browser: Use server-provided token endpoint
 const dataClient = new DataClient({
   baseUrl: 'https://api.example.com',
   misoConfig: {
@@ -301,24 +300,17 @@ const dataClient = new DataClient({
     clientId: 'ctrl-dev-my-app',
     // ❌ NO clientSecret
     
-    // Initial token from server
-    clientToken: window.INITIAL_CLIENT_TOKEN,
-    clientTokenExpiresAt: new Date(window.INITIAL_CLIENT_TOKEN_EXPIRES_AT),
+    // ✅ Use server-provided token endpoint
+    clientTokenUri: '/api/v1/auth/client-token', // Default if not specified
     
-    // Refresh callback - calls your server endpoint
-    onClientTokenRefresh: async () => {
-      const response = await fetch('/api/client-token', {
-        credentials: 'include', // Include cookies for user auth
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to refresh client token');
-      }
-      
-      return await response.json(); // { token: string, expiresIn: number }
-    },
+    // Optional: Initial token from server (if provided on page load)
+    // clientToken: window.INITIAL_CLIENT_TOKEN,
+    // clientTokenExpiresAt: window.INITIAL_CLIENT_TOKEN_EXPIRES_AT,
   },
 });
+
+// Get environment token (handles caching automatically)
+const token = await dataClient.getEnvironmentToken();
 ```
 
 #### User Token Management

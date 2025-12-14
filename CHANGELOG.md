@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2025-12-14
+
+### Fixed
+
+- **DataClient audit logging bug** - Fixed 401 Unauthorized errors when audit logging unauthenticated requests
+  - Added `hasClientToken()` and `hasAnyToken()` helper methods to check authentication status
+  - `logAuditEvent()` now skips audit logging when no authentication token is available (user token OR client token)
+  - Prevents circular dependency where login requests trigger audit logging that requires authentication
+  - Gracefully handles audit logging errors without breaking main requests
+  - Improved error handling for 401 errors in audit logging (silently skipped for unauthenticated requests)
+
+### Changed
+
+- **Documentation improvements** - Updated documentation files to match project style and improve clarity
+  - `docs/api-reference.md` - Streamlined API documentation
+  - `docs/configuration.md` - Reduced verbosity, focused on practical examples (reduced from ~1522 to ~785 lines)
+  - `docs/data-client.md` - Improved clarity and consistency (reduced from ~1497 to ~926 lines)
+  - `docs/examples.md` - Consolidated examples, removed redundancy (reduced from ~1014 to ~991 lines)
+  - `docs/troubleshooting.md` - More action-oriented format, clearer solutions (reduced from ~965 to ~707 lines)
+  - All documentation now follows consistent "You need to:" / "Here's how:" patterns
+  - Removed jargon and technical verbosity
+  - Added consistent "✅ Use standard .env parameters" patterns throughout
+
+### Technical
+
+- **Test coverage** - Added tests for audit logging skip behavior
+  - Updated `tests/unit/data-client.test.ts` with 69 new lines of test coverage
+  - Tests verify audit logging is skipped for unauthenticated requests
+  - Tests verify audit logging still works for authenticated requests
+
 ## [3.0.0] - 2025-12-14
 
 ### Added

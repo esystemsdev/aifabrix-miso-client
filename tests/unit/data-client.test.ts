@@ -908,6 +908,75 @@ describe("DataClient", () => {
       expect(misoInstance?.log.audit).not.toHaveBeenCalled();
     });
 
+    it("should skip audit logging when no authentication token is available", async () => {
+      // Clear localStorage to simulate unauthenticated request
+      mockLocalStorage = {};
+      
+      const client = new DataClient({
+        ...config,
+        // No clientToken or clientSecret configured
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "test-client",
+          // No clientToken, clientSecret, or onClientTokenRefresh
+        },
+      });
+
+      await client.get("/api/v1/auth/login");
+
+      // Get the most recent MisoClient instance
+      const misoInstances = (MisoClient as jest.MockedClass<typeof MisoClient>).mock.results;
+      const misoInstance = misoInstances[misoInstances.length - 1]?.value;
+      
+      // Audit logging should be skipped when no tokens are available
+      expect(misoInstance?.log.audit).not.toHaveBeenCalled();
+    });
+
+    it("should perform audit logging when user token is available", async () => {
+      mockLocalStorage["token"] = "test-user-token";
+      
+      const client = new DataClient({
+        ...config,
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "test-client",
+        },
+      });
+
+      await client.get("/api/users");
+
+      // Get the most recent MisoClient instance
+      const misoInstances = (MisoClient as jest.MockedClass<typeof MisoClient>).mock.results;
+      const misoInstance = misoInstances[misoInstances.length - 1]?.value;
+      
+      // Audit logging should be performed when user token is available
+      expect(misoInstance?.log.audit).toHaveBeenCalled();
+    });
+
+    it("should perform audit logging when client token is available", async () => {
+      // Clear user token but provide client token
+      mockLocalStorage = {};
+      mockLocalStorage["miso:client-token"] = "test-client-token";
+      mockLocalStorage["miso:client-token-expires-at"] = String(Date.now() + 3600000); // 1 hour from now
+      
+      const client = new DataClient({
+        ...config,
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "test-client",
+        },
+      });
+
+      await client.get("/api/users");
+
+      // Get the most recent MisoClient instance
+      const misoInstances = (MisoClient as jest.MockedClass<typeof MisoClient>).mock.results;
+      const misoInstance = misoInstances[misoInstances.length - 1]?.value;
+      
+      // Audit logging should be performed when client token is available
+      expect(misoInstance?.log.audit).toHaveBeenCalled();
+    });
+
     it("should extract userId from token for audit", async () => {
       mockLocalStorage["token"] = "test-token";
       (jwt.decode as jest.Mock).mockReturnValue({ sub: "user-456" });
