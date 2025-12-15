@@ -19,8 +19,8 @@ jest.mock("axios", () => {
     __esModule: true,
     default: {
       create: jest.fn((config?: any) => {
-        // If config has X-Client-Id, it's the temp axios for token fetch
-        if (config?.headers?.["X-Client-Id"]) {
+        // If config has x-client-id, it's the temp axios for token fetch
+        if (config?.headers?.["x-client-id"]) {
           return {
             post: jest.fn(),
           };
@@ -97,8 +97,8 @@ describe("InternalHttpClient", () => {
       typeof axios.create
     >;
     axiosCreateMock.mockImplementation((config?: any) => {
-      // If config has X-Client-Id, it's the temp axios for token fetch
-      if (config?.headers?.["X-Client-Id"]) {
+      // If config has x-client-id, it's the temp axios for token fetch
+      if (config?.headers?.["x-client-id"]) {
         return {
           post: jest.fn(),
         } as any;
@@ -188,7 +188,7 @@ describe("InternalHttpClient", () => {
       };
 
       axiosCreateMock.mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           // Return temp axios with post method that already returns tokenResponse
           return tempAxiosMock as any;
         }
@@ -261,7 +261,7 @@ describe("InternalHttpClient", () => {
         typeof axios.create
       >;
       axiosCreateMock.mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           (tempAxiosMock.post as jest.Mock).mockResolvedValue(tokenResponse);
           return tempAxiosMock as any;
         }
@@ -310,7 +310,7 @@ describe("InternalHttpClient", () => {
         typeof axios.create
       >;
       axiosCreateMock.mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return mockAxiosInstance;
@@ -435,8 +435,8 @@ describe("InternalHttpClient", () => {
       };
 
       axiosCreateMock.mockImplementation((config?: any) => {
-        // Check if this is a temp axios for token fetch (has X-Client-Id header)
-        if (config?.headers?.["X-Client-Id"]) {
+        // Check if this is a temp axios for token fetch (has x-client-id header)
+        if (config?.headers?.["x-client-id"]) {
           // Return temp axios with post method that returns tokenResponse
           return tempAxiosMock as any;
         }
@@ -534,8 +534,8 @@ describe("InternalHttpClient", () => {
       };
 
       axiosCreateMock.mockImplementation((config?: any) => {
-        // Check if this is a temp axios for token fetch (has X-Client-Id header)
-        if (config?.headers?.["X-Client-Id"]) {
+        // Check if this is a temp axios for token fetch (has x-client-id header)
+        if (config?.headers?.["x-client-id"]) {
           // Return temp axios with post method that returns tokenResponse
           return tempAxiosMock as any;
         }
@@ -580,7 +580,7 @@ describe("InternalHttpClient", () => {
         typeof axios.create
       >;
       axiosCreateMock.mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           (tempAxiosMock.post as jest.Mock).mockRejectedValue("String error");
           return tempAxiosMock as any;
         }
@@ -627,7 +627,7 @@ describe("InternalHttpClient", () => {
         typeof axios.create
       >;
       axiosCreateMock.mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           (tempAxiosMock.post as jest.Mock).mockResolvedValue(tokenResponse);
           return tempAxiosMock as any;
         }
@@ -674,7 +674,7 @@ describe("InternalHttpClient", () => {
         typeof axios.create
       >;
       axiosCreateMock.mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           (tempAxiosMock.post as jest.Mock).mockResolvedValue(tokenResponse);
           return tempAxiosMock as any;
         }
@@ -724,7 +724,7 @@ describe("InternalHttpClient", () => {
         typeof axios.create
       >;
       axiosCreateMock.mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           (tempAxiosMock.post as jest.Mock).mockResolvedValue(tokenResponse);
           return tempAxiosMock as any;
         }
@@ -804,7 +804,7 @@ describe("InternalHttpClient", () => {
         typeof axios.create
       >;
       axiosCreateMock.mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios401;
         }
         return mockAxiosInstance;
@@ -1775,7 +1775,7 @@ describe("InternalHttpClient", () => {
         }),
       };
       (axios.create as jest.Mock).mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return mockAxiosInstance;
@@ -1828,7 +1828,7 @@ describe("InternalHttpClient", () => {
         }),
       };
       (axios.create as jest.Mock).mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return mockAxiosInstance;
@@ -1884,7 +1884,7 @@ describe("InternalHttpClient", () => {
         }),
       };
       (axios.create as jest.Mock).mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return mockAxiosInstance;
@@ -1937,7 +1937,7 @@ describe("InternalHttpClient", () => {
         }),
       };
       (axios.create as jest.Mock).mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return mockAxiosInstance;
@@ -1959,8 +1959,8 @@ describe("InternalHttpClient", () => {
         requestData,
         expect.objectContaining({
           headers: expect.objectContaining({
-            "X-Client-Id": "test-client-id",
-            "X-Client-Secret": "test-secret",
+            "x-client-id": "test-client-id",
+            "x-client-secret": "test-secret",
           }),
         }),
       );
@@ -1991,7 +1991,7 @@ describe("InternalHttpClient", () => {
         }),
       };
       (axios.create as jest.Mock).mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return mockAxiosInstance;
@@ -2037,7 +2037,7 @@ describe("InternalHttpClient", () => {
         }),
       };
       (axios.create as jest.Mock).mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return mockAxiosInstance;
@@ -2084,7 +2084,7 @@ describe("InternalHttpClient", () => {
         }),
       };
       (axios.create as jest.Mock).mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return mockAxiosInstance;
@@ -2130,7 +2130,7 @@ describe("InternalHttpClient", () => {
         }),
       };
       (axios.create as jest.Mock).mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return mockAxiosInstance;

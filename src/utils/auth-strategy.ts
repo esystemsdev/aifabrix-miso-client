@@ -42,8 +42,8 @@ export class AuthStrategyHandler {
 
         case "client-credentials":
           if (clientId && clientSecret) {
-            headers["X-Client-Id"] = clientId;
-            headers["X-Client-Secret"] = clientSecret;
+            headers["x-client-id"] = clientId;
+            headers["x-client-secret"] = clientSecret;
             return headers;
           }
           break;

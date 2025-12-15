@@ -6,6 +6,7 @@ alwaysApply: true
 ## Project Overview
 
 This is the AI Fabrix Miso Client SDK - a TypeScript SDK for authentication, authorization, and logging with the Miso Controller. The SDK provides:
+
 - **Authentication** - User login, logout, token validation, user info
 - **Authorization** - Role and permission management with Redis caching
 - **Logging** - ISO 27001 compliant audit logging with configurable levels
@@ -13,6 +14,7 @@ This is the AI Fabrix Miso Client SDK - a TypeScript SDK for authentication, aut
 - **Express Utilities** - Complete set of utilities for building Express.js REST APIs
 
 Technologies:
+
 - TypeScript (strict mode)
 - Axios for HTTP communication
 - ioredis for Redis caching
@@ -23,10 +25,12 @@ Technologies:
 ## Architecture Patterns
 
 ### Service Layer
+
 - All services are in `src/services/`
 - Services receive `HttpClient` and `RedisService` as dependencies
 - Services use `httpClient.config` (public readonly property) for configuration access
 - Services follow this pattern:
+
   ```typescript
   export class ServiceName {
     private httpClient: HttpClient;
@@ -42,6 +46,7 @@ Technologies:
   ```
 
 ### HTTP Client Pattern
+
 - `HttpClient` manages client token automatically via Axios interceptors
 - Client token is fetched from `/api/auth/token` using `clientId` and `clientSecret`
 - Client token is sent as `x-client-token` header (lowercase)
@@ -50,8 +55,9 @@ Technologies:
 - Use `request()` for unauthenticated requests (client token is automatic)
 
 ### Token Management
+
 - **Client Token**: Automatically fetched and refreshed by `HttpClient` via interceptor
-  - Fetched from `POST /api/auth/token` with `X-Client-Id` and `X-Client-Secret`
+  - Fetched from `POST /api/auth/token` with `x-client-id` and `x-client-secret`
   - Stored in memory with expiration tracking
   - Added to all requests as `x-client-token` header (lowercase)
   - Refreshed automatically when expired or on 401 errors
@@ -59,12 +65,14 @@ Technologies:
 - Never expose `clientId` or `clientSecret` to the client application - only the client token
 
 ### API Endpoints
+
 All controller endpoints use `/api` prefix:
+
 - `/api/auth/login` - User login
 - `/api/auth/logout` - User logout
 - `/api/auth/validate` - Validate user token
 - `/api/auth/user` - Get user info
-- `/api/auth/token` - Get client token (uses X-Client-Id/X-Client-Secret)
+- `/api/auth/token` - Get client token (uses x-client-id/x-client-secret)
 - `/api/auth/roles` - Get user roles
 - `/api/auth/roles/refresh` - Refresh user roles
 - `/api/auth/permissions` - Get user permissions
@@ -72,10 +80,12 @@ All controller endpoints use `/api` prefix:
 - `/api/logs` - Send logs
 
 ### JWT Token Handling
+
 - Always use `jsonwebtoken.decode()` (not verify - we don't have the secret)
 - Extract userId from multiple possible fields: `sub`, `userId`, `user_id`, `id`
 - Handle null/undefined decoded tokens gracefully
 - JWT context extraction pattern:
+
   ```typescript
   private extractUserIdFromToken(token: string): string | null {
     try {
@@ -89,12 +99,14 @@ All controller endpoints use `/api` prefix:
   ```
 
 ### Redis Caching Pattern
+
 - Always check `redis.isConnected()` before using Redis
 - Cache keys format: `roles:{userId}` or `permissions:{userId}`
 - Cache format: `JSON.stringify({ roles: [...], timestamp: Date.now() })`
 - Default TTL: 900 seconds (15 minutes)
 - Always fallback to controller when Redis fails
 - Pattern:
+
   ```typescript
   if (cacheKey && this.redis.isConnected()) {
     const cached = await this.redis.get(cacheKey);
@@ -113,6 +125,7 @@ All controller endpoints use `/api` prefix:
 ## Code Style
 
 ### TypeScript Conventions
+
 - Use `strict: true` TypeScript configuration
 - Prefer interfaces over types for public APIs
 - Use `public readonly` for read-only config access
@@ -120,6 +133,7 @@ All controller endpoints use `/api` prefix:
 - Export only what's needed in `src/index.ts`
 
 ### Naming Conventions
+
 - **Classes**: PascalCase (`AuthService`, `HttpClient`)
 - **Methods**: camelCase (`getRoles`, `validateToken`)
 - **Constants**: UPPER_SNAKE_CASE
@@ -132,11 +146,13 @@ All controller endpoints use `/api` prefix:
   - No snake_case in public API - all outputs use camelCase convention
 
 ### Error Handling
+
 - Services should return empty arrays `[]` on errors (for get methods)
 - Use try-catch for all async operations
 - Log errors with `console.error` or `console.warn`
 - Never throw uncaught errors from service methods
 - Pattern:
+
   ```typescript
   try {
     // operation
@@ -147,6 +163,7 @@ All controller endpoints use `/api` prefix:
   ```
 
 ### Async/Await
+
 - Always use async/await, never raw promises
 - Always use try-catch with async operations
 - Methods that return arrays should return empty array on error
@@ -155,6 +172,7 @@ All controller endpoints use `/api` prefix:
 ## Testing Conventions
 
 ### Test File Structure
+
 - Test files mirror source structure: `tests/unit/service-name.test.ts`
 - Use Jest for testing
 - Mock all external dependencies (axios, ioredis, jsonwebtoken)
@@ -163,12 +181,14 @@ All controller endpoints use `/api` prefix:
 - Test cache hits and misses
 
 ### Mock Patterns
+
 - Mock HttpClient: `const mockHttpClient = { authenticatedRequest: jest.fn(), request: jest.fn() } as any;`
 - Mock Redis: `const mockRedisService = { isConnected: jest.fn(), get: jest.fn(), set: jest.fn() } as any;`
 - Mock JWT: `jest.mock('jsonwebtoken'); const jwt = require('jsonwebtoken');`
-- Mock axios create for token fetch: Return different instance when config has `X-Client-Id` header
+- Mock axios create for token fetch: Return different instance when config has `x-client-id` header
 
 ### Test Coverage
+
 - Aim for 80%+ branch coverage
 - Test edge cases (null tokens, empty arrays, cache failures)
 - Test JWT decode failures
@@ -178,7 +198,8 @@ All controller endpoints use `/api` prefix:
 ## File Organization
 
 ### Source Structure
-```
+
+```yaml
 src/
   index.ts           # Main MisoClient class exports
   services/          # Service layer (auth, roles, permissions, logger, redis)
@@ -188,6 +209,7 @@ src/
 ```
 
 ### Import Order
+
 1. External dependencies (axios, jsonwebtoken, etc.)
 2. Internal types
 3. Internal utilities
@@ -195,6 +217,7 @@ src/
 5. Relative imports
 
 ### Export Strategy
+
 - Export main class from `src/index.ts`
 - Export types from `src/types/config.types.ts`
 - Don't export internal utilities/services directly
@@ -203,12 +226,14 @@ src/
 ## Configuration
 
 ### Config Types
+
 - All config in `src/types/config.types.ts`
 - Use `loadConfig()` helper to load from .env
 - Config is readonly after initialization
 - Access via `httpClient.config` (public readonly)
 
 ### Environment Variables
+
 - `MISO_CLIENTID` - Client ID
 - `MISO_CLIENTSECRET` - Client secret
 - `MISO_CONTROLLER_URL` - Controller base URL
@@ -219,6 +244,7 @@ src/
 ## Common Patterns
 
 ### Service Method Pattern
+
 ```typescript
 async getSomething(token: string): Promise<Type[]> {
   try {
@@ -271,6 +297,7 @@ async getSomething(token: string): Promise<Type[]> {
 ```
 
 ### Logger Chain Pattern
+
 ```typescript
 // Fluent API
 await loggerService
@@ -283,6 +310,7 @@ await loggerService
 ```
 
 ### Client Token Fetch Pattern
+
 ```typescript
 // In HttpClient
 private async fetchClientToken(): Promise<string> {
@@ -292,8 +320,8 @@ private async fetchClientToken(): Promise<string> {
     timeout: 30000,
     headers: {
       'Content-Type': 'application/json',
-      'X-Client-Id': this.config.clientId,
-      'X-Client-Secret': this.config.clientSecret
+      'x-client-id': this.config.clientId,
+      'x-client-secret': this.config.clientSecret
     }
   });
   
@@ -303,6 +331,7 @@ private async fetchClientToken(): Promise<string> {
 ```
 
 ## Security Guidelines
+
 - Never log `clientId` or `clientSecret`
 - Never expose client credentials to client-side code
 - Mask sensitive data in logs (use DataMasker)
@@ -310,6 +339,7 @@ private async fetchClientToken(): Promise<string> {
 - User token goes in `Authorization: Bearer <token>` header
 
 ## Performance Guidelines
+
 - Always use Redis cache when available
 - Extract userId from JWT to avoid unnecessary validate API calls
 - Cache roles and permissions with TTL (default 15 min)
@@ -317,6 +347,7 @@ private async fetchClientToken(): Promise<string> {
 - Handle Redis failures gracefully with controller fallback
 
 ## Code Size Guidelines
+
 - **File Size**: Keep source files under 500 lines
   - If a file exceeds 500 lines, consider splitting into multiple files
   - Extract related functionality into separate utility classes or modules
@@ -327,18 +358,21 @@ private async fetchClientToken(): Promise<string> {
 - **Exception**: Configuration files, type definitions, and test files may exceed limits if needed
 
 ## Documentation
+
 - Use JSDoc comments for public methods
 - Include parameter types and return types in comments
 - Document error conditions
 - Add examples in comments for complex methods
 
 ## Dependencies
+
 - `axios`: HTTP client
 - `jsonwebtoken`: JWT decoding (NOT verification)
 - `ioredis`: Redis client
 - `dotenv`: Environment variable loading (dev only)
 
 ## When Adding New Features
+
 1. Update types in `src/types/config.types.ts` first
 2. Add service method if needed
 3. Update `src/index.ts` to expose public API
@@ -349,6 +383,7 @@ private async fetchClientToken(): Promise<string> {
 ## Critical Rules
 
 ### Must Do (✅)
+
 - ✅ Always use `/api` prefix for controller endpoints
 - ✅ Client token: `x-client-token` header (lowercase)
 - ✅ User token: `Authorization: Bearer <token>`
@@ -361,6 +396,7 @@ private async fetchClientToken(): Promise<string> {
 - ✅ All public API outputs use camelCase (no snake_case)
 
 ### Must Not Do (❌)
+
 - ❌ Never expose `clientId` or `clientSecret` in client code
 - ❌ Never throw uncaught errors from service methods
 - ❌ Never use `X-Client-Token` (use lowercase `x-client-token`)

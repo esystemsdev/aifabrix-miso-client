@@ -784,7 +784,7 @@ const defaultStrategy = client.getDefaultAuthStrategy(token);
 
 - `bearer` - Bearer token authentication (Authorization: Bearer <token>)
 - `client-token` - Client token authentication (x-client-token header)
-- `client-credentials` - Client credentials authentication (X-Client-Id and X-Client-Secret headers)
+- `client-credentials` - Client credentials authentication (x-client-id and x-client-secret headers)
 - `api-key` - API key authentication (Authorization: Bearer <api-key>)
 
 **Priority-Based Fallback:** Methods are tried in the order specified in the strategy array until one succeeds.

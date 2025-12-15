@@ -157,6 +157,230 @@ describe("DataClient", () => {
     });
   });
 
+  describe("Automatic Client Token Bridging", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockLocalStorage = {};
+      // Ensure browser environment
+      (global as any).window = mockWindow;
+      (global as any).localStorage = {
+        getItem: jest.fn((key: string) => mockLocalStorage[key] || null),
+        setItem: jest.fn((key: string, value: string) => {
+          mockLocalStorage[key] = value;
+        }),
+        removeItem: jest.fn((key: string) => {
+          delete mockLocalStorage[key];
+        }),
+      };
+      (globalThis as any).window = mockWindow;
+      (globalThis as any).localStorage = (global as any).localStorage;
+    });
+
+    it("should automatically bridge getEnvironmentToken to MisoClient when onClientTokenRefresh is not provided", () => {
+      const browserConfig: DataClientConfig = {
+        baseUrl: "https://api.example.com",
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "ctrl-dev-test-app",
+          // No clientSecret, no onClientTokenRefresh - should auto-bridge
+        },
+      };
+
+      (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
+      const client = new DataClient(browserConfig);
+
+      // Verify MisoClient was called
+      expect(MisoClient).toHaveBeenCalledTimes(1);
+      
+      // Get the config passed to MisoClient
+      const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>).mock.calls[0][0];
+      
+      // Should have onClientTokenRefresh automatically set
+      expect(misoConfigCall.onClientTokenRefresh).toBeDefined();
+      expect(typeof misoConfigCall.onClientTokenRefresh).toBe("function");
+    });
+
+    it("should use user-provided onClientTokenRefresh when provided", () => {
+      const userCallback = jest.fn().mockResolvedValue({
+        token: "user-provided-token",
+        expiresIn: 3600,
+      });
+
+      const browserConfig: DataClientConfig = {
+        baseUrl: "https://api.example.com",
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "ctrl-dev-test-app",
+          onClientTokenRefresh: userCallback,
+        },
+      };
+
+      (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
+      const client = new DataClient(browserConfig);
+
+      // Verify MisoClient was called
+      expect(MisoClient).toHaveBeenCalledTimes(1);
+      
+      // Get the config passed to MisoClient
+      const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>).mock.calls[0][0];
+      
+      // Should use user-provided callback (same reference)
+      expect(misoConfigCall.onClientTokenRefresh).toBe(userCallback);
+    });
+
+    it("should NOT auto-bridge when clientSecret is provided (server-side)", () => {
+      const serverConfig: DataClientConfig = {
+        baseUrl: "https://api.example.com",
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "ctrl-dev-test-app",
+          clientSecret: "server-secret", // Server-side - should use clientSecret instead
+        },
+      };
+
+      (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
+      const client = new DataClient(serverConfig);
+
+      // Verify MisoClient was called
+      expect(MisoClient).toHaveBeenCalledTimes(1);
+      
+      // Get the config passed to MisoClient
+      const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>).mock.calls[0][0];
+      
+      // Should NOT have onClientTokenRefresh (server-side uses clientSecret)
+      expect(misoConfigCall.onClientTokenRefresh).toBeUndefined();
+    });
+
+    it("should correctly bridge getEnvironmentToken and format response", async () => {
+      // Setup: cache a token in localStorage
+      const testToken = "test-client-token-123";
+      const expiresAt = Date.now() + 3600000; // 1 hour from now
+      mockLocalStorage["miso:client-token"] = testToken;
+      mockLocalStorage["miso:client-token-expires-at"] = expiresAt.toString();
+
+      const browserConfig: DataClientConfig = {
+        baseUrl: "https://api.example.com",
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "ctrl-dev-test-app",
+        },
+      };
+
+      (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
+      const client = new DataClient(browserConfig);
+
+      // Get the auto-bridged callback
+      const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>).mock.calls[0][0];
+      const onClientTokenRefresh = misoConfigCall.onClientTokenRefresh;
+
+      expect(onClientTokenRefresh).toBeDefined();
+
+      // Call the callback - it should use getEnvironmentToken internally
+      const result = await onClientTokenRefresh!();
+
+      // Verify result format
+      expect(result).toHaveProperty("token");
+      expect(result).toHaveProperty("expiresIn");
+      expect(result.token).toBe(testToken);
+      expect(result.expiresIn).toBeGreaterThan(0);
+      expect(result.expiresIn).toBeLessThanOrEqual(3600);
+    });
+
+    it("should handle token expiration calculation correctly", async () => {
+      // Setup: cache a token with specific expiration
+      const testToken = "test-client-token-456";
+      const expiresAt = Date.now() + 1800000; // 30 minutes from now
+      mockLocalStorage["miso:client-token"] = testToken;
+      mockLocalStorage["miso:client-token-expires-at"] = expiresAt.toString();
+
+      const browserConfig: DataClientConfig = {
+        baseUrl: "https://api.example.com",
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "ctrl-dev-test-app",
+        },
+      };
+
+      (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
+      const client = new DataClient(browserConfig);
+
+      // Get the auto-bridged callback
+      const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>).mock.calls[0][0];
+      const onClientTokenRefresh = misoConfigCall.onClientTokenRefresh;
+
+      // Call the callback
+      const result = await onClientTokenRefresh!();
+
+      // Verify expiration is calculated correctly (should be around 1800 seconds / 30 minutes)
+      expect(result.expiresIn).toBeGreaterThan(1700); // Allow some time for test execution
+      expect(result.expiresIn).toBeLessThanOrEqual(1800);
+    });
+
+    it("should handle missing expiration gracefully with default", async () => {
+      // Setup: no token in cache, will fetch from server
+      const testToken = "test-client-token-789";
+      const expiresIn = 1800; // 30 minutes
+
+      // Mock fetch to return token
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          token: testToken,
+          expiresIn: expiresIn,
+        }),
+      } as Response);
+
+      const browserConfig: DataClientConfig = {
+        baseUrl: "https://api.example.com",
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "ctrl-dev-test-app",
+        },
+      };
+
+      (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
+      const client = new DataClient(browserConfig);
+
+      // Get the auto-bridged callback
+      const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>).mock.calls[0][0];
+      const onClientTokenRefresh = misoConfigCall.onClientTokenRefresh;
+
+      // Call the callback - it will fetch token and set expiration
+      const result = await onClientTokenRefresh!();
+
+      // Verify token was fetched and expiration is set
+      expect(result.token).toBe(testToken);
+      // Allow 1 second tolerance for timing differences
+      expect(result.expiresIn).toBeGreaterThanOrEqual(expiresIn - 1);
+      expect(result.expiresIn).toBeLessThanOrEqual(expiresIn + 1);
+      // Verify expiration was stored in localStorage
+      expect(mockLocalStorage["miso:client-token-expires-at"]).toBeTruthy();
+    });
+
+    it("should throw error when getEnvironmentToken fails", async () => {
+      const browserConfig: DataClientConfig = {
+        baseUrl: "https://api.example.com",
+        misoConfig: {
+          controllerUrl: "https://controller.aifabrix.ai",
+          clientId: "ctrl-dev-test-app",
+        },
+      };
+
+      (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
+      const client = new DataClient(browserConfig);
+
+      // Get the auto-bridged callback
+      const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>).mock.calls[0][0];
+      const onClientTokenRefresh = misoConfigCall.onClientTokenRefresh;
+
+      // Mock getEnvironmentToken to fail (no cache, will fetch from server)
+      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+
+      // Call the callback - should propagate the error from getEnvironmentToken
+      await expect(onClientTokenRefresh!()).rejects.toThrow("Network error");
+    });
+  });
+
   describe("Authentication", () => {
     it("should get token from localStorage", () => {
       mockLocalStorage["token"] = "test-token-123";
@@ -752,6 +976,9 @@ describe("DataClient", () => {
     });
 
     it("should not retry on 401 errors", async () => {
+      // Use real timers for this test to avoid timing issues with retry logic
+      jest.useRealTimers();
+      
       mockFetch.mockResolvedValue({
         ok: false,
         status: 401,
@@ -762,7 +989,15 @@ describe("DataClient", () => {
       await expect(dataClient.get("/api/users")).rejects.toThrow(
         AuthenticationError,
       );
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      
+      // Count only calls to the original endpoint (not redirect-to-login calls)
+      const originalEndpointCalls = mockFetch.mock.calls.filter(
+        (call) => call[0] === "https://api.example.com/api/users"
+      );
+      expect(originalEndpointCalls.length).toBe(1);
+      
+      // Restore fake timers for other tests
+      jest.useFakeTimers();
     });
   });
 

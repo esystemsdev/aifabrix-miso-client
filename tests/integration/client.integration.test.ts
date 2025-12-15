@@ -30,8 +30,8 @@ const mockTempAxiosInstance = {
 
 const mockAxios = {
   create: jest.fn((config?: any) => {
-    // If config has X-Client-Id header, return temp instance for token fetch
-    if (config?.headers?.["X-Client-Id"]) {
+    // If config has x-client-id header, return temp instance for token fetch
+    if (config?.headers?.["x-client-id"]) {
       return mockTempAxiosInstance;
     }
     return mockAxiosInstance;

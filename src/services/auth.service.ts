@@ -60,8 +60,8 @@ export class AuthService {
         timeout: 30000,
         headers: {
           "Content-Type": "application/json",
-          "X-Client-Id": this.config.clientId,
-          "X-Client-Secret": this.config.clientSecret,
+          "x-client-id": this.config.clientId,
+          "x-client-secret": this.config.clientSecret,
         },
       });
 

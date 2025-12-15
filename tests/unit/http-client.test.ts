@@ -1228,7 +1228,7 @@ describe("HttpClient", () => {
         post: jest.fn().mockResolvedValue(tokenResponse),
       };
       axios.create.mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return mockAxios;

@@ -12,7 +12,7 @@ The command:
 4. Checks that tests exist for new/modified code
 5. Runs code quality validation (format → lint → test)
 6. Validates against cursor rules
-7. Attaches validation results to the plan file itself (adds/updates `## Validation` section)
+7. Creates a separate validation report file (does NOT modify the plan file)
 
 ## Usage
 
@@ -34,7 +34,6 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 - All services, types, utilities mentioned
 - Test requirements (unit tests, integration tests)
 - Documentation requirements
-- **Existing validation section** (if present) - Will be replaced with new validation results
 
 **Validates Task Completion**:
 
@@ -127,13 +126,12 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 
 ### 6. Report Generation
 
-**Attaches Validation Section to Plan File**:
+**Creates Separate Validation Report File**:
 
-- Updates the plan file itself by adding/updating a `## Validation` section
-- Location: Same plan file (`.cursor/plans/<plan-name>.plan.md`)
+- Creates a new validation report file (does NOT modify the plan file)
+- Location: `.cursor/plans/VALIDATION-<plan-name>.md` (derived from plan filename)
 - Contains:
   - Executive summary (overall status)
-- **Note**: If a validation section already exists, it will be replaced with the new validation results
   - File existence validation results
   - Test coverage analysis
   - Code quality validation results
@@ -141,6 +139,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
   - Implementation completeness assessment
   - Issues and recommendations
   - Final validation checklist
+- **Note**: The plan file itself is never modified - validation results are stored in a separate file
 
 ## Output
 
@@ -218,7 +217,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 **Automatic Execution**:
 - The command executes automatically without asking for user input
 - Shows progress during validation
-- Attaches validation results to the plan file itself (adds/updates `## Validation` section)
+- Creates a separate validation report file (does NOT modify the plan file)
 - Only asks for user input if critical issues require confirmation
 
 **Error Handling**:
@@ -242,9 +241,8 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 - **Plan File Detection**: If no plan file is specified, the command finds the most recently modified plan file in `.cursor/plans/`
 - **Task Parsing**: Extracts tasks from markdown checkboxes (`- [ ]` or `- [x]`)
 - **File Detection**: Identifies file paths mentioned in plan (code blocks, file references, paths in text)
-- **Validation Section Update**: Adds or updates the `## Validation` section in the plan file itself with validation results
-- **Report Location**: Validation results are attached directly to the plan file (no separate report file created)
-- **Report Location**: Validation results are attached directly to the plan file (no separate report file created)
+- **Report Location**: Validation results are written to a separate file: `.cursor/plans/VALIDATION-<plan-name>.md`
+- **Plan File Protection**: The plan file itself is never modified - all validation results are stored in the separate validation report file
 
 ## Integration with Plans
 
@@ -262,6 +260,8 @@ This will validate:
 - Tests exist and pass
 - Code quality validation passes
 - Cursor rules compliance verified
+
+The validation results will be written to: `.cursor/plans/VALIDATION-<plan-name>.md`
 ```
 
 ## Example Usage in Plan
@@ -278,5 +278,6 @@ This will validate:
 After completing all tasks, run:
 /validate-implementation .cursor/plans/example-plan.plan.md
 
-The validation results will be added to this plan file as a `## Validation` section below.
+The validation results will be written to: `.cursor/plans/VALIDATION-example-plan.md`
+Note: The plan file itself will not be modified - validation results are stored separately.
 

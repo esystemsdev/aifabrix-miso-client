@@ -298,7 +298,7 @@ describe("AuthService", () => {
       };
       // Reset and setup axios.create mock
       mockAxios.create.mockImplementation((config?: any) => {
-        if (config?.headers?.["X-Client-Id"]) {
+        if (config?.headers?.["x-client-id"]) {
           return mockTempAxios;
         }
         return {

@@ -61,11 +61,16 @@ export class InternalHttpClient {
         // Auth strategy will set headers appropriately
         if (
           !config.headers["x-client-token"] &&
-          !config.headers["X-Client-Id"]
+          !config.headers["x-client-id"]
         ) {
           const token = await this.getClientToken();
           if (token) {
             config.headers["x-client-token"] = token;
+          } else {
+            // Token is null - log warning to help debug authentication issues
+            console.warn(
+              "Client token is not available. Ensure clientSecret or onClientTokenRefresh is configured.",
+            );
           }
         }
 
@@ -203,8 +208,8 @@ export class InternalHttpClient {
         timeout: 30000,
         headers: {
           "Content-Type": "application/json",
-          "X-Client-Id": this.config.clientId,
-          "X-Client-Secret": this.config.clientSecret,
+          "x-client-id": this.config.clientId,
+          "x-client-secret": this.config.clientSecret,
         },
       });
 

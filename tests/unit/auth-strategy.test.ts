@@ -55,8 +55,8 @@ describe("AuthStrategyHandler", () => {
       );
 
       expect(headers).toEqual({
-        "X-Client-Id": "client-id",
-        "X-Client-Secret": "client-secret",
+        "x-client-id": "client-id",
+        "x-client-secret": "client-secret",
       });
     });
 

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.2] - 2025-12-15
+
+### Changed
+
+- **DataClient refactoring** - Improved code organization and maintainability
+  - Extracted request execution logic into separate utility modules
+  - Split DataClient into focused utility files: `data-client-request.ts`, `data-client-auth.ts`, `data-client-cache.ts`, `data-client-utils.ts`
+  - Improved code organization and separation of concerns
+  - Reduced code complexity in main DataClient class
+
+### Fixed
+
+- **TypeScript error handling** - Fixed TypeScript error in retry logic
+  - Fixed type checking for error constructor name in authentication error detection
+  - Improved error type safety in retry logic
+
+### Technical
+
+- **Code quality improvements** - Significant refactoring for better maintainability
+  - Reduced DataClient.ts from ~1600 lines to ~500 lines through modularization
+  - Improved test coverage and organization
+  - Better separation of concerns between authentication, caching, and request execution
+
 ## [3.1.1] - 2025-12-15
 
 ### Fixed

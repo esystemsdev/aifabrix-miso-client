@@ -4,6 +4,9 @@
 
 import { MisoClientConfig } from "./config.types";
 
+// Re-export MisoClientConfig for convenience
+export type { MisoClientConfig };
+
 /**
  * ISO 27001 audit logging configuration
  */
