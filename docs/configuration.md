@@ -109,12 +109,177 @@ const client = new MisoClient(loadConfig());
 
 - **`controllerUrl`**: Base URL of your AI Fabrix controller instance
   - Examples: `https://controller.aifabrix.ai`, `http://localhost:3000`
+  - Note: Can be used as fallback when public/private URLs are not provided
+- **`controllerPublicUrl`**: Public URL for browser/Vite environments (accessible from internet)
+  - Examples: `https://controller.aifabrix.ai`, `https://api.example.com`
+  - Used automatically in browser environments
+  - Falls back to `controllerUrl` if not provided
+- **`controllerPrivateUrl`**: Private URL for server environments (internal network access)
+  - Examples: `http://miso-controller:3010`, `http://10.0.0.5:3000`
+  - Used automatically in server environments
+  - Falls back to `controllerUrl` if not provided
 - **`clientId`**: Client ID for authenticating with the controller
   - Examples: `'ctrl-dev-my-app'`, `'ctrl-pro-production-app'`
   - Security: Store in environment variables, never hardcode
 - **`clientSecret`**: Client secret for authenticating with the controller
   - Security: Store in environment variables, never hardcode
   - Note: Client token is automatically fetched and managed by the SDK
+
+## Public and Private Controller URLs
+
+**You need to:** Configure separate URLs for browser and server environments to handle different network topologies.
+
+**Here's how:** Use `controllerPublicUrl` for browser/Vite environments and `controllerPrivateUrl` for server environments. The SDK automatically detects the environment and uses the appropriate URL.
+
+### Automatic Environment Detection
+
+The SDK automatically detects whether it's running in a browser or server environment:
+
+- **Browser/Vite**: Uses `controllerPublicUrl` (or falls back to `controllerUrl`)
+- **Server/Node.js**: Uses `controllerPrivateUrl` (or falls back to `controllerUrl`)
+
+### Browser Configuration (Vite/React/Angular)
+
+```typescript
+// Browser configuration - use public URL
+const browserClient = new MisoClient({
+  controllerPublicUrl: 'https://controller.aifabrix.ai',
+  clientId: 'my-app',
+  // ❌ DO NOT include clientSecret in browser code
+  // Use clientToken pattern instead (see DataClient documentation)
+});
+```
+
+**Environment variable:**
+
+```bash
+# Browser (Vite) - Public URL
+MISO_WEB_SERVER_URL=https://controller.aifabrix.ai
+```
+
+### Server Configuration
+
+```typescript
+// Server configuration - use private URL
+const serverClient = new MisoClient({
+  controllerPrivateUrl: 'http://miso-controller:3010',
+  clientId: 'my-app',
+  clientSecret: 'your-secret',
+});
+```
+
+**Environment variable:**
+
+```bash
+# Server - Private URL
+MISO_CONTROLLER_URL=http://miso-controller:3010
+```
+
+### Backward Compatibility
+
+Existing `controllerUrl` configuration continues to work as a fallback:
+
+```typescript
+// Single URL (works for both browser and server)
+const legacyClient = new MisoClient({
+  controllerUrl: 'http://localhost:3000',
+  clientId: 'my-app',
+  clientSecret: 'your-secret',
+});
+```
+
+**Environment variable:**
+
+```bash
+# Server - Private URL (also sets controllerUrl for backward compatibility)
+MISO_CONTROLLER_URL=http://localhost:3000
+```
+
+### Priority Order
+
+The SDK resolves URLs in the following priority order:
+
+1. **Environment-specific URL**: `controllerPublicUrl` (browser) or `controllerPrivateUrl` (server)
+2. **Fallback**: `controllerUrl` if environment-specific URL not provided
+3. **Error**: Throws clear error if no URL available
+
+### Migration Guide
+
+**From single URL to dual URL setup:**
+
+1. **Phase 1**: Add public/private URLs while keeping `controllerUrl` (backward compatible)
+
+   ```typescript
+   const client = new MisoClient({
+     controllerUrl: 'http://localhost:3000', // Still works as fallback
+     controllerPublicUrl: 'https://controller.aifabrix.ai', // Browser
+     controllerPrivateUrl: 'http://miso-controller:3010', // Server
+     clientId: 'my-app',
+     clientSecret: 'your-secret',
+   });
+   ```
+
+2. **Phase 2**: Update applications to use public/private URLs explicitly
+
+   ```typescript
+   // Browser app
+   const browserClient = new MisoClient({
+     controllerPublicUrl: 'https://controller.aifabrix.ai',
+     clientId: 'my-app',
+   });
+   
+   // Server app
+   const serverClient = new MisoClient({
+     controllerPrivateUrl: 'http://miso-controller:3010',
+     clientId: 'my-app',
+     clientSecret: 'your-secret',
+   });
+   ```
+
+**Benefits:**
+
+- ✅ Separate network topologies for browser and server
+- ✅ Public URL accessible from internet (browser)
+- ✅ Private URL for internal network access (server)
+- ✅ Automatic environment detection
+- ✅ Backward compatible with existing `controllerUrl`
+
+### Advanced: Manual URL Resolution
+
+For advanced use cases, you can manually resolve controller URLs or detect the environment using the exported utilities:
+
+```typescript
+import { resolveControllerUrl, isBrowser, MisoClientConfig } from '@aifabrix/miso-client';
+
+// Detect environment
+if (isBrowser()) {
+  console.log('Running in browser');
+} else {
+  console.log('Running on server');
+}
+
+// Manually resolve URL
+const config: MisoClientConfig = {
+  controllerPublicUrl: 'https://controller.aifabrix.ai',
+  controllerPrivateUrl: 'http://miso-controller:3010',
+  controllerUrl: 'http://localhost:3000', // Fallback
+  clientId: 'my-app',
+};
+
+const resolvedUrl = resolveControllerUrl(config);
+console.log('Resolved URL:', resolvedUrl);
+```
+
+**Use Cases:**
+
+- Pre-validating configuration before creating MisoClient
+- Conditional logic based on environment
+- Testing and debugging URL resolution
+- Custom URL resolution logic
+
+**See Also:**
+
+- [API Reference - Standalone Utilities](../api-reference.md#standalone-utilities) - Complete documentation for `resolveControllerUrl()` and `isBrowser()`
 
 ## Redis Configuration
 
@@ -175,9 +340,14 @@ const client = new MisoClient({
 
 ```bash
 # Required
-MISO_CONTROLLER_URL=https://controller.aifabrix.ai
 MISO_CLIENTID=ctrl-dev-my-app
 MISO_CLIENTSECRET=your-secret-here
+
+# Server - Private URL (for server environments)
+MISO_CONTROLLER_URL=http://miso-controller:3010
+
+# Optional: Public URL for browser/Vite environments
+MISO_WEB_SERVER_URL=https://controller.aifabrix.ai
 
 # Optional: Logging level
 MISO_LOG_LEVEL=info

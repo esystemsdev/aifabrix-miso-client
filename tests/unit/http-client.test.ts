@@ -1985,7 +1985,9 @@ describe("HttpClient", () => {
           "http.request.GET",
           "/api/users",
           expect.objectContaining({
-            url: expect.stringContaining(httpClient.config.controllerUrl), // baseURL defaults to controllerUrl
+            url: expect.stringContaining(
+              httpClient.config.controllerUrl || "https://controller.aifabrix.ai"
+            ), // baseURL defaults to controllerUrl or resolved URL
           }),
           expect.any(Object),
         );

@@ -4,6 +4,7 @@
 
 import { MisoClient } from "../../src/index";
 import { MisoClientConfig } from "../../src/types/config.types";
+import { Request } from "express";
 
 // Mock Redis
 jest.mock("ioredis", () => {
@@ -163,6 +164,179 @@ describe("MisoClient", () => {
       const token = client.getToken(req as any);
 
       expect(token).toBe("my-token-123");
+    });
+
+    it("should provide validateOrigin method", () => {
+      expect(typeof client.validateOrigin).toBe("function");
+    });
+
+    it("should validate origin using config allowedOrigins", () => {
+      const clientWithOrigins = new MisoClient({
+        ...config,
+        allowedOrigins: ["https://myapp.com", "http://localhost:*"],
+      });
+
+      const req = {
+        headers: {
+          origin: "https://myapp.com",
+        },
+      } as Request;
+
+      const result = clientWithOrigins.validateOrigin(req);
+      expect(result.valid).toBe(true);
+    });
+
+    it("should validate origin with wildcard port from config", () => {
+      const clientWithOrigins = new MisoClient({
+        ...config,
+        allowedOrigins: ["http://localhost:*"],
+      });
+
+      const req = {
+        headers: {
+          origin: "http://localhost:3000",
+        },
+      } as Request;
+
+      const result = clientWithOrigins.validateOrigin(req);
+      expect(result.valid).toBe(true);
+    });
+
+    it("should reject invalid origin when using config allowedOrigins", () => {
+      const clientWithOrigins = new MisoClient({
+        ...config,
+        allowedOrigins: ["https://myapp.com"],
+      });
+
+      const req = {
+        headers: {
+          origin: "https://evil.com",
+        },
+      } as Request;
+
+      const result = clientWithOrigins.validateOrigin(req);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("not allowed");
+    });
+
+    it("should use provided allowedOrigins override instead of config", () => {
+      const clientWithOrigins = new MisoClient({
+        ...config,
+        allowedOrigins: ["https://myapp.com"],
+      });
+
+      const req = {
+        headers: {
+          origin: "https://other.com",
+        },
+      } as Request;
+
+      // Override with different origins
+      const result = clientWithOrigins.validateOrigin(req, [
+        "https://other.com",
+      ]);
+      expect(result.valid).toBe(true);
+    });
+
+    it("should return valid when no allowedOrigins in config and none provided", () => {
+      const req = {
+        headers: {
+          origin: "https://any-origin.com",
+        },
+      } as Request;
+
+      const result = client.validateOrigin(req);
+      expect(result.valid).toBe(true);
+    });
+
+    it("should handle missing origin header", () => {
+      const clientWithOrigins = new MisoClient({
+        ...config,
+        allowedOrigins: ["https://myapp.com"],
+      });
+
+      const req = {
+        headers: {},
+      } as Request;
+
+      const result = clientWithOrigins.validateOrigin(req);
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe("Missing origin header");
+    });
+
+    it("should use referer header when origin is missing", () => {
+      const clientWithOrigins = new MisoClient({
+        ...config,
+        allowedOrigins: ["https://myapp.com"],
+      });
+
+      const req = {
+        headers: {
+          referer: "https://myapp.com/page",
+        },
+      } as Request;
+
+      const result = clientWithOrigins.validateOrigin(req);
+      expect(result.valid).toBe(true);
+    });
+
+    it("should prefer origin header over referer", () => {
+      const clientWithOrigins = new MisoClient({
+        ...config,
+        allowedOrigins: ["https://myapp.com", "https://evil.com"],
+      });
+
+      const req = {
+        headers: {
+          origin: "https://myapp.com",
+          referer: "https://evil.com/page",
+        },
+      } as Request;
+
+      const result = clientWithOrigins.validateOrigin(req);
+      expect(result.valid).toBe(true);
+    });
+
+    it("should handle case-insensitive origin matching", () => {
+      const clientWithOrigins = new MisoClient({
+        ...config,
+        allowedOrigins: ["https://myapp.com"],
+      });
+
+      const req = {
+        headers: {
+          origin: "HTTPS://MYAPP.COM",
+        },
+      } as Request;
+
+      const result = clientWithOrigins.validateOrigin(req);
+      expect(result.valid).toBe(true);
+    });
+
+    it("should handle multiple allowed origins from config", () => {
+      const clientWithOrigins = new MisoClient({
+        ...config,
+        allowedOrigins: [
+          "http://localhost:3000",
+          "https://myapp.com",
+          "http://localhost:*",
+        ],
+      });
+
+      const req1 = {
+        headers: {
+          origin: "https://myapp.com",
+        },
+      } as Request;
+
+      const req2 = {
+        headers: {
+          origin: "http://localhost:8080",
+        },
+      } as Request;
+
+      expect(clientWithOrigins.validateOrigin(req1).valid).toBe(true);
+      expect(clientWithOrigins.validateOrigin(req2).valid).toBe(true);
     });
   });
 

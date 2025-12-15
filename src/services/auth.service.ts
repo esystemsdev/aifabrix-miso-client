@@ -13,6 +13,7 @@ import {
   LogoutResponse,
 } from "../types/config.types";
 import { MisoClientError } from "../utils/errors";
+import { resolveControllerUrl } from "../utils/controller-url-resolver";
 
 export class AuthService {
   private httpClient: HttpClient;
@@ -55,7 +56,7 @@ export class AuthService {
       // Use a temporary axios instance to avoid interceptor recursion
       const axios = (await import("axios")).default;
       const tempAxios = axios.create({
-        baseURL: this.config.controllerUrl,
+        baseURL: resolveControllerUrl(this.config),
         timeout: 30000,
         headers: {
           "Content-Type": "application/json",

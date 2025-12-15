@@ -13,6 +13,8 @@ import { InternalHttpClient } from "./utils/internal-http-client";
 import { DataMasker } from "./utils/data-masker";
 import { AuthStrategyHandler } from "./utils/auth-strategy";
 import { MisoClientConfig, UserInfo, AuthStrategy } from "./types/config.types";
+import { validateOrigin as validateOriginUtil, OriginValidationResult } from "./utils/origin-validator";
+import { Request } from "express";
 
 export class MisoClient {
   private config: MisoClientConfig;
@@ -120,6 +122,19 @@ export class MisoClient {
 
     // If no Bearer prefix, assume the whole header is the token
     return authHeader;
+  }
+
+  /**
+   * Validate request origin against configured allowed origins
+   * Uses allowedOrigins from client configuration if not provided
+   * 
+   * @param req - Express Request object
+   * @param allowedOrigins - Optional array of allowed origins (defaults to config.allowedOrigins)
+   * @returns Validation result with valid flag and optional error message
+   */
+  validateOrigin(req: Request, allowedOrigins?: string[]): OriginValidationResult {
+    const origins = allowedOrigins ?? this.config.allowedOrigins;
+    return validateOriginUtil(req, origins);
   }
 
   /**
@@ -479,6 +494,7 @@ export { getEnvironmentToken } from "./utils/environment-token";
 export { extractClientTokenInfo } from "./utils/token-utils";
 export type { ClientTokenInfo } from "./utils/token-utils";
 export type { OriginValidationResult } from "./utils/origin-validator";
+export { resolveControllerUrl, isBrowser } from "./utils/controller-url-resolver";
 
 // Export pagination, filter, sort utilities
 export * from "./utils/pagination.utils";

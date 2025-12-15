@@ -44,10 +44,22 @@ export interface AuthStrategy {
 }
 
 export interface MisoClientConfig {
-  // REQUIRED: Only these 3 fields needed (unless using client token pattern)
-  controllerUrl: string;
+  // REQUIRED: clientId is always required
   clientId: string;
+  
+  // URL Configuration: At least one URL must be provided
+  // controllerUrl is optional but recommended for backward compatibility
+  // If not provided, controllerPublicUrl (browser) or controllerPrivateUrl (server) must be provided
+  controllerUrl?: string; // Optional: Fallback URL for both environments
   clientSecret?: string; // Optional if using clientToken pattern
+
+  // Optional: Public URL for browser/Vite environments (accessible from internet)
+  // If not provided, falls back to controllerUrl
+  controllerPublicUrl?: string;
+
+  // Optional: Private URL for server environments (internal network access)
+  // If not provided, falls back to controllerUrl
+  controllerPrivateUrl?: string;
 
   // Optional: Pre-obtained client token (for browser usage - avoids exposing clientSecret)
   clientToken?: string;

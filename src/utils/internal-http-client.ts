@@ -19,6 +19,7 @@ import {
 } from "../types/config.types";
 import { MisoClientError } from "./errors";
 import { AuthStrategyHandler } from "./auth-strategy";
+import { resolveControllerUrl } from "./controller-url-resolver";
 
 export class InternalHttpClient {
   private axios: AxiosInstance;
@@ -42,7 +43,7 @@ export class InternalHttpClient {
     }
 
     this.axios = axios.create({
-      baseURL: config.controllerUrl,
+      baseURL: resolveControllerUrl(config),
       timeout: 30000,
       headers: {
         "Content-Type": "application/json",
@@ -198,7 +199,7 @@ export class InternalHttpClient {
     try {
       // Create a temporary axios instance without interceptors to avoid recursion
       const tempAxios = axios.create({
-        baseURL: this.config.controllerUrl,
+        baseURL: resolveControllerUrl(this.config),
         timeout: 30000,
         headers: {
           "Content-Type": "application/json",

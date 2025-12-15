@@ -6,6 +6,7 @@
 import { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from "axios";
 import { MisoClientConfig } from "../types/config.types";
 import jwt from "jsonwebtoken";
+import { resolveControllerUrl } from "./controller-url-resolver";
 
 export interface RequestMetadata {
   startTime: number;
@@ -87,7 +88,8 @@ function extractBasicMetadata(
   const duration = Date.now() - metadata.startTime;
   const method = metadata.method || "UNKNOWN";
   const url = metadata.url || "";
-  const baseURL = metadata.baseURL || misoConfig.controllerUrl;
+  const baseURL =
+    metadata.baseURL || resolveControllerUrl(misoConfig);
   const fullUrl = `${baseURL}${url}`;
   const authHeader = config.headers?.authorization as string | undefined;
   const userId = extractUserIdFromToken(authHeader);

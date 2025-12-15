@@ -5,6 +5,67 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2025-12-15
+
+### Added
+
+- **Public and Private Controller URL Support** - Separate URLs for browser and server environments
+  - New `controllerPublicUrl` configuration option for browser/Vite environments (accessible from internet)
+  - New `controllerPrivateUrl` configuration option for server environments (internal network access)
+  - New `resolveControllerUrl()` utility function that automatically detects environment and selects appropriate URL
+  - New `isBrowser()` utility function for environment detection (checks for window, localStorage, fetch globals)
+  - Environment variable support: `MISO_WEB_SERVER_URL` (maps to `controllerPublicUrl` for browser)
+  - Environment variable support: `MISO_CONTROLLER_URL` (maps to `controllerPrivateUrl` for server, maintains backward compatibility)
+  - Automatic URL resolution based on environment:
+    - Browser environment: Uses `controllerPublicUrl` → falls back to `controllerUrl`
+    - Server environment: Uses `controllerPrivateUrl` → falls back to `controllerUrl`
+  - URL validation ensures resolved URLs are valid HTTP/HTTPS URLs
+  - Clear error messages when no URL is configured
+
+### Changed
+
+- **InternalHttpClient** - Now uses `resolveControllerUrl()` for automatic URL resolution
+  - Constructor uses resolved URL instead of hardcoded `config.controllerUrl`
+  - Client token fetch uses resolved URL for temporary axios instance
+  - Maintains backward compatibility with existing `controllerUrl` configuration
+
+- **AuthService** - Now uses `resolveControllerUrl()` for axios instance creation
+  - Automatically selects appropriate URL based on environment
+  - Maintains backward compatibility with existing configurations
+
+- **Config Loader** - Enhanced environment variable parsing
+  - `MISO_WEB_SERVER_URL` loads into `controllerPublicUrl` (browser/public)
+  - `MISO_CONTROLLER_URL` loads into `controllerPrivateUrl` (server/private) and `controllerUrl` (backward compatibility)
+  - Maintains existing behavior for applications using `MISO_CONTROLLER_URL`
+
+- **Documentation** - Updated configuration documentation
+  - Added sections for public/private URL configuration in `docs/configuration.md`
+  - Added examples for browser and server setup patterns
+  - Updated `docs/api-reference.md` with new utility functions and configuration options
+  - Includes migration guide and usage examples
+
+### Technical
+
+- **New utility file**: `src/utils/controller-url-resolver.ts` - URL resolution with environment detection
+  - `resolveControllerUrl()` function (35 lines, comprehensive JSDoc)
+  - `isBrowser()` helper function (7 lines)
+  - `validateUrl()` private helper function (7 lines)
+  - 100% test coverage (28 tests in `tests/unit/controller-url-resolver.test.ts`)
+
+- **Test coverage** - Comprehensive tests for URL resolution
+  - Browser environment detection tests (mocked window, localStorage, fetch)
+  - Server environment detection tests (no browser globals)
+  - URL resolution priority tests (public → private → controllerUrl → error)
+  - Backward compatibility tests (existing `controllerUrl` still works)
+  - Environment variable parsing tests (`MISO_WEB_SERVER_URL`, `MISO_CONTROLLER_URL`)
+  - URL validation tests (invalid URLs throw errors)
+  - Updated `tests/unit/config-loader.test.ts` with 52 new test lines
+  - Updated `tests/unit/http-client.test.ts` and `tests/unit/client.test.ts` with URL resolution tests
+
+- **Exports updated**:
+  - `src/index.ts` - Exports `resolveControllerUrl` and `isBrowser` utilities
+  - Public API maintains camelCase naming convention
+
 ## [3.0.1] - 2025-12-14
 
 ### Fixed

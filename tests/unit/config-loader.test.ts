@@ -333,6 +333,58 @@ describe("ConfigLoader", () => {
         const config = loadConfig();
         expect(config.allowedOrigins).toBeUndefined();
       });
+
+      it("should include controllerPublicUrl when MISO_WEB_SERVER_URL is set", () => {
+        process.env.MISO_WEB_SERVER_URL =
+          "https://public-controller.example.com";
+
+        const config = loadConfig();
+        expect(config.controllerPublicUrl).toBe(
+          "https://public-controller.example.com"
+        );
+      });
+
+      it("should not include controllerPublicUrl when MISO_WEB_SERVER_URL is not set", () => {
+        delete process.env.MISO_WEB_SERVER_URL;
+
+        const config = loadConfig();
+        expect(config.controllerPublicUrl).toBeUndefined();
+      });
+
+      it("should include controllerPrivateUrl when MISO_CONTROLLER_URL is set", () => {
+        process.env.MISO_CONTROLLER_URL = "http://private-controller:3010";
+
+        const config = loadConfig();
+        expect(config.controllerPrivateUrl).toBe(
+          "http://private-controller:3010"
+        );
+        // Also sets controllerUrl for backward compatibility
+        expect(config.controllerUrl).toBe("http://private-controller:3010");
+      });
+
+      it("should not include controllerPrivateUrl when MISO_CONTROLLER_URL is not set", () => {
+        delete process.env.MISO_CONTROLLER_URL;
+
+        const config = loadConfig();
+        expect(config.controllerPrivateUrl).toBeUndefined();
+        // controllerUrl should still have default value
+        expect(config.controllerUrl).toBe("https://controller.aifabrix.ai");
+      });
+
+      it("should load both public and private URLs when both are set", () => {
+        process.env.MISO_WEB_SERVER_URL =
+          "https://public-controller.example.com";
+        process.env.MISO_CONTROLLER_URL = "http://private-controller:3010";
+
+        const config = loadConfig();
+        expect(config.controllerPublicUrl).toBe(
+          "https://public-controller.example.com"
+        );
+        expect(config.controllerPrivateUrl).toBe(
+          "http://private-controller:3010"
+        );
+        expect(config.controllerUrl).toBe("http://private-controller:3010");
+      });
     });
   });
 });

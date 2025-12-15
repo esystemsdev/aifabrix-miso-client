@@ -26,6 +26,24 @@ export function loadConfig(): MisoClientConfig {
       "debug",
   };
 
+  // Note: controllerUrl always has a default value for backward compatibility
+  // If MISO_CONTROLLER_URL is not set, it defaults to "https://controller.aifabrix.ai"
+  // However, MISO_CONTROLLER_URL is now used as the private URL (server environment)
+  // and maps to controllerPrivateUrl
+
+  // Public URL for browser/Vite environments (accessible from internet)
+  if (process.env.MISO_WEB_SERVER_URL) {
+    config.controllerPublicUrl = process.env.MISO_WEB_SERVER_URL;
+  }
+
+  // Private URL for server environments (internal network access)
+  // MISO_CONTROLLER_URL maps to controllerPrivateUrl (server environment)
+  if (process.env.MISO_CONTROLLER_URL) {
+    config.controllerPrivateUrl = process.env.MISO_CONTROLLER_URL;
+    // Also set controllerUrl for backward compatibility with manual config
+    config.controllerUrl = process.env.MISO_CONTROLLER_URL;
+  }
+
   // Validate required fields
   if (!config.clientId) {
     throw new Error("MISO_CLIENTID environment variable is required");

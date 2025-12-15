@@ -11,6 +11,7 @@ Complete reference documentation for the AI Fabrix Miso Client SDK.
 - [Authorization Methods](#authorization-methods)
 - [Logging Methods](#logging-methods)
 - [Utility Methods](#utility-methods)
+- [Standalone Utilities](#standalone-utilities)
 - [Encryption Methods](#encryption-methods)
 - [Cache Methods](#cache-methods)
 - [Service Classes](#service-classes)
@@ -678,7 +679,11 @@ Main configuration interface for the MisoClient.
 
 ```typescript
 interface MisoClientConfig {
-  controllerUrl: string; // Required: AI Fabrix controller URL
+  // URL Configuration: At least one URL must be provided
+  controllerUrl?: string; // Optional: Fallback URL for both environments (backward compatibility)
+  controllerPublicUrl?: string; // Optional: Public URL for browser/Vite environments (accessible from internet)
+  controllerPrivateUrl?: string; // Optional: Private URL for server environments (internal network access)
+  
   clientId: string; // Required: Client ID (e.g., 'ctrl-dev-my-app')
   clientSecret: string; // Required: Client secret
   redis?: RedisConfig; // Optional: Redis configuration
@@ -694,6 +699,23 @@ interface MisoClientConfig {
   audit?: AuditConfig; // Optional: Audit logging configuration
 }
 ```
+
+**URL Configuration Priority:**
+
+The SDK automatically detects the environment (browser vs server) and resolves URLs in the following priority order:
+
+1. **Environment-specific URL**: `controllerPublicUrl` (browser) or `controllerPrivateUrl` (server)
+2. **Fallback**: `controllerUrl` if environment-specific URL not provided
+3. **Error**: Throws clear error if no URL available
+
+**Automatic Environment Detection:**
+
+- **Browser/Vite**: Uses `controllerPublicUrl` (or falls back to `controllerUrl`)
+- **Server/Node.js**: Uses `controllerPrivateUrl` (or falls back to `controllerUrl`)
+
+**Backward Compatibility:**
+
+Existing `controllerUrl` configuration continues to work as a fallback for both environments. See [Public and Private Controller URLs](../configuration.md#public-and-private-controller-urls) for complete documentation.
 
 ### RedisConfig
 
@@ -1412,6 +1434,222 @@ if (client.isRedisConnected()) {
   console.log('Using controller fallback');
 }
 ```
+
+### `validateOrigin(req: Request, allowedOrigins?: string[]): OriginValidationResult`
+
+Validates request origin against configured allowed origins. Uses `allowedOrigins` from client configuration if not provided. This method is useful for CORS validation and securing API endpoints.
+
+**Parameters:**
+
+- `req` - Express Request object
+- `allowedOrigins` - Optional array of allowed origins (defaults to `config.allowedOrigins`). Supports wildcard ports like `http://localhost:*`
+
+**Returns:** `OriginValidationResult` object with:
+
+- `valid: boolean` - Whether the origin is allowed
+- `error?: string` - Optional error message if validation fails
+
+**Features:**
+
+- Case-insensitive matching
+- Trailing slash normalization
+- Wildcard port support (`http://localhost:*` matches any port)
+- Falls back to `referer` header if `origin` header is missing
+- Returns `{ valid: true }` if no `allowedOrigins` are configured (backward compatibility)
+
+**Example:**
+
+```typescript
+import { MisoClient, Request } from '@aifabrix/miso-client';
+import express from 'express';
+
+const app = express();
+const client = new MisoClient({
+  controllerUrl: 'https://controller.aifabrix.ai',
+  clientId: 'ctrl-dev-my-app',
+  clientSecret: 'your-secret',
+  allowedOrigins: [
+    'https://myapp.com',
+    'http://localhost:*', // Wildcard port support
+  ],
+});
+
+// Middleware using config allowedOrigins
+app.use('/api/protected', (req, res, next) => {
+  const result = client.validateOrigin(req);
+  
+  if (!result.valid) {
+    return res.status(403).json({
+      error: 'Forbidden',
+      message: result.error,
+    });
+  }
+  
+  next();
+});
+
+// Override with custom origins
+app.use('/api/custom', (req, res, next) => {
+  const result = client.validateOrigin(req, [
+    'https://custom-domain.com',
+  ]);
+  
+  if (!result.valid) {
+    return res.status(403).json({ error: result.error });
+  }
+  
+  next();
+});
+```
+
+**Wildcard Port Example:**
+
+```typescript
+const client = new MisoClient({
+  ...config,
+  allowedOrigins: ['http://localhost:*'], // Matches any port
+});
+
+// All of these will pass validation:
+// - http://localhost:3000
+// - http://localhost:8080
+// - http://localhost:5000
+```
+
+**See Also:**
+
+- Standalone `validateOrigin` utility function (can be used without MisoClient instance)
+- `getEnvironmentToken()` - Uses origin validation internally for security
+
+## Standalone Utilities
+
+The SDK exports standalone utility functions that can be used without creating a MisoClient instance. These utilities are useful for environment detection, URL resolution, and configuration validation.
+
+### `resolveControllerUrl(config: MisoClientConfig): string`
+
+Resolves the appropriate controller URL based on environment (browser vs server) and configuration (public vs private URLs). This is the same logic used internally by MisoClient.
+
+**Priority Order:**
+
+1. Environment-specific URL (`controllerPublicUrl` for browser, `controllerPrivateUrl` for server)
+2. Fallback to `controllerUrl` if environment-specific URL not provided
+3. Throws error if no URL available
+
+**Parameters:**
+
+- `config` - MisoClientConfig object
+
+**Returns:** Resolved controller URL string
+
+**Throws:** Error if no valid URL is available or URL format is invalid
+
+**Example:**
+
+```typescript
+import { resolveControllerUrl, MisoClientConfig } from '@aifabrix/miso-client';
+
+// Browser environment - uses controllerPublicUrl
+const browserConfig: MisoClientConfig = {
+  controllerPublicUrl: 'https://controller.aifabrix.ai',
+  controllerPrivateUrl: 'http://miso-controller:3010',
+  controllerUrl: 'http://localhost:3000', // Fallback
+  clientId: 'my-app',
+};
+
+// In browser: resolves to controllerPublicUrl
+const browserUrl = resolveControllerUrl(browserConfig);
+console.log(browserUrl); // 'https://controller.aifabrix.ai'
+
+// Server environment - uses controllerPrivateUrl
+const serverConfig: MisoClientConfig = {
+  controllerPublicUrl: 'https://controller.aifabrix.ai',
+  controllerPrivateUrl: 'http://miso-controller:3010',
+  controllerUrl: 'http://localhost:3000', // Fallback
+  clientId: 'my-app',
+};
+
+// On server: resolves to controllerPrivateUrl
+const serverUrl = resolveControllerUrl(serverConfig);
+console.log(serverUrl); // 'http://miso-controller:3010'
+
+// Fallback to controllerUrl when environment-specific URL not provided
+const fallbackConfig: MisoClientConfig = {
+  controllerUrl: 'http://localhost:3000', // Used as fallback
+  clientId: 'my-app',
+};
+
+const fallbackUrl = resolveControllerUrl(fallbackConfig);
+console.log(fallbackUrl); // 'http://localhost:3000'
+
+// Error handling
+try {
+  const invalidConfig: MisoClientConfig = {
+    clientId: 'my-app',
+    // No URLs provided
+  };
+  resolveControllerUrl(invalidConfig);
+} catch (error) {
+  console.error(error.message);
+  // "No controller URL configured. Please provide controllerPublicUrl or controllerUrl in your configuration."
+}
+```
+
+**Use Cases:**
+
+- Pre-validating configuration before creating MisoClient
+- Conditional logic based on resolved URL
+- Testing and debugging URL resolution
+- Custom URL resolution logic
+
+### `isBrowser(): boolean`
+
+Detects if code is running in a browser environment by checking for browser globals (window, localStorage, fetch). This is the same detection logic used internally by the SDK.
+
+**Returns:** `true` if running in browser, `false` if running in server environment
+
+**Detection Method:**
+
+Checks for presence of `window`, `localStorage`, and `fetch` globals on `globalThis`.
+
+**Example:**
+
+```typescript
+import { isBrowser } from '@aifabrix/miso-client';
+
+// Basic usage
+if (isBrowser()) {
+  console.log('Running in browser');
+  // Use browser-specific APIs
+  const token = localStorage.getItem('token');
+} else {
+  console.log('Running on server');
+  // Use server-specific APIs
+  const token = process.env.TOKEN;
+}
+
+// Conditional configuration
+const config = {
+  controllerUrl: isBrowser()
+    ? 'https://controller.aifabrix.ai' // Public URL for browser
+    : 'http://miso-controller:3010',   // Private URL for server
+  clientId: 'my-app',
+};
+
+// Testing environment detection
+console.log('Environment:', isBrowser() ? 'Browser' : 'Server');
+```
+
+**Use Cases:**
+
+- Conditional logic based on environment
+- Environment-specific configuration
+- Testing and debugging environment detection
+- Custom environment-aware logic
+
+**See Also:**
+
+- [Public and Private Controller URLs](../configuration.md#public-and-private-controller-urls) - Complete configuration guide
+- [Advanced: Manual URL Resolution](../configuration.md#advanced-manual-url-resolution) - Advanced usage examples
 
 ## Encryption Methods
 
