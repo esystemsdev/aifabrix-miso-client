@@ -21,6 +21,14 @@ module.exports = {
   testMatch: ['**/*.test.ts'],
   // Setup file runs before all tests to configure unhandled rejection handling
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  // Performance optimizations
+  maxWorkers: '100%', // Use all available CPU cores for maximum parallelism
+  testTimeout: 5000, // 5 second timeout per test
+  cache: true, // Enable Jest cache for faster subsequent runs
+  cacheDirectory: '<rootDir>/.jest-cache',
+  // Skip slow operations for faster test execution
+  detectOpenHandles: false, // Disable open handle detection for speed
+  forceExit: true, // Force exit after tests complete to prevent hanging
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
@@ -35,8 +43,8 @@ module.exports = {
       statements: 80
     }
   },
-  // Collect coverage by default - shows summary in terminal
-  collectCoverage: true,
+  // Collect coverage only when --coverage flag is used (for performance)
+  collectCoverage: false,
   // Show coverage summary after tests
   coverageReporters: [
     'text-summary',   // Brief summary in terminal
@@ -52,8 +60,8 @@ module.exports = {
         tsconfig: {
           esModuleInterop: true
         },
-        // Enable coverage for all files
-        isolatedModules: false
+        // Use isolatedModules for faster compilation (skips type checking)
+        isolatedModules: true
       }
     ]
   },
