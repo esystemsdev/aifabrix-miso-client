@@ -366,7 +366,7 @@ if (dataClient.isAuthenticated()) {
 
 #### `redirectToLogin(redirectUrl?: string): Promise<void>`
 
-Redirect to login page via controller. Calls the controller's login endpoint with the current page URL (or provided redirect URL) as the redirect parameter, then redirects to the controller's login URL for proper OAuth flow handling.
+Redirect to login page via controller. Makes a direct fetch request to the controller's login endpoint with `x-client-token` header, then redirects to the controller's login URL for proper OAuth flow handling.
 
 **Parameters:**
 
@@ -374,10 +374,18 @@ Redirect to login page via controller. Calls the controller's login endpoint wit
 
 **How it works:**
 
-1. Calls `misoClient.login({ redirect: redirectUrl || currentUrl })` to get controller login URL
-2. Redirects browser to the controller's login URL
-3. Controller handles OAuth flow and redirects back to the specified URL after authentication
-4. Falls back to static `loginUrl` config if misoClient is unavailable or controller call fails
+1. Builds controller URL dynamically from configuration (`controllerPublicUrl` → `controllerUrl` → fallback to static `loginUrl`)
+2. Gets client token (from cache, config, or `getEnvironmentToken()`)
+3. Makes direct fetch request to `/api/v1/auth/login` with `x-client-token` header and redirect query parameter
+4. Redirects browser to the controller's login URL returned in response
+5. Controller handles OAuth flow and redirects back to the specified URL after authentication
+6. Falls back to static `loginUrl` config if controller URL is not configured or controller call fails
+
+**Security:**
+
+- Uses `x-client-token` header (lowercase) for authentication
+- Never exposes `clientId` or `clientSecret` in browser code
+- Supports both nested (`data.loginUrl`) and flat (`loginUrl`) response formats
 
 **Example:**
 
@@ -395,7 +403,7 @@ await dataClient.redirectToLogin('https://myapp.com/dashboard');
 
 #### `logout(redirectUrl?: string): Promise<void>`
 
-Logout user, clear authentication state, and redirect. Calls the controller logout API (if available), clears tokens from localStorage, clears HTTP cache, and redirects to logout URL or login page.
+Logout user, clear authentication state, and redirect. Makes a direct fetch request to the controller logout API with `x-client-token` header (if available), clears tokens from localStorage, clears HTTP cache, and redirects to logout URL or login page.
 
 **Parameters:**
 
@@ -403,13 +411,21 @@ Logout user, clear authentication state, and redirect. Calls the controller logo
 
 **How it works:**
 
-1. Gets current token from localStorage
-2. Calls `misoClient.logout({ token })` if misoClient and token available
-3. Clears all configured token keys from localStorage
-4. Clears HTTP response cache
-5. Redirects to logout URL (redirectUrl param > logoutUrl config > loginUrl config > '/login')
+1. Gets current user token from localStorage
+2. Builds controller URL dynamically from configuration (`controllerPublicUrl` → `controllerUrl`)
+3. Gets client token (from cache, config, or `getEnvironmentToken()`)
+4. Makes direct fetch request to `/api/v1/auth/logout` with `x-client-token` header and user token in request body
+5. Clears all configured token keys from localStorage (always, even if API call fails)
+6. Clears HTTP response cache
+7. Redirects to logout URL (redirectUrl param > logoutUrl config > loginUrl config > '/login')
 
 **Note:** Logout always clears local state (tokens, cache) even if the API call fails. This ensures users are logged out locally regardless of network issues.
+
+**Security:**
+
+- Uses `x-client-token` header (lowercase) for authentication
+- Never exposes `clientId` or `clientSecret` in browser code
+- User token is sent in request body, not headers
 
 **Example:**
 

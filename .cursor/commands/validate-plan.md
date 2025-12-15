@@ -11,6 +11,7 @@ This command ensures that:
 3. Plans include proper DoD requirements (build → lint → test)
 4. Plans reference relevant rule files for guidance
 5. Plans are production-ready before implementation begins
+6. Documentation is updated as needed during the validation process
 
 ## Usage
 
@@ -205,6 +206,13 @@ This command ensures that:
    - Validation requirements
    - Rule-specific preparation steps
    - Review existing similar implementations for patterns
+   - Update documentation as needed (README, API docs, guides)
+
+4. **Update documentation as needed**:
+   - Review plan scope to identify documentation that may need updates
+   - Check if plan affects public APIs, configuration, or usage patterns
+   - Update relevant documentation files (README.md, docs/, API documentation)
+   - Ensure documentation reflects any new features, changes, or patterns introduced by the plan
 
 **Update Strategy**:
 
@@ -255,6 +263,7 @@ This command ensures that:
 - ✅ Updated Definition of Done section
 - ✅ Added Before Development checklist
 - ✅ Added rule references: [list of sections added]
+- ✅ Updated documentation as needed: [list of documentation files updated]
 
 ### Recommendations
 
@@ -304,7 +313,8 @@ Every plan must include these requirements in the Definition of Done section:
 9. **Redis**: Check `redis.isConnected()` before Redis operations, fallback to controller
 10. **Error Handling**: Return empty arrays `[]` on service method errors, use try-catch for async
 11. **Rule References**: Links to applicable sections from `.cursor/rules/project-rules.mdc`
-12. **All Tasks Completed**: All plan tasks marked as complete
+12. **Documentation**: Update documentation as needed (README, API docs, guides, usage examples)
+13. **All Tasks Completed**: All plan tasks marked as complete
 
 ## Example Plan Updates
 
@@ -378,10 +388,11 @@ Before marking this plan as complete, ensure:
 8. **Security**: No hardcoded secrets, ISO 27001 compliance, proper token handling
 9. **Redis**: Check `redis.isConnected()` before Redis operations, fallback to controller
 10. **Error Handling**: Return empty arrays `[]` on service method errors, use try-catch for async
-11. All tasks completed
-12. Service follows all standards from Architecture Patterns section
-13. Tests have proper coverage (≥80%) and mock all dependencies
-14. All public API outputs use camelCase (no snake_case)
+11. **Documentation**: Update documentation as needed (README, API docs, guides, usage examples)
+12. All tasks completed
+13. Service follows all standards from Architecture Patterns section
+14. Tests have proper coverage (≥80%) and mock all dependencies
+15. All public API outputs use camelCase (no snake_case)
 
 ## Tasks
 
@@ -407,5 +418,6 @@ Before marking this plan as complete, ensure:
 - **Rule Links**: Use anchor links for rule file sections (`.cursor/rules/project-rules.mdc#section-name`)
 - **DoD Order**: Always document validation order as BUILD → LINT → TEST
 - **Status**: Report status accurately based on compliance level
+- **Documentation Updates**: Review plan scope and update relevant documentation files (README.md, docs/, API documentation) as needed during validation
 - **Project-Specific**: This is a TypeScript SDK project, adapt scope detection accordingly
 - **SDK Patterns**: Focus on service layer, HTTP client, Redis caching, Express utilities, and TypeScript conventions

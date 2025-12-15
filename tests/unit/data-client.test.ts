@@ -185,25 +185,65 @@ describe("DataClient", () => {
 
     it("should redirect to login via controller", async () => {
       mockWindow.location.href = "https://example.com/current-page";
-      const misoClientInstance = (dataClient as any).misoClient;
+      mockLocalStorage["miso:client-token"] = "test-client-token";
+      mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
+      
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            loginUrl: "https://keycloak.example.com/auth?redirect=...",
+            state: "abc123",
+          },
+          timestamp: new Date().toISOString(),
+        }),
+      });
       
       await dataClient.redirectToLogin();
       
-      expect(misoClientInstance.login).toHaveBeenCalledWith({
-        redirect: "https://example.com/current-page",
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/auth/login"),
+        expect.objectContaining({
+          method: "GET",
+          headers: expect.objectContaining({
+            "x-client-token": "test-client-token",
+          }),
+        })
+      );
       expect(mockWindow.location.href).toBe("https://keycloak.example.com/auth?redirect=...");
     });
 
     it("should redirect to login with custom redirect URL", async () => {
       mockWindow.location.href = "https://example.com/current-page";
-      const misoClientInstance = (dataClient as any).misoClient;
+      mockLocalStorage["miso:client-token"] = "test-client-token";
+      mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
+      
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            loginUrl: "https://keycloak.example.com/auth?redirect=...",
+            state: "abc123",
+          },
+          timestamp: new Date().toISOString(),
+        }),
+      });
       
       await dataClient.redirectToLogin("https://example.com/dashboard");
       
-      expect(misoClientInstance.login).toHaveBeenCalledWith({
-        redirect: "https://example.com/dashboard",
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/auth/login"),
+        expect.objectContaining({
+          method: "GET",
+          headers: expect.objectContaining({
+            "x-client-token": "test-client-token",
+          }),
+        })
+      );
+      const fetchCall = mockFetch.mock.calls[0];
+      expect(fetchCall[0]).toContain("redirect=https%3A%2F%2Fexample.com%2Fdashboard");
       expect(mockWindow.location.href).toBe("https://keycloak.example.com/auth?redirect=...");
     });
 
@@ -242,8 +282,10 @@ describe("DataClient", () => {
 
     it("should fallback to static loginUrl when controller login fails", async () => {
       mockWindow.location.href = "https://example.com/current-page";
-      const misoClientInstance = (dataClient as any).misoClient;
-      (misoClientInstance.login as jest.Mock).mockRejectedValue(new Error("Controller error"));
+      mockLocalStorage["miso:client-token"] = "test-client-token";
+      mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
+      
+      mockFetch.mockRejectedValueOnce(new Error("Controller error"));
       
       await dataClient.redirectToLogin();
       
@@ -252,14 +294,19 @@ describe("DataClient", () => {
 
     it("should fallback when controller returns no loginUrl", async () => {
       mockWindow.location.href = "https://example.com/current-page";
-      const misoClientInstance = (dataClient as any).misoClient;
-      (misoClientInstance.login as jest.Mock).mockResolvedValue({
-        success: true,
-        data: {
-          state: "abc123",
-          // No loginUrl
-        },
-        timestamp: new Date().toISOString(),
+      mockLocalStorage["miso:client-token"] = "test-client-token";
+      mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
+      
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            state: "abc123",
+            // No loginUrl
+          },
+          timestamp: new Date().toISOString(),
+        }),
       });
       
       await dataClient.redirectToLogin();
@@ -269,36 +316,60 @@ describe("DataClient", () => {
 
     it("should logout and redirect to loginUrl", async () => {
       mockLocalStorage["token"] = "test-token-123";
-      const misoClientInstance = (dataClient as any).misoClient;
-      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
-        success: true,
-        message: "Logout successful",
-        timestamp: new Date().toISOString(),
+      mockLocalStorage["miso:client-token"] = "test-client-token";
+      mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
+      
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: "Logout successful",
+          timestamp: new Date().toISOString(),
+        }),
       });
       
       await dataClient.logout();
       
-      expect(misoClientInstance.logout).toHaveBeenCalledWith({
-        token: "test-token-123",
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/auth/logout"),
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "x-client-token": "test-client-token",
+          }),
+          body: JSON.stringify({ token: "test-token-123" }),
+        })
+      );
       expect(mockWindow.location.href).toBe("https://example.com/login");
       expect(mockLocalStorage["token"]).toBeUndefined();
     });
 
     it("should logout with custom redirectUrl", async () => {
       mockLocalStorage["token"] = "test-token-123";
-      const misoClientInstance = (dataClient as any).misoClient;
-      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
-        success: true,
-        message: "Logout successful",
-        timestamp: new Date().toISOString(),
+      mockLocalStorage["miso:client-token"] = "test-client-token";
+      mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
+      
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: "Logout successful",
+          timestamp: new Date().toISOString(),
+        }),
       });
       
       await dataClient.logout("/home");
       
-      expect(misoClientInstance.logout).toHaveBeenCalledWith({
-        token: "test-token-123",
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining("/api/v1/auth/logout"),
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "x-client-token": "test-client-token",
+          }),
+          body: JSON.stringify({ token: "test-token-123" }),
+        })
+      );
       expect(mockWindow.location.href).toBe("https://example.com/home");
       expect(mockLocalStorage["token"]).toBeUndefined();
     });
@@ -780,12 +851,29 @@ describe("DataClient", () => {
 
     it("should throw AuthenticationError on 401", async () => {
       mockWindow.location.href = "https://example.com/current-page";
-      mockFetch.mockResolvedValue({
+      mockLocalStorage["miso:client-token"] = "test-client-token";
+      mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
+      
+      // Mock the API request that returns 401
+      mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
         headers: new Headers({ "content-type": "application/json" }),
         json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
       } as any);
+      
+      // Mock the redirectToLogin fetch call
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          data: {
+            loginUrl: "https://keycloak.example.com/auth?redirect=...",
+            state: "abc123",
+          },
+          timestamp: new Date().toISOString(),
+        }),
+      });
 
       await expect(dataClient.get("/api/users")).rejects.toThrow(
         AuthenticationError,

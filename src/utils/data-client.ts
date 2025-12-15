@@ -276,6 +276,65 @@ export class DataClient {
   }
 
   /**
+   * Get client token for requests
+   * Checks localStorage cache first, then config, then calls getEnvironmentToken() if needed
+   * @returns Client token string or null if unavailable
+   */
+  private async getClientToken(): Promise<string | null> {
+    if (!isBrowser()) {
+      // Server-side: return null (client token handled by MisoClient)
+      return null;
+    }
+
+    // Check localStorage cache first
+    const cachedToken = getLocalStorage("miso:client-token");
+    const expiresAtStr = getLocalStorage("miso:client-token-expires-at");
+    
+    if (cachedToken && expiresAtStr) {
+      const expiresAt = parseInt(expiresAtStr, 10);
+      if (expiresAt > Date.now()) {
+        return cachedToken; // Valid cached token
+      }
+    }
+
+    // Check config token
+    if (this.config.misoConfig?.clientToken) {
+      return this.config.misoConfig.clientToken;
+    }
+
+    // Try to get via getEnvironmentToken() (may throw if unavailable)
+    try {
+      return await this.getEnvironmentToken();
+    } catch (error) {
+      console.warn("Failed to get client token:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Build controller URL from configuration
+   * Uses controllerPublicUrl (browser) or controllerUrl (fallback)
+   * @returns Controller base URL or null if not configured
+   */
+  private getControllerUrl(): string | null {
+    if (!this.config.misoConfig) {
+      return null;
+    }
+
+    // Browser: prefer controllerPublicUrl, fallback to controllerUrl
+    if (isBrowser()) {
+      return this.config.misoConfig.controllerPublicUrl || 
+             this.config.misoConfig.controllerUrl || 
+             null;
+    }
+
+    // Server: prefer controllerPrivateUrl, fallback to controllerUrl
+    return this.config.misoConfig.controllerPrivateUrl || 
+           this.config.misoConfig.controllerUrl || 
+           null;
+  }
+
+  /**
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
@@ -284,14 +343,20 @@ export class DataClient {
 
   /**
    * Redirect to login page via controller
-   * Calls the controller login endpoint with redirect parameter
+   * Calls the controller login endpoint with redirect parameter and x-client-token header
    * @param redirectUrl - Optional redirect URL to return to after login (defaults to current page URL)
    */
   async redirectToLogin(redirectUrl?: string): Promise<void> {
     if (!isBrowser()) return;
     
-    // If misoClient is not available, fallback to static loginUrl
-    if (!this.misoClient) {
+    // Get redirect URL - use provided URL or current page URL
+    const currentUrl = (globalThis as unknown as { window: { location: { href: string } } }).window.location.href;
+    const finalRedirectUrl = redirectUrl || currentUrl;
+    
+    // Build controller URL
+    const controllerUrl = this.getControllerUrl();
+    if (!controllerUrl) {
+      // Fallback to static loginUrl if controller URL not configured
       const loginUrl = this.config.loginUrl || "/login";
       const fullUrl = /^https?:\/\//i.test(loginUrl)
         ? loginUrl
@@ -301,22 +366,53 @@ export class DataClient {
     }
 
     try {
-      // Get redirect URL - use provided URL or current page URL
-      const currentUrl = (globalThis as unknown as { window: { location: { href: string } } }).window.location.href;
-      const finalRedirectUrl = redirectUrl || currentUrl;
+      // Get client token
+      const clientToken = await this.getClientToken();
       
-      // Call controller login endpoint with redirect parameter
-      const response = await this.misoClient.login({ redirect: finalRedirectUrl });
+      // Build login endpoint URL with query parameters
+      const loginEndpoint = `${controllerUrl}/api/v1/auth/login`;
+      const url = new URL(loginEndpoint);
+      url.searchParams.set("redirect", finalRedirectUrl);
       
-      // Redirect to the login URL returned by controller
-      if (response.data?.loginUrl) {
-        (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = response.data.loginUrl;
+      // Build headers
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      
+      // Add x-client-token header if available
+      if (clientToken) {
+        headers["x-client-token"] = clientToken;
+      }
+      
+      // Make fetch request
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers,
+        credentials: "include", // Include cookies for CORS
+      });
+
+      if (!response.ok) {
+        throw new Error(`Login request failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = (await response.json()) as {
+        success?: boolean;
+        data?: { loginUrl?: string; state?: string };
+        loginUrl?: string; // Support flat format
+      };
+
+      // Extract loginUrl (support both nested and flat formats)
+      const loginUrl = data.data?.loginUrl || data.loginUrl;
+
+      if (loginUrl) {
+        // Redirect to the login URL returned by controller
+        (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = loginUrl;
       } else {
         // Fallback if loginUrl not in response
-        const loginUrl = this.config.loginUrl || "/login";
-        const fullUrl = /^https?:\/\//i.test(loginUrl)
-          ? loginUrl
-          : `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}${loginUrl.startsWith("/") ? loginUrl : `/${loginUrl}`}`;
+        const fallbackLoginUrl = this.config.loginUrl || "/login";
+        const fullUrl = /^https?:\/\//i.test(fallbackLoginUrl)
+          ? fallbackLoginUrl
+          : `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}${fallbackLoginUrl.startsWith("/") ? fallbackLoginUrl : `/${fallbackLoginUrl}`}`;
         (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fullUrl;
       }
     } catch (error) {
@@ -332,7 +428,7 @@ export class DataClient {
 
   /**
    * Logout user and redirect
-   * Calls logout API, clears tokens from localStorage, clears cache, and redirects
+   * Calls logout API with x-client-token header, clears tokens from localStorage, clears cache, and redirects
    * @param redirectUrl - Optional redirect URL after logout (defaults to logoutUrl or loginUrl)
    */
   async logout(redirectUrl?: string): Promise<void> {
@@ -340,10 +436,41 @@ export class DataClient {
     
     const token = this.getToken();
     
-    // Call logout API if misoClient available and token exists
-    if (this.misoClient && token) {
+    // Build controller URL
+    const controllerUrl = this.getControllerUrl();
+    
+    // Call logout API if controller URL available and token exists
+    if (controllerUrl && token) {
       try {
-        await this.misoClient.logout({ token });
+        // Get client token
+        const clientToken = await this.getClientToken();
+        
+        // Build logout endpoint URL
+        const logoutEndpoint = `${controllerUrl}/api/v1/auth/logout`;
+        
+        // Build headers
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        
+        // Add x-client-token header if available
+        if (clientToken) {
+          headers["x-client-token"] = clientToken;
+        }
+        
+        // Make fetch request
+        const response = await fetch(logoutEndpoint, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ token }),
+          credentials: "include", // Include cookies for CORS
+        });
+
+        if (!response.ok) {
+          // Log error but continue with cleanup (logout should always clear local state)
+          const errorText = await response.text().catch(() => "Unknown error");
+          console.error(`Logout API call failed: ${response.status} ${response.statusText}. ${errorText}`);
+        }
       } catch (error) {
         // Log error but continue with cleanup (logout should always clear local state)
         console.error("Logout API call failed:", error);
@@ -763,14 +890,22 @@ export class DataClient {
         lastError = error as Error;
         const duration = Date.now() - startTime;
 
-        // Check if retryable
+        // Extract statusCode from error (handle AuthenticationError and ApiError)
+        const errorObj = error as ApiError;
+        let statusCode = errorObj.statusCode;
+        
+        // Explicitly check for AuthenticationError (401) - don't retry auth errors
+        if (errorObj.name === "AuthenticationError" || statusCode === 401) {
+          statusCode = 401;
+        }
+
+        // Check if retryable - 401/403 errors should never retry
         const isRetryable =
+          statusCode !== 401 &&
+          statusCode !== 403 &&
           retryEnabled &&
           attempt < maxRetries &&
-          isRetryableError(
-            (error as ApiError).statusCode,
-            error as Error,
-          );
+          isRetryableError(statusCode, error as Error);
 
         if (!isRetryable) {
           this.metrics.totalFailures++;

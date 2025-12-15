@@ -335,6 +335,20 @@ await dataClient.redirectToLogin();
 await dataClient.redirectToLogin('https://myapp.com/dashboard');
 ```
 
+**What redirectToLogin does:**
+
+- Builds controller URL dynamically from configuration (`controllerPublicUrl` → `controllerUrl` → fallback to static `loginUrl`)
+- Gets client token (from cache, config, or `getEnvironmentToken()`)
+- Makes direct fetch request to `/api/v1/auth/login` with `x-client-token` header
+- Redirects browser to the controller's login URL returned in response
+- Falls back to static `loginUrl` config if controller URL is not configured or controller call fails
+
+**Security:**
+
+- Uses `x-client-token` header (lowercase) for authentication
+- Never exposes `clientId` or `clientSecret` in browser code
+- Supports both nested (`data.loginUrl`) and flat (`loginUrl`) response formats
+
 #### Logout User
 
 ```typescript
@@ -357,10 +371,18 @@ await dataClient.logout(); // Redirects to /goodbye
 
 **What logout does:**
 
+- Builds controller URL dynamically from configuration (`controllerPublicUrl` → `controllerUrl`)
+- Gets client token and makes direct fetch request to `/api/v1/auth/logout` with `x-client-token` header
 - Calls controller logout API to invalidate server-side session
-- Clears authentication tokens from localStorage
+- Clears authentication tokens from localStorage (always, even if API call fails)
 - Clears HTTP response cache
 - Redirects to logout URL or login page
+
+**Security:**
+
+- Uses `x-client-token` header (lowercase) for authentication
+- Never exposes `clientId` or `clientSecret` in browser code
+- Always clears local state even if API call fails
 
 ### Step 4: Advanced Features
 
