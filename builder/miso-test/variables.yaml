@@ -1,7 +1,7 @@
 app:
   key: miso-test
   displayName: Miso Test
-  description: miso test application
+  description: Production-ready demonstration application showcasing all DataClient capabilities from the AI Fabrix Miso Client SDK. Features interactive demo UI for testing authentication, HTTP methods, caching, retry logic, interceptors, metrics, audit logging, and error handling.
   type: webapp
 image:
   name: miso-test

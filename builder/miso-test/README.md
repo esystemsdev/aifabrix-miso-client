@@ -2,6 +2,8 @@
 
 Build, run, and deploy Miso Test using `@aifabrix/builder`.
 
+**Miso Test** is a production-ready demonstration application that showcases all DataClient capabilities from the AI Fabrix Miso Client SDK. It provides a comprehensive interactive demo UI for testing authentication, HTTP methods, caching, retry logic, interceptors, metrics, audit logging, and error handling.
+
 ---
 
 ## Quick Start
@@ -122,7 +124,7 @@ aifabrix build miso-test --language typescript  # Override language detection
 ### Run Options
 
 ```bash
-aifabrix run miso-test --port 8083          # Custom port
+aifabrix run miso-test --port 3083          # Custom port
 aifabrix run miso-test --debug                  # Debug output
 ```
 
@@ -168,7 +170,7 @@ aifabrix-secrets: "/path/to/secrets.yaml"
 
 - **"Docker not running"** → Start Docker Desktop
 - **"Not logged in"** → Run `aifabrix login` first
-- **"Port already in use"** → Use `--port` flag or change `build.localPort` in `variables.yaml` (default: 8083)
+- **"Port already in use"** → Use `--port` flag or change `port` in `variables.yaml` (default: 3083)
 - **"Authentication failed"** → Run `aifabrix login` again
 - **"Build fails"** → Check Docker is running and `aifabrix-secrets` in `config.yaml` is configured correctly
 - **"Can't connect"** → Verify infrastructure is running
@@ -193,4 +195,21 @@ aifabrix genkey miso-test
 
 ---
 
-**Application**: miso-test | **Port**: 8083 | **Registry**: myacr.azurecr.io | **Image**: aifabrix/miso-test:latest
+**Application**: miso-test | **Port**: 3083 | **Registry**: myacr.azurecr.io | **Image**: aifabrix/miso-test:latest
+
+---
+
+## Application Features
+
+The Miso Test application demonstrates:
+
+- **Authentication** - `isAuthenticated()`, `redirectToLogin()`, `logout()`, `getEnvironmentToken()`, `getClientTokenInfo()`
+- **HTTP Methods** - `get()`, `post()`, `put()`, `patch()`, `delete()` with full CRUD operations
+- **Caching** - Cache configuration, `clearCache()`, custom TTL
+- **Retry Logic** - Automatic retry with exponential backoff
+- **Interceptors** - Request, response, and error interceptors
+- **Metrics** - Request metrics tracking (`getMetrics()`)
+- **Audit Logging** - ISO 27001 compliant audit logging
+- **Error Handling** - Network errors, timeouts, API errors
+
+See `server/README.md` for detailed documentation about the application.
