@@ -459,8 +459,8 @@ app.get('/api/products/:id', async (req, res) => {
 **Note:** Roles and permissions are already cached automatically. This generic cache is for your application-specific data.
 
 → [Complete encryption & caching example](../examples/step-7-encryption-cache.ts)  
-→ [API Reference](api-reference.md#encryption-methods) - Full encryption API  
-→ [Cache Methods](api-reference.md#cache-methods) - Full cache API
+→ [Encryption Reference](./reference-services.md#encryption-methods) - Full encryption API  
+→ [Cache Reference](./reference-services.md#cache-methods) - Full cache API
 
 ---
 
@@ -507,10 +507,10 @@ app.post('/create-post', authMiddleware, async (req, res) => {
 ### More Examples
 
 - **[Express.js Middleware](examples.md#expressjs-middleware)** - Complete Express setup
-- **[React Authentication](examples.md#react-authentication)** - Frontend auth
-- **[DataClient Browser Wrapper](data-client.md)** - Enhanced HTTP client for React/Vue/Angular with ISO 27001 audit logging
+- **[DataClient Browser Wrapper](data-client.md)** - Enhanced HTTP client for React/Vue/Angular with ISO 27001 audit logging (includes React/Vue examples)
 - **[Next.js API Routes](examples.md#nextjs-api-routes)** - Server-side rendering
 - **[NestJS Guards](examples.md#nestjs-guards)** - Decorator-based auth
+- **[MisoClient Examples](examples.md)** - Server-side SDK examples
 
 ### Deep Dive
 

@@ -2,6 +2,17 @@
 
 Practical examples demonstrating how to use the AI Fabrix Miso Client SDK in various scenarios.
 
+> **📖 For DataClient (browser) examples, see [DataClient Documentation](./data-client.md#examples)**
+
+This document contains comprehensive framework-based examples for **MisoClient** (server-side SDK). For browser/frontend examples using DataClient, see the [DataClient Documentation](./data-client.md#examples).
+
+> **📖 For detailed API reference with focused examples, see individual reference documents:**
+> - [Authentication Reference](./reference-authentication.md) - Authentication API details and examples
+> - [Authorization Reference](./reference-authorization.md) - Authorization API details and examples
+> - [Services Reference](./reference-services.md) - Logging, encryption, caching examples
+> - [Utilities Reference](./reference-utilities.md) - Pagination, filtering, sorting examples
+> - [Error Handling Reference](./reference-errors.md) - Error handling examples
+
 ## Table of Contents
 
 - [Express.js Middleware](#expressjs-middleware)
@@ -19,6 +30,8 @@ Practical examples demonstrating how to use the AI Fabrix Miso Client SDK in var
 - [Event Emission Mode](#event-emission-mode)
 
 ## Express.js Middleware
+
+> **📖 For detailed authentication API reference, see [Authentication Reference](./reference-authentication.md)**
 
 ### Basic Authentication Middleware
 
@@ -80,6 +93,8 @@ app.get('/protected', authMiddleware, (req, res) => {
 4. Calls next() to continue request processing
 
 ### Role-Based Authorization Middleware
+
+> **📖 For detailed authorization API reference, see [Authorization Reference](./reference-authorization.md)**
 
 **You need to:** Protect routes based on user roles or permissions.
 
@@ -606,6 +621,8 @@ fastify.get('/posts', async (request, reply) => {
 
 ## Background Jobs
 
+> **📖 For detailed logging API reference, see [Services Reference - Logging Methods](./reference-services.md#logging-methods)**
+
 **You need to:** Add logging and authentication context to background job processing.
 
 **Here's how:** Use MisoClient logging in job processors.
@@ -659,6 +676,8 @@ class JobProcessor {
 ```
 
 ## Error Handling
+
+> **📖 For detailed error handling API reference, see [Error Handling Reference](./reference-errors.md)**
 
 **You need to:** Handle SDK errors gracefully with structured error responses.
 
@@ -777,6 +796,8 @@ describe('MisoClient', () => {
 
 ## Pagination
 
+> **📖 For detailed pagination API reference, see [Utilities Reference - Pagination](./reference-utilities.md#pagination-utilities)**
+
 **You need to:** Parse pagination parameters and create paginated responses.
 
 **Here's how:** Use pagination utilities from the SDK.
@@ -817,6 +838,8 @@ app.get('/api/applications', async (req, res) => {
 
 ## Filtering
 
+> **📖 For detailed filtering API reference, see [Utilities Reference - Filtering](./reference-utilities.md#filter-utilities)**
+
 **You need to:** Build and parse filter queries for dynamic filtering.
 
 **Here's how:** Use FilterBuilder to construct filters and parse them from query strings.
@@ -851,6 +874,8 @@ app.get('/api/applications', (req, res) => {
 
 ## Sorting
 
+> **📖 For detailed sorting API reference, see [Utilities Reference - Sorting](./reference-utilities.md#sort-utilities)**
+
 **You need to:** Parse and build sort parameters.
 
 **Here's how:** Use sort utilities to handle query string sorting.
@@ -876,6 +901,8 @@ app.get('/api/applications', (req, res) => {
 ```
 
 ## Snake_case Error Handling
+
+> **📖 For detailed snake_case error handling API reference, see [Error Handling Reference - Snake_case Error Handling](./reference-errors.md#snake_case-error-handling)**
 
 **You need to:** Handle errors in snake_case format for API compatibility.
 
@@ -910,6 +937,8 @@ app.use((err: unknown, req: express.Request, res: express.Response, next: expres
 ```
 
 ## Event Emission Mode
+
+> **📖 For detailed event emission mode API reference, see [Services Reference - LoggerService](./reference-services.md#loggerservice)**
 
 **You need to:** Embed the SDK directly and receive logs as events instead of HTTP calls.
 

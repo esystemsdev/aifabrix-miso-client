@@ -279,7 +279,7 @@ console.log('Resolved URL:', resolvedUrl);
 
 **See Also:**
 
-- [API Reference - Standalone Utilities](../api-reference.md#standalone-utilities) - Complete documentation for `resolveControllerUrl()` and `isBrowser()`
+- [Standalone Utilities Reference](./reference-utilities.md#standalone-utilities) - Complete documentation for `resolveControllerUrl()` and `isBrowser()`
 
 ## Redis Configuration
 

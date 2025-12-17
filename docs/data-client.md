@@ -13,6 +13,7 @@ The **DataClient** is a browser-compatible HTTP client wrapper around MisoClient
   - [Step 4: Advanced Features](#step-4-advanced-features)
 - [API Reference](#api-reference)
 - [Troubleshooting](#troubleshooting)
+- [Examples](#examples)
 
 ## Introduction
 
@@ -623,6 +624,216 @@ await dataClient.logout(); // Redirects to /goodbye
 - Never exposes `clientId` or `clientSecret` in browser code
 - Always clears local state even if API call fails
 
+#### Authorization (Permissions and Roles)
+
+DataClient provides convenient methods for checking user permissions and roles. All methods automatically retrieve the token from localStorage if not provided.
+
+**Permission Checks:**
+
+```typescript
+// Get all user permissions
+const permissions = await dataClient.getPermissions();
+console.log('User permissions:', permissions); // ['read:users', 'write:posts']
+
+// Check specific permission
+const canReadUsers = await dataClient.hasPermission('read:users');
+if (canReadUsers) {
+  // Show user list
+}
+
+// Check if user has any of the specified permissions
+const canModify = await dataClient.hasAnyPermission(['write:posts', 'delete:posts']);
+if (canModify) {
+  // Show edit/delete buttons
+}
+
+// Check if user has all required permissions
+const canManage = await dataClient.hasAllPermissions(['read:users', 'write:users', 'delete:users']);
+if (canManage) {
+  // Show full user management UI
+}
+
+// Force refresh permissions (bypass cache)
+const freshPermissions = await dataClient.refreshPermissions();
+
+// Clear cached permissions
+await dataClient.clearPermissionsCache();
+```
+
+**Role Checks:**
+
+```typescript
+// Get all user roles
+const roles = await dataClient.getRoles();
+console.log('User roles:', roles); // ['admin', 'user']
+
+// Check specific role
+const isAdmin = await dataClient.hasRole('admin');
+if (isAdmin) {
+  // Show admin panel
+}
+
+// Check if user has any of the specified roles
+const isModerator = await dataClient.hasAnyRole(['admin', 'moderator']);
+if (isModerator) {
+  // Show moderation tools
+}
+
+// Check if user has all required roles
+const isSuperAdmin = await dataClient.hasAllRoles(['admin', 'super-admin']);
+if (isSuperAdmin) {
+  // Show super admin features
+}
+
+// Force refresh roles (bypass cache)
+const freshRoles = await dataClient.refreshRoles();
+
+// Clear cached roles
+await dataClient.clearRolesCache();
+```
+
+**React Component Example:**
+
+```typescript
+import { useEffect, useState } from 'react';
+import { dataClient } from '@aifabrix/miso-client';
+
+function UserManagement() {
+  const [canManageUsers, setCanManageUsers] = useState(false);
+
+  useEffect(() => {
+    async function checkPermissions() {
+      const hasPermission = await dataClient.hasAllPermissions([
+        'read:users',
+        'write:users',
+        'delete:users'
+      ]);
+      setCanManageUsers(hasPermission);
+    }
+    checkPermissions();
+  }, []);
+
+  if (!canManageUsers) {
+    return <div>You don't have permission to manage users.</div>;
+  }
+
+  return <div>User Management UI...</div>;
+}
+```
+
+**Vue Component Example:**
+
+```typescript
+<template>
+  <div v-if="isAdmin">
+    <AdminPanel />
+  </div>
+  <div v-else>
+    <UserDashboard />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import { dataClient } from '@aifabrix/miso-client';
+
+const isAdmin = ref(false);
+
+onMounted(async () => {
+  isAdmin.value = await dataClient.hasRole('admin');
+});
+</script>
+```
+
+**Caching Behavior:**
+
+- Permissions and roles are cached in-memory (15-minute TTL by default)
+- Cache keys are based on userId extracted from JWT token
+- Cache persists for the session but is cleared on logout
+- Use `refreshPermissions()` or `refreshRoles()` to bypass cache
+- Use `clearPermissionsCache()` or `clearRolesCache()` to manually clear cache
+
+**Token Auto-Retrieval:**
+
+All authorization methods automatically retrieve the token from localStorage if not provided:
+
+```typescript
+// Token automatically retrieved from localStorage
+const permissions = await dataClient.getPermissions();
+
+// Or explicitly provide token
+const permissions = await dataClient.getPermissions('explicit-token');
+```
+
+#### Authentication Methods
+
+DataClient provides methods for validating tokens and getting user information.
+
+**Token Validation:**
+
+```typescript
+// Validate token (auto-retrieved from localStorage)
+const isValid = await dataClient.validateToken();
+if (isValid) {
+  // Token is valid
+}
+
+// Or explicitly provide token
+const isValid = await dataClient.validateToken('explicit-token');
+```
+
+**Get User Information:**
+
+```typescript
+// Get user info from token (auto-retrieved from localStorage)
+const user = await dataClient.getUser();
+if (user) {
+  console.log('User ID:', user.id);
+  console.log('Username:', user.username);
+  console.log('Email:', user.email);
+}
+
+// Get user info from API endpoint
+const userInfo = await dataClient.getUserInfo();
+if (userInfo) {
+  console.log('User:', userInfo);
+}
+
+// Check if authenticated (async)
+const isAuthenticated = await dataClient.isAuthenticatedAsync();
+if (isAuthenticated) {
+  // User is authenticated
+}
+```
+
+**React Hook Example:**
+
+```typescript
+import { useEffect, useState } from 'react';
+import { dataClient, UserInfo } from '@aifabrix/miso-client';
+
+function useAuth() {
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const userInfo = await dataClient.getUser();
+        setUser(userInfo);
+      } catch (error) {
+        console.error('Failed to load user:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadUser();
+  }, []);
+
+  return { user, loading };
+}
+```
+
 ### Step 4: Advanced Features
 
 #### Caching
@@ -846,83 +1057,52 @@ if (tokenInfo) {
 
 ## API Reference
 
-### DataClient Class
+Quick reference of all DataClient methods. For complete method signatures, parameters, return types, and detailed documentation, see [DataClient API Reference](./reference-dataclient.md).
 
-#### Constructor
+### HTTP Methods
 
-```typescript
-constructor(config: DataClientConfig)
-```
+- `get<T>(endpoint, options?)` - GET request with caching support
+- `post<T>(endpoint, data?, options?)` - POST request  
+- `put<T>(endpoint, data?, options?)` - PUT request
+- `patch<T>(endpoint, data?, options?)` - PATCH request
+- `delete<T>(endpoint, options?)` - DELETE request
 
-Creates a new DataClient instance.
+### Authorization Methods
 
-#### HTTP Methods
+**Permissions:** `getPermissions()`, `hasPermission()`, `hasAnyPermission()`, `hasAllPermissions()`, `refreshPermissions()`, `clearPermissionsCache()`  
+**Roles:** `getRoles()`, `hasRole()`, `hasAnyRole()`, `hasAllRoles()`, `refreshRoles()`, `clearRolesCache()`
 
-- `get<T>(endpoint: string, options?: ApiRequestOptions): Promise<T>`
-- `post<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T>`
-- `put<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T>`
-- `patch<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T>`
-- `delete<T>(endpoint: string, options?: ApiRequestOptions): Promise<T>`
+**Note:** All authorization methods automatically retrieve the token from localStorage if not provided.
 
-#### Utility Methods
+### Authentication Methods
 
-- `isAuthenticated(): boolean` - Check if user is authenticated
-- `redirectToLogin(redirectUrl?: string): Promise<void>` - Redirect to login page via controller
-- `logout(redirectUrl?: string): Promise<void>` - Logout user, clear tokens and cache, and redirect
-- `getEnvironmentToken(): Promise<string>` - Get environment/client token (browser-side with caching)
-- `getClientTokenInfo(): ClientTokenInfo | null` - Extract application and environment info from client token
-- `setInterceptors(config: InterceptorConfig): void` - Configure interceptors
-- `setAuditConfig(config: Partial<AuditConfig>): void` - Update audit configuration
-- `clearCache(): void` - Clear all cached responses
-- `getMetrics(): RequestMetrics` - Get request metrics
+- `validateToken()` - Validate token with controller
+- `getUser()` - Get user info from token
+- `getUserInfo()` - Get user info from API endpoint
+- `isAuthenticatedAsync()` - Check if authenticated (async)
 
-### Configuration Types
+**Note:** All authentication methods automatically retrieve the token from localStorage if not provided.
 
-#### DataClientConfig
+### Utility Methods
 
-```typescript
-interface DataClientConfig {
-  baseUrl: string;
-  misoConfig: MisoClientConfig;
-  tokenKeys?: string[];
-  loginUrl?: string;
-  logoutUrl?: string;
-  cache?: CacheConfig;
-  retry?: RetryConfig;
-  audit?: AuditConfig;
-  timeout?: number;
-  defaultHeaders?: Record<string, string>;
-}
-```
-
-#### ApiRequestOptions
-
-```typescript
-interface ApiRequestOptions extends RequestInit {
-  skipAuth?: boolean;
-  retries?: number;
-  signal?: AbortSignal;
-  timeout?: number;
-  cache?: {
-    enabled?: boolean;
-    ttl?: number;
-    key?: string;
-  };
-  skipAudit?: boolean;
-}
-```
+- `isAuthenticated()` - Sync check for token presence
+- `redirectToLogin()` - Redirect to login page
+- `logout()` - Logout and clear cache
+- `getEnvironmentToken()` - Get client token (cached)
+- `getClientTokenInfo()` - Extract token info
+- `setInterceptors()` - Configure interceptors
+- `setAuditConfig()` - Update audit config
+- `clearCache()` - Clear response cache
+- `getMetrics()` - Get request metrics
 
 ### Error Types
 
-- `NetworkError` - Network failures (connection errors, CORS issues, etc.)
-- `TimeoutError` - Request timeout exceeded
-- `AuthenticationError` - 401 Unauthorized responses
-- `ApiError` - Base error class for API errors
+- `NetworkError` - Network failures
+- `TimeoutError` - Request timeout
+- `AuthenticationError` - 401 Unauthorized
+- `ApiError` - Base error class
 
-**See Also:**
-
-- [Complete API Reference](./api-reference.md#dataclient) - Full API documentation
-- [TypeScript Definitions](../src/types/data-client.types.ts) - Complete type definitions
+For complete type definitions and detailed documentation, see [DataClient API Reference](./reference-dataclient.md) and [Type Reference](./reference-types.md).
 
 ## Troubleshooting
 
@@ -1180,7 +1360,12 @@ async function fetchData() {
 
 ## See Also
 
-- [MisoClient API Reference](./api-reference.md)
-- [Getting Started Guide](./getting-started.md)
-- [Configuration Guide](./configuration.md)
-- [Examples](./examples.md)
+- [DataClient API Reference](./reference-dataclient.md) - Complete API reference with detailed method signatures
+- [Authentication Reference](./reference-authentication.md) - User authentication and token validation
+- [Authorization Reference](./reference-authorization.md) - Roles and permissions management
+- [Type Reference](./reference-types.md) - Complete type definitions
+- [Error Handling Reference](./reference-errors.md) - Error handling and structured error responses
+- [API Reference Index](./api-reference.md) - Overview of all API reference documents
+- [Getting Started Guide](./getting-started.md) - Quick start tutorial
+- [Configuration Guide](./configuration.md) - Configuration options
+- [Examples Guide](./examples.md) - Framework-specific examples

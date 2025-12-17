@@ -482,6 +482,9 @@ export type {
 // Export services for advanced usage
 export { AuthService } from "./services/auth.service";
 export { RoleService } from "./services/role.service";
+export { PermissionService } from "./services/permission.service";
+export { BrowserPermissionService } from "./services/browser-permission.service";
+export { BrowserRoleService } from "./services/browser-role.service";
 export { LoggerService } from "./services/logger.service";
 export { RedisService } from "./services/redis.service";
 export { CacheService } from "./services/cache.service";

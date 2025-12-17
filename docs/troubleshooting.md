@@ -619,9 +619,10 @@ try {
 
 1. **Check Documentation**:
    - [Getting Started](getting-started.md)
-   - [API Reference](api-reference.md)
+   - [API Reference Index](api-reference.md) - Overview and navigation to all API reference documents
    - [Configuration](configuration.md)
-   - [Examples](examples.md)
+   - [MisoClient Examples](examples.md) - Server-side SDK examples
+   - [DataClient Examples](data-client.md#examples) - Browser/frontend examples
 
 2. **Enable Debug Logging**:
 

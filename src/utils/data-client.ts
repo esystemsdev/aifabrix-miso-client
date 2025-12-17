@@ -32,6 +32,14 @@ import {
   getEnvironmentToken,
   getClientTokenInfo,
 } from "./data-client-auth";
+import { BrowserPermissionService } from "../services/browser-permission.service";
+import { BrowserRoleService } from "../services/browser-role.service";
+import { CacheService } from "../services/cache.service";
+import { HttpClient } from "../utils/http-client";
+import { InternalHttpClient } from "../utils/internal-http-client";
+import { LoggerService } from "../services/logger.service";
+import { RedisService } from "../services/redis.service";
+import { UserInfo } from "../types/config.types";
 
 export class DataClient {
   private config: DataClientConfig;
@@ -52,6 +60,8 @@ export class DataClient {
     cacheHits: 0,
     cacheMisses: 0,
   };
+  private permissionService: BrowserPermissionService | null = null;
+  private roleService: BrowserRoleService | null = null;
 
   constructor(config: DataClientConfig) {
     this.config = {
@@ -133,6 +143,39 @@ export class DataClient {
     // Initialize DataMasker with config path if provided
     if (this.config.misoConfig?.sensitiveFieldsConfig) {
       DataMasker.setConfigPath(this.config.misoConfig.sensitiveFieldsConfig);
+    }
+
+    // Initialize browser-compatible permission and role services
+    // These services need HttpClient and CacheService, so they're initialized after MisoClient
+    if (this.misoClient && this.config.misoConfig) {
+      // Create InternalHttpClient first (base HTTP functionality)
+      const internalClient = new InternalHttpClient(this.config.misoConfig);
+
+      // Create Redis service (will be undefined for browser, but needed for LoggerService)
+      const redis = new RedisService(this.config.misoConfig.redis);
+
+      // Create LoggerService with InternalHttpClient (needs httpClient.request() and httpClient.config)
+      const logger = new LoggerService(
+        internalClient as unknown as HttpClient,
+        redis,
+      );
+
+      // Create HttpClient that wraps InternalHttpClient with logger
+      const httpClient = new HttpClient(this.config.misoConfig, logger);
+
+      // Update LoggerService to use the new HttpClient (for logging)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (logger as any).httpClient = httpClient;
+
+      // Create CacheService without Redis (in-memory only for browser)
+      const cacheService = new CacheService(undefined);
+
+      // Create browser-compatible services
+      this.permissionService = new BrowserPermissionService(
+        httpClient,
+        cacheService,
+      );
+      this.roleService = new BrowserRoleService(httpClient, cacheService);
     }
   }
 
@@ -471,6 +514,299 @@ export class DataClient {
       method: "DELETE",
     });
     return this.request<T>("DELETE", endpoint, finalOptions);
+  }
+
+  // ==================== AUTHORIZATION METHODS ====================
+
+  /**
+   * Get user permissions (uses token from localStorage if not provided)
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns Array of permission strings
+   */
+  async getPermissions(token?: string): Promise<string[]> {
+    if (!this.misoClient || !this.permissionService) {
+      return [];
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return [];
+    }
+
+    return this.permissionService.getPermissions(userToken);
+  }
+
+  /**
+   * Check if user has specific permission
+   * @param permission - Permission to check
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns True if user has the permission
+   */
+  async hasPermission(permission: string, token?: string): Promise<boolean> {
+    if (!this.misoClient || !this.permissionService) {
+      return false;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return false;
+    }
+
+    return this.permissionService.hasPermission(userToken, permission);
+  }
+
+  /**
+   * Check if user has any of the specified permissions
+   * @param permissions - Permissions to check
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns True if user has any of the permissions
+   */
+  async hasAnyPermission(
+    permissions: string[],
+    token?: string,
+  ): Promise<boolean> {
+    if (!this.misoClient || !this.permissionService) {
+      return false;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return false;
+    }
+
+    return this.permissionService.hasAnyPermission(userToken, permissions);
+  }
+
+  /**
+   * Check if user has all of the specified permissions
+   * @param permissions - Permissions to check
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns True if user has all of the permissions
+   */
+  async hasAllPermissions(
+    permissions: string[],
+    token?: string,
+  ): Promise<boolean> {
+    if (!this.misoClient || !this.permissionService) {
+      return false;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return false;
+    }
+
+    return this.permissionService.hasAllPermissions(userToken, permissions);
+  }
+
+  /**
+   * Force refresh permissions from controller (bypass cache)
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns Array of permission strings
+   */
+  async refreshPermissions(token?: string): Promise<string[]> {
+    if (!this.misoClient || !this.permissionService) {
+      return [];
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return [];
+    }
+
+    return this.permissionService.refreshPermissions(userToken);
+  }
+
+  /**
+   * Clear cached permissions for a user
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   */
+  async clearPermissionsCache(token?: string): Promise<void> {
+    if (!this.misoClient || !this.permissionService) {
+      return;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return;
+    }
+
+    return this.permissionService.clearPermissionsCache(userToken);
+  }
+
+  /**
+   * Get user roles (uses token from localStorage if not provided)
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns Array of role strings
+   */
+  async getRoles(token?: string): Promise<string[]> {
+    if (!this.misoClient || !this.roleService) {
+      return [];
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return [];
+    }
+
+    return this.roleService.getRoles(userToken);
+  }
+
+  /**
+   * Check if user has specific role
+   * @param role - Role to check
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns True if user has the role
+   */
+  async hasRole(role: string, token?: string): Promise<boolean> {
+    if (!this.misoClient || !this.roleService) {
+      return false;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return false;
+    }
+
+    return this.roleService.hasRole(userToken, role);
+  }
+
+  /**
+   * Check if user has any of the specified roles
+   * @param roles - Roles to check
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns True if user has any of the roles
+   */
+  async hasAnyRole(roles: string[], token?: string): Promise<boolean> {
+    if (!this.misoClient || !this.roleService) {
+      return false;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return false;
+    }
+
+    return this.roleService.hasAnyRole(userToken, roles);
+  }
+
+  /**
+   * Check if user has all of the specified roles
+   * @param roles - Roles to check
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns True if user has all of the roles
+   */
+  async hasAllRoles(roles: string[], token?: string): Promise<boolean> {
+    if (!this.misoClient || !this.roleService) {
+      return false;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return false;
+    }
+
+    return this.roleService.hasAllRoles(userToken, roles);
+  }
+
+  /**
+   * Force refresh roles from controller (bypass cache)
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns Array of role strings
+   */
+  async refreshRoles(token?: string): Promise<string[]> {
+    if (!this.misoClient || !this.roleService) {
+      return [];
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return [];
+    }
+
+    return this.roleService.refreshRoles(userToken);
+  }
+
+  /**
+   * Clear cached roles for a user
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   */
+  async clearRolesCache(token?: string): Promise<void> {
+    if (!this.misoClient || !this.roleService) {
+      return;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return;
+    }
+
+    return this.roleService.clearRolesCache(userToken);
+  }
+
+  // ==================== AUTHENTICATION METHODS ====================
+
+  /**
+   * Validate token (uses localStorage token if not provided)
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns True if token is valid
+   */
+  async validateToken(token?: string): Promise<boolean> {
+    if (!this.misoClient) {
+      return false;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return false;
+    }
+
+    return this.misoClient.validateToken(userToken);
+  }
+
+  /**
+   * Get user info from token (uses localStorage token if not provided)
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns User info or null if not authenticated
+   */
+  async getUser(token?: string): Promise<UserInfo | null> {
+    if (!this.misoClient) {
+      return null;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return null;
+    }
+
+    return this.misoClient.getUser(userToken);
+  }
+
+  /**
+   * Get user info from API endpoint (uses localStorage token if not provided)
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns User info or null if not authenticated
+   */
+  async getUserInfo(token?: string): Promise<UserInfo | null> {
+    if (!this.misoClient) {
+      return null;
+    }
+
+    const userToken = token || this.getToken();
+    if (!userToken) {
+      return null;
+    }
+
+    return this.misoClient.getUserInfo(userToken);
+  }
+
+  /**
+   * Check if authenticated (alias for validateToken)
+   * @param token - Optional user authentication token (auto-retrieved from localStorage if not provided)
+   * @returns True if authenticated
+   */
+  async isAuthenticatedAsync(token?: string): Promise<boolean> {
+    return this.validateToken(token);
   }
 
   /**
