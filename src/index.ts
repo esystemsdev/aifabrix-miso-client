@@ -532,6 +532,13 @@ export {
   getErrorTitle,
   sendErrorResponse,
   EncryptionUtil,
+  createClientTokenEndpoint,
+  hasConfig,
+} from "./express";
+export type {
+  ClientTokenEndpointOptions,
+  ClientTokenResponse,
+  DataClientConfigResponse,
 } from "./express";
 
 // Export Express ErrorResponse with alias to avoid conflict with SDK ErrorResponse
@@ -551,3 +558,7 @@ export type {
   AuthenticationError,
   ApiError as DataClientApiError,
 } from "./types/data-client.types";
+
+// Export DataClient auto-initialization helper
+export { autoInitializeDataClient } from "./utils/data-client-auto-init";
+export type { AutoInitOptions } from "./utils/data-client-auto-init";

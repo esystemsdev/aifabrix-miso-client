@@ -115,14 +115,26 @@ Creates a new DataClient instance with the provided configuration.
 
 - `config` - Configuration object (see [DataClient Configuration Types](#dataclient-configuration-types))
 
-**Browser-Safe Example (Recommended):**
+**Zero-Config Browser Setup (Recommended):**
+
+```typescript
+import { autoInitializeDataClient } from '@aifabrix/miso-client';
+
+// One line - automatically fetches config and initializes DataClient
+const dataClient = await autoInitializeDataClient();
+```
+
+**When to use zero-config:**
+
+- ✅ Quick setup - Get started in seconds
+- ✅ No environment variables needed in frontend build
+- ✅ Single source of truth - All config from server
+- ✅ Automatic caching - Config cached for faster page loads
+
+**Manual Browser Setup:**
 
 ```typescript
 import { DataClient } from '@aifabrix/miso-client';
-
-// Server provides client token (see Authentication section)
-const initialClientToken = window.INITIAL_CLIENT_TOKEN; // From server
-const tokenExpiresAt = window.INITIAL_CLIENT_TOKEN_EXPIRES_AT;
 
 // Create DataClient instance WITHOUT clientSecret
 const dataClient = new DataClient({
@@ -132,20 +144,28 @@ const dataClient = new DataClient({
     clientId: 'ctrl-dev-my-app',
     // ❌ DO NOT include clientSecret in browser code
     
-    // ✅ Use server-provided token
-    clientToken: initialClientToken,
-    clientTokenExpiresAt: tokenExpiresAt,
-    
-    // ✅ Refresh callback calls your server endpoint
-    onClientTokenRefresh: async () => {
-      const response = await fetch('/api/client-token', {
-        credentials: 'include', // Include cookies for auth
-      });
-      return await response.json(); // { token: string, expiresIn: number }
-    },
+    // ✅ Use server-provided token endpoint (automatic token fetching)
+    clientTokenUri: '/api/v1/auth/client-token', // Default if not specified
+  },
+  // Optional: Custom configuration
+  cache: {
+    enabled: true,
+    defaultTTL: 600, // Custom cache TTL
+  },
+  retry: {
+    enabled: true,
+    maxRetries: 5, // Custom retry count
   },
 });
 ```
+
+**When to use manual setup:**
+
+- ✅ Custom configuration - Need specific cache, retry, or audit settings
+- ✅ Environment variables - Want to use build-time env vars
+- ✅ Multiple instances - Need different configs for different endpoints
+- ✅ Testing - Easier to mock with explicit configuration
+- ✅ Legacy code - Migrating existing manual configuration
 
 **Server-Side Only Example:**
 
@@ -243,30 +263,51 @@ await dataClient.delete('/api/users/123');
 
 For browser applications, use the **Server-Provided Client Token Pattern** to avoid exposing `clientSecret`:
 
-**Server-Side: Token Refresh Endpoint**
+**Zero-Config Setup (Recommended):**
+
+**Server-Side: One Line**
 
 ```typescript
 // Server: Express.js example
 import express from 'express';
-import { MisoClient, getEnvironmentToken } from '@aifabrix/miso-client';
+import { MisoClient, createClientTokenEndpoint, loadConfig } from '@aifabrix/miso-client';
 
 const app = express();
 
 // Initialize MisoClient on server
-const misoClient = new MisoClient({
-  controllerUrl: 'https://controller.aifabrix.ai',
-  clientId: 'ctrl-dev-my-app',
-  clientSecret: process.env.MISO_CLIENTSECRET, // ✅ Environment variable
-  allowedOrigins: [
-    'http://localhost:3000',
-    'https://myapp.com',
-    'http://localhost:*', // Wildcard port support
-  ],
-});
-
+const misoClient = new MisoClient(loadConfig());
 await misoClient.initialize();
 
-// Secure token refresh endpoint with origin validation
+// One line - automatically includes DataClient config in response
+app.post('/api/v1/auth/client-token', createClientTokenEndpoint(misoClient));
+```
+
+**Browser-Side: One Line**
+
+```typescript
+// Browser: Zero-config initialization
+import { autoInitializeDataClient } from '@aifabrix/miso-client';
+
+// One line - automatically fetches config and initializes DataClient
+const dataClient = await autoInitializeDataClient();
+```
+
+**Manual Setup (Alternative):**
+
+**Server-Side: Manual Token Endpoint**
+
+```typescript
+// Server: Express.js example
+import express from 'express';
+import { MisoClient, getEnvironmentToken, loadConfig } from '@aifabrix/miso-client';
+
+const app = express();
+
+// Initialize MisoClient on server
+const misoClient = new MisoClient(loadConfig());
+await misoClient.initialize();
+
+// Manual token endpoint (if not using createClientTokenEndpoint)
 app.post('/api/v1/auth/client-token', 
   authenticateUser,           // ✅ User must be authenticated
   rateLimit({ window: '15m', max: 10 }), // ✅ Rate limiting
@@ -290,10 +331,12 @@ app.post('/api/v1/auth/client-token',
 );
 ```
 
-**Browser-Side: Use Client Token**
+**Browser-Side: Manual Configuration**
 
 ```typescript
-// Browser: Use server-provided token endpoint
+// Browser: Manual DataClient setup
+import { DataClient } from '@aifabrix/miso-client';
+
 const dataClient = new DataClient({
   baseUrl: 'https://api.example.com',
   misoConfig: {
@@ -303,10 +346,6 @@ const dataClient = new DataClient({
     
     // ✅ Use server-provided token endpoint
     clientTokenUri: '/api/v1/auth/client-token', // Default if not specified
-    
-    // Optional: Initial token from server (if provided on page load)
-    // clientToken: window.INITIAL_CLIENT_TOKEN,
-    // clientTokenExpiresAt: window.INITIAL_CLIENT_TOKEN_EXPIRES_AT,
   },
 });
 
@@ -1536,6 +1575,228 @@ const client = new MisoClient({
 
 - Standalone `validateOrigin` utility function (can be used without MisoClient instance)
 - `getEnvironmentToken()` - Uses origin validation internally for security
+
+## Express Utilities
+
+Express.js utilities for building REST APIs with MisoClient integration.
+
+### `createClientTokenEndpoint(misoClient, options?)`
+
+Creates an Express route handler for client-token endpoint that automatically enriches the response with DataClient configuration.
+
+**Parameters:**
+
+- `misoClient` - MisoClient instance (must be initialized)
+- `options` - Optional configuration:
+  - `clientTokenUri?: string` - Client token endpoint URI (default: `/api/v1/auth/client-token`)
+  - `expiresIn?: number` - Token expiration time in seconds (default: `1800`)
+  - `includeConfig?: boolean` - Whether to include DataClient config in response (default: `true`)
+
+**Returns:** Express route handler function `(req: Request, res: Response) => Promise<void>`
+
+**Example:**
+
+```typescript
+import { MisoClient, createClientTokenEndpoint, loadConfig } from '@aifabrix/miso-client';
+
+const misoClient = new MisoClient(loadConfig());
+await misoClient.initialize();
+
+// One line - automatically includes DataClient config in response
+app.post('/api/v1/auth/client-token', createClientTokenEndpoint(misoClient));
+```
+
+**Response format:**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresIn": 1800,
+  "config": {
+    "baseUrl": "http://localhost:3083",
+    "controllerUrl": "https://controller.aifabrix.ai",
+    "controllerPublicUrl": "https://controller.aifabrix.ai",
+    "clientId": "ctrl-dev-my-app",
+    "clientTokenUri": "/api/v1/auth/client-token"
+  }
+}
+```
+
+**Custom options:**
+
+```typescript
+app.post('/api/v1/auth/client-token', createClientTokenEndpoint(misoClient, {
+  clientTokenUri: '/custom/token',
+  expiresIn: 3600,
+  includeConfig: true,
+}));
+```
+
+**Error handling:**
+
+- Returns `503` if MisoClient is not initialized
+- Returns `403` if origin validation fails
+- Returns `500` if controller URL is not configured or other errors occur
+
+### `autoInitializeDataClient(options?)`
+
+Automatically fetches configuration from server and initializes DataClient. Browser-only function.
+
+**Parameters:**
+
+- `options` - Optional configuration:
+  - `clientTokenUri?: string` - Client token endpoint URI (default: `/api/v1/auth/client-token`)
+  - `baseUrl?: string` - Override baseUrl detection (auto-detected from `window.location.origin` if not provided)
+  - `onError?: (error: Error) => void` - Error callback
+  - `cacheConfig?: boolean` - Cache config in localStorage (default: `true`)
+
+**Returns:** Promise that resolves to initialized DataClient instance
+
+**Throws:** Error if initialization fails (e.g., not in browser, network error, invalid response)
+
+**Example:**
+
+```typescript
+import { autoInitializeDataClient } from '@aifabrix/miso-client';
+
+// One line - automatically fetches config and initializes DataClient
+const dataClient = await autoInitializeDataClient();
+```
+
+**Custom options:**
+
+```typescript
+const dataClient = await autoInitializeDataClient({
+  clientTokenUri: '/api/v1/auth/client-token',
+  baseUrl: 'https://api.example.com',
+  onError: (error) => console.error('Init failed:', error),
+  cacheConfig: true,
+});
+```
+
+**What it does:**
+
+1. Detects if running in browser
+2. Checks localStorage cache first (if enabled)
+3. Fetches config from server endpoint
+4. Extracts `config` from response
+5. Initializes DataClient with server-provided config
+6. Caches config in localStorage for future page loads
+
+**Error handling:**
+
+```typescript
+try {
+  const dataClient = await autoInitializeDataClient();
+} catch (error) {
+  if (error.message.includes('config not found')) {
+    console.error('Server endpoint must use createClientTokenEndpoint() helper');
+  } else if (error.message.includes('Unable to detect baseUrl')) {
+    console.error('Provide baseUrl option or ensure window.location.origin is available');
+  } else {
+    console.error('Initialization failed:', error);
+  }
+}
+```
+
+### Type Definitions
+
+#### `ClientTokenResponse`
+
+Client token endpoint response including token, expiration, and DataClient configuration.
+
+```typescript
+interface ClientTokenResponse {
+  /** Client token string */
+  token: string;
+  
+  /** Token expiration time in seconds */
+  expiresIn: number;
+  
+  /** DataClient configuration (included when includeConfig is true) */
+  config?: DataClientConfigResponse;
+}
+```
+
+#### `DataClientConfigResponse`
+
+DataClient configuration returned by client-token endpoint.
+
+```typescript
+interface DataClientConfigResponse {
+  /** API base URL (derived from request) */
+  baseUrl: string;
+  
+  /** MISO Controller URL (from misoClient config) */
+  controllerUrl: string;
+  
+  /** Public controller URL for browser environments (if set) */
+  controllerPublicUrl?: string;
+  
+  /** Client ID (from misoClient config) */
+  clientId: string;
+  
+  /** Client token endpoint URI */
+  clientTokenUri: string;
+}
+```
+
+#### `ClientTokenEndpointOptions`
+
+Options for `createClientTokenEndpoint`.
+
+```typescript
+interface ClientTokenEndpointOptions {
+  /** Client token endpoint URI (default: '/api/v1/auth/client-token') */
+  clientTokenUri?: string;
+  
+  /** Token expiration time in seconds (default: 1800) */
+  expiresIn?: number;
+  
+  /** Whether to include DataClient config in response (default: true) */
+  includeConfig?: boolean;
+}
+```
+
+#### `AutoInitOptions`
+
+Options for `autoInitializeDataClient`.
+
+```typescript
+interface AutoInitOptions {
+  /** Client token endpoint URI (default: '/api/v1/auth/client-token') */
+  clientTokenUri?: string;
+  
+  /** Override baseUrl detection (auto-detected from window.location if not provided) */
+  baseUrl?: string;
+  
+  /** Error callback */
+  onError?: (error: Error) => void;
+  
+  /** Whether to cache config in localStorage (default: true) */
+  cacheConfig?: boolean;
+}
+```
+
+#### `hasConfig(response)`
+
+Type guard to check if response includes config.
+
+```typescript
+function hasConfig(response: ClientTokenResponse): response is ClientTokenResponse & { config: DataClientConfigResponse }
+```
+
+**Example:**
+
+```typescript
+import { hasConfig, ClientTokenResponse } from '@aifabrix/miso-client';
+
+const response: ClientTokenResponse = await fetch('/api/v1/auth/client-token').then(r => r.json());
+
+if (hasConfig(response)) {
+  console.log('Config available:', response.config.baseUrl);
+}
+```
 
 ## Standalone Utilities
 

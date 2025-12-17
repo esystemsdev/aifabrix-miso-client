@@ -6,7 +6,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc && node -e \"require('fs').copyFileSync('src/express/express.d.ts', 'dist/express/express.d.ts')\"",
-    "test": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js",
+    "test": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --maxWorkers=100% --no-coverage",
     "test:watch": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --watch",
     "test:coverage": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --coverage",
     "test:no-coverage": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --no-coverage",

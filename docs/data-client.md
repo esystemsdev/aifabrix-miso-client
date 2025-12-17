@@ -67,6 +67,245 @@ MISO_ALLOWED_ORIGINS=https://myapp.com,http://localhost:*
 2. **Initialize DataClient** in your browser code (see [Step 2](#step-2-browser-setup))
 3. **Start making requests** (see [Step 3](#step-3-making-api-requests))
 
+### Setup Options
+
+You have two options for setting up DataClient:
+
+1. **Zero-Config Setup (Recommended)** - Simplest approach, automatic configuration
+2. **Manual Setup** - Full control over configuration, useful for custom requirements
+
+### Zero-Config Setup (Recommended)
+
+For the simplest setup with zero configuration, use the auto-initialization helpers:
+
+**Server-side (one line):**
+
+```typescript
+import { MisoClient, createClientTokenEndpoint, loadConfig } from '@aifabrix/miso-client';
+
+const misoClient = new MisoClient(loadConfig());
+await misoClient.initialize();
+
+// One line - automatically includes DataClient config in response
+app.post('/api/v1/auth/client-token', createClientTokenEndpoint(misoClient));
+```
+
+**Client-side (one line):**
+
+```typescript
+import { autoInitializeDataClient } from '@aifabrix/miso-client';
+
+// One line - automatically fetches config and initializes DataClient
+const dataClient = await autoInitializeDataClient();
+```
+
+**What happens:**
+
+1. Server endpoint automatically enriches the token response with DataClient configuration
+2. Client automatically fetches config from the server endpoint
+3. DataClient is initialized with server-provided configuration
+4. No environment variables needed in frontend build
+5. Configuration is cached for faster subsequent page loads
+
+**Benefits:**
+
+- ✅ Zero configuration - No environment variables in frontend build
+- ✅ Single source of truth - All config from server .env
+- ✅ Type-safe - Full TypeScript support
+- ✅ Backward compatible - Existing code still works
+- ✅ Secure - No secrets in frontend code
+
+See [Zero-Config Setup](#zero-config-setup) section below for detailed documentation.
+
+### When to Use Manual Setup
+
+Use manual setup when you need:
+
+- **Custom configuration** - Need to set custom cache, retry, or audit settings
+- **Environment variables** - Want to use build-time environment variables instead of server-provided config
+- **Multiple DataClient instances** - Need different configurations for different API endpoints
+- **Advanced token handling** - Need custom token refresh logic or initial token from server
+- **Testing** - Easier to mock and test with explicit configuration
+- **Legacy code** - Migrating existing code that already uses manual configuration
+
+**Example - Manual Setup with Custom Config:**
+
+```typescript
+import { DataClient } from '@aifabrix/miso-client';
+
+const dataClient = new DataClient({
+  baseUrl: process.env.API_BASE_URL || 'https://api.example.com',
+  misoConfig: {
+    controllerUrl: process.env.MISO_CONTROLLER_URL,
+    clientId: process.env.MISO_CLIENTID,
+    clientTokenUri: '/api/v1/auth/client-token',
+  },
+  cache: {
+    enabled: true,
+    defaultTTL: 600, // Custom cache TTL
+  },
+  retry: {
+    enabled: true,
+    maxRetries: 5, // Custom retry count
+  },
+  audit: {
+    enabled: true,
+    level: 'detailed', // Custom audit level
+  },
+});
+```
+
+## Zero-Config Setup
+
+The zero-config approach moves all configuration logic into the `@aifabrix/miso-client` package, requiring minimal code from developers.
+
+### Server-Side Setup
+
+Use the `createClientTokenEndpoint` helper to automatically enrich your client-token endpoint with DataClient configuration:
+
+```typescript
+import { MisoClient, createClientTokenEndpoint, loadConfig } from '@aifabrix/miso-client';
+
+const misoClient = new MisoClient(loadConfig());
+await misoClient.initialize();
+
+// One line - automatically includes DataClient config in response
+app.post('/api/v1/auth/client-token', createClientTokenEndpoint(misoClient));
+```
+
+**What `createClientTokenEndpoint` does:**
+
+1. Validates request origin (using existing `getEnvironmentToken` logic)
+2. Fetches client token from controller
+3. Automatically enriches response with DataClient config:
+   - `baseUrl` - Derived from request (`req.protocol + '://' + req.get('host')`)
+   - `controllerUrl` - From `misoClient.getConfig().controllerUrl`
+   - `controllerPublicUrl` - From `misoClient.getConfig().controllerPublicUrl` (if set)
+   - `clientId` - From `misoClient.getConfig().clientId`
+   - `clientTokenUri` - From options or defaults to `/api/v1/auth/client-token`
+
+**Response format:**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expiresIn": 1800,
+  "config": {
+    "baseUrl": "http://localhost:3083",
+    "controllerUrl": "https://controller.aifabrix.ai",
+    "controllerPublicUrl": "https://controller.aifabrix.ai",
+    "clientId": "ctrl-dev-my-app",
+    "clientTokenUri": "/api/v1/auth/client-token"
+  }
+}
+```
+
+**Custom options:**
+
+```typescript
+app.post('/api/v1/auth/client-token', createClientTokenEndpoint(misoClient, {
+  clientTokenUri: '/custom/token', // Custom endpoint URI
+  expiresIn: 3600, // Custom expiration (default: 1800)
+  includeConfig: true, // Include config in response (default: true)
+}));
+```
+
+### Client-Side Setup
+
+Use the `autoInitializeDataClient` helper to automatically fetch configuration and initialize DataClient:
+
+```typescript
+import { autoInitializeDataClient } from '@aifabrix/miso-client';
+
+// One line - everything is automatic
+const dataClient = await autoInitializeDataClient();
+```
+
+**What `autoInitializeDataClient` does:**
+
+1. Detects if running in browser
+2. Checks localStorage cache first (if enabled)
+3. Fetches config from `/api/v1/auth/client-token` endpoint (or custom URI)
+4. Extracts `config` from response
+5. Initializes DataClient with server-provided config
+6. Caches config in localStorage for future page loads
+
+**Custom options:**
+
+```typescript
+const dataClient = await autoInitializeDataClient({
+  clientTokenUri: '/api/v1/auth/client-token', // Custom endpoint
+  baseUrl: 'https://api.example.com', // Override baseUrl detection
+  onError: (error) => console.error('Init failed:', error), // Error handler
+  cacheConfig: true, // Cache config in localStorage (default: true)
+});
+```
+
+**Error handling:**
+
+```typescript
+try {
+  const dataClient = await autoInitializeDataClient();
+  // Use dataClient...
+} catch (error) {
+  if (error.message.includes('config not found')) {
+    console.error('Server endpoint must use createClientTokenEndpoint() helper');
+  } else if (error.message.includes('Unable to detect baseUrl')) {
+    console.error('Provide baseUrl option or ensure window.location.origin is available');
+  } else {
+    console.error('Initialization failed:', error);
+  }
+}
+```
+
+**Benefits:**
+
+- ✅ **Zero configuration** - No environment variables in frontend build
+- ✅ **Single source of truth** - All config from server .env
+- ✅ **Type-safe** - Full TypeScript support with exported types
+- ✅ **Backward compatible** - Existing code still works
+- ✅ **Developer-friendly** - One line of code for each side
+- ✅ **Secure** - No secrets in frontend code
+- ✅ **Flexible** - Options available for customization
+
+**TypeScript types:**
+
+```typescript
+import {
+  createClientTokenEndpoint,
+  ClientTokenResponse,
+  DataClientConfigResponse,
+  hasConfig,
+  autoInitializeDataClient,
+  AutoInitOptions,
+} from '@aifabrix/miso-client';
+
+// Type-safe response handling
+app.post('/api/v1/auth/client-token', async (req, res) => {
+  const handler = createClientTokenEndpoint(misoClient);
+  await handler(req, res);
+  
+  // Or manually create response with types
+  const response: ClientTokenResponse = {
+    token: await getEnvironmentToken(misoClient, req),
+    expiresIn: 1800,
+    config: {
+      baseUrl: `${req.protocol}://${req.get('host')}`,
+      controllerUrl: misoClient.getConfig().controllerUrl,
+      clientId: misoClient.getConfig().clientId,
+      clientTokenUri: '/api/v1/auth/client-token',
+    },
+  };
+  
+  // Use type guard
+  if (hasConfig(response)) {
+    console.log('Config available:', response.config.baseUrl);
+  }
+  
+  res.json(response);
+});
+```
+
 ## Developer Journey
 
 Follow these steps to integrate DataClient into your application.

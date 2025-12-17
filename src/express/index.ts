@@ -45,5 +45,17 @@ export { extractClientTokenInfo } from "../utils/token-utils";
 export type { ClientTokenInfo } from "../utils/token-utils";
 export type { OriginValidationResult } from "../utils/origin-validator";
 
-// Type augmentation (imported for side effects)
-import "./express.d.ts";
+// Client token endpoint helper
+export {
+  createClientTokenEndpoint,
+  hasConfig,
+} from "./client-token-endpoint";
+export type {
+  ClientTokenEndpointOptions,
+  ClientTokenResponse,
+  DataClientConfigResponse,
+} from "./client-token-endpoint";
+
+// Note: express.d.ts provides type augmentation for Express Response types.
+// It doesn't need to be imported - TypeScript automatically picks up .d.ts files
+// in the same directory. The build script copies it to dist/express/express.d.ts.

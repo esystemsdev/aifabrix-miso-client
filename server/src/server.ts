@@ -7,9 +7,11 @@
 // This ensures root .env is loaded before loadConfig() imports "dotenv/config"
 // Builder generates .env to ../../.env (root directory)
 // Use require() to execute immediately before ES module imports
+/* eslint-disable @typescript-eslint/no-var-requires */
 const dotenv = require("dotenv");
 const { join } = require("path");
 const { existsSync } = require("fs");
+/* eslint-enable @typescript-eslint/no-var-requires */
 
 const rootEnvPath = join(process.cwd(), "..", ".env");
 const localEnvPath = join(process.cwd(), ".env");
@@ -27,11 +29,9 @@ if (existsSync(rootEnvPath)) {
 
 import express from "express";
 import { readFileSync } from "fs";
-import { MisoClient, loadConfig, getEnvironmentToken } from "@aifabrix/miso-client";
+import { MisoClient, loadConfig, createClientTokenEndpoint } from "@aifabrix/miso-client";
 import { loadEnvConfig } from "./config/env";
-import { corsMiddleware } from "./middleware/cors";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler";
-import { healthHandler } from "./routes/health";
 import {
   getUsers,
   getUserById,
@@ -312,7 +312,9 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Client token endpoint (server-side only)
+// Client token endpoint with zero-config setup
+// Automatically includes DataClient configuration in response
+// createClientTokenEndpoint handles misoClient initialization check internally
 app.post("/api/v1/auth/client-token", async (req, res) => {
   if (!misoClient) {
     res.status(503).json({
@@ -320,14 +322,10 @@ app.post("/api/v1/auth/client-token", async (req, res) => {
     });
     return;
   }
-  try {
-    const token = await getEnvironmentToken(misoClient, req);
-    res.json({ token, expiresIn: 1800 });
-  } catch (error) {
-    res.status(403).json({
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
+  
+  // Use zero-config helper - automatically enriches response with DataClient config
+  const handler = createClientTokenEndpoint(misoClient);
+  await handler(req, res);
 });
 
 // API routes

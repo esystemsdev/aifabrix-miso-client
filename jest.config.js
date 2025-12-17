@@ -21,7 +21,7 @@ module.exports = {
   testMatch: ['**/*.test.ts'],
   // Setup file runs before all tests to configure unhandled rejection handling
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
-  // Performance optimizations
+  // Performance optimizations - maximize speed for < 0.5s execution
   maxWorkers: '100%', // Use all available CPU cores for maximum parallelism
   testTimeout: 5000, // 5 second timeout per test
   cache: true, // Enable Jest cache for faster subsequent runs
@@ -29,6 +29,15 @@ module.exports = {
   // Skip slow operations for faster test execution
   detectOpenHandles: false, // Disable open handle detection for speed
   forceExit: true, // Force exit after tests complete to prevent hanging
+  // Additional performance optimizations
+  logHeapUsage: false, // Disable heap usage logging
+  verbose: false, // Disable verbose output
+  silent: false, // Keep console output but reduce noise
+  bail: false, // Run all tests even if some fail
+  // Disable coverage collection for maximum speed
+  collectCoverage: false,
+  // Use faster test runner
+  testRunner: 'jest-circus/runner',
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',

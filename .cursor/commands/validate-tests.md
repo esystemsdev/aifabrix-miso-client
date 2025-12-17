@@ -22,7 +22,7 @@ When the `/validate-tests` command is used, the agent must automatically fix all
    - Re-run `npm test` until all tests pass (exit code 0)
    - Do not proceed until test step is green
    - **All tests MUST be mocked** - no real database connections, external API calls, or I/O operations
-   - **Test execution time MUST be less than 0.5 seconds** - if one test take longer, optimize by ensuring all external dependencies are properly mocked
+   - **Each individual test MUST complete in less than 0.5 seconds** - if any individual test takes longer than 0.5 seconds, optimize by ensuring all external dependencies are properly mocked and using fake timers where appropriate
 
 4. **Final Verification Step**:
    - Run `npm run lint:fix` again to ensure no formatting changes were introduced
@@ -37,15 +37,15 @@ When the `/validate-tests` command is used, the agent must automatically fix all
 - **Iterative Process**: Keep running each step and fixing errors until it passes
 - **No User Interaction**: Do NOT ask the user for input or show what's being done
 - **Silent Operation**: Work autonomously and only report completion when all steps are green
-- **Test Performance**: All tests must be mocked and complete in less than 0.5 seconds
+- **Test Performance**: All tests must be mocked and each individual test must complete in less than 0.5 seconds
 - **Final Verification**: Lint:fix and lint must be run again after tests pass, and if changes are made, tests must be re-run
 - **Complete Success**: The command is only complete when ALL steps pass AND final verification shows no changes:
   - ✅ `npm run lint:fix` passes (initial)
   - ✅ `npm run lint` passes (initial)
-  - ✅ `npm test` passes (initial, < 0.5 seconds, all mocked)
+  - ✅ `npm test` passes (initial, each test < 0.5 seconds, all mocked)
   - ✅ `npm run lint:fix` passes (final, no changes)
   - ✅ `npm run lint` passes (final, no changes)
   - ✅ `npm test` passes (final, if lint:fix/lint made changes)
 
-**Work is only done when all validation checks are green and working, final verification shows no changes, and all tests pass in under 0.5 seconds.**
+**Work is only done when all validation checks are green and working, final verification shows no changes, and each individual test completes in under 0.5 seconds.**
 
