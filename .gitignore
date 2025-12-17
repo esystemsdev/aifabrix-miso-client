@@ -13,4 +13,4 @@ examples/**/*.js.map
 examples/**/*.d.ts.map
 
 # Temporarily ignore server directory
-server-new
+server

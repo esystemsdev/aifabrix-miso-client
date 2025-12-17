@@ -3,6 +3,8 @@
  * Injects response helper methods into Express Response object
  */
 
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+/// <reference path="./express.d.ts" />
 import { Request, Response, NextFunction } from "express";
 import { ResponseHelper, PaginationMeta } from "./response-helper";
 
