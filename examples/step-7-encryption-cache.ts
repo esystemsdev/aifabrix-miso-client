@@ -4,7 +4,8 @@
  * Examples of encrypting sensitive data and using generic caching.
  */
 
-import { MisoClient, loadConfig } from '../src/index';
+// For development: import from '../src/index'
+import { MisoClient, loadConfig, EncryptionUtil } from '@aifabrix/miso-client';
 
 async function encryptionCacheExample() {
   // Create client - loads from .env automatically
@@ -19,8 +20,9 @@ async function encryptionCacheExample() {
 
     // ==================== ENCRYPTION ====================
     
-    // Check if encryption is available (requires ENCRYPTION_KEY in .env)
-    if (client.encryption) {
+    // EncryptionUtil requires ENCRYPTION_KEY in .env (64 hex characters = 32 bytes)
+    try {
+      EncryptionUtil.initialize();
       console.log('🔒 Encryption service is available');
       
       // Encrypt sensitive data
@@ -30,11 +32,11 @@ async function encryptionCacheExample() {
         apiKey: 'secret-api-key-123'
       });
       
-      const encrypted = client.encryption.encrypt(sensitiveData);
+      const encrypted = EncryptionUtil.encrypt(sensitiveData);
       console.log('🔐 Encrypted data:', encrypted);
       
       // Decrypt when needed
-      const decrypted = client.encryption.decrypt(encrypted);
+      const decrypted = EncryptionUtil.decrypt(encrypted);
       console.log('🔓 Decrypted data:', JSON.parse(decrypted));
       
       // Example: Storing encrypted user preferences
@@ -44,18 +46,19 @@ async function encryptionCacheExample() {
         language: 'en'
       };
       
-      const encryptedPreferences = client.encryption.encrypt(
+      const encryptedPreferences = EncryptionUtil.encrypt(
         JSON.stringify(userPreferences)
       );
       console.log('💾 Encrypted preferences ready for storage');
       
       // Later, decrypt when retrieving
       const decryptedPreferences = JSON.parse(
-        client.encryption.decrypt(encryptedPreferences)
+        EncryptionUtil.decrypt(encryptedPreferences)
       );
       console.log('📖 Retrieved preferences:', decryptedPreferences);
-    } else {
-      console.log('⚠️ Encryption not available - set ENCRYPTION_KEY in .env');
+    } catch (error) {
+      console.log('⚠️ Encryption not available:', error instanceof Error ? error.message : 'Unknown error');
+      console.log('   Set ENCRYPTION_KEY in .env (64 hex characters = 32 bytes)');
     }
 
     // ==================== GENERIC CACHING ====================
@@ -92,7 +95,8 @@ async function encryptionCacheExample() {
       price: number;
     }
     
-    async function getProduct(id: string): Promise<Product> {
+    // Use arrow function to avoid function declaration in block scope
+    const getProduct = async (id: string): Promise<Product> => {
       const productCacheKey = `product:${id}`;
       
       // Check cache
@@ -115,7 +119,7 @@ async function encryptionCacheExample() {
       console.log('💾 Product cached');
       
       return product;
-    }
+    };
     
     // Use the cached product function
     await getProduct('prod-123');

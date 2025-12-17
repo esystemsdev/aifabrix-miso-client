@@ -2,7 +2,8 @@
  * Example: Configuration from .env
  * Shows how to use loadConfig() for automatic .env loading
  */
-import { MisoClient, loadConfig } from '../src/index';
+// For development: import from '../src/index'
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 async function envConfigExample() {
   // Auto-load from .env file - that's it!

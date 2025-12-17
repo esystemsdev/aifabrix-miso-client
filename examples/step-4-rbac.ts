@@ -4,6 +4,7 @@
  * Check user roles and enforce access control.
  */
 
+// Note: When copying this example to your project, use: import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 import { MisoClient, loadConfig } from '../src/index';
 
 async function rbacExample() {

@@ -2,7 +2,8 @@
  * Example: Manual Configuration
  * Shows how to configure client with explicit parameters
  */
-import { MisoClient } from '../src/index';
+// For development: import from '../src/index'
+import { MisoClient } from '@aifabrix/miso-client';
 
 async function manualConfigExample() {
   const client = new MisoClient({
