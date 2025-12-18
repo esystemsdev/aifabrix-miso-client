@@ -1,0 +1,30 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Demo-miso</title>
+    <script>
+        window.DataClientLoaded = false;
+        window.DataClientError = null;
+        const script = document.createElement('script');
+        script.src = '/dataclient.js';
+        script.onload = () => {
+            window.DataClientLoaded = true;
+            console.log('DataClient loaded successfully');
+        };
+        script.onerror = (error) => {
+            window.DataClientError = 'Failed to load DataClient script';
+            console.error('Failed to load DataClient:', error);
+        };
+        document.head.appendChild(script);
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+  
