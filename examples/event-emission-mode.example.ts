@@ -5,8 +5,8 @@
  * When emitEvents = true, logs are emitted as Node.js events instead of being sent via HTTP.
  */
 
-// For development: import from '../src/index'
-import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
+// Note: When copying this example to your project, use: import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, LogEntry } from '../src/index';
 
 async function eventEmissionExample() {
   // Create client with emitEvents enabled

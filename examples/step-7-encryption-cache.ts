@@ -4,8 +4,8 @@
  * Examples of encrypting sensitive data and using generic caching.
  */
 
-// For development: import from '../src/index'
-import { MisoClient, loadConfig, EncryptionUtil } from '@aifabrix/miso-client';
+// Note: When copying this example to your project, use: import { MisoClient, loadConfig, EncryptionUtil } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, EncryptionUtil } from '../src/index';
 
 async function encryptionCacheExample() {
   // Create client - loads from .env automatically

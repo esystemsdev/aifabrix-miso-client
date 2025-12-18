@@ -2,6 +2,7 @@
  * Example usage of MisoClient SDK
  */
 
+// Note: When copying this example to your project, use: import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 import { MisoClient, loadConfig } from '../src/index';
 
 async function example() {

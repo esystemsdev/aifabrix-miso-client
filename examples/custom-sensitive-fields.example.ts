@@ -5,8 +5,8 @@
  * to extend the default ISO 27001 compliant sensitive fields.
  */
 
-// For development: import from '../src/index'
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+// Note: When copying this example to your project, use: import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '../src/index';
 
 async function example() {
   // Option 1: Use environment variable
@@ -20,20 +20,25 @@ async function example() {
   };
   
   const client = new MisoClient(config);
-  await client.initialize();
   
-  // Now all HTTP requests will use your custom sensitive fields configuration
-  // for masking sensitive data in audit and debug logs
-  
-  const token = 'your-jwt-token-here';
-  
-  // This request will be automatically audited and debug logged (if logLevel === 'debug')
-  // All sensitive data will be masked using your custom configuration
-  const user = await client.getUser(token);
-  
-  console.log('User:', user);
-  
-  await client.disconnect();
+  try {
+    await client.initialize();
+    
+    // Now all HTTP requests will use your custom sensitive fields configuration
+    // for masking sensitive data in audit and debug logs
+    
+    const token = 'your-jwt-token-here';
+    
+    // This request will be automatically audited and debug logged (if logLevel === 'debug')
+    // All sensitive data will be masked using your custom configuration
+    const user = await client.getUser(token);
+    
+    console.log('User:', user);
+  } catch (error) {
+    console.error('Error:', error);
+  } finally {
+    await client.disconnect();
+  }
 }
 
 /**

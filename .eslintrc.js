@@ -24,6 +24,18 @@ module.exports = {
       parserOptions: {
         project: './tsconfig.test.json'
       }
+    },
+    {
+      files: ['**/*.js'],
+      parserOptions: {
+        project: null
+      }
+    }
+  ]
+};
+
+        project: null // Disable type-aware linting for vite config files
+      }
     }
   ]
 };
