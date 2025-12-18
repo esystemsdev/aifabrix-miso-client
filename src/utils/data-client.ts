@@ -305,7 +305,7 @@ export class DataClient {
    * Get request metrics
    */
   getMetrics(): RequestMetrics {
-    const responseTimes = this.metrics.responseTimes.sort((a, b) => a - b);
+    const responseTimes = (this.metrics.responseTimes || []).sort((a, b) => a - b);
     const len = responseTimes.length;
 
     return {
