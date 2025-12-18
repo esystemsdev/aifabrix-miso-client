@@ -2,6 +2,7 @@
 import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
+import type { Plugin as RollupPlugin } from 'rollup';
 
 // Plugin to intercept Node.js built-in module imports
 function nodePolyfillsPlugin(): Plugin {
@@ -16,12 +17,22 @@ function nodePolyfillsPlugin(): Plugin {
   
   const catchAllPath = path.resolve(__dirname, './src/stubs/catch-all.js');
   
+  const ioredisCommandsStub = path.resolve(__dirname, './src/stubs/ioredis-commands.js');
+  
   return {
     name: 'node-polyfills',
     enforce: 'pre',
-    resolveId(id) {
+    resolveId(id, importer) {
       // Remove 'node:' prefix if present
       const cleanId = id.startsWith('node:') ? id.slice(5) : id;
+      
+      // CRITICAL: Intercept @ioredis/* packages FIRST
+      // This must happen before other checks to catch all @ioredis imports
+      if (id.startsWith('@ioredis/')) {
+        // Log to verify it's being called
+        console.log(`[node-polyfills] Resolving ${id} -> ${ioredisCommandsStub}`);
+        return ioredisCommandsStub;
+      }
       
       // Intercept Node.js built-in module imports
       if (nodeModules.includes(cleanId)) {
@@ -62,17 +73,48 @@ function nodePolyfillsPlugin(): Plugin {
         }
       }
       
-      // Auto-stub all @ioredis/* packages (including subpaths)
-      if (id.startsWith('@ioredis/')) {
-        // Handle subpaths like @ioredis/commands/built/index or @ioredis/commands/built/commands
-        // All @ioredis/* packages should use the commands stub
-        if (id.includes('/commands')) {
-          return path.resolve(__dirname, './src/stubs/ioredis-commands.js');
+      return null;
+    },
+    // Also intercept during load phase to catch any missed imports
+    load(id) {
+      if (id.includes('@ioredis/commands') && !id.includes('ioredis-commands.js')) {
+        // This shouldn't happen if resolveId works, but as a fallback
+        const fs = require('fs');
+        if (fs.existsSync(ioredisCommandsStub)) {
+          return fs.readFileSync(ioredisCommandsStub, 'utf8');
         }
-        // Default stub for other @ioredis/* packages
-        return path.resolve(__dirname, './src/stubs/ioredis-commands.js');
       }
-      
+      return null;
+    },
+    // Transform hook to replace @ioredis/commands imports in source code
+    transform(code, id) {
+      // Only transform files from node_modules that import @ioredis/commands
+      if (id.includes('node_modules') && code.includes('@ioredis/commands')) {
+        const originalCode = code;
+        // Calculate relative path from the file to our stub
+        const relativePath = path.relative(path.dirname(id), ioredisCommandsStub).replace(/\\/g, '/');
+        // Ensure it starts with ./
+        const stubRelativePath = relativePath.startsWith('.') ? relativePath : './' + relativePath;
+        
+        // Replace require('@ioredis/commands') with our stub path
+        code = code.replace(
+          /require\(['"]@ioredis\/commands['"]\)/g,
+          `require('${stubRelativePath}')`
+        );
+        code = code.replace(
+          /from\s+['"]@ioredis\/commands['"]/g,
+          `from '${stubRelativePath}'`
+        );
+        code = code.replace(
+          /import\s+.*\s+from\s+['"]@ioredis\/commands['"]/g,
+          (match) => match.replace('@ioredis/commands', stubRelativePath)
+        );
+        
+        if (code !== originalCode) {
+          console.log(`[node-polyfills] Transformed @ioredis/commands imports in ${id.split('/').slice(-3).join('/')}`);
+          return { code, map: null };
+        }
+      }
       return null;
     },
   };
@@ -110,6 +152,12 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react', 'react-dom'],
     exclude: ['@aifabrix/miso-client'], // Exclude workspace dependency from pre-bundling
+    // Force Vite to resolve @ioredis/commands through our alias
+    esbuildOptions: {
+      alias: {
+        '@ioredis/commands': path.resolve(__dirname, './src/stubs/ioredis-commands.js'),
+      },
+    },
   },
   build: {
     target: 'esnext',
@@ -119,6 +167,22 @@ export default defineConfig({
     commonjsOptions: {
       include: [/node_modules/],
       transformMixedEsModules: true,
+    },
+    rollupOptions: {
+      plugins: [
+        // Rollup plugin to intercept @ioredis/commands during build
+        {
+          name: 'replace-ioredis-commands',
+          resolveId(id) {
+            if (id.startsWith('@ioredis/')) {
+              const stubPath = path.resolve(__dirname, './src/stubs/ioredis-commands.js');
+              console.log(`[rollup-plugin] Resolving ${id} -> ${stubPath}`);
+              return stubPath;
+            }
+            return null;
+          },
+        },
+      ],
     },
   },
   server: {
