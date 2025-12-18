@@ -3,7 +3,7 @@
  * Provides health check endpoint for monitoring
  */
 
-import { Request, Response } from "express";
+import { Request, Response } from 'express';
 
 /**
  * Health check endpoint
@@ -13,14 +13,13 @@ export function healthHandler(req: Request, res: Response): void {
   console.log(`[${new Date().toISOString()}] Health check called`);
   try {
     res.json({
-      status: "ok",
+      status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
     console.log(`[${new Date().toISOString()}] Health check response sent`);
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Health check error:`, error);
-    res.status(500).json({ error: "Health check failed" });
+    res.status(500).json({ error: 'Health check failed' });
   }
 }
-

@@ -6,10 +6,7 @@ module.exports = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-  ],
+  collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   coverageThreshold: {
     global: {
       branches: 80,
@@ -22,4 +19,3 @@ module.exports = {
     '^@aifabrix/miso-client$': '<rootDir>/../src/index.ts',
   },
 };
-

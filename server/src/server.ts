@@ -8,13 +8,13 @@
 // Builder generates .env to ../../.env (root directory)
 // Use require() to execute immediately before ES module imports
 /* eslint-disable @typescript-eslint/no-var-requires */
-const dotenv = require("dotenv");
-const { join } = require("path");
-const { existsSync } = require("fs");
+const dotenv = require('dotenv');
+const { join } = require('path');
+const { existsSync } = require('fs');
 /* eslint-enable @typescript-eslint/no-var-requires */
 
-const rootEnvPath = join(process.cwd(), "..", ".env");
-const localEnvPath = join(process.cwd(), ".env");
+const rootEnvPath = join(process.cwd(), '..', '.env');
+const localEnvPath = join(process.cwd(), '.env');
 
 // Try root .env first (builder-generated), then local .env (for development)
 // Use override: false to prevent loadConfig()'s dotenv/config from overwriting
@@ -27,11 +27,11 @@ if (existsSync(rootEnvPath)) {
   dotenv.config({ override: false });
 }
 
-import express from "express";
-import { readFileSync } from "fs";
-import { MisoClient, loadConfig, createClientTokenEndpoint } from "@aifabrix/miso-client";
-import { loadEnvConfig } from "./config/env";
-import { errorHandler, notFoundHandler } from "./middleware/error-handler";
+import express from 'express';
+import { readFileSync } from 'fs';
+import { MisoClient, loadConfig, createClientTokenEndpoint } from '@aifabrix/miso-client';
+import { loadEnvConfig } from './config/env';
+import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import {
   getUsers,
   getUserById,
@@ -42,7 +42,7 @@ import {
   getMetrics,
   slowEndpoint,
   errorEndpoint,
-} from "./routes/api";
+} from './routes/api';
 
 const app = express();
 const envConfig = loadEnvConfig();
@@ -58,11 +58,17 @@ setImmediate(() => {
     misoClient = new MisoClient(config);
     // Initialize asynchronously
     misoClient.initialize().catch((error) => {
-      console.warn("⚠️  MisoClient initialization failed:", error instanceof Error ? error.message : error);
+      console.warn(
+        '⚠️  MisoClient initialization failed:',
+        error instanceof Error ? error.message : error
+      );
     });
   } catch (error) {
-    console.warn("⚠️  MisoClient creation failed (server will continue without it):", error instanceof Error ? error.message : error);
-    console.warn("   Some endpoints may not work without MisoClient configured.");
+    console.warn(
+      '⚠️  MisoClient creation failed (server will continue without it):',
+      error instanceof Error ? error.message : error
+    );
+    console.warn('   Some endpoints may not work without MisoClient configured.');
   }
 });
 
@@ -71,19 +77,19 @@ app.use((req, res, next) => {
   // Simple CORS
   const origin = req.headers.origin;
   if (origin) {
-    res.header("Access-Control-Allow-Origin", origin);
-    res.header("Access-Control-Allow-Credentials", "true");
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
   } else {
-    res.header("Access-Control-Allow-Origin", "*");
+    res.header('Access-Control-Allow-Origin', '*');
   }
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, x-client-token");
-  
-  if (req.method === "OPTIONS") {
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-client-token');
+
+  if (req.method === 'OPTIONS') {
     res.sendStatus(200);
     return;
   }
-  
+
   next();
 });
 
@@ -92,7 +98,7 @@ app.use(express.json());
 
 // Serve static files from public directory
 // Server runs from server/ directory, so public is at ./public
-const publicPath = join(process.cwd(), "public");
+const publicPath = join(process.cwd(), 'public');
 if (existsSync(publicPath)) {
   app.use(express.static(publicPath));
 }
@@ -100,10 +106,10 @@ if (existsSync(publicPath)) {
 // Serve DataClient bundle
 // For demo purposes, we provide a minimal browser-compatible DataClient
 // In production, DataClient should be bundled with your build tool (webpack/vite/etc)
-app.get("/dataclient.js", (req, res) => {
+app.get('/dataclient.js', (req, res) => {
   try {
-    res.setHeader("Content-Type", "application/javascript");
-    
+    res.setHeader('Content-Type', 'application/javascript');
+
     // Minimal browser-compatible DataClient for demo purposes
     // This is a simplified version - use the full package in production
     res.send(`
@@ -292,21 +298,25 @@ console.log('DataClient (demo mode) loaded successfully');
 window.DataClientLoaded = true;
 `);
   } catch (error) {
-    res.status(500).send(`// Error loading DataClient: ${error instanceof Error ? error.message : "Unknown error"}`);
+    res
+      .status(500)
+      .send(
+        `// Error loading DataClient: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
   }
 });
 
 // Routes
 // Add a simple test route first to verify routing works
-app.get("/test", (req, res) => {
+app.get('/test', (req, res) => {
   console.log(`[${new Date().toISOString()}] /test route hit`);
-  res.json({ message: "Server is working!", timestamp: new Date().toISOString() });
+  res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
 });
 
 // Health check - direct response (no function call)
-app.get("/health", (req, res) => {
+app.get('/health', (req, res) => {
   res.json({
-    status: "ok",
+    status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
   });
@@ -315,52 +325,62 @@ app.get("/health", (req, res) => {
 // Client token endpoint with zero-config setup
 // Automatically includes DataClient configuration in response
 // createClientTokenEndpoint handles misoClient initialization check internally
-app.post("/api/v1/auth/client-token", async (req, res) => {
+app.post('/api/v1/auth/client-token', async (req, res) => {
   if (!misoClient) {
     res.status(503).json({
-      error: "MisoClient is not initialized. Please configure MISO_CLIENTID and MISO_CLIENTSECRET environment variables.",
+      error:
+        'MisoClient is not initialized. Please configure MISO_CLIENTID and MISO_CLIENTSECRET environment variables.',
     });
     return;
   }
-  
+
   // Use zero-config helper - automatically enriches response with DataClient config
   const handler = createClientTokenEndpoint(misoClient);
   await handler(req, res);
 });
 
 // API routes
-app.get("/api/users", getUsers);
-app.get("/api/users/:id", getUserById);
-app.post("/api/users", createUser);
-app.put("/api/users/:id", updateUser);
-app.patch("/api/users/:id", patchUser);
-app.delete("/api/users/:id", deleteUser);
-app.get("/api/metrics", getMetrics);
-app.get("/api/slow", slowEndpoint);
-app.get("/api/error/:code", errorEndpoint);
+app.get('/api/users', getUsers);
+app.get('/api/users/:id', getUserById);
+app.post('/api/users', createUser);
+app.put('/api/users/:id', updateUser);
+app.patch('/api/users/:id', patchUser);
+app.delete('/api/users/:id', deleteUser);
+app.get('/api/metrics', getMetrics);
+app.get('/api/slow', slowEndpoint);
+app.get('/api/error/:code', errorEndpoint);
 
 // SPA catch-all route: serve index.html for all non-API routes
 // This allows client-side routing to work properly
 // API routes and static files are handled by middleware above
-app.get("*", (req, res, next) => {
+app.get('*', (req, res, next) => {
   // Skip if this is an API route or static file request
-  if (req.path.startsWith("/api/") || req.path.startsWith("/dataclient.js") || req.path.startsWith("/health") || req.path.startsWith("/test")) {
+  if (
+    req.path.startsWith('/api/') ||
+    req.path.startsWith('/dataclient.js') ||
+    req.path.startsWith('/health') ||
+    req.path.startsWith('/test')
+  ) {
     return next();
   }
-  
+
   // Serve index.html for SPA routing
   try {
-    const indexPath = join(process.cwd(), "public", "index.html");
+    const indexPath = join(process.cwd(), 'public', 'index.html');
     if (existsSync(indexPath)) {
-      const html = readFileSync(indexPath, "utf-8");
-      res.setHeader("Content-Type", "text/html");
+      const html = readFileSync(indexPath, 'utf-8');
+      res.setHeader('Content-Type', 'text/html');
       res.send(html);
     } else {
-      res.status(404).send("<h1>404</h1><p>Index page not found</p>");
+      res.status(404).send('<h1>404</h1><p>Index page not found</p>');
     }
   } catch (error) {
     console.error(`Error serving SPA route:`, error);
-    res.status(500).send(`<h1>Error</h1><p>Failed to load index page: ${error instanceof Error ? error.message : "Unknown error"}</p>`);
+    res
+      .status(500)
+      .send(
+        `<h1>Error</h1><p>Failed to load index page: ${error instanceof Error ? error.message : 'Unknown error'}</p>`
+      );
   }
 });
 
@@ -374,13 +394,13 @@ app.use(errorHandler);
 const PORT = envConfig.port;
 
 // Set server timeout to prevent hanging
-const server = app.listen(PORT, "0.0.0.0", () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📝 Demo page: http://localhost:${PORT}/`);
   console.log(`🏥 Health check: http://localhost:${PORT}/health`);
 
   // MisoClient initialization happens in setImmediate above (non-blocking)
-  console.log("✅ Server started successfully - ready to accept requests");
+  console.log('✅ Server started successfully - ready to accept requests');
 });
 
 // Set server timeout
@@ -397,43 +417,42 @@ const shutdown = async (signal: string) => {
     process.exit(1);
     return;
   }
-  
+
   isShuttingDown = true;
   console.log(`\n${signal} signal received: shutting down...`);
-  
+
   // Immediately stop accepting new connections
   server.close();
-  
+
   // Force close all existing connections (Node.js 18.2.0+)
   if (typeof server.closeAllConnections === 'function') {
     server.closeAllConnections();
-    console.log("✅ All connections closed");
+    console.log('✅ All connections closed');
   }
-  
+
   // Disconnect MisoClient if it exists (fire and forget - don't wait)
   if (misoClient) {
     misoClient.disconnect().catch(() => {
       // Ignore errors during shutdown
     });
   }
-  
+
   // Exit immediately - don't wait for anything
-  console.log("✅ Exiting process...");
+  console.log('✅ Exiting process...');
   process.exit(0);
 };
 
 // Handle shutdown signals (Ctrl+C, kill command, etc.)
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Handle uncaught exceptions
-process.on("uncaughtException", (error) => {
-  console.error("❌ Uncaught Exception:", error);
-  shutdown("uncaughtException");
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  shutdown('uncaughtException');
 });
 
 // Handle unhandled promise rejections (log but don't exit)
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("❌ Unhandled Rejection at:", promise, "reason:", reason);
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
-

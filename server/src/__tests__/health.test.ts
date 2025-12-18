@@ -47,4 +47,3 @@ describe('Health Handler', () => {
     expect(callArgs.uptime).toBeGreaterThanOrEqual(0);
   });
 });
-

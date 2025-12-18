@@ -3,12 +3,12 @@
  * Provides mock endpoints for demonstrating DataClient capabilities
  */
 
-import { Request, Response } from "express";
+import { Request, Response } from 'express';
 
 // Mock data store (in-memory)
 const users: Array<{ id: string; name: string; email: string; createdAt: string }> = [
-  { id: "1", name: "John Doe", email: "john@example.com", createdAt: new Date().toISOString() },
-  { id: "2", name: "Jane Smith", email: "jane@example.com", createdAt: new Date().toISOString() },
+  { id: '1', name: 'John Doe', email: 'john@example.com', createdAt: new Date().toISOString() },
+  { id: '2', name: 'Jane Smith', email: 'jane@example.com', createdAt: new Date().toISOString() },
 ];
 
 /**
@@ -25,7 +25,7 @@ export function getUsers(req: Request, res: Response): void {
       });
     }, 100);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch users" });
+    res.status(500).json({ error: 'Failed to fetch users' });
   }
 }
 
@@ -38,13 +38,13 @@ export function getUserById(req: Request, res: Response): void {
     const user = users.find((u) => u.id === id);
 
     if (!user) {
-      res.status(404).json({ error: "User not found" });
+      res.status(404).json({ error: 'User not found' });
       return;
     }
 
     res.json({ user });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch user" });
+    res.status(500).json({ error: 'Failed to fetch user' });
   }
 }
 
@@ -57,7 +57,7 @@ export function createUser(req: Request, res: Response): void {
     const { name, email } = req.body;
 
     if (!name || !email) {
-      res.status(400).json({ error: "Name and email are required" });
+      res.status(400).json({ error: 'Name and email are required' });
       return;
     }
 
@@ -72,7 +72,7 @@ export function createUser(req: Request, res: Response): void {
 
     res.status(201).json({ user: newUser });
   } catch (error) {
-    res.status(500).json({ error: "Failed to create user" });
+    res.status(500).json({ error: 'Failed to create user' });
   }
 }
 
@@ -88,12 +88,12 @@ export function updateUser(req: Request, res: Response): void {
     const userIndex = users.findIndex((u) => u.id === id);
 
     if (userIndex === -1) {
-      res.status(404).json({ error: "User not found" });
+      res.status(404).json({ error: 'User not found' });
       return;
     }
 
     if (!name || !email) {
-      res.status(400).json({ error: "Name and email are required" });
+      res.status(400).json({ error: 'Name and email are required' });
       return;
     }
 
@@ -105,7 +105,7 @@ export function updateUser(req: Request, res: Response): void {
 
     res.json({ user: users[userIndex] });
   } catch (error) {
-    res.status(500).json({ error: "Failed to update user" });
+    res.status(500).json({ error: 'Failed to update user' });
   }
 }
 
@@ -121,7 +121,7 @@ export function patchUser(req: Request, res: Response): void {
     const userIndex = users.findIndex((u) => u.id === id);
 
     if (userIndex === -1) {
-      res.status(404).json({ error: "User not found" });
+      res.status(404).json({ error: 'User not found' });
       return;
     }
 
@@ -132,7 +132,7 @@ export function patchUser(req: Request, res: Response): void {
 
     res.json({ user: users[userIndex] });
   } catch (error) {
-    res.status(500).json({ error: "Failed to update user" });
+    res.status(500).json({ error: 'Failed to update user' });
   }
 }
 
@@ -146,7 +146,7 @@ export function deleteUser(req: Request, res: Response): void {
     const userIndex = users.findIndex((u) => u.id === id);
 
     if (userIndex === -1) {
-      res.status(404).json({ error: "User not found" });
+      res.status(404).json({ error: 'User not found' });
       return;
     }
 
@@ -154,7 +154,7 @@ export function deleteUser(req: Request, res: Response): void {
 
     res.status(204).send();
   } catch (error) {
-    res.status(500).json({ error: "Failed to delete user" });
+    res.status(500).json({ error: 'Failed to delete user' });
   }
 }
 
@@ -171,14 +171,14 @@ export function getMetrics(req: Request, res: Response): void {
       errorRate: 0.05,
       cacheHitRate: 0.75,
       responseTimeDistribution: {
-        "<100ms": 30,
-        "100-200ms": 50,
-        "200-500ms": 15,
-        ">500ms": 5,
+        '<100ms': 30,
+        '100-200ms': 50,
+        '200-500ms': 15,
+        '>500ms': 5,
       },
     });
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch metrics" });
+    res.status(500).json({ error: 'Failed to fetch metrics' });
   }
 }
 
@@ -191,7 +191,7 @@ export function slowEndpoint(req: Request, res: Response): void {
 
   setTimeout(() => {
     res.json({
-      message: "Slow response",
+      message: 'Slow response',
       delay,
       timestamp: new Date().toISOString(),
     });
@@ -207,18 +207,17 @@ export function errorEndpoint(req: Request, res: Response): void {
   const statusCode = parseInt(code, 10) || 500;
 
   const errorMessages: Record<number, string> = {
-    400: "Bad Request",
-    401: "Unauthorized",
-    403: "Forbidden",
-    404: "Not Found",
-    500: "Internal Server Error",
-    503: "Service Unavailable",
+    400: 'Bad Request',
+    401: 'Unauthorized',
+    403: 'Forbidden',
+    404: 'Not Found',
+    500: 'Internal Server Error',
+    503: 'Service Unavailable',
   };
 
   res.status(statusCode).json({
-    error: errorMessages[statusCode] || "Unknown Error",
+    error: errorMessages[statusCode] || 'Unknown Error',
     statusCode,
     message: `Simulated ${statusCode} error for testing`,
   });
 }
-

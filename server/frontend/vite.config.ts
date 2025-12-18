@@ -87,14 +87,21 @@ function nodePolyfillsPlugin(): Plugin {
       return null;
     },
     // Transform hook to replace @ioredis/commands imports in source code
+    // This runs AFTER resolveId, so we can catch imports that weren't intercepted
     transform(code, id) {
-      // Only transform files from node_modules that import @ioredis/commands
-      if (id.includes('node_modules') && code.includes('@ioredis/commands')) {
+      // Only transform files from node_modules/ioredis that import @ioredis/commands
+      if (id.includes('node_modules/ioredis') && code.includes('@ioredis/commands')) {
         const originalCode = code;
+        console.log(`[node-polyfills] transform called for ${id.split('/').slice(-3).join('/')}`);
+        
+        // Use absolute path resolution - Vite will resolve it correctly
         // Calculate relative path from the file to our stub
-        const relativePath = path.relative(path.dirname(id), ioredisCommandsStub).replace(/\\/g, '/');
+        const fileDir = path.dirname(id);
+        const relativePath = path.relative(fileDir, ioredisCommandsStub).replace(/\\/g, '/');
         // Ensure it starts with ./
         const stubRelativePath = relativePath.startsWith('.') ? relativePath : './' + relativePath;
+        
+        console.log(`[node-polyfills]   Replacing @ioredis/commands with ${stubRelativePath}`);
         
         // Replace require('@ioredis/commands') with our stub path
         code = code.replace(
@@ -111,8 +118,10 @@ function nodePolyfillsPlugin(): Plugin {
         );
         
         if (code !== originalCode) {
-          console.log(`[node-polyfills] Transformed @ioredis/commands imports in ${id.split('/').slice(-3).join('/')}`);
+          console.log(`[node-polyfills] ✅ Transformed @ioredis/commands imports in ${id.split('/').slice(-3).join('/')}`);
           return { code, map: null };
+        } else {
+          console.log(`[node-polyfills] ⚠️  No replacements made in ${id.split('/').slice(-3).join('/')}`);
         }
       }
       return null;
@@ -151,8 +160,8 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['react', 'react-dom'],
-    exclude: ['@aifabrix/miso-client'], // Exclude workspace dependency from pre-bundling
-    // Force Vite to resolve @ioredis/commands through our alias
+    exclude: ['@aifabrix/miso-client', '@ioredis/commands'], // Exclude from pre-bundling - we'll handle it
+    // Force Vite to resolve @ioredis/commands through our alias during dev
     esbuildOptions: {
       alias: {
         '@ioredis/commands': path.resolve(__dirname, './src/stubs/ioredis-commands.js'),
@@ -171,12 +180,18 @@ export default defineConfig({
     rollupOptions: {
       plugins: [
         // Rollup plugin to intercept @ioredis/commands during build
+        // This runs during the build phase and should catch imports from node_modules
         {
           name: 'replace-ioredis-commands',
-          resolveId(id) {
+          buildStart() {
+            console.log('[rollup-plugin] replace-ioredis-commands plugin started');
+          },
+          resolveId(id, importer) {
             if (id.startsWith('@ioredis/')) {
               const stubPath = path.resolve(__dirname, './src/stubs/ioredis-commands.js');
-              console.log(`[rollup-plugin] Resolving ${id} -> ${stubPath}`);
+              console.log(`[rollup-plugin] resolveId called for ${id}`);
+              console.log(`[rollup-plugin]   importer: ${importer ? importer.split('/').slice(-3).join('/') : 'unknown'}`);
+              console.log(`[rollup-plugin]   resolving to: ${stubPath}`);
               return stubPath;
             }
             return null;
