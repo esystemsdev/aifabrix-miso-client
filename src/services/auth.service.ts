@@ -112,7 +112,7 @@ export class AuthService {
           }
         } else if (axiosError.request) {
           responseDetails.push(
-            `request: ${JSON.stringify(axiosError.request)}`,
+            `request: [Request object - not serializable]`,
           );
           responseDetails.push(`message: ${axiosError.message}`);
         } else {
@@ -214,7 +214,7 @@ export class AuthService {
           }
         } else if (axiosError.request) {
           responseDetails.push(
-            `request: ${JSON.stringify(axiosError.request)}`,
+            `request: [Request object - not serializable]`,
           );
           responseDetails.push(`message: ${axiosError.message}`);
         } else {
@@ -426,7 +426,7 @@ export class AuthService {
           }
         } else if (axiosError.request) {
           responseDetails.push(
-            `request: ${JSON.stringify(axiosError.request)}`,
+            `request: [Request object - not serializable]`,
           );
           responseDetails.push(`message: ${axiosError.message}`);
         } else {
