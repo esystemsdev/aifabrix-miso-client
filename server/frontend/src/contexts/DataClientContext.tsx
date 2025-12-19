@@ -11,8 +11,10 @@ interface DataClientContextValue {
   isLoading: boolean;
   /** Initialization error, if any */
   error: Error | null;
-  /** Re-initialize DataClient */
+  /** Re-initialize DataClient with auto-config */
   reinitialize: () => Promise<void>;
+  /** Set a manually created DataClient instance */
+  setManualClient: (client: DataClient) => void;
 }
 
 /**
@@ -86,6 +88,15 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
     await initialize();
   };
 
+  /**
+   * Set a manually created DataClient instance
+   */
+  const setManualClient = (client: DataClient) => {
+    setDataClient(client);
+    setError(null);
+    setIsLoading(false);
+  };
+
   // Initialize on mount
   useEffect(() => {
     initialize();
@@ -97,6 +108,7 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
       isLoading,
       error,
       reinitialize,
+      setManualClient,
     }),
     [dataClient, isLoading, error],
   );

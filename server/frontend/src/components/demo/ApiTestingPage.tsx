@@ -171,6 +171,31 @@ export function ApiTestingPage() {
     }
   };
 
+  const testRedirectToLogin = async () => {
+    if (!dataClient) {
+      toast.error('DataClient not initialized');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      setResult({ 
+        message: 'Redirecting to login...', 
+        note: 'Page will redirect to miso-controller login endpoint',
+        timestamp: new Date().toISOString(),
+      });
+      await dataClient.redirectToLogin();
+      // Note: This will redirect the page, so we won't reach here
+    } catch (error: any) {
+      setResult({
+        error: error.message || 'Redirect failed',
+        timestamp: new Date().toISOString(),
+      });
+      toast.error('Redirect to login failed', { description: error.message });
+      setLoading(false);
+    }
+  };
+
   // Error Handling Tests
   const testNetworkError = async () => {
     if (!dataClient) {
@@ -385,6 +410,18 @@ export function ApiTestingPage() {
                   <CardContent>
                     <Button onClick={testLogout} disabled={isDisabled} variant="destructive" className="w-full">
                       logout()
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Redirect to Login</CardTitle>
+                    <CardDescription>Redirect to miso-controller login page</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button onClick={testRedirectToLogin} disabled={isDisabled} className="w-full bg-blue-600 hover:bg-blue-700">
+                      redirectToLogin()
                     </Button>
                   </CardContent>
                 </Card>

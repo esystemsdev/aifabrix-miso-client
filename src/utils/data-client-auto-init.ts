@@ -182,9 +182,10 @@ export async function autoInitializeDataClient(
   }
 
   const opts = {
-    clientTokenUri: "/api/v1/auth/client-token",
-    cacheConfig: true,
-    ...options,
+    clientTokenUri: options?.clientTokenUri || "/api/v1/auth/client-token",
+    cacheConfig: options?.cacheConfig ?? true,
+    baseUrl: options?.baseUrl,
+    onError: options?.onError,
   };
 
   try {

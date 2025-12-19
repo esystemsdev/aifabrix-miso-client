@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Radio, Database, BarChart, Shield, Code } from 'lucide-react';
+import { Settings, Radio, Database, BarChart, Shield, Code, LogIn, LogOut, User } from 'lucide-react';
 import { ConfigurationPage } from './components/demo/ConfigurationPage';
 import { ApiTestingPage } from './components/demo/ApiTestingPage';
 import { CachingPage } from './components/demo/CachingPage';
@@ -7,7 +7,10 @@ import { MonitoringPage } from './components/demo/MonitoringPage';
 import { AuthorizationPage } from './components/demo/AuthorizationPage';
 import { CodeExamplesPage } from './components/demo/CodeExamplesPage';
 import { Toaster } from './components/ui/sonner';
+import { toast } from 'sonner';
 import Favicon from './imports/Favicon1';
+import { useDataClient } from './hooks/useDataClient';
+import { Button } from './components/ui/button';
 
 declare global {
   interface Window {
@@ -46,6 +49,103 @@ export default function App() {
         {renderContent()}
       </main>
       <Toaster position="top-right" />
+    </div>
+  );
+}
+
+// Auth status component for sidebar
+function AuthSection() {
+  const { dataClient, isLoading } = useDataClient();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
+
+  // Check auth status on mount and when dataClient changes
+  React.useEffect(() => {
+    if (dataClient) {
+      setIsAuthenticated(dataClient.isAuthenticated());
+    }
+  }, [dataClient]);
+
+  const handleLogin = async () => {
+    if (!dataClient) {
+      toast.error('DataClient not initialized', {
+        description: 'Please initialize DataClient first on the Configuration page',
+      });
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      await dataClient.redirectToLogin();
+      // Note: This will redirect the page, so we won't reach here
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Login failed', { description: errorMessage });
+      setAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    if (!dataClient) {
+      toast.error('DataClient not initialized');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      await dataClient.logout();
+      setIsAuthenticated(false);
+      toast.success('Logged out successfully');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Logout failed', { description: errorMessage });
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-4 border-t border-sidebar-border">
+        <div className="text-xs text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 border-t border-sidebar-border space-y-3">
+      {/* Auth Status */}
+      <div className="flex items-center gap-2 text-xs">
+        <User className="w-3 h-3" />
+        <span className={isAuthenticated ? 'text-green-600' : 'text-muted-foreground'}>
+          {isAuthenticated ? 'Authenticated' : 'Not authenticated'}
+        </span>
+      </div>
+
+      {/* Login/Logout Button */}
+      {isAuthenticated ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={handleLogout}
+          disabled={authLoading || !dataClient}
+        >
+          <LogOut className="w-3 h-3 mr-2" />
+          {authLoading ? 'Logging out...' : 'Logout'}
+        </Button>
+      ) : (
+        <Button
+          variant="default"
+          size="sm"
+          className="w-full"
+          onClick={handleLogin}
+          disabled={authLoading || !dataClient}
+        >
+          <LogIn className="w-3 h-3 mr-2" />
+          {authLoading ? 'Redirecting...' : 'Login'}
+        </Button>
+      )}
     </div>
   );
 }
@@ -103,6 +203,9 @@ function DemoSidebar({ activeSection, onSectionChange }: { activeSection: string
           })}
         </ul>
       </nav>
+
+      {/* Auth Section */}
+      <AuthSection />
 
       {/* Footer */}
       <div className="p-4 border-t border-sidebar-border">

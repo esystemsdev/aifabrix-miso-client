@@ -18,12 +18,11 @@ import { DataClient } from '@aifabrix/miso-client';
  * - Displaying current configuration state
  */
 export function ConfigurationPage() {
-  const { dataClient, isLoading, error, reinitialize } = useDataClient();
+  const { dataClient, isLoading, error, reinitialize, setManualClient } = useDataClient();
   const [baseUrl, setBaseUrl] = useState('http://localhost:3083');
   const [controllerUrl, setControllerUrl] = useState('');
   const [clientId, setClientId] = useState('');
   const [loading, setLoading] = useState(false);
-  const [manualClient, setManualClient] = useState<DataClient | null>(null);
   const [configInfo, setConfigInfo] = useState<{
     baseUrl: string;
     controllerUrl: string;
@@ -32,8 +31,7 @@ export function ConfigurationPage() {
 
   // Update config info when DataClient changes
   useEffect(() => {
-    const client = manualClient || dataClient;
-    if (client) {
+    if (dataClient) {
       // Extract config info from DataClient instance
       // Note: DataClient doesn't expose config directly, so we use what we know
       setConfigInfo({
@@ -42,7 +40,7 @@ export function ConfigurationPage() {
         clientId: clientId || '',
       });
     }
-  }, [dataClient, manualClient, baseUrl, controllerUrl, clientId]);
+  }, [dataClient, baseUrl, controllerUrl, clientId]);
 
   /**
    * Handle zero-config initialization using context
@@ -54,9 +52,10 @@ export function ConfigurationPage() {
       toast.success('DataClient initialized successfully (Zero-Config)', {
         description: 'Configuration fetched from server endpoint',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       toast.error('Failed to initialize DataClient', {
-        description: err.message || 'Unknown error occurred',
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -74,7 +73,7 @@ export function ConfigurationPage() {
 
     setLoading(true);
     try {
-      const config: any = {
+      const config: Record<string, unknown> = {
         baseUrl,
       };
 
@@ -86,20 +85,21 @@ export function ConfigurationPage() {
 
       if (clientId) {
         config.misoConfig = {
-          ...config.misoConfig,
+          ...(config.misoConfig as Record<string, unknown> || {}),
           clientId,
         };
       }
 
-      const client = new DataClient(config);
-      setManualClient(client);
+      const client = new DataClient(config as Parameters<typeof DataClient>[0]);
+      setManualClient(client);  // Updates shared context - AuthSection will see this
       
       toast.success('DataClient initialized successfully (Manual)', {
         description: 'Custom configuration applied',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       toast.error('Failed to initialize DataClient', {
-        description: err.message || 'Unknown error occurred',
+        description: errorMessage,
       });
     } finally {
       setLoading(false);
@@ -110,8 +110,7 @@ export function ConfigurationPage() {
    * Test connection using DataClient
    */
   const handleTestConnection = async () => {
-    const client = manualClient || dataClient;
-    if (!client) {
+    if (!dataClient) {
       toast.error('DataClient not initialized');
       return;
     }
@@ -119,19 +118,20 @@ export function ConfigurationPage() {
     setLoading(true);
     try {
       // Try a simple GET request to test connection
-      await client.get('/api/health', { cache: { enabled: false } });
+      await dataClient.get('/api/health', { cache: { enabled: false } });
       toast.success('Connection test successful', {
         description: 'Server is responding normally',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       // Even if health endpoint doesn't exist, if we get a response, connection works
-      if (err.message && !err.message.includes('Network')) {
+      if (errorMessage && !errorMessage.includes('Network')) {
         toast.success('Connection test successful', {
           description: 'Server is responding (endpoint may not exist)',
         });
       } else {
         toast.error('Connection test failed', {
-          description: err.message || 'Unable to connect to server',
+          description: errorMessage || 'Unable to connect to server',
         });
       }
     } finally {
@@ -139,7 +139,7 @@ export function ConfigurationPage() {
     }
   };
 
-  const initialized = !!(manualClient || dataClient);
+  const initialized = !!dataClient;
   const currentBaseUrl = configInfo?.baseUrl || baseUrl || window.location.origin;
   const currentControllerUrl = configInfo?.controllerUrl || controllerUrl || 'Not set';
   const currentClientId = configInfo?.clientId || clientId || 'Auto-generated';

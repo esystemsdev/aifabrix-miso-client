@@ -2,7 +2,6 @@
 import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
-import type { Plugin as RollupPlugin } from 'rollup';
 
 // Plugin to intercept Node.js built-in module imports
 function nodePolyfillsPlugin(): Plugin {
@@ -32,6 +31,13 @@ function nodePolyfillsPlugin(): Plugin {
         // Log to verify it's being called
         console.log(`[node-polyfills] Resolving ${id} -> ${ioredisCommandsStub}`);
         return ioredisCommandsStub;
+      }
+      
+      // Intercept dotenv - it's Node.js only and uses process.argv
+      const dotenvStub = path.resolve(__dirname, './src/stubs/dotenv.js');
+      if (id === 'dotenv' || id === 'dotenv/config' || id.startsWith('dotenv/')) {
+        console.log(`[node-polyfills] Resolving ${id} -> ${dotenvStub}`);
+        return dotenvStub;
       }
       
       // Intercept Node.js built-in module imports
@@ -155,6 +161,7 @@ export default defineConfig({
       'ioredis': path.resolve(__dirname, './src/stubs/ioredis.js'),
       'redis-parser': path.resolve(__dirname, './src/stubs/redis-parser.js'),
       '@ioredis/commands': path.resolve(__dirname, './src/stubs/ioredis-commands.js'),
+      // dotenv is handled via resolveId plugin hook (see nodePolyfillsPlugin)
     },
     dedupe: ['react', 'react-dom'], // Prevent duplicate React instances
   },
@@ -182,16 +189,21 @@ export default defineConfig({
         // Rollup plugin to intercept @ioredis/commands during build
         // This runs during the build phase and should catch imports from node_modules
         {
-          name: 'replace-ioredis-commands',
+          name: 'replace-node-modules',
           buildStart() {
-            console.log('[rollup-plugin] replace-ioredis-commands plugin started');
+            console.log('[rollup-plugin] replace-node-modules plugin started');
           },
           resolveId(id, importer) {
+            // Handle @ioredis packages
             if (id.startsWith('@ioredis/')) {
               const stubPath = path.resolve(__dirname, './src/stubs/ioredis-commands.js');
-              console.log(`[rollup-plugin] resolveId called for ${id}`);
-              console.log(`[rollup-plugin]   importer: ${importer ? importer.split('/').slice(-3).join('/') : 'unknown'}`);
-              console.log(`[rollup-plugin]   resolving to: ${stubPath}`);
+              console.log(`[rollup-plugin] resolveId: ${id} -> ioredis stub`);
+              return stubPath;
+            }
+            // Handle dotenv (Node.js only, uses process.argv)
+            if (id === 'dotenv' || id === 'dotenv/config' || id.startsWith('dotenv/')) {
+              const stubPath = path.resolve(__dirname, './src/stubs/dotenv.js');
+              console.log(`[rollup-plugin] resolveId: ${id} -> dotenv stub`);
               return stubPath;
             }
             return null;
