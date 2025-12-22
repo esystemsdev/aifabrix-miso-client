@@ -3,7 +3,7 @@
  */
 
 import { HttpClient } from "../utils/http-client";
-import { RedisService } from "./redis.service";
+import { CacheService } from "./cache.service";
 import {
   MisoClientConfig,
   UserInfo,
@@ -11,19 +11,28 @@ import {
   AuthStrategy,
   LoginResponse,
   LogoutResponse,
+  RefreshTokenResponse,
 } from "../types/config.types";
 import { MisoClientError } from "../utils/errors";
 import { resolveControllerUrl } from "../utils/controller-url-resolver";
+import jwt from "jsonwebtoken";
+
+interface TokenCacheData {
+  authenticated: boolean;
+  timestamp: number;
+}
 
 export class AuthService {
   private httpClient: HttpClient;
-  private redis: RedisService;
+  private cache: CacheService;
   private config: MisoClientConfig;
+  private tokenValidationTTL: number;
 
-  constructor(httpClient: HttpClient, redis: RedisService) {
+  constructor(httpClient: HttpClient, cache: CacheService) {
     this.config = httpClient.config;
-    this.redis = redis;
+    this.cache = cache;
     this.httpClient = httpClient;
+    this.tokenValidationTTL = this.config.cache?.tokenValidationTTL || 900; // 15 minutes default
   }
 
   /**
@@ -32,6 +41,25 @@ export class AuthService {
    */
   private isApiKeyToken(token: string): boolean {
     return this.config.apiKey !== undefined && token === this.config.apiKey;
+  }
+
+  /**
+   * Extract userId from JWT token without making API call
+   * @private
+   */
+  private extractUserIdFromToken(token: string): string | null {
+    try {
+      const decoded = jwt.decode(token) as Record<string, unknown> | null;
+      if (!decoded) return null;
+
+      // Try common JWT claim fields for user ID
+      return (decoded.sub ||
+        decoded.userId ||
+        decoded.user_id ||
+        decoded.id) as string | null;
+    } catch (error) {
+      return null;
+    }
   }
 
   /**
@@ -238,9 +266,11 @@ export class AuthService {
 
   /**
    * Validate token with controller
+   * Caches validation results by userId with configurable TTL (default 15 minutes)
    * If API_KEY is configured and token matches, returns true without calling controller
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
+   * @returns true if token is valid, false otherwise
    */
   async validateToken(
     token: string,
@@ -252,11 +282,36 @@ export class AuthService {
     }
 
     try {
+      // Extract userId from token to check cache first (avoids API call on cache hit)
+      const userId = this.extractUserIdFromToken(token);
+      const cacheKey = userId ? `token:${userId}` : null;
+
+      // Check cache first if we have userId
+      if (cacheKey) {
+        const cached = await this.cache.get<TokenCacheData>(cacheKey);
+        if (cached) {
+          return cached.authenticated;
+        }
+      }
+
+      // Cache miss or no userId in token - fetch from controller
       const result = await this.httpClient.validateTokenRequest<AuthResult>(
         token,
         authStrategy,
       );
-      return result.authenticated;
+
+      const authenticated = result.authenticated;
+
+      // Cache the result if we have userId
+      if (userId && cacheKey) {
+        await this.cache.set<TokenCacheData>(
+          cacheKey,
+          { authenticated, timestamp: Date.now() },
+          this.tokenValidationTTL,
+        );
+      }
+
+      return authenticated;
     } catch (error) {
       // Token validation failed, return false
       return false;
@@ -328,9 +383,29 @@ export class AuthService {
   }
 
   /**
+   * Clear cached token validation result for a user
+   * Extracts userId from JWT token directly (no API call)
+   * @param token - User authentication token
+   */
+  clearTokenCache(token: string): void {
+    try {
+      const userId = this.extractUserIdFromToken(token);
+      if (userId) {
+        const cacheKey = `token:${userId}`;
+        // Use void to ignore promise result - cache clearing should not block
+        void this.cache.delete(cacheKey);
+      }
+    } catch (error) {
+      // Log but don't throw - cache clearing failures should not break flow
+      console.warn("Failed to clear token cache:", error);
+    }
+  }
+
+  /**
    * Logout user
    * Gracefully handles cases where there's no active session (400 Bad Request)
    * Only throws errors for unexpected failures (network errors, 5xx errors, etc.)
+   * Automatically clears token validation cache on logout
    * @param params - Logout parameters
    * @param params.token - Access token to invalidate
    * @returns Logout response with success message
@@ -346,6 +421,9 @@ export class AuthService {
         "/api/v1/auth/logout",
         { token: params.token },
       );
+
+      // Clear token cache after successful logout
+      this.clearTokenCache(params.token);
 
       return response;
     } catch (error) {
@@ -364,6 +442,8 @@ export class AuthService {
             `Logout: No active session or invalid request (400). ` +
               `Response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`,
           );
+          // Clear token cache even if logout returns 400 (idempotent behavior)
+          this.clearTokenCache(params.token);
           // Return a success response - logout is idempotent
           return {
             success: true,
@@ -403,6 +483,8 @@ export class AuthService {
             `Logout: No active session or invalid request (400). ` +
               `Response: ${responseData} [correlationId: ${correlationId}, clientId: ${clientId}]`,
           );
+          // Clear token cache even if logout returns 400 (idempotent behavior)
+          this.clearTokenCache(params.token);
           // Return a success response - logout is idempotent
           return {
             success: true,
@@ -445,6 +527,101 @@ export class AuthService {
       throw new Error(
         `Logout failed: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
       );
+    }
+  }
+
+  /**
+   * Refresh user access token using refresh token
+   * @param refreshToken - Refresh token to exchange for new access token
+   * @param authStrategy - Optional authentication strategy override
+   * @returns New access token, refresh token, and expiration info, or null on error
+   */
+  async refreshToken(
+    refreshToken: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<RefreshTokenResponse | null> {
+    const correlationId = this.generateCorrelationId();
+    const clientId = this.config.clientId;
+
+    try {
+      // Use authenticatedRequest if authStrategy is provided, otherwise use request
+      // Refresh endpoint uses client token (via request), but can accept authStrategy override
+      const response = authStrategy
+        ? await this.httpClient.authenticatedRequest<RefreshTokenResponse>(
+            "POST",
+            "/api/v1/auth/refresh",
+            "", // Empty token - authStrategy will handle authentication
+            { refreshToken },
+            undefined,
+            authStrategy,
+          )
+        : await this.httpClient.request<RefreshTokenResponse>(
+            "POST",
+            "/api/v1/auth/refresh",
+            { refreshToken },
+          );
+
+      return response;
+    } catch (error) {
+      // Check if it's a MisoClientError (converted from AxiosError by HttpClient)
+      if (error instanceof MisoClientError) {
+        const errorDetails = {
+          statusCode: error.statusCode,
+          message: error.message,
+          errorResponse: error.errorResponse,
+          errorBody: error.errorBody,
+        };
+        console.error(
+          `Refresh token failed: ${error.message}. ` +
+            `Full response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`,
+        );
+        return null;
+      }
+
+      // Check if it's an AxiosError (shouldn't happen after HttpClient, but handle just in case)
+      if (
+        error &&
+        typeof error === "object" &&
+        "isAxiosError" in error &&
+        error.isAxiosError
+      ) {
+        const axiosError = error as import("axios").AxiosError;
+        const responseDetails: string[] = [];
+
+        if (axiosError.response) {
+          responseDetails.push(`status: ${axiosError.response.status}`);
+          responseDetails.push(`statusText: ${axiosError.response.statusText}`);
+          responseDetails.push(
+            `data: ${JSON.stringify(axiosError.response.data)}`,
+          );
+          if (axiosError.response.headers) {
+            responseDetails.push(
+              `headers: ${JSON.stringify(axiosError.response.headers)}`,
+            );
+          }
+        } else if (axiosError.request) {
+          responseDetails.push(
+            `request: [Request object - not serializable]`,
+          );
+          responseDetails.push(`message: ${axiosError.message}`);
+        } else {
+          responseDetails.push(`message: ${axiosError.message}`);
+        }
+
+        console.error(
+          `Refresh token failed: ${axiosError.message}. ` +
+            `Full response: {${responseDetails.join(", ")}} [correlationId: ${correlationId}, clientId: ${clientId}]`,
+        );
+        return null;
+      }
+
+      // Non-Axios/MisoClientError (network errors, timeouts, etc.)
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      console.error(
+        `Refresh token failed: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
+      );
+      return null;
     }
   }
 

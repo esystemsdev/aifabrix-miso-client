@@ -14,7 +14,6 @@ import {
 import { extractClientTokenInfo, ClientTokenInfo } from "./token-utils";
 import jwt from "jsonwebtoken";
 import { shouldSkipAudit } from "./data-client-audit";
-import { getValidatedRedirectUrl } from "./data-client-redirect";
 
 /**
  * Get authentication token from localStorage
@@ -27,6 +26,205 @@ export function getToken(tokenKeys?: string[]): string | null {
     if (token) return token;
   }
   return null;
+}
+
+/**
+ * Clean up hash fragment from URL (security measure)
+ */
+function cleanupHash(): void {
+  try {
+    const win = globalThis as unknown as {
+      window?: {
+        location: { pathname: string; search: string; hash: string };
+        history: { replaceState: (data: unknown, title: string, url: string) => void };
+      };
+    };
+    if (!win.window) {
+      console.warn("[handleOAuthCallback] window not available for hash cleanup");
+      return;
+    }
+    const cleanUrl = win.window.location.pathname + win.window.location.search;
+    // Use replaceState to remove hash without adding to history
+    win.window.history.replaceState(null, "", cleanUrl);
+  } catch (e) {
+    console.warn("[handleOAuthCallback] Failed to clean up hash:", e);
+  }
+}
+
+/**
+ * Validate token format (basic JWT format check)
+ * @param token - Token string to validate
+ * @returns True if token appears to be valid JWT format
+ */
+function isValidTokenFormat(token: string): boolean {
+  if (!token || typeof token !== "string") {
+    return false;
+  }
+
+  // Basic JWT format check (3 parts separated by dots)
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    return false;
+  }
+
+  // Each part should be non-empty
+  return parts.every((part) => part.length > 0);
+}
+
+/**
+ * Handle OAuth callback with ISO 27001 compliant security
+ * Extracts token from URL hash fragment and stores securely
+ * 
+ * Security features:
+ * - Immediate hash cleanup (< 100ms)
+ * - Token format validation
+ * - HTTPS enforcement check
+ * - Secure error handling
+ * 
+ * @param config - DataClient configuration
+ * @returns Extracted token or null if not found/invalid
+ */
+export function handleOAuthCallback(config: DataClientConfig): string | null {
+  if (!isBrowser()) return null;
+
+  // CRITICAL: Extract hash IMMEDIATELY (synchronous)
+  // Don't wait for async operations - token must be removed from URL ASAP
+  const window = globalThis as unknown as {
+    window?: { location?: { hash: string; protocol: string; hostname?: string } };
+  };
+  if (!window.window || !window.window.location) return null;
+
+  const hash = window.window.location.hash;
+
+  if (!hash || hash.length <= 1) {
+    return null; // No hash or empty hash
+  }
+
+  // Parse hash synchronously (remove '#' prefix)
+  const hashString = hash.substring(1);
+  let hashParams: URLSearchParams;
+  try {
+    hashParams = new URLSearchParams(hashString);
+  } catch (e) {
+    console.warn("[handleOAuthCallback] Failed to parse hash:", e);
+    return null;
+  }
+
+  // Extract token from various possible parameter names
+  const token =
+    hashParams.get("token") ||
+    hashParams.get("access_token") ||
+    hashParams.get("accessToken");
+
+  if (!token) {
+    return null; // No token in hash
+  }
+
+  // SECURITY: Validate token format (basic JWT check)
+  if (!isValidTokenFormat(token)) {
+    const tokenLength = token.length;
+    const hasDots = token.includes(".");
+    const parts = token.split(".");
+    console.error(
+      "[handleOAuthCallback] Invalid token format - token rejected",
+      {
+        tokenLength,
+        hasDots,
+        partsCount: parts.length,
+        expectedFormat: "JWT (3 parts separated by dots)",
+      },
+    );
+    // Still clean up hash even if token is invalid
+    cleanupHash();
+    return null;
+  }
+
+  // SECURITY: HTTPS enforcement (warn in production, but allow localhost)
+  if (
+    config.misoConfig?.logLevel === "debug" ||
+    process.env.NODE_ENV === "production"
+  ) {
+    const isHttps = window.window.location.protocol === "https:";
+    const hostname = window.window.location.hostname || "";
+    
+    // Check if running on localhost or local IP addresses
+    const isLocalhost =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "[::1]" ||
+      hostname.startsWith("192.168.") ||
+      hostname.startsWith("10.") ||
+      hostname.startsWith("172.16.") ||
+      hostname.startsWith("172.17.") ||
+      hostname.startsWith("172.18.") ||
+      hostname.startsWith("172.19.") ||
+      hostname.startsWith("172.20.") ||
+      hostname.startsWith("172.21.") ||
+      hostname.startsWith("172.22.") ||
+      hostname.startsWith("172.23.") ||
+      hostname.startsWith("172.24.") ||
+      hostname.startsWith("172.25.") ||
+      hostname.startsWith("172.26.") ||
+      hostname.startsWith("172.27.") ||
+      hostname.startsWith("172.28.") ||
+      hostname.startsWith("172.29.") ||
+      hostname.startsWith("172.30.") ||
+      hostname.startsWith("172.31.");
+    
+    // Only enforce HTTPS for production AND non-localhost URLs
+    if (!isHttps && process.env.NODE_ENV === "production" && !isLocalhost) {
+      console.error(
+        "[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production",
+      );
+      cleanupHash();
+      return null; // Reject tokens over HTTP in production (except localhost)
+    }
+  }
+
+  // SECURITY: Remove hash IMMEDIATELY (before any async operations)
+  // Use replaceState to avoid adding to history
+  cleanupHash();
+
+  // Store token in localStorage
+  const tokenKeys = config.tokenKeys || ["token", "accessToken", "authToken"];
+  try {
+    const storage = globalThis as unknown as {
+      localStorage?: { setItem: (key: string, value: string) => void };
+    };
+    if (!storage.localStorage) {
+      console.warn("[handleOAuthCallback] localStorage not available");
+      return null;
+    }
+
+    // Store in all tokenKeys for compatibility
+    tokenKeys.forEach((key) => {
+      try {
+        storage.localStorage!.setItem(key, token);
+      } catch (e) {
+        console.warn(
+          `[handleOAuthCallback] Failed to store token in key ${key}:`,
+          e,
+        );
+      }
+    });
+
+    // Log security event (audit trail) - only in debug mode to avoid exposing token
+    if (config.misoConfig?.logLevel === "debug") {
+      console.log(
+        "[handleOAuthCallback] OAuth token extracted and stored securely",
+        {
+          tokenLength: token.length,
+          tokenKeys: tokenKeys,
+          storedInKeys: tokenKeys.length,
+        },
+      );
+    }
+
+    return token;
+  } catch (e) {
+    console.error("[handleOAuthCallback] Failed to store token:", e);
+    return null;
+  }
 }
 
 /**
@@ -97,20 +295,23 @@ export async function getClientToken(
 ): Promise<string | null> {
   if (!isBrowser()) {
     // Server-side: return null (client token handled by MisoClient)
-    console.log("[getClientToken] Not in browser environment");
     return null;
   }
+
+  const isDebug = misoConfig?.logLevel === "debug";
 
   // Check localStorage cache first
   const cachedToken = getLocalStorage("miso:client-token");
   const expiresAtStr = getLocalStorage("miso:client-token-expires-at");
   
-  console.log("[getClientToken] Checking localStorage:", {
-    hasToken: !!cachedToken,
-    hasExpiresAt: !!expiresAtStr,
-    expiresAt: expiresAtStr,
-    currentTime: Date.now(),
-  });
+  if (isDebug) {
+    console.log("[getClientToken] Checking localStorage:", {
+      hasToken: !!cachedToken,
+      hasExpiresAt: !!expiresAtStr,
+      expiresAt: expiresAtStr,
+      currentTime: Date.now(),
+    });
+  }
   
   if (cachedToken) {
     // If we have expiration timestamp, check it
@@ -120,23 +321,27 @@ export async function getClientToken(
       const timeUntilExpiry = expiresAt - now;
       const timeUntilExpirySeconds = Math.floor(timeUntilExpiry / 1000);
       
-      console.log("[getClientToken] Token expiration check:", {
-        expiresAt,
-        expiresAtISO: new Date(expiresAt).toISOString(),
-        now,
-        nowISO: new Date(now).toISOString(),
-        timeUntilExpiry,
-        timeUntilExpirySeconds,
-        isValid: expiresAt > now,
-        expired: expiresAt <= now,
-        isNaN: isNaN(expiresAt),
-      });
+      if (isDebug) {
+        console.log("[getClientToken] Token expiration check:", {
+          expiresAt,
+          expiresAtISO: new Date(expiresAt).toISOString(),
+          now,
+          nowISO: new Date(now).toISOString(),
+          timeUntilExpiry,
+          timeUntilExpirySeconds,
+          isValid: expiresAt > now,
+          expired: expiresAt <= now,
+          isNaN: isNaN(expiresAt),
+        });
+      }
       
       if (isNaN(expiresAt)) {
         console.warn("[getClientToken] Invalid expiration timestamp format, assuming token is valid");
         return cachedToken;
       } else if (expiresAt > now) {
-        console.log("[getClientToken] Returning valid cached token (checked expiration)");
+        if (isDebug) {
+          console.log("[getClientToken] Returning valid cached token (checked expiration)");
+        }
         return cachedToken; // Valid cached token
       } else {
         console.warn("[getClientToken] Cached token expired, removing from cache");
@@ -152,18 +357,23 @@ export async function getClientToken(
           const now = Date.now();
           const jwtExpiresAt = decoded.exp * 1000; // Convert to milliseconds
           const jwtTimeUntilExpiry = jwtExpiresAt - now;
-          console.log("[getClientToken] Token expiration from JWT:", {
-            jwtExpiresAt,
-            jwtExpiresAtISO: new Date(jwtExpiresAt).toISOString(),
-            now,
-            nowISO: new Date(now).toISOString(),
-            jwtTimeUntilExpiry,
-            jwtTimeUntilExpirySeconds: Math.floor(jwtTimeUntilExpiry / 1000),
-            jwtIsValid: jwtExpiresAt > now,
-          });
+          
+          if (isDebug) {
+            console.log("[getClientToken] Token expiration from JWT:", {
+              jwtExpiresAt,
+              jwtExpiresAtISO: new Date(jwtExpiresAt).toISOString(),
+              now,
+              nowISO: new Date(now).toISOString(),
+              jwtTimeUntilExpiry,
+              jwtTimeUntilExpirySeconds: Math.floor(jwtTimeUntilExpiry / 1000),
+              jwtIsValid: jwtExpiresAt > now,
+            });
+          }
           
           if (jwtExpiresAt > now) {
-            console.log("[getClientToken] Returning valid cached token (checked JWT expiration)");
+            if (isDebug) {
+              console.log("[getClientToken] Returning valid cached token (checked JWT expiration)");
+            }
             return cachedToken;
           } else {
             console.warn("[getClientToken] Token expired (from JWT), removing from cache");
@@ -172,7 +382,9 @@ export async function getClientToken(
           }
         } else {
           // Can't determine expiration - assume token is valid if it exists
-          console.log("[getClientToken] No expiration info available, assuming token is valid");
+          if (isDebug) {
+            console.log("[getClientToken] No expiration info available, assuming token is valid");
+          }
           return cachedToken;
         }
       } catch (error) {
@@ -185,7 +397,9 @@ export async function getClientToken(
 
   // Check config token
   if (misoConfig?.clientToken) {
-    console.log("[getClientToken] Returning token from config");
+    if (isDebug) {
+      console.log("[getClientToken] Returning token from config");
+    }
     return misoConfig.clientToken;
   }
 
@@ -226,117 +440,10 @@ export function getControllerUrl(misoConfig: MisoClientConfig | undefined): stri
 export { redirectToLogin } from "./data-client-redirect";
 
 /**
- * Logout user and redirect
- * Calls logout API with x-client-token header, clears tokens from localStorage, clears cache, and redirects
- * @param redirectUrl - Optional redirect URL after logout (defaults to logoutUrl or loginUrl)
+ * Logout user and redirect to controller logout page
+ * Re-exported from data-client-redirect for backward compatibility
  */
-export async function logout(
-  config: DataClientConfig,
-  getTokenFn: () => string | null,
-  getClientTokenFn: () => Promise<string | null>,
-  clearCacheFn: () => void,
-  redirectUrl?: string,
-): Promise<void> {
-  if (!isBrowser()) return;
-  
-  const token = getTokenFn();
-  
-  // Build controller URL
-  const controllerUrl = getControllerUrl(config.misoConfig);
-  
-  // Call logout API if controller URL available and token exists
-  if (controllerUrl && token) {
-    try {
-      // Get client token
-      const clientToken = await getClientTokenFn();
-      
-      // Build logout endpoint URL
-      const logoutEndpoint = `${controllerUrl}/api/v1/auth/logout`;
-      
-      // Build headers
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      
-      // Add x-client-token header if available
-      if (clientToken) {
-        headers["x-client-token"] = clientToken;
-      }
-      
-      // Make fetch request
-      const response = await fetch(logoutEndpoint, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ token }),
-        credentials: "include", // Include cookies for CORS
-      });
-
-      if (!response.ok) {
-        // Log error but continue with cleanup (logout should always clear local state)
-        const errorText = await response.text().catch(() => "Unknown error");
-        console.error(`Logout API call failed: ${response.status} ${response.statusText}. ${errorText}`);
-      }
-    } catch (error) {
-      // Log error but continue with cleanup (logout should always clear local state)
-      console.error("Logout API call failed:", error);
-    }
-  }
-  
-  // Clear tokens from localStorage (always, even if API call failed)
-  const keys = config.tokenKeys || ["token", "accessToken", "authToken"];
-  keys.forEach(key => {
-    try {
-      const storage = (globalThis as unknown as { localStorage: { removeItem: (key: string) => void } }).localStorage;
-      if (storage) {
-        storage.removeItem(key);
-      }
-    } catch (e) {
-      // Ignore localStorage errors (SSR, private browsing, etc.)
-    }
-  });
-  
-  // Clear HTTP cache
-  clearCacheFn();
-  
-  // Determine redirect URL: redirectUrl param > logoutUrl config > loginUrl config > '/login'
-  const finalRedirectUrl = redirectUrl || 
-    config.logoutUrl || 
-    config.loginUrl || 
-    "/login";
-  
-  // Construct full URL (if relative, make absolute)
-  let fullUrl: string;
-  if (/^https?:\/\//i.test(finalRedirectUrl)) {
-    fullUrl = finalRedirectUrl;
-  } else {
-    const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
-    fullUrl = `${origin}${finalRedirectUrl.startsWith("/") ? finalRedirectUrl : `/${finalRedirectUrl}`}`;
-  }
-  
-  // Validate URL before redirecting
-  const validatedUrl = getValidatedRedirectUrl(fullUrl);
-  if (!validatedUrl) {
-    console.error("[logout] Invalid redirect URL, cannot redirect:", fullUrl);
-    // Fallback to current origin/login if validation fails
-    const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
-    const fallbackUrl = `${origin}/login`;
-    console.warn("[logout] Using fallback redirect URL:", fallbackUrl);
-    (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fallbackUrl;
-    return;
-  }
-  
-  // Redirect to validated URL
-  console.log("[logout] Redirecting to validated URL:", validatedUrl);
-  try {
-    (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = validatedUrl;
-  } catch (redirectError) {
-    console.error("[logout] Failed to redirect:", redirectError);
-    // Fallback to current origin/login if redirect fails
-    const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
-    const fallbackUrl = `${origin}/login`;
-    (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fallbackUrl;
-  }
-}
+export { logout } from "./data-client-redirect";
 
 /**
  * Get environment token (browser-side)

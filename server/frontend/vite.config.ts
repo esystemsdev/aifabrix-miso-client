@@ -54,7 +54,9 @@ function nodePolyfillsPlugin(): Plugin {
         // Also check if the id itself suggests it's an SDK internal import
         const looksLikeSDKImport = cleanId.includes('data-client-') || 
                                    cleanId.includes('token-utils') ||
-                                   cleanId.includes('data-masker');
+                                   cleanId.includes('data-masker') ||
+                                   cleanId.includes('request-context') ||
+                                   cleanId.includes('logging-helpers');
         
         if (isFromSDK || looksLikeSDKImport) {
           let importerDir: string;
@@ -271,12 +273,15 @@ export default defineConfig({
     rollupOptions: {
       // Prevent externalization of relative imports from SDK package
       external(id) {
+        // Remove query parameters (like ?commonjs-external) from id for checking
+        const cleanId = id.split('?')[0];
+        
         // Don't externalize relative imports (these are internal to packages)
-        if (id.startsWith('./') || id.startsWith('../')) {
+        if (cleanId.startsWith('./') || cleanId.startsWith('../')) {
           return false;
         }
         // Don't externalize SDK internal imports even if they have query params
-        if (id.includes('data-client-') || id.includes('token-utils') || id.includes('data-masker')) {
+        if (cleanId.includes('data-client-') || cleanId.includes('token-utils') || cleanId.includes('data-masker') || cleanId.includes('request-context') || cleanId.includes('logging-helpers')) {
           return false;
         }
         return null; // Let Rollup decide for other imports
@@ -319,32 +324,84 @@ export default defineConfig({
               // Also check if the id itself suggests it's an SDK internal import
               const looksLikeSDKImport = cleanId.includes('data-client-') || 
                                          cleanId.includes('token-utils') ||
-                                         cleanId.includes('data-masker');
+                                         cleanId.includes('data-masker') ||
+                                         cleanId.includes('request-context') ||
+                                         cleanId.includes('logging-helpers');
               
               if (isFromSDK || looksLikeSDKImport || !importer) {
                 let importerDir: string;
                 
-                if (cleanImporter && cleanImporter !== cleanId) {
-                  // Use the importer's directory
+                if (cleanImporter && cleanImporter !== cleanId && isFromSDK) {
+                  // Use the importer's directory if it's from SDK
                   importerDir = path.dirname(cleanImporter);
                 } else {
-                  // No valid importer or importer is same as id - try to find SDK source directory
-                  const possibleDirs = [
-                    path.resolve(__dirname, '../../src/utils'),
-                    path.resolve(__dirname, '../../../src/utils'),
-                    path.resolve(__dirname, '../../node_modules/@aifabrix/miso-client/src/utils'),
-                    path.resolve(__dirname, '../../node_modules/@aifabrix/miso-client/dist/utils'),
-                  ];
-                  importerDir = possibleDirs[0];
-                  for (const dir of possibleDirs) {
-                    if (fs.existsSync(dir)) {
-                      importerDir = dir;
-                      break;
+                  // No valid importer or importer is same as id - try to find SDK package directory
+                  // First try to find the SDK package root (dist or src)
+                  // Check pnpm structure first (.pnpm/@aifabrix+miso-client*/node_modules/@aifabrix/miso-client)
+                  const pnpmPath = path.resolve(__dirname, '../../node_modules/.pnpm');
+                  let packageRoot: string | null = null;
+                  
+                  if (fs.existsSync(pnpmPath)) {
+                    try {
+                      const pnpmDirs = fs.readdirSync(pnpmPath);
+                      const misoClientDir = pnpmDirs.find((dir: string) => dir.startsWith('@aifabrix+miso-client'));
+                      if (misoClientDir) {
+                        const distPath = path.join(pnpmPath, misoClientDir, 'node_modules/@aifabrix/miso-client/dist');
+                        const srcPath = path.join(pnpmPath, misoClientDir, 'node_modules/@aifabrix/miso-client/src');
+                        if (fs.existsSync(distPath)) {
+                          packageRoot = distPath;
+                        } else if (fs.existsSync(srcPath)) {
+                          packageRoot = srcPath;
+                        }
+                      }
+                    } catch {
+                      // Continue to fallback options
+                    }
+                  }
+                  
+                  // Fallback to standard node_modules or workspace paths
+                  if (!packageRoot) {
+                    const possiblePackageRoots = [
+                      path.resolve(__dirname, '../../node_modules/@aifabrix/miso-client/dist'),
+                      path.resolve(__dirname, '../../node_modules/@aifabrix/miso-client/src'),
+                      path.resolve(__dirname, '../../../dist'),  // Root workspace dist
+                      path.resolve(__dirname, '../../../src'),  // Root workspace src
+                      path.resolve(__dirname, '../../../../dist'), // Alternative root path
+                      path.resolve(__dirname, '../../../../src'), // Alternative root path
+                    ];
+                    for (const root of possiblePackageRoots) {
+                      if (fs.existsSync(root)) {
+                        packageRoot = root;
+                        break;
+                      }
+                    }
+                  }
+                  
+                  if (packageRoot) {
+                    // If cleanId starts with ./utils/ or ../utils/, resolve relative to package root
+                    // This will correctly resolve ./utils/logging-helpers to packageRoot/utils/logging-helpers
+                    // Note: path.resolve(packageRoot, './utils/logging-helpers') = packageRoot/utils/logging-helpers
+                    importerDir = packageRoot;
+                    console.log(`[rollup-plugin] Found packageRoot: ${packageRoot}, cleanId: ${cleanId}, will resolve to: ${path.resolve(packageRoot, cleanId)}`);
+                  } else {
+                    // Fallback to utils directory
+                    const possibleDirs = [
+                      path.resolve(__dirname, '../../node_modules/@aifabrix/miso-client/dist/utils'),
+                      path.resolve(__dirname, '../../node_modules/@aifabrix/miso-client/src/utils'),
+                      path.resolve(__dirname, '../../../dist/utils'),
+                      path.resolve(__dirname, '../../../src/utils'),
+                    ];
+                    importerDir = possibleDirs[0];
+                    for (const dir of possibleDirs) {
+                      if (fs.existsSync(dir)) {
+                        importerDir = dir;
+                        break;
+                      }
                     }
                   }
                 }
                 
-                const resolvedPath = path.resolve(importerDir, cleanId);
+                let resolvedPath = path.resolve(importerDir, cleanId);
                 
                 // Try to find the file with common extensions
                 const extensions = ['.ts', '.js', '.tsx', '.jsx'];
@@ -374,6 +431,42 @@ export default defineConfig({
                     console.log(`[rollup-plugin] resolveId: ${id} -> ${resolvedPath}`);
                     return resolvedPath;
                   }
+                }
+                
+                // If still not found and this is an SDK import, try root workspace dist folder as fallback
+                if (looksLikeSDKImport || isFromSDK) {
+                  // Try multiple possible root workspace paths
+                  const possibleRootDists = [
+                    path.resolve(__dirname, '../../../../dist'), // server/frontend -> aifabrix-miso-client/dist
+                    path.resolve(__dirname, '../../../dist'),    // server/frontend -> server/dist (fallback)
+                    path.resolve(__dirname, '../../dist'),       // Alternative
+                  ];
+                  for (const rootWorkspaceDist of possibleRootDists) {
+                    if (fs.existsSync(rootWorkspaceDist)) {
+                      // Handle relative paths: if cleanId starts with ../utils/, resolve it relative to dist/utils
+                      // Otherwise resolve normally
+                      let fallbackPath: string;
+                      if (cleanId.startsWith('../utils/')) {
+                        // ../utils/request-context -> dist/utils/request-context
+                        const utilsPath = path.join(rootWorkspaceDist, 'utils', cleanId.replace('../utils/', ''));
+                        fallbackPath = utilsPath;
+                      } else if (cleanId.startsWith('./utils/')) {
+                        // ./utils/logging-helpers -> dist/utils/logging-helpers
+                        fallbackPath = path.resolve(rootWorkspaceDist, cleanId);
+                      } else {
+                        // Other relative paths - resolve normally
+                        fallbackPath = path.resolve(rootWorkspaceDist, cleanId);
+                      }
+                      for (const ext of extensions) {
+                        const fullPath = fallbackPath + ext;
+                        if (fs.existsSync(fullPath)) {
+                          console.log(`[rollup-plugin] resolveId: ${id} (fallback to root dist: ${rootWorkspaceDist}) -> ${fullPath}`);
+                          return fullPath;
+                        }
+                      }
+                    }
+                  }
+                  console.log(`[rollup-plugin] WARNING: Could not resolve ${id} from importer ${importer || 'none'}, tried ${resolvedPath}`);
                 }
               }
             }

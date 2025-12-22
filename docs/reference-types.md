@@ -33,8 +33,9 @@ interface MisoClientConfig {
   authStrategy?: AuthStrategy; // Optional: Default authentication strategy
   cache?: {
     // Optional: Cache configuration
-    roleTTL?: number; // Role cache TTL in seconds
-    permissionTTL?: number; // Permission cache TTL in seconds
+    roleTTL?: number; // Role cache TTL in seconds (default: 900)
+    permissionTTL?: number; // Permission cache TTL in seconds (default: 900)
+    tokenValidationTTL?: number; // Token validation cache TTL in seconds (default: 900)
   };
   sensitiveFieldsConfig?: string; // Optional: Path to custom sensitive fields JSON configuration file
   audit?: AuditConfig; // Optional: Audit logging configuration
@@ -153,6 +154,125 @@ interface LogoutResponse {
 }
 ```
 
+### RefreshTokenResponse
+
+Refresh token response interface returned by the `refreshToken()` method.
+
+```typescript
+interface RefreshTokenResponse {
+  success: boolean; // Whether the refresh was successful
+  accessToken: string; // New access token
+  refreshToken: string; // New refresh token
+  expiresIn: number; // Token expiration time in seconds
+  expiresAt?: string; // ISO date string for expiration
+  timestamp?: string; // ISO timestamp of the response
+}
+```
+
+## Logging Types
+
+### LogEntry
+
+Log entry interface for structured logging. Includes indexed context fields for fast database queries.
+
+```typescript
+interface LogEntry {
+  timestamp: string; // ISO timestamp
+  level: 'error' | 'audit' | 'info' | 'debug'; // Log level
+  environment: string; // Environment name
+  application: string; // Application name
+  applicationId: string; // Application ID
+  userId?: string; // User ID (optional)
+  message: string; // Log message
+  context?: Record<string, unknown>; // Additional context data
+  
+  // ISO 27001 Security Metadata (auto-extracted)
+  ipAddress?: string; // Client IP address
+  userAgent?: string; // Browser/client user agent
+  hostname?: string; // Server hostname
+  requestId?: string; // Request identifier
+  sessionId?: string; // Session identifier
+  correlationId?: string; // Correlation identifier for request tracing
+  stackTrace?: string; // Stack trace for errors
+  
+  // Indexed context fields (top-level for fast queries)
+  sourceKey?: string; // Source identifier (e.g., datasource key)
+  sourceDisplayName?: string; // Human-readable source name
+  externalSystemKey?: string; // External system identifier
+  externalSystemDisplayName?: string; // Human-readable external system name
+  recordKey?: string; // Record identifier
+  recordDisplayName?: string; // Human-readable record name
+  
+  // Credential context (optional)
+  credentialId?: string; // Credential identifier
+  credentialType?: string; // Credential type (e.g., 'oauth2', 'api-key')
+  
+  // Request/Response metrics
+  requestSize?: number; // Request size in bytes
+  responseSize?: number; // Response size in bytes
+  durationMs?: number; // Request duration in milliseconds
+  
+  // Error classification
+  errorCategory?: string; // Error category
+  httpStatusCategory?: string; // HTTP status category
+}
+```
+
+### IndexedLoggingContext
+
+Indexed logging context fields for fast database queries.
+
+```typescript
+interface IndexedLoggingContext {
+  sourceKey?: string; // Source identifier
+  sourceDisplayName?: string; // Human-readable source name
+  externalSystemKey?: string; // External system identifier
+  externalSystemDisplayName?: string; // Human-readable external system name
+  recordKey?: string; // Record identifier
+  recordDisplayName?: string; // Human-readable record name
+}
+```
+
+### RequestContext
+
+Request context extracted from Express Request object.
+
+```typescript
+interface RequestContext {
+  ipAddress?: string; // Client IP (handles proxy headers)
+  method?: string; // HTTP method (GET, POST, etc.)
+  path?: string; // Request path
+  userAgent?: string; // Browser/client user agent
+  correlationId?: string; // Correlation ID from headers
+  referer?: string; // Referer header
+  userId?: string; // User ID extracted from JWT
+  sessionId?: string; // Session ID extracted from JWT
+  requestId?: string; // Request ID from headers
+  requestSize?: number; // Request size from content-length header
+}
+```
+
+### HasKey
+
+Interface for objects that have a key and optional display name.
+
+```typescript
+interface HasKey {
+  key: string; // Object key/identifier
+  displayName?: string; // Human-readable name
+}
+```
+
+### HasExternalSystem
+
+Interface for objects that have an external system reference.
+
+```typescript
+interface HasExternalSystem extends HasKey {
+  externalSystem?: HasKey; // Optional external system reference
+}
+```
+
 ## DataClient Types
 
 ### DataClientConfig
@@ -171,8 +291,15 @@ interface DataClientConfig {
   audit?: AuditConfig;
   timeout?: number;
   defaultHeaders?: Record<string, string>;
+  onTokenRefresh?: () => Promise<{ token: string; expiresIn: number }>;
 }
 ```
+
+**onTokenRefresh Callback:**
+
+Callback to refresh user token when expired (for browser usage). Called automatically when a request receives 401 Unauthorized. Should call backend endpoint that handles refresh token securely. Returns new access token and expiration time.
+
+**Security:** Refresh tokens should NEVER be stored in browser localStorage. The callback should delegate to your backend endpoint which securely manages refresh tokens (typically in httpOnly cookies or server-side sessions).
 
 ### ApiRequestOptions
 
@@ -566,4 +693,3 @@ import {
 - [Authentication Reference](./reference-authentication.md) - Authentication types
 - [Error Reference](./reference-errors.md) - Error handling types
 - [Configuration Guide](./configuration.md) - Configuration options
-

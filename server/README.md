@@ -72,7 +72,7 @@ If you haven't registered the application yet:
 
 ```bash
 # Login to controller
-aifabrix login --method device --environment dev --controller http://localhost:3000
+aifabrix login --method device --environment dev --controller http://localhost:3000 --offline
 
 # Register your application (gets you credentials automatically)
 aifabrix app register miso-test --environment dev

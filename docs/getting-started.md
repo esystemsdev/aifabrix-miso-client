@@ -155,7 +155,7 @@ async function authMiddleware(req, res, next) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   
-  // Check if valid
+  // Check if valid (results are cached for performance)
   const isValid = await client.validateToken(token);
   
   if (!isValid) {
@@ -173,15 +173,29 @@ async function authMiddleware(req, res, next) {
 
 1. User logs in at Keycloak → gets JWT token
 2. User sends request with `Authorization: Bearer {token}`
-3. Your app calls `validateToken()` → checks with controller
+3. Your app calls `validateToken()` → checks cache first, then controller if needed
 4. Controller validates with Keycloak → returns true/false
-5. If valid, you get user info
+5. Result is cached by userId (15-minute TTL, configurable)
+6. If valid, you get user info
 
 **I love this because:**
 
 - ✅ Token validation happens automatically
+- ✅ Results are cached (reduces API calls significantly)
+- ✅ Cache automatically cleared on logout
 - ✅ User info is cached (faster next time)
 - ✅ Works with any framework
+
+**Token Refresh:**
+
+```typescript
+// Refresh expired access token
+const response = await client.refreshToken(refreshToken);
+if (response) {
+  console.log('New access token:', response.accessToken);
+  console.log('Expires in:', response.expiresIn, 'seconds');
+}
+```
 
 → [Complete authentication example](../examples/step-3-authentication.ts)  
 → [Quick start example](../examples/usage.ts)
@@ -254,6 +268,8 @@ app.get('/admin', authMiddleware, async (req, res) => {
 
 **Note:** When embedding the SDK directly in your own application, enable `emitEvents = true` to receive logs as Node.js events instead of HTTP calls. See [Event Emission Mode](../docs/configuration.md#event-emission-mode) for details.
 
+**Basic Logging:**
+
 ```typescript
 // Log info
 await client.log.info('User logged in', {
@@ -278,6 +294,41 @@ await client.log.debug('Processing request', {
   requestId: req.id,
   path: req.path,
 });
+```
+
+**Fluent API with Request Context (Express):**
+
+```typescript
+import { Request } from 'express';
+
+// Auto-extract context from Express Request
+app.get('/api/users', async (req: Request, res) => {
+  await client.log
+    .withRequest(req)
+    .info('Users list accessed');
+  // Automatically includes: IP, method, path, userAgent, correlationId, userId
+});
+```
+
+**Indexed Context for Fast Queries:**
+
+```typescript
+import { extractLoggingContext } from '@aifabrix/miso-client';
+
+const logContext = extractLoggingContext({
+  source: {
+    key: 'datasource-1',
+    displayName: 'PostgreSQL DB',
+    externalSystem: { key: 'system-1', displayName: 'External API' }
+  },
+  record: { key: 'record-123', displayName: 'User Profile' }
+});
+
+await client.log
+  .withIndexedContext(logContext)
+  .addCorrelation(correlationId)
+  .addUser(userId)
+  .error('Sync failed');
 ```
 
 **What happens:**

@@ -144,6 +144,14 @@ export interface DataClientConfig {
    * Default headers to include in all requests
    */
   defaultHeaders?: Record<string, string>;
+  
+  /**
+   * Callback to refresh user token when expired (for browser usage)
+   * Called automatically when a request receives 401 Unauthorized
+   * Should call backend endpoint that handles refresh token securely
+   * Returns new access token and expiration time
+   */
+  onTokenRefresh?: () => Promise<{ token: string; expiresIn: number }>;
 }
 
 /**

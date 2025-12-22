@@ -5,6 +5,112 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.5] - 2025-12-22
+
+### Added
+
+- **Indexed logging fields** - Standardized indexed fields for improved query performance and observability
+  - New `extractLoggingContext()` utility function in `src/utils/logging-helpers.ts`
+  - Added indexed context fields to `LogEntry` interface: `sourceKey`, `sourceDisplayName`, `externalSystemKey`, `externalSystemDisplayName`, `recordKey`, `recordDisplayName`
+  - Added credential context fields: `credentialId`, `credentialType`
+  - Added request/response metrics: `requestSize`, `responseSize`, `durationMs`
+  - Added error classification fields: `errorCategory`, `httpStatusCategory`
+  - New `LoggerChain` methods: `withIndexedContext()`, `withCredentialContext()`, `withRequestMetrics()`
+  - Exported types: `IndexedLoggingContext`, `HasKey`, `HasExternalSystem`
+  - Improves query performance and root-cause analysis for audit logs
+
+- **Request context auto-extraction** - Automatic extraction of logging context from Express Request objects
+  - New `extractRequestContext()` utility function in `src/utils/request-context.ts`
+  - New `withRequest()` method on `LoggerChain` for automatic context extraction
+  - New `forRequest()` method on `LoggerService` for request-based logging
+  - Automatically extracts: IP address, HTTP method, path, user-agent, correlation ID, user from JWT, session ID, request ID
+  - Handles proxy IPs via `x-forwarded-for` header
+  - Reduces logging code from 10-15 lines to 2-3 lines per log call
+  - Exported `RequestContext` interface and `extractRequestContext` function
+
+- **Token validation caching** - Caching for token validation to reduce API calls
+  - Cache validation results by userId with 15-minute TTL (configurable via `config.cache?.tokenValidationTTL`)
+  - Cache key format: `token:${userId}` (consistent with roles/permissions caching)
+  - Automatic cache invalidation on logout (clears cache even if logout returns 400)
+  - New `clearTokenCache()` method in `AuthService` for manual cache clearing
+  - Extracts userId from JWT token before API call (avoids unnecessary validate API call)
+  - Graceful fallback to API call on cache failures
+  - Uses `CacheService` instead of `RedisService` for consistency
+
+- **User token refresh** - Token refresh functionality for secure token renewal
+  - New `refreshToken()` method in `AuthService` for backend applications
+  - New `onTokenRefresh` callback support in `DataClient` for frontend applications
+  - Automatic token refresh on 401 errors in DataClient with retry logic
+  - New `RefreshTokenResponse` interface with `accessToken`, `refreshToken`, `expiresIn`, `expiresAt`
+  - Exposed `refreshToken()` method in `MisoClient` class
+  - Prevents infinite retry loops with `tokenRefreshAttempted` flag
+  - Refresh tokens never stored in browser localStorage (security requirement)
+
+- **OAuth callback handler** - ISO 27001 compliant OAuth callback handling with hash fragments
+  - New `handleOAuthCallback()` function in `src/utils/data-client-auth.ts`
+  - New `handleOAuthCallback()` method in `DataClient` class
+  - Extracts tokens from URL hash fragments (`#token=...`) instead of query parameters
+  - Immediate hash cleanup (< 100ms) to prevent token exposure
+  - Token format validation (JWT format check)
+  - HTTPS enforcement in production environments
+  - Supports multiple parameter names: `token`, `access_token`, `accessToken`
+  - Auto-calls on DataClient initialization in browser environments
+  - Secure error handling without exposing tokens
+
+### Changed
+
+- **LoggerService enhancements** - Enhanced logging capabilities with indexed fields
+  - Updated `ClientLoggingOptions` interface with indexed context fields
+  - Updated `LogEntry` interface with indexed fields for fast queries
+  - Enhanced `LoggerChain` fluent API with new context methods
+  - Improved developer experience with automatic request context extraction
+
+- **AuthService improvements** - Enhanced authentication service with caching
+  - Updated constructor to accept `CacheService` instead of `RedisService`
+  - Added `extractUserIdFromToken()` private method for JWT extraction
+  - Enhanced `validateToken()` method with caching logic
+  - Updated `logout()` method to clear token cache on logout
+
+- **DataClient enhancements** - Improved token refresh and OAuth handling
+  - Added `refreshUserToken()` private method for token refresh
+  - Enhanced 401 error handling with automatic token refresh and retry
+  - Updated `redirectToLogin()` documentation for hash fragment flow
+  - Improved OAuth callback handling with security measures
+
+### Fixed
+
+- **Token validation performance** - Reduced API calls through caching
+  - Token validation now uses cache to avoid unnecessary controller API calls
+  - Cache hit significantly improves performance for repeated validations
+
+- **OAuth security** - Improved security for OAuth callback flow
+  - Tokens extracted from hash fragments (not sent to server, not in logs)
+  - Immediate cleanup prevents token exposure in address bar
+  - HTTPS enforcement prevents token transmission over HTTP in production
+
+### Technical
+
+- **New utility files**:
+  - `src/utils/logging-helpers.ts` - Logging context extraction utility (91 lines)
+  - `src/utils/request-context.ts` - Request context extraction utility (102 lines)
+
+- **Test coverage**:
+  - Comprehensive tests for logging helpers (15 tests)
+  - Comprehensive tests for request context extraction (33 tests)
+  - Enhanced tests for token caching (80 tests total in auth.service.test.ts)
+  - Comprehensive tests for token refresh (17 AuthService + 15 DataClient tests)
+  - Comprehensive tests for OAuth callback handler (34 tests)
+
+- **Type definitions**:
+  - Added `RefreshTokenResponse` interface to `src/types/config.types.ts`
+  - Added `tokenValidationTTL?: number` to cache config type
+  - Added `onTokenRefresh` callback to `DataClientConfig` interface
+
+- **Exports updated**:
+  - `src/index.ts` - Exports `extractLoggingContext`, `IndexedLoggingContext`, `HasKey`, `HasExternalSystem`
+  - `src/index.ts` - Exports `extractRequestContext`, `RequestContext`
+  - `src/index.ts` - Exports `refreshToken()` method in `MisoClient`
+
 ## [3.2.0] - 2025-12-22
 
 ### Added

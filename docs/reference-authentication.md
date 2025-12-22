@@ -77,7 +77,7 @@ console.log('State:', response.data.state);
 
 ### `logout(params: { token: string }): Promise<LogoutResponse>`
 
-Logs out the current user by invalidating their access token.
+Logs out the current user by invalidating their access token. Automatically clears token validation cache for the user.
 
 **Parameters:**
 
@@ -85,13 +85,20 @@ Logs out the current user by invalidating their access token.
 
 **Returns:** Promise resolving to `LogoutResponse` with success message
 
+**Cache Invalidation:**
+
+- Token validation cache is automatically cleared on logout
+- Cache key format: `token:${userId}` (userId extracted from JWT token)
+- Cache clearing happens even if logout API call fails (idempotent behavior)
+- Ensures user cannot use cached validation results after logout
+
 **Example:**
 
 ```typescript
 // Extract token from request
 const token = client.getToken(req);
 
-// Logout user
+// Logout user (automatically clears token cache)
 const response = await client.logout({ token });
 console.log('Logout message:', response.message);
 
@@ -115,7 +122,7 @@ app.post('/logout', async (req, res) => {
 
 ### `validateToken(token: string, authStrategy?: AuthStrategy): Promise<boolean>`
 
-Validates a JWT token with the controller.
+Validates a JWT token with the controller. Results are cached by userId with a configurable TTL (default: 15 minutes) to reduce API calls.
 
 **Parameters:**
 
@@ -123,6 +130,14 @@ Validates a JWT token with the controller.
 - `authStrategy` - Optional authentication strategy override
 
 **Returns:** Promise resolving to `true` if token is valid, `false` otherwise
+
+**Caching Behavior:**
+
+- Token validation results are cached by userId (extracted from JWT)
+- Cache key format: `token:${userId}`
+- Default TTL: 900 seconds (15 minutes), configurable via `config.cache.tokenValidationTTL`
+- Cache is automatically cleared on logout
+- Falls back to controller API call if cache is unavailable or expired
 
 **Example:**
 
@@ -153,6 +168,53 @@ Checks if a user is authenticated (alias for `validateToken`).
 ```typescript
 const isAuth = await client.isAuthenticated(token);
 ```
+
+## Token Refresh
+
+### `refreshToken(refreshToken: string, authStrategy?: AuthStrategy): Promise<RefreshTokenResponse | null>`
+
+Refreshes a user access token using a refresh token. Exchanges the refresh token for a new access token and refresh token pair.
+
+**Parameters:**
+
+- `refreshToken` - Refresh token to exchange for new access token
+- `authStrategy` - Optional authentication strategy override
+
+**Returns:** Promise resolving to `RefreshTokenResponse` with new tokens and expiration info, or `null` on error
+
+**Response:**
+
+```typescript
+interface RefreshTokenResponse {
+  success: boolean;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  expiresAt?: string; // ISO date string
+  timestamp?: string;
+}
+```
+
+**Example:**
+
+```typescript
+// Backend: Refresh token
+const response = await client.refreshToken(refreshToken);
+if (response) {
+  console.log('New access token:', response.accessToken);
+  console.log('Expires in:', response.expiresIn, 'seconds');
+}
+
+// With custom auth strategy
+const strategy = client.createAuthStrategy(['client-token']);
+const response = await client.refreshToken(refreshToken, strategy);
+```
+
+**Error Handling:**
+
+- Returns `null` on error (network errors, invalid token, expired token)
+- Errors are logged with correlation IDs for tracking
+- Does not throw exceptions - always returns `null` or `RefreshTokenResponse`
 
 ## User Information
 
@@ -328,6 +390,21 @@ interface LogoutResponse {
   success: boolean; // Whether the logout was successful
   message: string; // Success message
   timestamp: string; // ISO timestamp of the response
+}
+```
+
+### `RefreshTokenResponse`
+
+Refresh token response interface returned by the `refreshToken()` method.
+
+```typescript
+interface RefreshTokenResponse {
+  success: boolean; // Whether the refresh was successful
+  accessToken: string; // New access token
+  refreshToken: string; // New refresh token
+  expiresIn: number; // Token expiration time in seconds
+  expiresAt?: string; // ISO date string for expiration
+  timestamp?: string; // ISO timestamp of the response
 }
 ```
 
@@ -632,4 +709,5 @@ fastify.get('/posts', async (request, reply) => {
 - [Type Reference](./reference-types.md) - Complete type definitions
 - [Examples Guide](./examples.md) - Framework-specific examples
 - [DataClient Reference](./reference-dataclient.md) - Browser client authentication methods
-
+- **Example Files:**
+  - [Authentication Example](../examples/step-3-authentication.ts) - Token validation and user info

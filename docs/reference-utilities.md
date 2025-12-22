@@ -139,6 +139,120 @@ try {
 }
 ```
 
+## Logging Utilities
+
+Utilities for extracting structured logging context from objects and Express Request objects.
+
+### `extractLoggingContext(options): IndexedLoggingContext`
+
+Extracts indexed logging context fields from source, record, and external system objects. These fields are stored at the top level of `LogEntry` for efficient database queries.
+
+**Parameters:**
+
+- `options` - Options object containing:
+  - `source?: HasExternalSystem` - Source object with key, displayName, and optional externalSystem
+  - `record?: HasKey` - Record object with key and optional displayName
+  - `externalSystem?: HasKey` - External system object with key and optional displayName
+
+**Returns:** `IndexedLoggingContext` with extracted fields
+
+**Interfaces:**
+
+```typescript
+interface HasKey {
+  key: string;
+  displayName?: string;
+}
+
+interface HasExternalSystem extends HasKey {
+  externalSystem?: HasKey;
+}
+
+interface IndexedLoggingContext {
+  sourceKey?: string;
+  sourceDisplayName?: string;
+  externalSystemKey?: string;
+  externalSystemDisplayName?: string;
+  recordKey?: string;
+  recordDisplayName?: string;
+}
+```
+
+**Example:**
+
+```typescript
+import { extractLoggingContext } from '@aifabrix/miso-client';
+
+const logContext = extractLoggingContext({
+  source: {
+    key: 'datasource-1',
+    displayName: 'PostgreSQL DB',
+    externalSystem: { key: 'system-1', displayName: 'External API' }
+  },
+  record: { key: 'record-123', displayName: 'User Profile' }
+});
+
+await client.log
+  .withIndexedContext(logContext)
+  .error('Sync failed');
+```
+
+### `extractRequestContext(req: Request): RequestContext`
+
+Extracts logging context from Express Request object. Automatically extracts IP, method, path, user-agent, correlation ID, referer, user from JWT, and request size.
+
+**Parameters:**
+
+- `req` - Express Request object
+
+**Returns:** `RequestContext` with extracted fields
+
+**Interface:**
+
+```typescript
+interface RequestContext {
+  ipAddress?: string;
+  method?: string;
+  path?: string;
+  userAgent?: string;
+  correlationId?: string;
+  referer?: string;
+  userId?: string;
+  sessionId?: string;
+  requestId?: string;
+  requestSize?: number;
+}
+```
+
+**Example:**
+
+```typescript
+import { extractRequestContext } from '@aifabrix/miso-client';
+import { Request } from 'express';
+
+app.get('/api/users', async (req: Request, res) => {
+  const ctx = extractRequestContext(req);
+  // ctx contains: ipAddress, method, path, userAgent, correlationId, userId, etc.
+  
+  await client.log
+    .withRequest(req)
+    .info('Users list accessed');
+});
+```
+
+**Auto-extracted Fields:**
+
+- `ipAddress` - Client IP (handles `x-forwarded-for` proxy headers)
+- `method` - HTTP method (GET, POST, etc.)
+- `path` - Request path (`req.originalUrl` or `req.path`)
+- `userAgent` - Browser/client user agent
+- `correlationId` - From `x-correlation-id`, `x-request-id`, or `request-id` headers
+- `referer` - Referer header
+- `userId` - Extracted from JWT token in `Authorization` header (checks `sub`, `userId`, `user_id`, `id` claims)
+- `sessionId` - Extracted from JWT token (`sessionId` or `sid` claim)
+- `requestId` - From `x-request-id` header
+- `requestSize` - From `content-length` header (parsed as integer)
+
 ## Standalone Utilities
 
 The SDK exports standalone utility functions that can be used without creating a MisoClient instance. These utilities are useful for environment detection, URL resolution, and configuration validation.
@@ -867,4 +981,3 @@ app.get('/api/applications', (req, res) => {
 - [Type Reference](./reference-types.md) - Complete type definitions
 - [Configuration Guide](./configuration.md) - Configuration options
 - [Examples Guide](./examples.md) - Framework-specific examples
-

@@ -99,18 +99,139 @@ export function createClientTokenEndpoint(
   };
 
   return async (req: Request, res: Response): Promise<void> => {
+    // Helper to check if response was already sent
+    const isResponseSent = () => res.headersSent || res.writableEnded;
+
     try {
       // Check if misoClient is initialized
       if (!misoClient.isInitialized()) {
-        res.status(503).json({
-          error: "Service Unavailable",
-          message: "MisoClient is not initialized",
-        });
+        if (!isResponseSent()) {
+          res.status(503).json({
+            error: "Service Unavailable",
+            message: "MisoClient is not initialized",
+          });
+        }
         return;
       }
 
       // Get token with origin validation (throws if validation fails)
-      const token = await getEnvironmentToken(misoClient, req);
+      // Wrap in Promise.race with timeout to ensure we don't hang
+      // Fail fast after 5 seconds if controller is unreachable
+      const timeoutMs = 5000; // 5 seconds - fail fast if controller is unreachable
+      const tokenPromise = getEnvironmentToken(misoClient, req);
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Request timeout: Failed to get environment token within 5 seconds"));
+        }, timeoutMs);
+      });
+
+      let token: string;
+      try {
+        token = await Promise.race([tokenPromise, timeoutPromise]);
+      } catch (tokenError) {
+        // If response already sent, don't try to send again
+        if (isResponseSent()) {
+          return;
+        }
+
+        const errorMessage = tokenError instanceof Error ? tokenError.message : "Unknown error";
+        
+        // Check if it's an origin validation error (403)
+        if (errorMessage.includes("Origin validation failed")) {
+          res.status(403).json({
+            error: "Forbidden",
+            message: errorMessage,
+          });
+          return;
+        }
+
+        // Check if it's our timeout wrapper error (specific message from timeout promise)
+        const isTimeoutWrapperError = errorMessage.includes("Request timeout: Failed to get environment token within 5 seconds");
+        
+        // Check if error message contains HTTP status codes (indicates HTTP error, not timeout)
+        // AuthService wraps axios errors with status info like "status: 401"
+        const httpStatusMatch = errorMessage.match(/status:\s*(\d+)/i);
+        const httpStatus = httpStatusMatch ? parseInt(httpStatusMatch[1], 10) : undefined;
+        const isHttpError = httpStatus !== undefined;
+        
+        // Also try to extract axios error details from the error chain
+        let extractedHttpStatus: number | undefined = httpStatus;
+        let httpStatusText: string | undefined;
+        
+        // Try to extract axios error details from the error chain
+        let currentError: unknown = tokenError;
+        for (let i = 0; i < 5 && currentError; i++) {
+          if (
+            currentError &&
+            typeof currentError === "object" &&
+            "isAxiosError" in currentError &&
+            currentError.isAxiosError
+          ) {
+            const axiosError = currentError as import("axios").AxiosError;
+            if (axiosError.response) {
+              // Has response = HTTP error (not timeout)
+              extractedHttpStatus = axiosError.response.status;
+              httpStatusText = axiosError.response.statusText;
+              break;
+            }
+            // No response but has request = network/timeout error
+            if (axiosError.request && !axiosError.response) {
+              // This is a network/timeout error
+              break;
+            }
+          }
+          // Check if error has a cause (for chained errors)
+          if (currentError && typeof currentError === "object" && "cause" in currentError) {
+            currentError = (currentError as { cause?: unknown }).cause;
+          } else {
+            break;
+          }
+        }
+        
+        // Use extracted status if available, otherwise use parsed status
+        const finalHttpStatus = extractedHttpStatus || httpStatus;
+
+        // If it's an HTTP error (like 401), return appropriate status code
+        if (isHttpError && finalHttpStatus) {
+          // Map common HTTP errors to appropriate status codes
+          if (finalHttpStatus === 401) {
+            res.status(401).json({
+              error: "Unauthorized",
+              message: "Failed to get environment token: Invalid client credentials or application not found",
+            });
+            return;
+          }
+          if (finalHttpStatus === 403) {
+            res.status(403).json({
+              error: "Forbidden",
+              message: "Failed to get environment token: Access denied",
+            });
+            return;
+          }
+          // Other HTTP errors
+          res.status(finalHttpStatus).json({
+            error: httpStatusText || "Error",
+            message: errorMessage,
+          });
+          return;
+        }
+
+        // Check if it's a timeout error (from our wrapper or axios timeout)
+        if (isTimeoutWrapperError || errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
+          res.status(504).json({
+            error: "Gateway Timeout",
+            message: "Failed to get environment token: Controller request timed out",
+          });
+          return;
+        }
+
+        // Other errors (500)
+        res.status(500).json({
+          error: "Internal Server Error",
+          message: errorMessage,
+        });
+        return;
+      }
 
       // Build response
       const response: ClientTokenResponse = {
@@ -129,10 +250,12 @@ export function createClientTokenEndpoint(
         const controllerUrl = config.controllerPublicUrl || config.controllerUrl;
         
         if (!controllerUrl) {
-          res.status(500).json({
-            error: "Internal Server Error",
-            message: "Controller URL not configured",
-          });
+          if (!isResponseSent()) {
+            res.status(500).json({
+              error: "Internal Server Error",
+              message: "Controller URL not configured",
+            });
+          }
           return;
         }
 
@@ -145,11 +268,16 @@ export function createClientTokenEndpoint(
         };
       }
 
-      res.json(response);
+      // Send response if not already sent
+      if (!isResponseSent()) {
+        res.json(response);
+      }
     } catch (error) {
-      // getEnvironmentToken throws Error with message if origin validation fails
-      // This is handled by the error handler middleware if using asyncHandler
-      // But we handle it here for direct usage
+      // Final catch-all error handler
+      if (isResponseSent()) {
+        return;
+      }
+
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       
       // Check if it's an origin validation error (403)
@@ -157,6 +285,15 @@ export function createClientTokenEndpoint(
         res.status(403).json({
           error: "Forbidden",
           message: errorMessage,
+        });
+        return;
+      }
+
+      // Check if it's a timeout error
+      if (errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
+        res.status(504).json({
+          error: "Gateway Timeout",
+          message: "Failed to get environment token: Request timed out",
         });
         return;
       }

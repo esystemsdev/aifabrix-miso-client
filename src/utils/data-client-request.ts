@@ -23,6 +23,11 @@ import { logDataClientAudit, HasAnyTokenFn, GetTokenFn } from "./data-client-aud
 import { MisoClient } from "../index";
 
 /**
+ * Token refresh callback function type
+ */
+export type RefreshUserTokenFn = () => Promise<{ token: string; expiresIn: number } | null>;
+
+/**
  * Extract headers from Headers object or Record
  */
 export function extractHeaders(
@@ -366,6 +371,7 @@ export async function executeHttpRequest<T>(
   hasAnyToken: HasAnyTokenFn,
   getToken: GetTokenFn,
   handleAuthError: () => void,
+  refreshUserToken: RefreshUserTokenFn,
   interceptors: InterceptorConfig,
   metrics: {
     totalRequests: number;
@@ -384,6 +390,8 @@ export async function executeHttpRequest<T>(
   
   // Flag to prevent retries when auth error is detected
   let authErrorDetected = false;
+  // Flag to track if token refresh was attempted
+  let tokenRefreshAttempted = false;
 
   // Internal recursive function to handle retries
   async function attemptRequest(attempt: number): Promise<T> {
@@ -399,9 +407,29 @@ export async function executeHttpRequest<T>(
       response = await makeFetchRequest(method, fullUrl, config, getToken, options);
       responseStatus = response.status;
       
-      // CRITICAL: Check for 401/403 errors IMMEDIATELY - do NOT retry
-      // Throw immediately without any retry logic
+      // CRITICAL: Check for 401/403 errors IMMEDIATELY
       if (responseStatus === 401 || responseStatus === 403) {
+        // For 401 errors, try token refresh if callback is available (only once, on first attempt)
+        if (responseStatus === 401 && config.onTokenRefresh && refreshUserToken && attempt === 0 && !tokenRefreshAttempted) {
+          tokenRefreshAttempted = true; // Mark that we've attempted refresh
+          try {
+            const refreshResult = await refreshUserToken();
+            if (refreshResult && refreshResult.token) {
+              // Token refreshed successfully, retry the request with new token
+              // The token is already stored in localStorage by refreshUserToken,
+              // so getToken() will pick it up automatically
+              // Wait a small delay to ensure token is stored
+              await new Promise((resolve) => setTimeout(resolve, 10));
+              // Retry the request (will use new token from localStorage)
+              return attemptRequest(attempt + 1);
+            }
+          } catch (refreshError) {
+            // Token refresh failed, fall through to handle auth error
+            console.warn("Token refresh failed, redirecting to login:", refreshError);
+          }
+        }
+        
+        // Token refresh failed or not available, handle auth error
         authErrorDetected = true; // Set flag to prevent any retries
         const authError = responseStatus === 401
           ? new AuthenticationError("Authentication required", response)

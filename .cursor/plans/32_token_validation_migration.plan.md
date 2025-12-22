@@ -911,5 +911,3 @@ Add local JWKS-based JWT validation with dual-layer caching (JWKS 1hr, results 1
 ### Plan Updates Made
 
 - Added Rules and Standards section with rule links
-- Added Before Development checklist
-- Enhanced Definition of Done with all requirements

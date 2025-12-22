@@ -1,211 +1,12 @@
 /**
- * DataClient redirect to login utilities
- * Handles redirect to login flow with proper error handling
+ * DataClient redirect utilities
+ * Handles redirect to login/logout flows
  */
 
+import { MisoClient } from "../index";
 import { DataClientConfig } from "../types/data-client.types";
 import { getControllerUrl } from "./data-client-auth";
 import { isBrowser } from "./data-client-utils";
-
-/**
- * Build login request headers with client token
- */
-function buildLoginHeaders(clientToken: string | null): Record<string, string> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  
-  if (clientToken) {
-    headers["x-client-token"] = clientToken;
-  }
-  
-  return headers;
-}
-
-/**
- * Build login endpoint URL with redirect parameter
- */
-function buildLoginEndpointUrl(controllerUrl: string, redirectUrl: string): string {
-  const loginEndpoint = `${controllerUrl}/api/v1/auth/login`;
-  const url = new URL(loginEndpoint);
-  url.searchParams.set("redirect", redirectUrl);
-  return url.toString();
-}
-
-/**
- * Handle non-OK response from controller login endpoint
- */
-function handleLoginErrorResponse(
-  response: Response,
-  controllerUrl: string,
-  clientToken: string | null,
-): never {
-  const errorTextPromise = response.text().catch(() => 'Unable to read error response');
-  
-  // Create user-friendly error message based on status code
-  let userFriendlyMessage = `Login request failed: ${response.status} ${response.statusText}`;
-  if (response.status === 401 || response.status === 403) {
-    userFriendlyMessage = "Authentication failed: Invalid client credentials. Please check your configuration.";
-  } else if (response.status === 404) {
-    userFriendlyMessage = `Authentication endpoint not found at ${controllerUrl}/api/v1/auth/login. Please verify your controller URL configuration.`;
-  } else if (response.status >= 500) {
-    userFriendlyMessage = "Authentication server error. Please try again later or contact support.";
-  }
-  
-  return errorTextPromise.then((errorText) => {
-    const error = new Error(userFriendlyMessage) as Error & { details?: unknown };
-    error.details = {
-      status: response.status,
-      statusText: response.statusText,
-      errorText,
-      controllerUrl,
-      hasClientToken: !!clientToken,
-    };
-    throw error;
-  }) as never;
-}
-
-/**
- * Extract login URL from controller response
- */
-function extractLoginUrl(data: {
-  success?: boolean;
-  data?: { loginUrl?: string; state?: string };
-  loginUrl?: string;
-}): string | null {
-  return data.data?.loginUrl || data.loginUrl || null;
-}
-
-/**
- * Create user-friendly error message for network errors
- */
-function createNetworkErrorMessage(
-  errorMessage: string,
-  controllerUrl: string | null,
-  clientToken: string | null,
-): string {
-  if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError") || errorMessage.includes("ERR_CONNECTION_REFUSED")) {
-    return `Cannot connect to authentication server at ${controllerUrl || 'unknown'}. Please check your network connection and server configuration.`;
-  }
-  if (!clientToken) {
-    return "Client token is missing. Please initialize DataClient with proper credentials.";
-  }
-  return `Login failed: ${errorMessage}`;
-}
-
-/**
- * Validate controller URL configuration
- */
-function validateControllerUrl(config: DataClientConfig): string {
-  const controllerUrl = getControllerUrl(config.misoConfig);
-  
-  if (!controllerUrl) {
-    const error = new Error("Controller URL is not configured. Please configure controllerUrl or controllerPublicUrl in your DataClient configuration.") as Error & { details?: unknown };
-    error.details = {
-      hasMisoConfig: !!config.misoConfig,
-      controllerUrl: config.misoConfig?.controllerUrl,
-      controllerPublicUrl: config.misoConfig?.controllerPublicUrl,
-      loginUrl: config.loginUrl,
-    };
-    throw error;
-  }
-  
-  return controllerUrl;
-}
-
-/**
- * Call controller login endpoint
- */
-async function callControllerLoginEndpoint(
-  endpointUrl: string,
-  headers: Record<string, string>,
-  controllerUrl: string,
-  clientToken: string | null,
-): Promise<{ data?: { loginUrl?: string; state?: string }; loginUrl?: string }> {
-  let response: Response;
-  
-  // Add timeout to prevent hanging (30 seconds)
-  const timeout = 30000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, timeout);
-  
-  try {
-    response = await fetch(endpointUrl, {
-      method: "GET",
-      headers,
-      credentials: "include",
-      signal: controller.signal,
-      redirect: "manual", // Don't follow redirects automatically - we'll handle them explicitly
-    });
-    
-    clearTimeout(timeoutId);
-  } catch (fetchError) {
-    clearTimeout(timeoutId);
-    
-    const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
-    const errorName = fetchError instanceof Error ? fetchError.name : "Unknown";
-    const isAbortError = errorName === "AbortError" || errorMessage.includes("aborted");
-    const isNetworkError = errorName === "TypeError" || errorMessage.includes("Failed to fetch");
-    
-    // Create user-friendly error message
-    let userFriendlyMessage = `Failed to fetch login endpoint: ${errorMessage}`;
-    if (isAbortError) {
-      userFriendlyMessage = `Request timeout: The login endpoint did not respond within ${timeout}ms. Please check your network connection and server status.`;
-    } else if (isNetworkError) {
-      if (errorMessage.includes("CORS") || errorMessage.includes("cross-origin")) {
-        userFriendlyMessage = `CORS error: Cannot connect to ${controllerUrl}. The server may not allow cross-origin requests. Please check CORS configuration.`;
-      } else {
-        userFriendlyMessage = `Network error: Cannot connect to ${controllerUrl}. Please check your network connection and ensure the server is running.`;
-      }
-    }
-    
-    // Re-throw with more context
-    const networkError = new Error(userFriendlyMessage) as Error & { details?: unknown };
-    networkError.details = {
-      endpointUrl,
-      hasClientToken: !!clientToken,
-      originalError: errorMessage,
-      errorName,
-      isTimeout: isAbortError,
-      isCorsError: isNetworkError && (errorMessage.includes("CORS") || errorMessage.includes("cross-origin")),
-    };
-    throw networkError;
-  }
-
-  // Handle case where response is undefined (shouldn't happen, but be safe)
-  if (!response) {
-    throw new Error("Failed to fetch login endpoint: response is undefined");
-  }
-
-  // Check for redirect status codes - these should be handled, not followed automatically
-  if (response.status >= 300 && response.status < 400) {
-    // Don't follow redirect automatically - treat as error
-    throw new Error(`Server returned redirect status ${response.status}. This should not happen for login endpoint.`);
-  }
-
-  if (!response.ok) {
-    throw await handleLoginErrorResponse(response, controllerUrl, clientToken);
-  }
-
-  let data: {
-    success?: boolean;
-    data?: { loginUrl?: string; state?: string };
-    loginUrl?: string;
-  };
-  
-  try {
-    data = (await response.json()) as typeof data;
-  } catch (jsonError) {
-    const errorMessage = jsonError instanceof Error ? jsonError.message : String(jsonError);
-    throw new Error(
-      `Failed to parse login response: ${errorMessage}. Status: ${response.status} ${response.statusText}`
-    );
-  }
-
-  return data;
-}
 
 /**
  * Validate redirect URL for safety and format
@@ -280,106 +81,23 @@ export function getValidatedRedirectUrl(url: string | null, fallbackUrl?: string
 }
 
 /**
- * Handle successful login response
- * IMPORTANT: Only redirects if controller returns valid loginUrl - NO fallback redirects
- */
-function handleSuccessfulLoginResponse(
-  loginUrl: string | null,
-  controllerUrl: string,
-  data: { data?: { loginUrl?: string; state?: string }; loginUrl?: string },
-  clientToken: string | null,
-  _config: DataClientConfig,
-): void {
-  // CRITICAL: Only use loginUrl from controller - do NOT use fallback URL
-  // If controller doesn't return a valid URL, throw error instead of redirecting
-  const validatedUrl = getValidatedRedirectUrl(loginUrl);
-  
-  if (validatedUrl) {
-    try {
-      (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = validatedUrl;
-      return;
-    } catch (redirectError) {
-      const error = new Error("Failed to redirect to login URL. The URL may be blocked by browser security policies.") as Error & { details?: unknown };
-      error.details = {
-        validatedUrl,
-        originalLoginUrl: loginUrl,
-        redirectError: redirectError instanceof Error ? redirectError.message : String(redirectError),
-      };
-      throw error;
-    }
-  }
-  
-  // Controller did not return a valid login URL - throw error (do NOT use fallback)
-  const error = new Error("Controller did not return a valid login URL. Please check your controller configuration and ensure the login endpoint is working correctly.") as Error & { details?: unknown };
-  error.details = {
-    controllerUrl,
-    responseData: data,
-    hasClientToken: !!clientToken,
-    originalLoginUrl: loginUrl,
-    validationFailed: true,
-  };
-  throw error;
-}
-
-/**
- * Handle login errors
- * IMPORTANT: Does NOT redirect on error - throws error instead
- * Redirects should only happen on successful responses
- * @param error - The error that occurred
- * @param controllerUrl - Controller URL
- * @param clientToken - Client token if available
- * @param config - DataClient configuration
- * @param skipLogging - If true, skip logging (error already logged)
- */
-function handleLoginError(
-  error: unknown,
-  controllerUrl: string,
-  clientToken: string | null,
-  config: DataClientConfig,
-  skipLogging = false,
-): never {
-  const errorMessage = error instanceof Error ? error.message : String(error);
-  const errorName = error instanceof Error ? error.name : "Unknown";
-  const _errorStack = error instanceof Error ? error.stack : undefined;
-  const errorDetails = (error as Error & { details?: unknown })?.details;
-  
-  // Log error - test expects Error object as second parameter
-  if (!skipLogging) {
-    const logError = error instanceof Error ? error : new Error(String(error));
-    console.error("[redirectToLogin] Failed to get login URL from controller:", logError);
-  }
-  
-  // DO NOT redirect on error - throw error instead
-  // Redirects should only happen when fetch succeeds and returns valid URL
-  
-  // For non-network errors, throw immediately
-  if (error instanceof Error && error.message && !error.message.includes("Failed to fetch")) {
-    throw error;
-  }
-  
-  const fullErrorDetails = {
-    message: errorMessage,
-    name: errorName,
-    originalDetails: errorDetails,
-    controllerUrl,
-    hasClientToken: !!clientToken,
-    config: {
-      loginUrl: config.loginUrl,
-      hasMisoConfig: !!config.misoConfig,
-      controllerUrl: config.misoConfig?.controllerUrl,
-      controllerPublicUrl: config.misoConfig?.controllerPublicUrl,
-    },
-  };
-  
-  const userFriendlyMessage = createNetworkErrorMessage(errorMessage, controllerUrl, clientToken);
-  const loginError = new Error(userFriendlyMessage) as Error & { details?: typeof fullErrorDetails };
-  loginError.details = fullErrorDetails;
-  throw loginError;
-}
-
-/**
- * Redirect to login page via controller
- * Calls the controller login endpoint with redirect parameter and x-client-token header
+ * Redirect to controller login page
+ * Redirects user browser directly to controller's login URL with client token
+ * NO API CALLS - just browser redirect
+ * 
+ * Flow:
+ * 1. User visits: http://localhost:4111/dataplane/
+ * 2. redirectToLogin() redirects to: {controllerPublicUrl}{loginUrl}?redirect={redirectUrl}&x-client-token={token}
+ * 3. Controller handles OAuth flow and redirects back after authentication
+ * 4. Controller redirects to: {redirectUrl}#token={userToken}
+ * 5. DataClient.handleOAuthCallback() extracts token from hash and stores securely
+ * 
+ * Security:
+ * - Token is passed in hash fragment (#token=...) not query parameter
+ * - Hash fragments are NOT sent to server (not in logs)
+ * - Hash fragments are NOT stored in browser history
+ * - Token is immediately removed from URL after extraction
+ * 
  * @param config - DataClient configuration
  * @param getClientTokenFn - Function to get client token
  * @param redirectUrl - Optional redirect URL to return to after login (defaults to current page URL)
@@ -392,32 +110,162 @@ export async function redirectToLogin(
   if (!isBrowser()) {
     return;
   }
-  
+
   const currentUrl = (globalThis as unknown as { window: { location: { href: string } } }).window.location.href;
   const finalRedirectUrl = redirectUrl || currentUrl;
   
-  const controllerUrl = validateControllerUrl(config);
-  let clientToken: string | null = null;
+  // Get controller public URL (for browser environments)
+  const controllerUrl = getControllerUrl(config.misoConfig);
 
-  try {
-    clientToken = await getClientTokenFn();
-    
-    const endpointUrl = buildLoginEndpointUrl(controllerUrl, finalRedirectUrl);
-    const headers = buildLoginHeaders(clientToken);
-    
-    // Fetch login URL from controller - this MUST succeed for redirect to happen
-    const data = await callControllerLoginEndpoint(endpointUrl, headers, controllerUrl, clientToken);
-    
-    const loginUrl = extractLoginUrl(data);
-    
-    // Only redirect if we got a valid response - handleSuccessfulLoginResponse will validate URL
-    handleSuccessfulLoginResponse(loginUrl, controllerUrl, data, clientToken, config);
-  } catch (error) {
-    // CRITICAL: Do NOT redirect on error - throw error instead
-    // Redirects should ONLY happen when fetch succeeds and returns valid URL
-    handleLoginError(error, controllerUrl, clientToken, config);
-    // This line should never be reached since handleLoginError always throws
+  if (!controllerUrl) {
+    const error = new Error("Controller URL is not configured. Please configure controllerUrl or controllerPublicUrl in your DataClient configuration.") as Error & { details?: unknown };
+    error.details = {
+      hasMisoConfig: !!config.misoConfig,
+      controllerUrl: config.misoConfig?.controllerUrl,
+      controllerPublicUrl: config.misoConfig?.controllerPublicUrl,
+      controllerPrivateUrl: config.misoConfig?.controllerPrivateUrl,
+    };
     throw error;
   }
+  
+  // Get client token
+  const clientToken = await getClientTokenFn();
+  
+  // Get login URL from config (defaults to '/login')
+  // Validate that loginUrl is not an API endpoint (should be a page, not /api/...)
+  let loginPath = config.loginUrl || '/login';
+  
+  // Warn if loginUrl looks like an API endpoint (common mistake)
+  if (loginPath.startsWith('/api/')) {
+    console.warn(
+      `⚠️ Warning: loginUrl is set to an API endpoint (${loginPath}). ` +
+      `redirectToLogin() should redirect to a login PAGE (e.g., '/login'), not an API endpoint. ` +
+      `Using default '/login' instead.`
+    );
+    loginPath = '/login';
+  }
+  
+  // Build full controller login URL
+  // If loginPath is already a full URL, use it; otherwise prepend controllerUrl
+  let loginUrl: URL;
+  if (/^https?:\/\//i.test(loginPath)) {
+    loginUrl = new URL(loginPath);
+  } else {
+    loginUrl = new URL(loginPath, controllerUrl);
+  }
+  
+  // Add redirect parameter
+  loginUrl.searchParams.set('redirect', finalRedirectUrl);
+  
+  // Add client token as query parameter (controller will read it)
+  if (clientToken) {
+    loginUrl.searchParams.set('x-client-token', clientToken);
+  }
+  
+  // Redirect user directly to controller login page
+  // Controller handles OAuth flow and redirects back after authentication
+  (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = loginUrl.toString();
 }
 
+/**
+ * Logout user and redirect to controller logout page
+ * Clears tokens from localStorage, clears cache, and redirects to controller logout URL
+ * NO API CALLS - just browser redirect
+ * Controller handles the logout process
+ * 
+ * @param config - DataClient configuration
+ * @param getTokenFn - Function to get user token
+ * @param getClientTokenFn - Function to get client token
+ * @param clearCacheFn - Function to clear HTTP cache
+ * @param redirectUrl - Optional redirect URL after logout (defaults to logoutUrl or loginUrl)
+ * @param _misoClient - MisoClient instance (not used, kept for API compatibility)
+ */
+export async function logout(
+  config: DataClientConfig,
+  getTokenFn: () => string | null,
+  getClientTokenFn: () => Promise<string | null>,
+  clearCacheFn: () => void,
+  redirectUrl?: string,
+  _misoClient?: MisoClient | null,
+): Promise<void> {
+  if (!isBrowser()) return;
+  
+  // Get tokens BEFORE clearing (needed for passing to controller)
+  const token = getTokenFn();
+  const clientToken = await getClientTokenFn();
+  
+  // Clear tokens from localStorage
+  const keys = config.tokenKeys || ["token", "accessToken", "authToken"];
+  keys.forEach(key => {
+    try {
+      const storage = (globalThis as unknown as { localStorage: { removeItem: (key: string) => void } }).localStorage;
+      if (storage) {
+        storage.removeItem(key);
+      }
+    } catch (e) {
+      // Ignore localStorage errors (SSR, private browsing, etc.)
+    }
+  });
+  
+  // Clear HTTP cache
+  clearCacheFn();
+  
+  // Get controller public URL (for browser environments)
+  const controllerUrl = getControllerUrl(config.misoConfig);
+  
+  if (!controllerUrl) {
+    // Fallback to local redirect if controller URL not configured
+    const finalRedirectUrl = redirectUrl || config.logoutUrl || config.loginUrl || "/login";
+    const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
+    const fullUrl = /^https?:\/\//i.test(finalRedirectUrl)
+      ? finalRedirectUrl
+      : `${origin}${finalRedirectUrl.startsWith("/") ? finalRedirectUrl : `/${finalRedirectUrl}`}`;
+    
+    const validatedUrl = getValidatedRedirectUrl(fullUrl);
+    if (validatedUrl) {
+      (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = validatedUrl;
+    }
+    return;
+  }
+  
+  // Get logout URL from config (defaults to '/logout' or falls back to '/login')
+  const logoutPath = config.logoutUrl || config.loginUrl || '/logout';
+  
+  // Build full controller logout URL
+  // If logoutPath is already a full URL, use it; otherwise prepend controllerUrl
+  let logoutUrl: URL;
+  if (/^https?:\/\//i.test(logoutPath)) {
+    logoutUrl = new URL(logoutPath);
+  } else {
+    logoutUrl = new URL(logoutPath, controllerUrl);
+  }
+  
+  // Determine redirect URL: redirectUrl param > logoutUrl config > loginUrl config > '/login'
+  const finalRedirectUrl = redirectUrl || config.logoutUrl || config.loginUrl || "/login";
+  
+  // Construct full redirect URL (if relative, make absolute)
+  let fullRedirectUrl: string;
+  if (/^https?:\/\//i.test(finalRedirectUrl)) {
+    fullRedirectUrl = finalRedirectUrl;
+  } else {
+    const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
+    fullRedirectUrl = `${origin}${finalRedirectUrl.startsWith("/") ? finalRedirectUrl : `/${finalRedirectUrl}`}`;
+  }
+  
+  logoutUrl.searchParams.set('redirect', fullRedirectUrl);
+  
+  // Add client token as query parameter (controller will read it)
+  if (clientToken) {
+    logoutUrl.searchParams.set('x-client-token', clientToken);
+  }
+  
+  // Add user token as query parameter if available (controller will read it)
+  // Token was retrieved before clearing localStorage
+  if (token) {
+    logoutUrl.searchParams.set('token', token);
+  }
+  
+  // Redirect user directly to controller logout page
+  // Controller handles logout process and redirects back
+  (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = logoutUrl.toString();
+}

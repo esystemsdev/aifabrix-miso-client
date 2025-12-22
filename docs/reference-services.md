@@ -18,7 +18,9 @@ The SDK provides a logger service accessible via `client.log`. The logger extend
 **Event Emission Mode:**
 When `emitEvents = true` in config, logs are emitted as Node.js events instead of being sent via HTTP/Redis. See [Event Emission Mode Guide](./configuration.md#event-emission-mode) for details.
 
-### `log.error(message: string, context?: object): Promise<void>`
+### Basic Logging Methods
+
+#### `log.error(message: string, context?: object): Promise<void>`
 
 Logs an error message.
 
@@ -37,7 +39,7 @@ await client.log.error('Database connection failed', {
 });
 ```
 
-### `log.audit(action: string, resource: string, context?: object): Promise<void>`
+#### `log.audit(action: string, resource: string, context?: object): Promise<void>`
 
 Logs an audit event.
 
@@ -57,7 +59,7 @@ await client.log.audit('user.login', 'authentication', {
 });
 ```
 
-### `log.info(message: string, context?: object): Promise<void>`
+#### `log.info(message: string, context?: object): Promise<void>`
 
 Logs an info message.
 
@@ -75,7 +77,7 @@ await client.log.info('User accessed dashboard', {
 });
 ```
 
-### `log.debug(message: string, context?: object): Promise<void>`
+#### `log.debug(message: string, context?: object): Promise<void>`
 
 Logs a debug message (only if log level is set to 'debug').
 
@@ -92,6 +94,326 @@ await client.log.debug('Processing user request', {
   requestId: 'req-123',
   processingTime: '150ms'
 });
+```
+
+### Fluent API with LoggerChain
+
+The logger supports a fluent API via `LoggerChain` for building complex logging scenarios with method chaining.
+
+#### `log.withContext(context: Record<string, unknown>): LoggerChain`
+
+Creates a logger chain with initial context.
+
+**Parameters:**
+
+- `context` - Context object to include in logs
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Example:**
+
+```typescript
+await client.log
+  .withContext({ operation: 'sync', source: 'external-api' })
+  .info('Sync started');
+```
+
+#### `log.withToken(token: string): LoggerChain`
+
+Creates a logger chain with JWT token for automatic user context extraction.
+
+**Parameters:**
+
+- `token` - JWT token to extract user context from
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Example:**
+
+```typescript
+await client.log
+  .withToken(userToken)
+  .info('User action performed');
+```
+
+#### `log.forRequest(req: Request): LoggerChain`
+
+Creates a logger chain with request context pre-populated. Auto-extracts IP, method, path, user-agent, correlation ID, and user from JWT.
+
+**Parameters:**
+
+- `req` - Express Request object
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Example:**
+
+```typescript
+import { Request } from 'express';
+
+app.get('/api/users', async (req: Request, res) => {
+  await client.log
+    .forRequest(req)
+    .info('Users list accessed');
+  
+  // Automatically includes: IP, method, path, userAgent, correlationId, userId
+});
+```
+
+### LoggerChain Methods
+
+#### `withIndexedContext(context: IndexedLoggingContext): LoggerChain`
+
+Adds indexed context fields for fast querying. These fields are stored at the top level of `LogEntry` for efficient database queries.
+
+**Parameters:**
+
+- `context` - Indexed logging context with source, external system, and record information
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Indexed Fields:**
+
+- `sourceKey` - Source identifier (e.g., datasource key)
+- `sourceDisplayName` - Human-readable source name
+- `externalSystemKey` - External system identifier
+- `externalSystemDisplayName` - Human-readable external system name
+- `recordKey` - Record identifier
+- `recordDisplayName` - Human-readable record name
+
+**Example:**
+
+```typescript
+import { extractLoggingContext } from '@aifabrix/miso-client';
+
+const logContext = extractLoggingContext({
+  source: {
+    key: 'datasource-1',
+    displayName: 'PostgreSQL DB',
+    externalSystem: { key: 'system-1', displayName: 'External API' }
+  },
+  record: { key: 'record-123', displayName: 'User Profile' }
+});
+
+await client.log
+  .withIndexedContext(logContext)
+  .addCorrelation(correlationId)
+  .addUser(userId)
+  .error('Sync failed');
+```
+
+#### `withCredentialContext(credentialId?: string, credentialType?: string): LoggerChain`
+
+Adds credential context for audit logging.
+
+**Parameters:**
+
+- `credentialId` - Optional credential identifier
+- `credentialType` - Optional credential type (e.g., 'oauth2', 'api-key')
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Example:**
+
+```typescript
+await client.log
+  .withCredentialContext('cred-123', 'oauth2')
+  .info('API call completed');
+```
+
+#### `withRequestMetrics(requestSize?: number, responseSize?: number, durationMs?: number): LoggerChain`
+
+Adds request/response metrics for performance logging.
+
+**Parameters:**
+
+- `requestSize` - Optional request size in bytes
+- `responseSize` - Optional response size in bytes
+- `durationMs` - Optional request duration in milliseconds
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Example:**
+
+```typescript
+const startTime = Date.now();
+const response = await fetch('/api/data');
+const duration = Date.now() - startTime;
+
+await client.log
+  .withRequestMetrics(
+    JSON.stringify(requestBody).length,
+    JSON.stringify(response).length,
+    duration
+  )
+  .info('Upstream API call completed');
+```
+
+#### `withRequest(req: Request): LoggerChain`
+
+Auto-extracts logging context from Express Request. Extracts IP, method, path, user-agent, correlation ID, referer, user from JWT, and request size.
+
+**Parameters:**
+
+- `req` - Express Request object
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Auto-extracted Fields:**
+
+- `ipAddress` - Client IP (handles proxy headers)
+- `method` - HTTP method (GET, POST, etc.)
+- `path` - Request path
+- `userAgent` - Browser/client user agent
+- `correlationId` - From `x-correlation-id` or `x-request-id` headers
+- `referer` - Referer header
+- `userId` - Extracted from JWT token in Authorization header
+- `sessionId` - Extracted from JWT token
+- `requestId` - From `x-request-id` header
+- `requestSize` - From `content-length` header
+
+**Example:**
+
+```typescript
+import { Request } from 'express';
+
+app.post('/api/users', async (req: Request, res) => {
+  // Simple: Auto-extracts all request context
+  await client.log
+    .withRequest(req)
+    .info('User created');
+  
+  // Equivalent to manually extracting:
+  // await client.log
+  //   .addUser(userId)
+  //   .addCorrelation(req.headers['x-correlation-id'])
+  //   .info('User created', {
+  //     ipAddress: req.ip,
+  //     method: req.method,
+  //     path: req.path,
+  //     userAgent: req.headers['user-agent']
+  //   });
+});
+```
+
+#### `addUser(userId: string): LoggerChain`
+
+Adds user ID to logging context.
+
+**Parameters:**
+
+- `userId` - User identifier
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Example:**
+
+```typescript
+await client.log
+  .addUser('user-123')
+  .info('User action');
+```
+
+#### `addCorrelation(correlationId: string): LoggerChain`
+
+Adds correlation ID to logging context.
+
+**Parameters:**
+
+- `correlationId` - Correlation identifier for request tracing
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Example:**
+
+```typescript
+await client.log
+  .addCorrelation('req-123')
+  .info('Request processed');
+```
+
+#### `addSession(sessionId: string): LoggerChain`
+
+Adds session ID to logging context.
+
+**Parameters:**
+
+- `sessionId` - Session identifier
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Example:**
+
+```typescript
+await client.log
+  .addSession('session-123')
+  .info('Session activity');
+```
+
+#### `withoutMasking(): LoggerChain`
+
+Disables sensitive data masking for this log entry.
+
+**Returns:** `LoggerChain` instance for method chaining
+
+**Example:**
+
+```typescript
+await client.log
+  .withoutMasking()
+  .info('Log entry without data masking');
+```
+
+#### `error(message: string, stackTrace?: string): Promise<void>`
+
+Logs an error message with accumulated context.
+
+**Parameters:**
+
+- `message` - Error message
+- `stackTrace` - Optional stack trace
+
+**Example:**
+
+```typescript
+await client.log
+  .withRequest(req)
+  .addUser(userId)
+  .error('Operation failed', error.stack);
+```
+
+#### `info(message: string): Promise<void>`
+
+Logs an info message with accumulated context.
+
+**Parameters:**
+
+- `message` - Info message
+
+**Example:**
+
+```typescript
+await client.log
+  .withRequest(req)
+  .info('Request processed');
+```
+
+#### `audit(action: string, resource: string): Promise<void>`
+
+Logs an audit event with accumulated context.
+
+**Parameters:**
+
+- `action` - Action performed
+- `resource` - Resource affected
+
+**Example:**
+
+```typescript
+await client.log
+  .withRequest(req)
+  .addUser(userId)
+  .audit('user.login', 'authentication');
 ```
 
 ## Encryption Methods
@@ -527,4 +849,8 @@ await client.cache.clear();
 - [Configuration Guide](./configuration.md) - Configuration options including event emission mode
 - [Examples Guide](./examples.md) - Framework-specific examples including background jobs and event emission mode
 - [Type Reference](./reference-types.md) - Complete type definitions
-
+- **Example Files:**
+  - [Logging Example](../examples/step-5-logging.ts) - Basic logging usage
+  - [Audit Example](../examples/step-6-audit.ts) - Audit trail implementation
+  - [Encryption & Cache Example](../examples/step-7-encryption-cache.ts) - Encryption and caching usage
+  - [Event Emission Mode Example](../examples/event-emission-mode.example.ts) - Event emission mode setup

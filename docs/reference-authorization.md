@@ -430,4 +430,6 @@ function UserManagement() {
 - [MisoClient Reference](./reference-misoclient.md) - Main client class
 - [DataClient Reference](./reference-dataclient.md#authorization-methods) - Browser client authorization methods
 - [Examples Guide](./examples.md) - Framework-specific examples
+- **Example Files:**
+  - [RBAC Example](../examples/step-4-rbac.ts) - Role-based access control usage
 

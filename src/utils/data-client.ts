@@ -30,6 +30,7 @@ import {
   logout,
   getEnvironmentToken,
   getClientTokenInfo,
+  handleOAuthCallback,
 } from "./data-client-auth";
 import {
   redirectToLogin as redirectToLoginAuth,
@@ -179,6 +180,12 @@ export class DataClient {
       );
       this.roleService = new BrowserRoleService(httpClient, cacheService);
     }
+
+    // Auto-handle OAuth callback on initialization (browser only)
+    // This ensures tokens are extracted immediately when DataClient is created
+    if (isBrowser()) {
+      this.handleOAuthCallback();
+    }
   }
 
   /**
@@ -236,6 +243,17 @@ export class DataClient {
   }
 
   /**
+   * Handle OAuth callback from authentication redirect
+   * Extracts token from URL hash fragment and stores securely
+   * ISO 27001 compliant with immediate cleanup and validation
+   * 
+   * @returns Extracted token or null if not found/invalid
+   */
+  handleOAuthCallback(): string | null {
+    return handleOAuthCallback(this.config);
+  }
+
+  /**
    * Redirect to login page via controller
    * Calls the controller login endpoint with redirect parameter and x-client-token header
    * @param redirectUrl - Optional redirect URL to return to after login (defaults to current page URL)
@@ -256,6 +274,7 @@ export class DataClient {
       () => this.getClientToken(),
       () => this.clearCache(),
       redirectUrl,
+      this.misoClient,
     );
   }
 
@@ -388,6 +407,7 @@ export class DataClient {
       () => this.hasAnyToken(),
       () => this.getToken(),
       () => this.handleAuthError(),
+      () => this.refreshUserToken(),
       this.interceptors,
       this.metrics,
       options,
@@ -406,6 +426,39 @@ export class DataClient {
       if (isGetRequest) {
         this.pendingRequests.delete(cacheKey);
       }
+    }
+  }
+
+  /**
+   * Refresh user token using onTokenRefresh callback
+   * @returns New token and expiration, or null if refresh failed
+   */
+  private async refreshUserToken(): Promise<{ token: string; expiresIn: number } | null> {
+    if (!this.config.onTokenRefresh) {
+      return null;
+    }
+
+    try {
+      const result = await this.config.onTokenRefresh();
+      
+      // Update token in localStorage
+      if (isBrowser() && result.token) {
+        const { setLocalStorage } = await import("./data-client-utils");
+        const tokenKeys = this.config.tokenKeys || ["token", "accessToken", "authToken"];
+        
+        // Store token in all configured keys
+        for (const key of tokenKeys) {
+          setLocalStorage(key, result.token);
+        }
+        
+        // Note: Refresh token is NOT stored in localStorage for security
+        // The backend endpoint handles refresh token securely (httpOnly cookie or session)
+      }
+      
+      return result;
+    } catch (error) {
+      console.error("Token refresh failed:", error);
+      return null;
     }
   }
 

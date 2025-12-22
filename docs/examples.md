@@ -70,11 +70,10 @@ export async function authMiddleware(
     req.user = user;
     next();
   } catch (error) {
-    await client.log.error('Authentication middleware error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      path: req.path,
-      method: req.method
-    });
+    // Use fluent API with request context (auto-extracts IP, method, path, etc.)
+    await client.log
+      .withRequest(req)
+      .error('Authentication middleware error', error instanceof Error ? error.stack : undefined);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -397,7 +396,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     switch (req.method) {
       case 'GET':
-        await client.log.info('Posts fetched', { userId: user?.id });
+        // Use fluent API with request context
+        await client.log
+          .withRequest(req)
+          .info('Posts fetched');
         return res.status(200).json({ posts: [] });
 
       case 'POST':
@@ -420,11 +422,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (error) {
-    await client.log.error('API error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      method: req.method,
-      path: req.url
-    });
+    // Use fluent API with request context for errors
+    await client.log
+      .withRequest(req)
+      .error('API error', error instanceof Error ? error.stack : undefined);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
@@ -622,6 +623,107 @@ fastify.get('/posts', async (request, reply) => {
 ## Background Jobs
 
 > **📖 For detailed logging API reference, see [Services Reference - Logging Methods](./reference-services.md#logging-methods)**
+
+### Logging with Request Context (Express)
+
+**You need to:** Log requests with automatic context extraction from Express Request.
+
+**Here's how:** Use `withRequest()` method to auto-extract IP, method, path, user-agent, correlation ID, and user from JWT.
+
+```typescript
+import { Request } from 'express';
+
+app.get('/api/users', async (req: Request, res) => {
+  // Simple: Auto-extracts all request context
+  await client.log
+    .withRequest(req)
+    .info('Users list accessed');
+  
+  // Automatically includes: IP, method, path, userAgent, correlationId, userId
+  const users = await fetchUsers();
+  res.json(users);
+});
+```
+
+**What gets extracted:**
+
+- `ipAddress` - Client IP (handles proxy headers)
+- `method` - HTTP method (GET, POST, etc.)
+- `path` - Request path
+- `userAgent` - Browser/client user agent
+- `correlationId` - From `x-correlation-id` or `x-request-id` headers
+- `userId` - Extracted from JWT token in Authorization header
+- `sessionId` - Extracted from JWT token
+- `referer` - Referer header
+- `requestSize` - From `content-length` header
+
+### Logging with Indexed Context
+
+**You need to:** Add indexed context fields for fast database queries and observability.
+
+**Here's how:** Use `extractLoggingContext()` and `withIndexedContext()` for structured logging.
+
+```typescript
+import { extractLoggingContext } from '@aifabrix/miso-client';
+
+// Extract indexed context from source and record objects
+const logContext = extractLoggingContext({
+  source: {
+    key: 'datasource-1',
+    displayName: 'PostgreSQL DB',
+    externalSystem: { key: 'system-1', displayName: 'External API' }
+  },
+  record: { key: 'record-123', displayName: 'User Profile' }
+});
+
+// Use in logging
+await client.log
+  .withIndexedContext(logContext)
+  .addCorrelation(correlationId)
+  .addUser(userId)
+  .error('Sync failed');
+```
+
+**Indexed fields enable fast queries:**
+
+- `sourceKey` - Source identifier (e.g., datasource key)
+- `sourceDisplayName` - Human-readable source name
+- `externalSystemKey` - External system identifier
+- `externalSystemDisplayName` - Human-readable external system name
+- `recordKey` - Record identifier
+- `recordDisplayName` - Human-readable record name
+
+### Logging with Credential Context
+
+**You need to:** Add credential context for audit logging.
+
+**Here's how:** Use `withCredentialContext()` method.
+
+```typescript
+await client.log
+  .withCredentialContext('cred-123', 'oauth2')
+  .info('API call completed');
+```
+
+### Logging with Request Metrics
+
+**You need to:** Add request/response metrics for performance logging.
+
+**Here's how:** Use `withRequestMetrics()` method.
+
+```typescript
+const startTime = Date.now();
+const response = await fetch('/api/data');
+const duration = Date.now() - startTime;
+
+await client.log
+  .withRequestMetrics(
+    JSON.stringify(requestBody).length,
+    JSON.stringify(response).length,
+    duration
+  )
+  .info('Upstream API call completed');
+```
 
 **You need to:** Add logging and authentication context to background job processing.
 

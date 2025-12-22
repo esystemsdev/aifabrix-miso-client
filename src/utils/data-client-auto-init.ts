@@ -130,26 +130,84 @@ async function fetchConfig(
     ? clientTokenUri
     : `${baseUrl}${clientTokenUri}`;
 
+  // Add timeout to prevent hanging (30 seconds)
+  const timeout = 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
   try {
     // Try POST first (standard), fallback to GET
-    let response = await fetch(fullUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      credentials: "include",
-    });
+    let response: Response;
+    try {
+      response = await fetch(fullUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        signal: controller.signal,
+      });
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      // Handle timeout and network errors
+      const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      const errorName = fetchError instanceof Error ? fetchError.name : "Unknown";
+      
+      if (errorName === "AbortError" || errorMessage.includes("aborted")) {
+        throw new Error(
+          `Request timeout: The client token endpoint did not respond within ${timeout}ms. ` +
+          `Please check if the server is running and accessible at ${fullUrl}`
+        );
+      }
+      
+      if (errorMessage.includes("ERR_EMPTY_RESPONSE") || errorMessage.includes("empty response")) {
+        throw new Error(
+          `Connection error: The server closed the connection without sending a response. ` +
+          `Please check if the server is running and accessible at ${fullUrl}`
+        );
+      }
+      
+      if (errorMessage.includes("Failed to fetch") || errorMessage.includes("network")) {
+        throw new Error(
+          `Network error: Cannot connect to ${fullUrl}. ` +
+          `Please check your network connection and ensure the server is running.`
+        );
+      }
+      
+      throw new Error(`Failed to fetch config: ${errorMessage}`);
+    }
+
+    clearTimeout(timeoutId);
 
     // If POST fails with 405, try GET
     if (response.status === 405) {
-      response = await fetch(fullUrl, {
-        method: "GET",
-        credentials: "include",
-      });
+      const getController = new AbortController();
+      const getTimeoutId = setTimeout(() => getController.abort(), timeout);
+      try {
+        response = await fetch(fullUrl, {
+          method: "GET",
+          credentials: "include",
+          signal: getController.signal,
+        });
+        clearTimeout(getTimeoutId);
+      } catch (fetchError) {
+        clearTimeout(getTimeoutId);
+        const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        const errorName = fetchError instanceof Error ? fetchError.name : "Unknown";
+        
+        if (errorName === "AbortError" || errorMessage.includes("aborted")) {
+          throw new Error(
+            `Request timeout: The client token endpoint did not respond within ${timeout}ms. ` +
+            `Please check if the server is running and accessible at ${fullUrl}`
+          );
+        }
+        throw new Error(`Failed to fetch config: ${errorMessage}`);
+      }
     }
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text().catch(() => "Unable to read error response");
       throw new Error(
         `Failed to fetch config: ${response.status} ${response.statusText}. ${errorText}`,
       );

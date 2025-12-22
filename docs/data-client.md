@@ -581,13 +581,138 @@ await dataClient.redirectToLogin('https://myapp.com/dashboard');
 - Gets client token (from cache, config, or `getEnvironmentToken()`)
 - Makes direct fetch request to `/api/v1/auth/login` with `x-client-token` header
 - Redirects browser to the controller's login URL returned in response
+- Controller handles OAuth flow and redirects back with token in hash fragment (`#token=...`)
 - Falls back to static `loginUrl` config if controller URL is not configured or controller call fails
+
+**OAuth Callback Flow:**
+
+After authentication, the controller redirects back to your application with the token in the URL hash fragment:
+
+```bash
+https://myapp.com/dashboard#token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+The token is automatically extracted by `handleOAuthCallback()` (called on DataClient initialization) or can be called manually. The hash fragment is immediately removed from the URL (< 100ms) for security.
 
 **Security:**
 
 - Uses `x-client-token` header (lowercase) for authentication
 - Never exposes `clientId` or `clientSecret` in browser code
+- Token passed in hash fragment (`#token=...`) not query parameter (hash fragments are not sent to server, not in logs, not in browser history)
+- Token is immediately removed from URL after extraction (< 100ms)
 - Supports both nested (`data.loginUrl`) and flat (`loginUrl`) response formats
+
+#### OAuth Callback Handling
+
+**You need to:** Handle OAuth callback after user authentication to extract and store the token securely.
+
+**Here's how:** Use `handleOAuthCallback()` method - it's automatically called on DataClient initialization.
+
+```typescript
+// Auto-called on initialization
+const dataClient = new DataClient(config);
+// Token is automatically extracted if present in URL hash
+
+// Or manually call
+const token = dataClient.handleOAuthCallback();
+if (token) {
+  console.log('Token extracted and stored');
+  // Update UI to show authenticated state
+}
+```
+
+**Security Features:**
+
+- **Immediate hash cleanup**: Removes token from URL within < 100ms to prevent exposure
+- **Token format validation**: Verifies JWT format (3 parts separated by dots) before storage
+- **HTTPS enforcement**: Validates HTTPS in production environments (rejects HTTP tokens)
+- **Synchronous extraction**: Extracts hash before any async operations
+- **Secure error handling**: Fails silently without exposing tokens in errors
+
+**OAuth Flow:**
+
+1. User calls `redirectToLogin()` → redirects to controller login page
+2. Controller handles OAuth flow with Keycloak
+3. Controller redirects back to your app: `https://myapp.com/dashboard#token=eyJhbGc...`
+4. `handleOAuthCallback()` extracts token from hash fragment
+5. Token is validated and stored in localStorage
+6. Hash fragment is immediately removed from URL (< 100ms)
+7. User sees clean URL: `https://myapp.com/dashboard`
+
+**Note:** Hash fragments (`#token=...`) are more secure than query parameters because:
+
+- Not sent to server (not in access logs)
+- Not stored in browser history
+- Not included in referrer headers
+- Only accessible via JavaScript
+
+#### Token Refresh
+
+**You need to:** Refresh expired access tokens automatically when requests receive 401 Unauthorized.
+
+**Here's how:** Configure `onTokenRefresh` callback in DataClient config.
+
+```typescript
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  onTokenRefresh: async () => {
+    // Call your backend endpoint that handles refresh token securely
+    const response = await fetch('/api/refresh-token', {
+      credentials: 'include', // Include cookies for auth
+    });
+    return await response.json(); // { token: string, expiresIn: number }
+  },
+});
+```
+
+**How it works:**
+
+1. DataClient detects 401 Unauthorized error on a request
+2. Calls `onTokenRefresh` callback to get new token
+3. Updates token in localStorage
+4. Retries the original request with new token
+5. Redirects to login if refresh fails
+
+**Security:**
+
+- Refresh tokens should NEVER be stored in browser localStorage
+- The callback should delegate to your backend endpoint which securely manages refresh tokens (typically in httpOnly cookies or server-side sessions)
+- Only the new access token is stored in localStorage
+
+**Example:**
+
+```typescript
+// Backend endpoint (Express.js)
+app.post('/api/refresh-token', authenticateUser, async (req, res) => {
+  // Refresh token is in httpOnly cookie or session (secure)
+  const refreshToken = req.cookies.refreshToken;
+  
+  // Call MisoClient refreshToken method
+  const response = await misoClient.refreshToken(refreshToken);
+  
+  if (response) {
+    res.json({
+      token: response.accessToken,
+      expiresIn: response.expiresIn,
+    });
+  } else {
+    res.status(401).json({ error: 'Token refresh failed' });
+  }
+});
+
+// Frontend DataClient config
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  onTokenRefresh: async () => {
+    const response = await fetch('/api/refresh-token', {
+      credentials: 'include', // Include cookies
+    });
+    return await response.json();
+  },
+});
+```
 
 #### Logout User
 

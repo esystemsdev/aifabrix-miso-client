@@ -92,13 +92,14 @@ describe("data-client-auto-init", () => {
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://example.com/api/v1/auth/client-token",
-        {
+        expect.objectContaining({
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           credentials: "include",
-        },
+          signal: expect.any(AbortSignal),
+        }),
       );
       expect(MockDataClient).toHaveBeenCalledWith({
         baseUrl: mockConfig.baseUrl,
@@ -288,17 +289,19 @@ describe("data-client-auto-init", () => {
       await autoInitializeDataClient();
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(mockFetch).toHaveBeenNthCalledWith(1, expect.any(String), {
+      expect(mockFetch).toHaveBeenNthCalledWith(1, expect.any(String), expect.objectContaining({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         credentials: "include",
-      });
-      expect(mockFetch).toHaveBeenNthCalledWith(2, expect.any(String), {
+        signal: expect.any(AbortSignal),
+      }));
+      expect(mockFetch).toHaveBeenNthCalledWith(2, expect.any(String), expect.objectContaining({
         method: "GET",
         credentials: "include",
-      });
+        signal: expect.any(AbortSignal),
+      }));
     });
 
     it("should throw error if response is not ok", async () => {

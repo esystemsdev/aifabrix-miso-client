@@ -5,8 +5,8 @@
  * to extend the default ISO 27001 compliant sensitive fields.
  */
 
-// Note: When copying this example to your project, use: import { MisoClient, loadConfig } from '@aifabrix/miso-client';
-import { MisoClient, loadConfig } from '../src/index';
+// For development: import from '../src/index'
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 async function example() {
   // Option 1: Use environment variable

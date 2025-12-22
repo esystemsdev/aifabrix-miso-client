@@ -5,6 +5,8 @@
 
 import request from 'supertest';
 import express from 'express';
+import { Server } from 'http';
+import { AddressInfo } from 'net';
 import { DataClient } from '@aifabrix/miso-client';
 import { DataClientConfig } from '@aifabrix/miso-client';
 
@@ -17,7 +19,7 @@ jest.mock('@aifabrix/miso-client', () => {
 
 describe('Redirect to Login Integration Tests', () => {
   let mockControllerApp: express.Application;
-  let controllerServer: any;
+  let controllerServer: Server | null;
   let controllerPort: number;
   let controllerUrl: string;
 
@@ -59,8 +61,11 @@ describe('Redirect to Login Integration Tests', () => {
     // Start mock controller server on random port
     return new Promise<void>((resolve) => {
       controllerServer = mockControllerApp.listen(0, () => {
-        controllerPort = (controllerServer.address() as any).port;
-        controllerUrl = `http://localhost:${controllerPort}`;
+        const address = controllerServer?.address();
+        if (address && typeof address === 'object') {
+          controllerPort = (address as AddressInfo).port;
+          controllerUrl = `http://localhost:${controllerPort}`;
+        }
         resolve();
       });
     });
@@ -175,10 +180,30 @@ describe('Redirect to Login Integration Tests', () => {
   });
 
   describe('DataClient redirectToLogin Integration', () => {
-    let mockWindow: any;
-    let mockLocation: any;
-    let originalFetch: any;
+    interface MockLocation {
+      href: string;
+      origin: string;
+      protocol: string;
+      host: string;
+      hostname: string;
+      port: string;
+      pathname: string;
+    }
+    interface MockWindow {
+      location: MockLocation;
+    }
+    interface MockLocalStorage {
+      getItem: jest.Mock;
+      setItem: jest.Mock;
+      removeItem: jest.Mock;
+      clear: jest.Mock;
+    }
+    let mockWindow: MockWindow;
+    let mockLocation: MockLocation;
+    let originalFetch: typeof global.fetch | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let originalWindow: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let originalLocalStorage: any;
     let consoleErrorSpy: jest.SpyInstance;
     beforeEach(() => {
@@ -186,8 +211,10 @@ describe('Redirect to Login Integration Tests', () => {
       consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       // Save originals
-      originalFetch = (global as any).fetch;
+      originalFetch = global.fetch;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       originalWindow = (global as any).window;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       originalLocalStorage = (global as any).localStorage;
 
       // Create mock window.location with proper getter/setter
@@ -205,66 +232,44 @@ describe('Redirect to Login Integration Tests', () => {
       };
 
       // Set up window, localStorage, and fetch mocks to make isBrowser() return true
-      (global as any).window = mockWindow;
-      (global as any).localStorage = {
+      (global as unknown as { window: MockWindow }).window = mockWindow;
+      (global as unknown as { localStorage: MockLocalStorage }).localStorage = {
         getItem: jest.fn(),
         setItem: jest.fn(),
         removeItem: jest.fn(),
         clear: jest.fn(),
       };
-      (global as any).fetch = jest.fn();
+      global.fetch = jest.fn() as jest.MockedFunction<typeof fetch>;
     });
 
     afterEach(() => {
       // Restore originals
       if (originalFetch) {
-        (global as any).fetch = originalFetch;
+        global.fetch = originalFetch;
       } else {
-        delete (global as any).fetch;
+        delete (global as unknown as { fetch?: typeof fetch }).fetch;
       }
-      if (originalWindow) {
+      if (originalWindow !== undefined) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (global as any).window = originalWindow;
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delete (global as any).window;
       }
-      if (originalLocalStorage) {
+      if (originalLocalStorage !== undefined) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (global as any).localStorage = originalLocalStorage;
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         delete (global as any).localStorage;
       }
       consoleErrorSpy.mockRestore();
     });
 
     it('should call controller login endpoint with client token', async () => {
-      const mockFetch = jest.fn().mockImplementation((url: string, options: any) => {
-        // Log the call for debugging
-        console.log(`[TEST] Fetch called: ${url}`);
-        console.log(`[TEST] Headers:`, JSON.stringify(options.headers, null, 2));
-
-        // Verify it's calling the controller endpoint
-        expect(url).toContain(`${controllerUrl}/api/v1/auth/login`);
-        expect(url).toContain('redirect=');
-
-        // Verify client token is in headers
-        expect(options.headers['x-client-token']).toBeDefined();
-
-        // Return mock response matching controller format
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            success: true,
-            data: {
-              loginUrl: 'https://keycloak.example.com/auth/realms/myrealm/protocol/openid-connect/auth',
-              state: 'test-state',
-            },
-          }),
-        });
-      });
-
-      (global as any).fetch = mockFetch;
-
       const config: DataClientConfig = {
         baseUrl: 'http://localhost:3000',
+        loginUrl: '/login',
         misoConfig: {
           controllerUrl: controllerUrl,
           controllerPublicUrl: controllerUrl,
@@ -278,6 +283,7 @@ describe('Redirect to Login Integration Tests', () => {
 
         // Mock getClientToken to return a token
         const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
         console.log('[TEST] Calling redirectToLogin...');
@@ -287,15 +293,17 @@ describe('Redirect to Login Integration Tests', () => {
         // Verify getClientToken was called
         expect(mockGetClientToken).toHaveBeenCalled();
 
-        // Verify fetch was called
-        expect(mockFetch).toHaveBeenCalled();
-        const fetchCall = mockFetch.mock.calls[0];
-        expect(fetchCall[0]).toContain(`${controllerUrl}/api/v1/auth/login`);
-        expect(fetchCall[0]).toContain('redirect=http%3A%2F%2Flocalhost%3A3000%2Fdashboard');
-        expect(fetchCall[1].headers['x-client-token']).toBe('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
-
-        // Verify window.location.href was set to the login URL
-        expect(mockLocation.href).toBe('https://keycloak.example.com/auth/realms/myrealm/protocol/openid-connect/auth');
+        // Verify window.location.href was set to controller login URL with query params
+        // Note: URL search params order is not guaranteed, so we check components individually
+        expect(mockLocation.href).toContain(`${controllerUrl}/login`);
+        expect(mockLocation.href).toContain('redirect=http%3A%2F%2Flocalhost%3A3000%2Fdashboard');
+        expect(mockLocation.href).toContain('x-client-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+        
+        // Verify URL is valid and contains both parameters
+        const url = new URL(mockLocation.href);
+        expect(url.pathname).toBe('/login');
+        expect(url.searchParams.get('redirect')).toBe('http://localhost:3000/dashboard');
+        expect(url.searchParams.get('x-client-token')).toBe('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
       } catch (error) {
         console.error('[TEST] Error in redirectToLogin test:', error);
         console.error('[TEST] Error stack:', (error as Error).stack);
@@ -303,11 +311,7 @@ describe('Redirect to Login Integration Tests', () => {
       }
     });
 
-    it('should handle controller errors and fallback to static loginUrl', async () => {
-      const mockFetch = jest.fn().mockRejectedValue(new Error('Network error: Failed to fetch'));
-
-      (global as any).fetch = mockFetch;
-
+    it('should redirect to controller login page even without client token', async () => {
       const config: DataClientConfig = {
         baseUrl: 'http://localhost:3000',
         loginUrl: '/login',
@@ -319,33 +323,21 @@ describe('Redirect to Login Integration Tests', () => {
       };
 
       const dataClient = new DataClient(config);
-      const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      const mockGetClientToken = jest.fn().mockResolvedValue(null);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
-      // Should throw error instead of falling back
-      await expect(dataClient.redirectToLogin()).rejects.toThrow();
+      await dataClient.redirectToLogin();
       
-      // Verify error was logged
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[redirectToLogin] Failed to get login URL from controller:',
-        expect.any(Error)
-      );
+      // Should redirect to controller login URL without x-client-token if token is null
+      expect(mockLocation.href).toContain(`${controllerUrl}/login?redirect=`);
+      expect(mockLocation.href).not.toContain('x-client-token');
     });
 
-    it('should handle controller non-OK response and fallback', async () => {
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-        statusText: 'Internal Server Error',
-        json: async () => ({ error: 'Internal Server Error' }),
-        text: async () => 'Internal Server Error',
-      });
-
-      (global as any).fetch = mockFetch;
-
+    it('should redirect to controller login page with custom loginUrl', async () => {
       const config: DataClientConfig = {
         baseUrl: 'http://localhost:3000',
-        loginUrl: '/login',
+        loginUrl: '/custom-login',
         misoConfig: {
           controllerUrl: controllerUrl,
           controllerPublicUrl: controllerUrl,
@@ -355,30 +347,30 @@ describe('Redirect to Login Integration Tests', () => {
 
       const dataClient = new DataClient(config);
       const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
-      // Should throw error instead of falling back
-      await expect(dataClient.redirectToLogin()).rejects.toThrow();
+      await dataClient.redirectToLogin('http://localhost:3000/dashboard');
+
+      // Should redirect to custom login URL
+      // Note: URL search params order is not guaranteed, so we check components individually
+      expect(mockLocation.href).toContain(`${controllerUrl}/custom-login`);
+      expect(mockLocation.href).toContain('redirect=http%3A%2F%2Flocalhost%3A3000%2Fdashboard');
+      expect(mockLocation.href).toContain('x-client-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      
+      // Verify URL is valid and contains both parameters
+      const url = new URL(mockLocation.href);
+      expect(url.pathname).toBe('/custom-login');
+      expect(url.searchParams.get('redirect')).toBe('http://localhost:3000/dashboard');
+      expect(url.searchParams.get('x-client-token')).toBe('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
     });
 
     it('should use current page URL as redirect when not provided', async () => {
       mockLocation.href = 'http://localhost:3000/current-page';
 
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            loginUrl: 'https://keycloak.example.com/auth',
-            state: 'test-state',
-          },
-        }),
-      });
-
-      (global as any).fetch = mockFetch;
-
       const config: DataClientConfig = {
         baseUrl: 'http://localhost:3000',
+        loginUrl: '/login',
         misoConfig: {
           controllerUrl: controllerUrl,
           controllerPublicUrl: controllerUrl,
@@ -388,30 +380,23 @@ describe('Redirect to Login Integration Tests', () => {
 
       const dataClient = new DataClient(config);
       const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
       await dataClient.redirectToLogin();
 
       // Verify redirect parameter uses current page URL
-      const fetchCall = mockFetch.mock.calls[0];
-      expect(fetchCall[0]).toContain('redirect=http%3A%2F%2Flocalhost%3A3000%2Fcurrent-page');
+      expect(mockLocation.href).toContain('redirect=http%3A%2F%2Flocalhost%3A3000%2Fcurrent-page');
+      expect(mockLocation.href).toContain(`${controllerUrl}/login`);
     });
 
-    it('should support flat loginUrl format in response', async () => {
-      const expectedLoginUrl = 'https://keycloak.example.com/auth';
-
-      const mockFetch = jest.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          success: true,
-          loginUrl: expectedLoginUrl, // Flat format (not nested in data)
-        }),
-      });
-
-      (global as any).fetch = mockFetch;
+    it('should support full URL loginUrl in config', async () => {
+      const fullLoginUrl = 'https://keycloak.example.com/auth';
+      mockLocation.href = 'http://localhost:3000/current-page';
 
       const config: DataClientConfig = {
         baseUrl: 'http://localhost:3000',
+        loginUrl: fullLoginUrl,
         misoConfig: {
           controllerUrl: controllerUrl,
           controllerPublicUrl: controllerUrl,
@@ -421,36 +406,40 @@ describe('Redirect to Login Integration Tests', () => {
 
       const dataClient = new DataClient(config);
       const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
       await dataClient.redirectToLogin();
 
-      expect(mockLocation.href).toBe(expectedLoginUrl);
+      // Should use full URL from config
+      expect(mockLocation.href).toContain(fullLoginUrl);
+      expect(mockLocation.href).toContain('redirect=http%3A%2F%2Flocalhost%3A3000%2Fcurrent-page');
     });
 
-    it('should fallback when controller URL is not configured', async () => {
-      // When controller URL is not configured, redirectToLogin should throw error
-      // Note: DataClient requires misoConfig to be valid, so we'll test by providing an invalid controller URL that will fail
+    it('should redirect successfully when controller URL is configured', async () => {
+      // This test verifies that redirectToLogin works correctly when controller URL is properly configured
+      // Note: DataClient constructor requires controller URL, so we always test with a valid config
       const config: DataClientConfig = {
         baseUrl: 'http://localhost:3000',
         loginUrl: '/login',
         misoConfig: {
-          controllerUrl: 'http://invalid-controller-url-that-does-not-exist:9999',
-          controllerPublicUrl: 'http://invalid-controller-url-that-does-not-exist:9999',
+          controllerUrl: controllerUrl,
+          controllerPublicUrl: controllerUrl,
           clientId: 'test-client',
         },
       };
 
       const dataClient = new DataClient(config);
       const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
-      // Mock fetch to fail (simulating controller not available)
-      const mockFetch = jest.fn().mockRejectedValue(new Error('Network error: Failed to fetch'));
-      (global as any).fetch = mockFetch;
+      await dataClient.redirectToLogin('http://localhost:3000/dashboard');
 
-      // Should throw error instead of falling back
-      await expect(dataClient.redirectToLogin()).rejects.toThrow();
+      // Should redirect to controller login URL
+      expect(mockLocation.href).toContain(`${controllerUrl}/login`);
+      expect(mockLocation.href).toContain('redirect=http%3A%2F%2Flocalhost%3A3000%2Fdashboard');
+      expect(mockLocation.href).toContain('x-client-token');
     });
   });
 });

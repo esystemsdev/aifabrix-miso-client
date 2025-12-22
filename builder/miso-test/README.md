@@ -21,7 +21,7 @@ npm install -g @aifabrix/builder
 aifabrix doctor
 
 # Login to controller
-aifabrix login --method device --environment dev --controller http://localhost:3100
+aifabrix login --method device --environment dev --controller http://localhost:3100 --offline
 
 # Register your application (gets you credentials automatically)
 aifabrix app register miso-test --environment dev

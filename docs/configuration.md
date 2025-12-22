@@ -92,6 +92,7 @@ interface MisoClientConfig {
   cache?: {
     roleTTL?: number; // Optional: Role cache TTL in seconds (default: 900)
     permissionTTL?: number; // Optional: Permission cache TTL in seconds (default: 900)
+    tokenValidationTTL?: number; // Optional: Token validation cache TTL in seconds (default: 900)
   };
 }
 ```
@@ -397,16 +398,27 @@ MISO_LOG_LEVEL=warn
 
 ## Cache Configuration
 
-**You need to:** Configure caching behavior for roles and permissions.
+**You need to:** Configure caching behavior for roles, permissions, and token validation.
 
-**Here's how:** Set cache TTL values for roles and permissions.
+**Here's how:** Set cache TTL values for roles, permissions, and token validation.
 
 ```typescript
 interface CacheConfig {
   roleTTL?: number; // Role cache TTL in seconds (default: 900 = 15 minutes)
   permissionTTL?: number; // Permission cache TTL in seconds (default: 900 = 15 minutes)
+  tokenValidationTTL?: number; // Token validation cache TTL in seconds (default: 900 = 15 minutes)
 }
 ```
+
+**Token Validation Caching:**
+
+Token validation results are cached by userId with a configurable TTL to reduce API calls to the controller. The cache is automatically cleared when users logout.
+
+- **Cache key format**: `token:${userId}`
+- **Default TTL**: 900 seconds (15 minutes)
+- **Configurable**: Set `cache.tokenValidationTTL` in config
+- **Automatic invalidation**: Cache cleared on logout
+- **Performance**: Reduces controller API calls significantly for frequently validated tokens
 
 **High security (short cache duration):**
 
@@ -416,7 +428,8 @@ const client = new MisoClient({
   ...loadConfig(),
   cache: {
     roleTTL: 300, // 5 minutes
-    permissionTTL: 300 // 5 minutes
+    permissionTTL: 300, // 5 minutes
+    tokenValidationTTL: 600 // 10 minutes
   }
 });
 ```
@@ -429,7 +442,8 @@ const client = new MisoClient({
   ...loadConfig(),
   cache: {
     roleTTL: 1800, // 30 minutes
-    permissionTTL: 1800 // 30 minutes
+    permissionTTL: 1800, // 30 minutes
+    tokenValidationTTL: 1800 // 30 minutes
   }
 });
 ```
@@ -886,12 +900,14 @@ const client = new MisoClient(config);
 cache: {
   roleTTL: 300,        // 5 minutes
   permissionTTL: 300, // 5 minutes
+  tokenValidationTTL: 600, // 10 minutes
 }
 
 // High-performance applications
 cache: {
   roleTTL: 1800,       // 30 minutes
   permissionTTL: 1800, // 30 minutes
+  tokenValidationTTL: 1800, // 30 minutes
 }
 ```
 

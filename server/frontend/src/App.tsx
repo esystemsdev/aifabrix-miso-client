@@ -11,7 +11,6 @@ import { toast } from 'sonner';
 import Favicon from './imports/Favicon1';
 import { useDataClient } from './hooks/useDataClient';
 import { Button } from './components/ui/button';
-import { ErrorDetailsDialog } from './components/ErrorDetailsDialog';
 
 declare global {
   interface Window {
@@ -23,12 +22,6 @@ declare global {
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('configuration');
-  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
-  const [errorDetails, setErrorDetails] = useState<{
-    message: string;
-    details?: unknown;
-    stack?: string;
-  } | null>(null);
 
   const renderContent = () => {
     switch (activeSection) {
@@ -54,35 +47,64 @@ export default function App() {
       <DemoSidebar 
         activeSection={activeSection} 
         onSectionChange={setActiveSection}
-        onError={(error) => {
-          setErrorDetails(error);
-          setErrorDialogOpen(true);
-        }}
       />
       <main className="flex-1 overflow-auto">
         {renderContent()}
       </main>
       <Toaster position="top-right" />
-      <ErrorDetailsDialog 
-        open={errorDialogOpen} 
-        onOpenChange={setErrorDialogOpen}
-        errorDetails={errorDetails}
-      />
     </div>
   );
 }
 
 // Auth status component for sidebar
-function AuthSection({ onError }: { onError: (error: { message: string; details?: unknown; stack?: string }) => void }) {
+function AuthSection() {
   const { dataClient, isLoading } = useDataClient();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
 
   // Check auth status on mount and when dataClient changes
   React.useEffect(() => {
-    if (dataClient) {
-      setIsAuthenticated(dataClient.isAuthenticated());
-    }
+    if (!dataClient) return;
+
+    // Function to handle OAuth callback and update auth state
+    const handleAuthCheck = () => {
+      // Handle OAuth callback (extract token from hash if present)
+      const token = dataClient.handleOAuthCallback();
+      
+      if (token) {
+        setIsAuthenticated(true);
+        toast.success('Authentication successful', {
+          description: 'You have been successfully authenticated',
+          duration: 3000,
+        });
+      } else {
+        // Check if already authenticated
+        setIsAuthenticated(dataClient.isAuthenticated());
+      }
+    };
+
+    // Check immediately on mount or when dataClient changes
+    handleAuthCheck();
+
+    // Listen for hash changes (OAuth redirects use hash fragments)
+    const handleHashChange = () => {
+      handleAuthCheck();
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+
+    // Also check on window focus (in case hash was set while tab was inactive)
+    const handleFocus = () => {
+      // Small delay to ensure hash is processed
+      setTimeout(handleAuthCheck, 100);
+    };
+
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [dataClient]);
 
   const handleLogin = async () => {
@@ -97,34 +119,12 @@ function AuthSection({ onError }: { onError: (error: { message: string; details?
     setAuthLoading(true);
     try {
       await dataClient.redirectToLogin();
-      // Note: This will redirect the page, so we won't reach here
-      // If we do reach here, it means redirectToLogin didn't redirect (error or fallback)
-      toast.warning('Login redirect did not occur', {
-        description: 'The authentication redirect did not happen.',
-        duration: 7000,
-      });
       setAuthLoading(false);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      const errorDetailsObj = (error as Error & { details?: unknown })?.details;
-      
-      // Store error details for dialog
-      const errorInfo = {
-        message: errorMessage,
-        details: errorDetailsObj,
-        stack: error instanceof Error ? error.stack : undefined,
-      };
-      
-      // Show user-friendly error message
       toast.error('Login failed', { 
         description: errorMessage,
-        duration: 10000, // Longer duration
-        action: {
-          label: 'View Details',
-          onClick: () => {
-            onError(errorInfo);
-          },
-        },
+        duration: 10000,
       });
       setAuthLoading(false);
     }
@@ -199,12 +199,10 @@ function AuthSection({ onError }: { onError: (error: { message: string; details?
 // Custom Sidebar for Demo App
 function DemoSidebar({ 
   activeSection, 
-  onSectionChange,
-  onError 
+  onSectionChange
 }: { 
   activeSection: string; 
   onSectionChange: (section: string) => void;
-  onError: (error: { message: string; details?: unknown; stack?: string }) => void;
 }) {
   const navigationItems = [
     { id: 'configuration', label: 'Configuration', icon: Settings },
@@ -259,7 +257,7 @@ function DemoSidebar({
       </nav>
 
       {/* Auth Section */}
-      <AuthSection onError={onError} />
+      <AuthSection />
 
       {/* Footer */}
       <div className="p-4 border-t border-sidebar-border">

@@ -15,7 +15,7 @@ import { getCachedDataClientConfig } from '@aifabrix/miso-client';
  * - Displaying current configuration state and errors
  */
 export function ConfigurationPage() {
-  const { dataClient, error, reinitialize } = useDataClient();
+  const { dataClient, error, isLoading, reinitialize } = useDataClient();
   const [loading, setLoading] = useState(false);
   const [configInfo, setConfigInfo] = useState<{
     baseUrl: string;
@@ -23,6 +23,115 @@ export function ConfigurationPage() {
     clientId: string;
     clientTokenUri?: string;
   } | null>(null);
+
+  /**
+   * Parse error and extract human-readable title and detail
+   * Returns object with title and detail, or null if error can't be parsed
+   */
+  const parseHumanReadableError = (error: Error | null): { title: string; detail: string } | null => {
+    if (!error) return null;
+
+    const message = error.message || String(error);
+
+    // Try to extract RFC 7807 Problem Details format from error response FIRST
+    // This provides the most specific and accurate error messages
+    // Check if error has response property (e.g., ApiError with response)
+    try {
+      const errorWithResponse = error as Error & { response?: { data?: unknown; json?: () => Promise<unknown> } };
+      if (errorWithResponse.response?.data) {
+        const responseData = errorWithResponse.response.data;
+        if (typeof responseData === 'object' && responseData !== null) {
+          const data = responseData as Record<string, unknown>;
+          // RFC 7807 Problem Details format: extract both title and detail
+          const title = (data.title && typeof data.title === 'string') ? data.title : 'Error';
+          const detail = (data.detail && typeof data.detail === 'string') ? data.detail : title;
+          if (data.title || data.detail) {
+            return { title, detail };
+          }
+        }
+      }
+    } catch {
+      // Ignore errors accessing response property
+    }
+
+    // Try to extract meaningful message from JSON error responses in message string
+    // This handles cases where the error payload is embedded in the error message
+    // Look for RFC 7807 Problem Details format: {"type":"...","title":"...","detail":"..."}
+    try {
+      // Try to find JSON object in the message - look for opening brace
+      const braceStart = message.indexOf('{');
+      if (braceStart !== -1) {
+        // Try to extract complete JSON object by finding matching closing brace
+        let braceCount = 0;
+        let braceEnd = -1;
+        for (let i = braceStart; i < message.length; i++) {
+          if (message[i] === '{') braceCount++;
+          if (message[i] === '}') {
+            braceCount--;
+            if (braceCount === 0) {
+              braceEnd = i;
+              break;
+            }
+          }
+        }
+        
+        if (braceEnd !== -1) {
+          const jsonStr = message.substring(braceStart, braceEnd + 1);
+          const parsed = JSON.parse(jsonStr);
+          // RFC 7807 Problem Details format: extract both title and detail
+          if (parsed.title || parsed.detail) {
+            const title = (parsed.title && typeof parsed.title === 'string') ? parsed.title : 'Error';
+            const detail = (parsed.detail && typeof parsed.detail === 'string') ? parsed.detail : title;
+            return { title, detail };
+          }
+          // Fallback to other common error fields
+          if (parsed.message && typeof parsed.message === 'string') {
+            return { title: 'Error', detail: parsed.message };
+          }
+          if (parsed.error && typeof parsed.error === 'string') {
+            return { title: 'Error', detail: parsed.error };
+          }
+        }
+      }
+    } catch {
+      // Ignore JSON parsing errors
+    }
+
+    // Fallback: Pattern matching for network/connection errors that don't have structured payloads
+    // These errors typically don't come from API responses, so they won't have RFC 7807 format
+    
+    // Empty response errors (server closed connection without response)
+    if (message.includes('ERR_EMPTY_RESPONSE') || message.includes('empty response') || message.includes('Connection error')) {
+      return { title: 'Connection Error', detail: 'The server closed the connection without sending a response. Please check if the server is running and accessible.' };
+    }
+
+    // Timeout errors (network-level timeouts) - check before general network errors
+    if (message.includes('timeout') || message.includes('Timeout') || message.includes('did not respond within')) {
+      return { title: 'Timeout Error', detail: 'Request timed out. Please check your network connection and ensure the server is running.' };
+    }
+
+    // Network errors (connection failures, fetch errors)
+    if (message.includes('Network') || message.includes('Failed to fetch') || message.includes('network')) {
+      return { title: 'Network Error', detail: 'Unable to connect to server. Please check if the server is running and accessible.' };
+    }
+
+    // CORS errors (browser-level, not API responses)
+    if (message.includes('CORS') || message.includes('cross-origin') || message.includes('CORS policy')) {
+      return { title: 'CORS Error', detail: 'Cross-origin request blocked. Please check CORS configuration on the server.' };
+    }
+
+    // Connection errors (system-level, not API responses)
+    if (message.includes('ECONNREFUSED') || message.includes('connection refused')) {
+      return { title: 'Connection Error', detail: 'Connection refused. Please check if the server is running and accessible.' };
+    }
+
+    if (message.includes('ENOTFOUND') || message.includes('getaddrinfo')) {
+      return { title: 'Connection Error', detail: 'Unable to resolve server address. Please check the server URL configuration.' };
+    }
+
+    // If we can't parse it, return null to use original message
+    return null;
+  };
 
   /**
    * Read cached config using SDK utility
@@ -83,26 +192,13 @@ export function ConfigurationPage() {
       });
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err));
-      let errorMessage = error.message;
-      let description = 'Please check your server configuration and try again.';
+      const parsed = parseHumanReadableError(error);
+      
+      const errorTitle = parsed?.title || 'Failed to initialize DataClient';
+      const errorDetail = parsed?.detail || error.message || 'Unknown error occurred';
 
-      // Categorize errors for better user feedback
-      if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
-        errorMessage = 'Network error';
-        description = 'Unable to connect to server. Please check if the server is running and accessible.';
-      } else if (error.message.includes('404')) {
-        errorMessage = 'Endpoint not found';
-        description = 'The client token endpoint was not found. Please check your server configuration.';
-      } else if (error.message.includes('503')) {
-        errorMessage = 'Service unavailable';
-        description = 'MisoClient is not initialized on the server. Please configure MISO_CLIENTID and MISO_CLIENTSECRET.';
-      } else if (error.message.includes('CORS')) {
-        errorMessage = 'CORS error';
-        description = 'Cross-origin request blocked. Please check CORS configuration on the server.';
-      }
-
-      toast.error(`Failed to initialize DataClient: ${errorMessage}`, {
-        description,
+      toast.error(errorTitle, {
+        description: errorDetail,
         duration: 5000,
       });
     } finally {
@@ -115,6 +211,17 @@ export function ConfigurationPage() {
   const currentBaseUrl = configInfo?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
   const currentControllerUrl = configInfo?.controllerUrl || 'Not set';
   const currentClientId = configInfo?.clientId || 'Not set';
+  
+  // Parse error message for display
+  const parsedError = error ? parseHumanReadableError(error) : null;
+  const errorTitle = parsedError?.title || (error ? 'Error' : null);
+  const errorDetail = parsedError?.detail || (error ? error.message : null);
+  const isErrorParsed = parsedError !== null;
+  
+  // Determine if we should show status messages (only after initialization attempt completes)
+  const showStatus = !isLoading && !loading; // Show status only when not loading (initial or manual)
+  const showError = showStatus && error && errorTitle && errorDetail;
+  const showSuccess = showStatus && initialized && !error;
 
   return (
     <div className="flex flex-col h-full">
@@ -131,23 +238,25 @@ export function ConfigurationPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-8">
         <div className="max-w-4xl space-y-6">
-          {/* Error Card */}
-          {error && (
+          {/* Error Card - Only show after initialization attempt completes */}
+          {showError && (
             <Card className="border-red-200 bg-red-50">
               <CardContent className="pt-6">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="font-medium text-red-900 mb-1">Error</p>
-                    <p className="text-sm text-red-700 font-mono break-all">{error.message}</p>
+                    <p className="font-medium text-red-900 mb-1">{errorTitle}</p>
+                    <p className={`text-sm text-red-700 ${isErrorParsed ? '' : 'font-mono break-all'}`}>
+                      {errorDetail}
+                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Status Card */}
-          {initialized && !error && (
+          {/* Status Card - Only show after successful initialization */}
+          {showSuccess && (
             <Card className="border-green-200 bg-green-50">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
@@ -177,7 +286,7 @@ export function ConfigurationPage() {
             <CardContent>
               <Button
                 onClick={handleZeroConfigInit}
-                disabled={loading}
+                disabled={isLoading || loading}
                 className="w-full"
                 size="lg"
               >

@@ -16,8 +16,7 @@ export class RedisService {
 
   async connect(): Promise<void> {
     if (!this.config) {
-      // eslint-disable-next-line no-console
-      console.log("Redis not configured, using controller fallback");
+      // Redis not configured - silently use controller fallback
       return;
     }
 
@@ -34,8 +33,7 @@ export class RedisService {
 
       await this.redis.connect();
       this.connected = true;
-      // eslint-disable-next-line no-console
-      console.log("Connected to Redis");
+      // Connection successful - no need to log in production
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("Failed to connect to Redis:", error);
@@ -48,8 +46,7 @@ export class RedisService {
     if (this.redis) {
       await this.redis.disconnect();
       this.connected = false;
-      // eslint-disable-next-line no-console
-      console.log("Disconnected from Redis");
+      // Disconnection successful - no need to log in production
     }
   }
 

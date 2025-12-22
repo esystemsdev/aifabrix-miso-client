@@ -4,8 +4,8 @@
  * Basic token validation to verify user identity.
  */
 
-// Note: When copying this example to your project, use: import { MisoClient, loadConfig } from '@aifabrix/miso-client';
-import { MisoClient, loadConfig } from '../src/index';
+// For development: import from '../src/index'
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 async function authenticationExample() {
   // Create client - loads from .env automatically

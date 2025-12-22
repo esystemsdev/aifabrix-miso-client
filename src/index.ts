@@ -57,11 +57,11 @@ export class MisoClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this.logger as any).httpClient = this.httpClient;
 
-    // Create services
-    this.auth = new AuthService(this.httpClient, this.redis);
-
-    // Initialize cache service with Redis support (used by roles and permissions)
+    // Initialize cache service with Redis support (used by auth, roles and permissions)
     this.cacheService = new CacheService(this.redis);
+
+    // Create services
+    this.auth = new AuthService(this.httpClient, this.cacheService);
 
     // Initialize services that use cache
     this.roles = new RoleService(this.httpClient, this.cacheService);
@@ -223,6 +223,19 @@ export class MisoClient {
     token: string;
   }): Promise<import("./types/config.types").LogoutResponse> {
     return this.auth.logout(params);
+  }
+
+  /**
+   * Refresh user access token using refresh token
+   * @param refreshToken - Refresh token to exchange for new access token
+   * @param authStrategy - Optional authentication strategy override
+   * @returns New access token, refresh token, and expiration info, or null on error
+   */
+  async refreshToken(
+    refreshToken: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<import("./types/config.types").RefreshTokenResponse | null> {
+    return this.auth.refreshToken(refreshToken, authStrategy);
   }
 
   // ==================== AUTHORIZATION METHODS ====================
@@ -498,6 +511,10 @@ export { extractClientTokenInfo } from "./utils/token-utils";
 export type { ClientTokenInfo } from "./utils/token-utils";
 export type { OriginValidationResult } from "./utils/origin-validator";
 export { resolveControllerUrl, isBrowser, validateUrl } from "./utils/controller-url-resolver";
+export { extractLoggingContext } from "./utils/logging-helpers";
+export type { IndexedLoggingContext, HasKey, HasExternalSystem } from "./utils/logging-helpers";
+export { extractRequestContext } from "./utils/request-context";
+export type { RequestContext } from "./utils/request-context";
 
 // Export pagination, filter, sort utilities
 export * from "./utils/pagination.utils";

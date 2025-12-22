@@ -10,6 +10,7 @@ import { codeExamples } from './codeExamplesData';
  * Code Examples page component displaying copyable code examples for DataClient usage
  * 
  * Provides copyable code examples for:
+ * - Getting started guide (server and client setup)
  * - DataClient initialization (zero-config and manual)
  * - HTTP methods usage
  * - Authentication methods
@@ -74,8 +75,9 @@ export function CodeExamplesPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-8">
         <div className="max-w-6xl">
-          <Tabs defaultValue="initialization" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-7">
+          <Tabs defaultValue="gettingStarted" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-8">
+              <TabsTrigger value="gettingStarted">Getting Started</TabsTrigger>
               <TabsTrigger value="initialization">Init</TabsTrigger>
               <TabsTrigger value="http">HTTP</TabsTrigger>
               <TabsTrigger value="auth">Auth</TabsTrigger>
@@ -84,6 +86,81 @@ export function CodeExamplesPage() {
               <TabsTrigger value="roles">Roles</TabsTrigger>
               <TabsTrigger value="permissions">Permissions</TabsTrigger>
             </TabsList>
+
+            {/* Getting Started Tab */}
+            <TabsContent value="gettingStarted" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Server Setup</CardTitle>
+                  <CardDescription>
+                    Set up Express.js server with client token endpoint
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock code={codeExamples.gettingStarted.serverSetup} id="getting-started-server" />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Environment Variables</CardTitle>
+                  <CardDescription>
+                    Configure server-side environment variables
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock code={codeExamples.gettingStarted.environmentVariables} id="getting-started-env" />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Client Setup</CardTitle>
+                  <CardDescription>
+                    Initialize DataClient in your browser application
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock code={codeExamples.gettingStarted.clientSetup} id="getting-started-client" />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Complete Example</CardTitle>
+                  <CardDescription>
+                    Full server and client integration example
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock code={codeExamples.gettingStarted.completeExample} id="getting-started-complete" />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>How It Works</CardTitle>
+                  <CardDescription>
+                    Understanding the authentication flow and security model
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock code={codeExamples.gettingStarted.howItWorks} id="getting-started-how-it-works" />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Validating User Tokens in Routes</CardTitle>
+                  <CardDescription>
+                    How to protect your API routes with user token validation
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock code={codeExamples.gettingStarted.validateUserTokens} id="getting-started-validate-tokens" />
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* Initialization Tab */}
             <TabsContent value="initialization" className="space-y-6">
@@ -210,6 +287,30 @@ export function CodeExamplesPage() {
                 </CardHeader>
                 <CardContent>
                   <CodeBlock code={codeExamples.authentication.redirectToLogin} id="auth-redirect" />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>OAuth Callback Handling</CardTitle>
+                  <CardDescription>
+                    Automatically extract and store tokens from OAuth redirect (hash fragment)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock code={codeExamples.authentication.handleOAuthCallback} id="auth-oauth-callback" />
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Token Refresh Callback</CardTitle>
+                  <CardDescription>
+                    Configure automatic token refresh on 401 errors using secure backend endpoint
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CodeBlock code={codeExamples.authentication.tokenRefresh} id="auth-token-refresh" />
                 </CardContent>
               </Card>
             </TabsContent>

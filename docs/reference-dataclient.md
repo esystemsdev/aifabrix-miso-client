@@ -641,6 +641,55 @@ if (dataClient.isAuthenticated()) {
 }
 ```
 
+### `handleOAuthCallback(): string | null`
+
+Handle OAuth callback from authentication redirect. Extracts token from URL hash fragment (`#token=...`), validates it, stores it securely, and immediately cleans up the URL hash to prevent token exposure. ISO 27001 compliant with immediate cleanup and validation.
+
+**Returns:** Extracted token string or `null` if not found/invalid
+
+**Security Features:**
+
+- **Immediate hash cleanup**: Removes token from URL within < 100ms to prevent exposure
+- **Token format validation**: Verifies JWT format (3 parts separated by dots) before storage
+- **HTTPS enforcement**: Validates HTTPS in production environments (rejects HTTP tokens)
+- **Synchronous extraction**: Extracts hash before any async operations
+- **Secure error handling**: Fails silently without exposing tokens in errors
+
+**Auto-call on Initialization:**
+
+This method is automatically called when DataClient is initialized in a browser environment, ensuring tokens are extracted immediately when the page loads.
+
+**Example:**
+
+```typescript
+// Auto-called on initialization
+const dataClient = new DataClient(config);
+// Token is automatically extracted if present in URL hash
+
+// Or manually call
+const token = dataClient.handleOAuthCallback();
+if (token) {
+  console.log('Token extracted and stored');
+}
+```
+
+**OAuth Flow:**
+
+1. User calls `redirectToLogin()` → redirects to controller login page
+2. Controller handles OAuth flow with Keycloak
+3. Controller redirects back to your app: `https://myapp.com/dashboard#token=eyJhbGc...`
+4. `handleOAuthCallback()` extracts token from hash fragment
+5. Token is validated and stored in localStorage
+6. Hash fragment is immediately removed from URL (< 100ms)
+7. User sees clean URL: `https://myapp.com/dashboard`
+
+**Note:** Hash fragments (`#token=...`) are more secure than query parameters because:
+
+- Not sent to server (not in access logs)
+- Not stored in browser history
+- Not included in referrer headers
+- Only accessible via JavaScript
+
 ### `redirectToLogin(redirectUrl?: string): Promise<void>`
 
 Redirect to login page via controller. Makes a direct fetch request to the controller's login endpoint with `x-client-token` header, then redirects to the controller's login URL for proper OAuth flow handling.
@@ -655,13 +704,25 @@ Redirect to login page via controller. Makes a direct fetch request to the contr
 2. Gets client token (from cache, config, or `getEnvironmentToken()`)
 3. Makes direct fetch request to `/api/v1/auth/login` with `x-client-token` header and redirect query parameter
 4. Redirects browser to the controller's login URL returned in response
-5. Controller handles OAuth flow and redirects back to the specified URL after authentication
+5. Controller handles OAuth flow and redirects back to the specified URL after authentication with token in hash fragment (`#token=...`)
 6. Falls back to static `loginUrl` config if controller URL is not configured or controller call fails
+
+**OAuth Callback Flow:**
+
+After authentication, the controller redirects back to your application with the token in the URL hash fragment:
+
+```bash
+https://myapp.com/dashboard#token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+The token is automatically extracted by `handleOAuthCallback()` (called on DataClient initialization) or can be called manually. The hash fragment is immediately removed from the URL for security.
 
 **Security:**
 
 - Uses `x-client-token` header (lowercase) for authentication
 - Never exposes `clientId` or `clientSecret` in browser code
+- Token passed in hash fragment (`#token=...`) not query parameter (hash fragments are not sent to server, not in logs, not in browser history)
+- Token is immediately removed from URL after extraction (< 100ms)
 - Supports both nested (`data.loginUrl`) and flat (`loginUrl`) response formats
 
 **Example:**
@@ -675,7 +736,8 @@ if (!dataClient.isAuthenticated()) {
 // Redirect with custom redirect URL
 await dataClient.redirectToLogin('https://myapp.com/dashboard');
 
-// After authentication, controller redirects to the specified URL
+// After authentication, controller redirects to: https://myapp.com/dashboard#token=...
+// Token is automatically extracted and stored securely
 ```
 
 ### `logout(redirectUrl?: string): Promise<void>`
@@ -805,11 +867,13 @@ interface DataClientConfig {
   misoConfig: MisoClientConfig;
   tokenKeys?: string[];
   loginUrl?: string;
+  logoutUrl?: string;
   cache?: CacheConfig;
   retry?: RetryConfig;
   audit?: AuditConfig;
   timeout?: number;
   defaultHeaders?: Record<string, string>;
+  onTokenRefresh?: () => Promise<{ token: string; expiresIn: number }>;
 }
 ```
 
@@ -818,6 +882,36 @@ interface DataClientConfig {
 - **Browser Applications:** Use `clientToken` and `onClientTokenRefresh` in `misoConfig` instead of `clientSecret`
 - **Server Applications:** Can safely use `clientSecret` in `misoConfig` (stored in environment variables)
 - See [Authentication](#authentication) section for the Client Token Pattern
+
+**Token Refresh Callback:**
+
+The `onTokenRefresh` callback is called automatically when a request receives a 401 Unauthorized response. It should call your backend endpoint that handles refresh token securely (refresh tokens should NEVER be stored in browser localStorage).
+
+```typescript
+const dataClient = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  onTokenRefresh: async () => {
+    // Call your backend endpoint that handles refresh token securely
+    const response = await fetch('/api/refresh-token', {
+      credentials: 'include', // Include cookies for auth
+    });
+    return await response.json(); // { token: string, expiresIn: number }
+  }
+});
+```
+
+**Automatic Token Refresh:**
+
+When `onTokenRefresh` is configured, DataClient automatically:
+
+1. Detects 401 Unauthorized errors
+2. Calls `onTokenRefresh` callback to get new token
+3. Updates token in localStorage
+4. Retries the original request with new token
+5. Redirects to login if refresh fails
+
+**Security:** Refresh tokens are handled server-side only. The frontend callback delegates to your backend endpoint which securely manages refresh tokens (typically in httpOnly cookies or server-side sessions).
 
 **MisoClientConfig Browser-Safe Fields:**
 
@@ -1047,4 +1141,3 @@ const freshRoles = await dataClient.refreshRoles();
 - [Type Reference](./reference-types.md) - Complete type definitions
 - [Error Reference](./reference-errors.md) - Error handling documentation
 - [Examples Guide](./examples.md) - Framework-specific examples
-

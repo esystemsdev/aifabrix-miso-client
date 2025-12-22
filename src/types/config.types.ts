@@ -86,6 +86,7 @@ export interface MisoClientConfig {
   cache?: {
     roleTTL?: number; // Default 15 minutes
     permissionTTL?: number; // Default 15 minutes
+    tokenValidationTTL?: number; // Default 15 minutes
   };
 
   // Optional: Sensitive fields configuration file path
@@ -153,6 +154,27 @@ export interface LogEntry {
   sessionId?: string;
   correlationId?: string;
   stackTrace?: string;
+
+  // Indexed context fields (top-level for fast queries)
+  sourceKey?: string;
+  sourceDisplayName?: string;
+  externalSystemKey?: string;
+  externalSystemDisplayName?: string;
+  recordKey?: string;
+  recordDisplayName?: string;
+
+  // Credential context (optional)
+  credentialId?: string;
+  credentialType?: string;
+
+  // Request/Response metrics
+  requestSize?: number;
+  responseSize?: number;
+  durationMs?: number;
+
+  // Error classification
+  errorCategory?: string;
+  httpStatusCategory?: string;
 }
 
 export interface RoleResult {
@@ -196,6 +218,15 @@ export interface LogoutResponse {
   success: boolean;
   message: string;
   timestamp: string;
+}
+
+export interface RefreshTokenResponse {
+  success: boolean;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  expiresAt?: string; // ISO date string
+  timestamp?: string;
 }
 
 /**

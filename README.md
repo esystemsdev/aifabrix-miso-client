@@ -190,6 +190,23 @@ const dataClient = new DataClient({
 // Make authenticated requests with automatic audit logging
 const users = await dataClient.get('/api/users');
 const newUser = await dataClient.post('/api/users', { name: 'John' });
+
+// OAuth callback is automatically handled on initialization
+// Token is extracted from URL hash fragment (#token=...) and stored securely
+// Hash fragment is immediately removed from URL (< 100ms) for security
+
+// Token refresh callback (automatic refresh on 401 errors)
+const dataClientWithRefresh = new DataClient({
+  baseUrl: 'https://api.example.com',
+  misoConfig: { /* ... */ },
+  onTokenRefresh: async () => {
+    // Call your backend endpoint that handles refresh token securely
+    const response = await fetch('/api/refresh-token', {
+      credentials: 'include', // Include cookies for auth
+    });
+    return await response.json(); // { token: string, expiresIn: number }
+  },
+});
 ```
 
 → [DataClient Documentation](docs/data-client.md) - Includes security guide and Client Token Pattern  
@@ -256,7 +273,7 @@ if (token) {
 
 ### Step 4: Activate RBAC (Roles)
 
-**What happens:** Check user roles to control access. Roles are cached in Redis for performance.
+**What happens:** Check user roles to control access. Roles are cached in Redis for performance. Token validation is also cached (15-minute TTL) to reduce API calls.
 
 ```typescript
 import { MisoClient, loadConfig } from '@aifabrix/miso-client';
@@ -288,6 +305,8 @@ if (isAdmin) {
 
 **What happens:** Application logs are sent to the Miso Controller with client token authentication.
 
+**Basic Logging:**
+
 ```typescript
 import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
@@ -304,7 +323,42 @@ await client.log.error('Operation failed', { error: err.message });
 await client.log.warn('Unusual activity', { details: '...' });
 ```
 
-**What happens to logs?** They're sent to the Miso Controller for centralized monitoring and analysis. Client token is automatically included.
+**Fluent API with Request Context (Express):**
+
+```typescript
+import { Request } from 'express';
+
+// Auto-extract context from Express Request
+app.get('/api/users', async (req: Request, res) => {
+  await client.log
+    .withRequest(req)
+    .info('Users list accessed');
+  // Automatically includes: IP, method, path, userAgent, correlationId, userId
+});
+```
+
+**Indexed Context for Fast Queries:**
+
+```typescript
+import { extractLoggingContext } from '@aifabrix/miso-client';
+
+const logContext = extractLoggingContext({
+  source: {
+    key: 'datasource-1',
+    displayName: 'PostgreSQL DB',
+    externalSystem: { key: 'system-1', displayName: 'External API' }
+  },
+  record: { key: 'record-123', displayName: 'User Profile' }
+});
+
+await client.log
+  .withIndexedContext(logContext)
+  .addCorrelation(correlationId)
+  .addUser(userId)
+  .error('Sync failed');
+```
+
+**What happens to logs?** They're sent to the Miso Controller for centralized monitoring and analysis. Client token is automatically included. Indexed context fields enable fast database queries for observability and compliance.
 
 **Event Emission Mode:** When embedding the SDK directly in your own application, enable `emitEvents = true` to receive logs as Node.js events instead of HTTP calls:
 
@@ -820,6 +874,7 @@ interface MisoClientConfig {
   cache?: {
     roleTTL?: number;         // Role cache TTL (default: 900s)
     permissionTTL?: number;   // Permission cache TTL (default: 900s)
+    tokenValidationTTL?: number; // Token validation cache TTL (default: 900s)
   };
   audit?: AuditConfig;        // Optional: Audit logging configuration
 }

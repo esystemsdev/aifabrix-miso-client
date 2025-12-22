@@ -270,14 +270,35 @@ app.use('/api/protected', (req, res, next) => {
 });
 ```
 
+## Authentication & Authorization Methods
+
+MisoClient provides access to authentication and authorization methods via `client.auth`, `client.roles`, `client.permissions`, and direct methods. For complete documentation, see:
+
+- **[Authentication Reference](./reference-authentication.md)** - Token validation, login, logout, token refresh, user info
+- **[Authorization Reference](./reference-authorization.md)** - Roles and permissions management
+
+**Quick Reference:**
+
+- `client.validateToken(token)` - Validate JWT token (with caching)
+- `client.refreshToken(refreshToken)` - Refresh user access token
+- `client.login(params)` - Initiate login flow
+- `client.logout(params)` - Logout user (clears token cache)
+- `client.getUser(token)` - Get user information
+- `client.getRoles(token)` - Get user roles (cached)
+- `client.hasRole(token, role)` - Check if user has role (cached)
+- `client.getPermissions(token)` - Get user permissions (cached)
+- `client.hasPermission(token, permission)` - Check if user has permission (cached)
+
 ## See Also
 
 - [Configuration Types](./reference-types.md#misoclientconfig) - Complete type definitions
-- [Authentication Methods](./reference-authentication.md) - User authentication and token validation
+- [Authentication Methods](./reference-authentication.md) - User authentication, token validation, token refresh
 - [Authorization Methods](./reference-authorization.md) - Roles and permissions
 - [Service Classes](./reference-services.md) - Logging, caching, encryption services
 - [Standalone Utilities](./reference-utilities.md#standalone-utilities) - Utility functions
 - [Configuration Guide](./configuration.md) - Configuration best practices
 - [Getting Started Guide](./getting-started.md) - Quick start tutorial
 - [Examples](./examples.md) - Framework-specific examples
-
+- **Example Files:**
+  - [Environment Config Example](../examples/env-config-example.ts) - Configuration from .env file
+  - [Manual Config Example](../examples/manual-config-example.ts) - Manual configuration setup

@@ -6,6 +6,7 @@ import { LoggerService } from "../../src/services/logger.service";
 import { HttpClient } from "../../src/utils/http-client";
 import { RedisService } from "../../src/services/redis.service";
 import { MisoClientConfig } from "../../src/types/config.types";
+import { Request } from "express";
 
 // Mock HttpClient
 jest.mock("../../src/utils/http-client");
@@ -300,29 +301,6 @@ describe("LoggerService", () => {
     });
   });
 
-  describe("performance tracking", () => {
-    it("should start performance tracking", () => {
-      loggerService.startPerformanceTracking("test-op");
-
-      const metrics = loggerService.endPerformanceTracking("test-op");
-      expect(metrics).not.toBeNull();
-      expect(metrics?.duration).toBeGreaterThanOrEqual(0);
-    });
-
-    it("should return null for non-existent operation", () => {
-      const metrics = loggerService.endPerformanceTracking("non-existent");
-      expect(metrics).toBeNull();
-    });
-
-    it("should track memory usage when available", () => {
-      loggerService.startPerformanceTracking("test-op");
-      const metrics = loggerService.endPerformanceTracking("test-op");
-
-      expect(metrics?.memoryUsage).toBeDefined();
-      expect(metrics?.memoryUsage?.rss).toBeGreaterThan(0);
-    });
-  });
-
   describe("method chaining", () => {
     it("should support withContext method", () => {
       const chain = loggerService.withContext({ userId: "123" });
@@ -331,11 +309,6 @@ describe("LoggerService", () => {
 
     it("should support withToken method", () => {
       const chain = loggerService.withToken("test-token");
-      expect(chain).toBeDefined();
-    });
-
-    it("should support withPerformance method", () => {
-      const chain = loggerService.withPerformance();
       expect(chain).toBeDefined();
     });
 
@@ -553,19 +526,6 @@ describe("LoggerService", () => {
       expect(mockRedisService.rpush).toHaveBeenCalled();
     });
 
-    it("should support withPerformance and include metrics", async () => {
-      mockRedisService.isConnected.mockReturnValue(true);
-      mockRedisService.rpush.mockResolvedValue(true);
-
-      const chain = loggerService.withPerformance();
-      await chain.info("Test with performance");
-
-      expect(mockRedisService.rpush).toHaveBeenCalledWith(
-        "logs:ctrl-dev-test-app",
-        expect.stringContaining('"performance"'),
-      );
-    });
-
     it("should support withoutMasking method", async () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
@@ -771,6 +731,451 @@ describe("LoggerService", () => {
       // Should use Redis/HTTP, not emit events
       expect(mockRedisService.rpush).toHaveBeenCalled();
       expect(eventSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("withRequest method", () => {
+    let mockRequest: Partial<Request>;
+
+    beforeEach(() => {
+      mockRequest = {
+        method: "POST",
+        path: "/api/users",
+        originalUrl: "/api/users",
+        ip: "192.168.1.1",
+        headers: {
+          "user-agent": "Mozilla/5.0",
+          "x-correlation-id": "corr-123",
+          "x-request-id": "req-456",
+          referer: "https://example.com",
+          "content-length": "1024",
+        },
+        socket: {
+          remoteAddress: "192.168.1.1",
+        },
+      } as Partial<Request>;
+    });
+
+    it("should extract and set request context in LoggerChain", async () => {
+      jwt.decode.mockReturnValue({
+        sub: "user-123",
+        sessionId: "session-456",
+      });
+      mockRequest.headers = {
+        ...mockRequest.headers,
+        authorization: "Bearer valid-token",
+      };
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withRequest(mockRequest as Request);
+      await chain.info("Test with request");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.userId).toBe("user-123");
+        expect(logEntry.sessionId).toBe("session-456");
+        expect(logEntry.correlationId).toBe("corr-123");
+        expect(logEntry.requestId).toBe("req-456");
+        expect(logEntry.ipAddress).toBe("192.168.1.1");
+        expect(logEntry.userAgent).toBe("Mozilla/5.0");
+        expect(logEntry.context.method).toBe("POST");
+        expect(logEntry.context.path).toBe("/api/users");
+        expect(logEntry.context.referer).toBe("https://example.com");
+        expect(logEntry.context.requestSize).toBe(1024);
+      }
+    });
+
+    it("should handle request without Authorization header", async () => {
+      delete mockRequest.headers!["authorization"];
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withRequest(mockRequest as Request);
+      await chain.info("Test without auth");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.ipAddress).toBe("192.168.1.1");
+        expect(logEntry.userAgent).toBe("Mozilla/5.0");
+        expect(logEntry.userId).toBeUndefined();
+      }
+    });
+
+    it("should handle request with invalid JWT token", async () => {
+      jwt.decode.mockReturnValue(null);
+      mockRequest.headers = {
+        ...mockRequest.headers,
+        authorization: "Bearer invalid-token",
+      };
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withRequest(mockRequest as Request);
+      await chain.info("Test with invalid token");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.ipAddress).toBe("192.168.1.1");
+        expect(logEntry.userId).toBeUndefined();
+      }
+    });
+
+    it("should handle request with proxy IP (x-forwarded-for)", async () => {
+      delete mockRequest.ip;
+      mockRequest.headers = {
+        ...mockRequest.headers,
+        "x-forwarded-for": "10.0.0.1, 192.168.1.1",
+      };
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withRequest(mockRequest as Request);
+      await chain.info("Test with proxy IP");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.ipAddress).toBe("10.0.0.1");
+      }
+    });
+
+    it("should support method chaining with withRequest", async () => {
+      jwt.decode.mockReturnValue({ sub: "user-123" });
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService
+        .withContext({ action: "test" })
+        .withRequest(mockRequest as Request)
+        .addUser("user-456");
+      await chain.info("Test chaining");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.context.action).toBe("test");
+        expect(logEntry.ipAddress).toBe("192.168.1.1");
+        // addUser should override userId from JWT
+        expect(logEntry.userId).toBe("user-456");
+      }
+    });
+
+    it("should use originalUrl over path when both are present", async () => {
+      mockRequest.originalUrl = "/api/v2/users";
+      mockRequest.path = "/api/users";
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withRequest(mockRequest as Request);
+      await chain.info("Test originalUrl");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.context.path).toBe("/api/v2/users");
+      }
+    });
+  });
+
+  describe("forRequest method", () => {
+    let mockRequest: Partial<Request>;
+
+    beforeEach(() => {
+      mockRequest = {
+        method: "GET",
+        path: "/api/data",
+        ip: "127.0.0.1",
+        headers: {
+          "user-agent": "TestAgent/1.0",
+          "x-correlation-id": "corr-789",
+        },
+        socket: {
+          remoteAddress: "127.0.0.1",
+        },
+      } as Partial<Request>;
+    });
+
+    it("should create LoggerChain with request context pre-populated", async () => {
+      jwt.decode.mockReturnValue({
+        sub: "user-999",
+      });
+      mockRequest.headers = {
+        ...mockRequest.headers,
+        authorization: "Bearer valid-token",
+      };
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.forRequest(mockRequest as Request);
+      await chain.info("Test forRequest");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.userId).toBe("user-999");
+        expect(logEntry.ipAddress).toBe("127.0.0.1");
+        expect(logEntry.userAgent).toBe("TestAgent/1.0");
+        expect(logEntry.correlationId).toBe("corr-789");
+        expect(logEntry.context.method).toBe("GET");
+        expect(logEntry.context.path).toBe("/api/data");
+      }
+    });
+
+    it("should support method chaining after forRequest", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      await loggerService
+        .forRequest(mockRequest as Request)
+        .addContext("custom", "value")
+        .info("Test chaining");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.context.custom).toBe("value");
+        expect(logEntry.ipAddress).toBe("127.0.0.1");
+      }
+    });
+
+    it("should handle request without optional headers", async () => {
+      mockRequest.headers = {};
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.forRequest(mockRequest as Request);
+      await chain.info("Test minimal request");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.ipAddress).toBe("127.0.0.1");
+        expect(logEntry.context.method).toBe("GET");
+        expect(logEntry.userAgent).toBeUndefined();
+        // correlationId will be auto-generated if not provided
+        expect(logEntry.correlationId).toBeDefined();
+      }
+    });
+  });
+
+  describe("indexed context methods", () => {
+    it("should support withIndexedContext method", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withIndexedContext({
+        sourceKey: "datasource-1",
+        sourceDisplayName: "PostgreSQL DB",
+        externalSystemKey: "system-1",
+        externalSystemDisplayName: "External System",
+        recordKey: "record-123",
+        recordDisplayName: "User Profile",
+      });
+      await chain.info("Test with indexed context");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.sourceKey).toBe("datasource-1");
+        expect(logEntry.sourceDisplayName).toBe("PostgreSQL DB");
+        expect(logEntry.externalSystemKey).toBe("system-1");
+        expect(logEntry.externalSystemDisplayName).toBe("External System");
+        expect(logEntry.recordKey).toBe("record-123");
+        expect(logEntry.recordDisplayName).toBe("User Profile");
+      }
+    });
+
+    it("should support withIndexedContext with partial fields", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withIndexedContext({
+        sourceKey: "datasource-1",
+        recordKey: "record-123",
+      });
+      await chain.info("Test with partial indexed context");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.sourceKey).toBe("datasource-1");
+        expect(logEntry.recordKey).toBe("record-123");
+        expect(logEntry.sourceDisplayName).toBeUndefined();
+        expect(logEntry.externalSystemKey).toBeUndefined();
+      }
+    });
+
+    it("should support withCredentialContext method", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withCredentialContext("cred-123", "oauth2");
+      await chain.info("Test with credential context");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.credentialId).toBe("cred-123");
+        expect(logEntry.credentialType).toBe("oauth2");
+      }
+    });
+
+    it("should support withCredentialContext with only credentialId", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withCredentialContext("cred-456");
+      await chain.info("Test with credential ID only");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.credentialId).toBe("cred-456");
+        expect(logEntry.credentialType).toBeUndefined();
+      }
+    });
+
+    it("should support withRequestMetrics method", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withRequestMetrics(1024, 2048, 150);
+      await chain.info("Test with request metrics");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.requestSize).toBe(1024);
+        expect(logEntry.responseSize).toBe(2048);
+        expect(logEntry.durationMs).toBe(150);
+      }
+    });
+
+    it("should support withRequestMetrics with partial metrics", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({});
+      chain.withRequestMetrics(undefined, 2048, 150);
+      await chain.info("Test with partial metrics");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.requestSize).toBeUndefined();
+        expect(logEntry.responseSize).toBe(2048);
+        expect(logEntry.durationMs).toBe(150);
+      }
+    });
+
+    it("should combine indexed context, credential context, and request metrics", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService
+        .withContext({ action: "sync" })
+        .withIndexedContext({
+          sourceKey: "datasource-1",
+          externalSystemKey: "system-1",
+        })
+        .withCredentialContext("cred-123", "oauth2")
+        .withRequestMetrics(1024, 2048, 150);
+      await chain.info("Test with all indexed fields");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.context.action).toBe("sync");
+        expect(logEntry.sourceKey).toBe("datasource-1");
+        expect(logEntry.externalSystemKey).toBe("system-1");
+        expect(logEntry.credentialId).toBe("cred-123");
+        expect(logEntry.credentialType).toBe("oauth2");
+        expect(logEntry.requestSize).toBe(1024);
+        expect(logEntry.responseSize).toBe(2048);
+        expect(logEntry.durationMs).toBe(150);
+      }
+    });
+
+    it("should support indexed context in audit logs", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService
+        .withContext({})
+        .withIndexedContext({
+          sourceKey: "datasource-1",
+          recordKey: "record-123",
+        })
+        .withCredentialContext("cred-123", "api-key");
+      await chain.audit("abac.authorization.grant", "external_record");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.level).toBe("audit");
+        expect(logEntry.sourceKey).toBe("datasource-1");
+        expect(logEntry.recordKey).toBe("record-123");
+        expect(logEntry.credentialId).toBe("cred-123");
+        expect(logEntry.credentialType).toBe("api-key");
+      }
+    });
+
+    it("should support indexed context in error logs", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService
+        .withContext({})
+        .withIndexedContext({
+          sourceKey: "datasource-1",
+          externalSystemKey: "system-1",
+        })
+        .withRequestMetrics(1024, 0, 5000);
+      await chain.error("Sync failed", "Error stack trace");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.level).toBe("error");
+        expect(logEntry.sourceKey).toBe("datasource-1");
+        expect(logEntry.externalSystemKey).toBe("system-1");
+        expect(logEntry.requestSize).toBe(1024);
+        expect(logEntry.responseSize).toBe(0);
+        expect(logEntry.durationMs).toBe(5000);
+        expect(logEntry.stackTrace).toBe("Error stack trace");
+      }
     });
   });
 });

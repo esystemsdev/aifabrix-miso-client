@@ -63,7 +63,12 @@ jest.mock("jsonwebtoken", () => ({
 // Mock browser APIs
 let mockLocalStorage: Record<string, string> = {};
 const mockWindow = {
-  location: { href: "", origin: "https://example.com" },
+  location: { 
+    href: "", 
+    origin: "https://example.com",
+    hash: "",
+    protocol: "https:",
+  },
 };
 const mockFetch = jest.fn();
 
@@ -83,6 +88,13 @@ beforeAll(() => {
     }),
   };
   (global as any).window = mockWindow;
+  // Also set globalThis.window.window for handleOAuthCallback (nested access pattern)
+  // The code accesses: globalThis.window.window.location.hash
+  // So we need: globalThis.window = { window: { location: { hash: "", ... } } }
+  // Use mockWindow directly so it stays in sync
+  (globalThis as any).window = { 
+    window: mockWindow,
+  };
 });
 
 describe("DataClient", () => {
@@ -93,6 +105,13 @@ describe("DataClient", () => {
     jest.clearAllMocks();
     mockLocalStorage = {};
     mockWindow.location.href = "";
+    mockWindow.location.hash = ""; // Clear hash to prevent OAuth callback from triggering
+    // Update globalThis.window.window to match mockWindow (handleOAuthCallback accesses this)
+    if ((globalThis as any).window?.window) {
+      (globalThis as any).window.window.location.hash = "";
+      (globalThis as any).window.window.location.href = "";
+      (globalThis as any).window.window.location.protocol = "https:";
+    }
 
     config = {
       baseUrl: "https://api.example.com",
@@ -328,7 +347,7 @@ describe("DataClient", () => {
           token: testToken,
           expiresIn: expiresIn,
         }),
-      } as Response);
+        } as unknown as Response);
 
       const browserConfig: DataClientConfig = {
         baseUrl: "https://api.example.com",
@@ -412,30 +431,12 @@ describe("DataClient", () => {
       mockLocalStorage["miso:client-token"] = "test-client-token";
       mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            loginUrl: "https://keycloak.example.com/auth?redirect=...",
-            state: "abc123",
-          },
-          timestamp: new Date().toISOString(),
-        }),
-      });
-      
       await dataClient.redirectToLogin();
       
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/v1/auth/login"),
-        expect.objectContaining({
-          method: "GET",
-          headers: expect.objectContaining({
-            "x-client-token": "test-client-token",
-          }),
-        })
-      );
-      expect(mockWindow.location.href).toBe("https://keycloak.example.com/auth?redirect=...");
+      // Should redirect directly to controller login URL with query params
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/login");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Fcurrent-page");
+      expect(mockWindow.location.href).toContain("x-client-token=test-client-token");
     });
 
     it("should redirect to login with custom redirect URL", async () => {
@@ -443,35 +444,16 @@ describe("DataClient", () => {
       mockLocalStorage["miso:client-token"] = "test-client-token";
       mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            loginUrl: "https://keycloak.example.com/auth?redirect=...",
-            state: "abc123",
-          },
-          timestamp: new Date().toISOString(),
-        }),
-      });
-      
       await dataClient.redirectToLogin("https://example.com/dashboard");
       
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/v1/auth/login"),
-        expect.objectContaining({
-          method: "GET",
-          headers: expect.objectContaining({
-            "x-client-token": "test-client-token",
-          }),
-        })
-      );
-      const fetchCall = mockFetch.mock.calls[0];
-      expect(fetchCall[0]).toContain("redirect=https%3A%2F%2Fexample.com%2Fdashboard");
-      expect(mockWindow.location.href).toBe("https://keycloak.example.com/auth?redirect=...");
+      // Should redirect directly to controller login URL with custom redirect param
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/login");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Fdashboard");
+      expect(mockWindow.location.href).toContain("x-client-token=test-client-token");
     });
 
-    it("should throw error when misoClient is not available and controller fails", async () => {
+    it("should redirect to login when misoClient is not available", async () => {
+      mockWindow.location.href = "https://example.com/current-page";
       const client = new DataClient({
         baseUrl: "https://api.example.com",
         misoConfig: {
@@ -479,16 +461,17 @@ describe("DataClient", () => {
           clientId: "test-client",
         },
       });
-      // Manually set misoClient to null to test error handling
+      // Manually set misoClient to null to test fallback behavior
       (client as any).misoClient = null;
       
-      await expect(client.redirectToLogin()).rejects.toThrow();
+      await client.redirectToLogin();
       
-      // Should NOT redirect - error should be thrown instead
-      expect(mockWindow.location.href).not.toBe("https://example.com/login");
+      // Should redirect to controller login URL
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/login");
     });
 
-    it("should throw error when misoClient is not available and controller fails (custom loginUrl)", async () => {
+    it("should redirect to custom loginUrl when misoClient is not available", async () => {
+      mockWindow.location.href = "https://example.com/current-page";
       const client = new DataClient({
         baseUrl: "https://api.example.com",
         loginUrl: "/custom-login",
@@ -497,48 +480,39 @@ describe("DataClient", () => {
           clientId: "test-client",
         },
       });
-      // Manually set misoClient to null to test error handling
+      // Manually set misoClient to null to test fallback behavior
       (client as any).misoClient = null;
       
-      await expect(client.redirectToLogin()).rejects.toThrow();
+      await client.redirectToLogin();
       
-      // Should NOT redirect - error should be thrown instead
-      expect(mockWindow.location.href).not.toBe("https://example.com/custom-login");
+      // Should redirect to controller custom login URL
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/custom-login");
     });
 
-    it("should throw error when controller login fails", async () => {
+    it("should redirect to login even when no client token", async () => {
       mockWindow.location.href = "https://example.com/current-page";
-      mockLocalStorage["miso:client-token"] = "test-client-token";
-      mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
+      // No client token in localStorage
       
-      mockFetch.mockRejectedValueOnce(new Error("Controller error"));
+      await dataClient.redirectToLogin();
       
-      await expect(dataClient.redirectToLogin()).rejects.toThrow();
-      
-      // Should NOT redirect - error should be thrown instead
-      expect(mockWindow.location.href).toBe("https://example.com/current-page");
+      // Should still redirect to controller login URL (without client token param)
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/login");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Fcurrent-page");
     });
 
-    it("should throw error when controller returns no loginUrl", async () => {
+    it("should redirect to login when controller URL not configured", () => {
       mockWindow.location.href = "https://example.com/current-page";
-      mockLocalStorage["miso:client-token"] = "test-client-token";
-      mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        headers: new Headers({ "content-type": "application/json" }),
-        json: async () => ({
-          success: true,
-          data: {
-            state: "abc123",
-            // No loginUrl
+      // Error should be thrown during construction when controller URL is not configured
+      expect(() => {
+        new DataClient({
+          baseUrl: "https://api.example.com",
+          misoConfig: {
+            clientId: "test-client",
+            // No controller URL configured - should throw error
           },
-          timestamp: new Date().toISOString(),
-        }),
-      });
-      
-      await expect(dataClient.redirectToLogin()).rejects.toThrow("Controller did not return a valid login URL");
+        });
+      }).toThrow("No controller URL configured");
       
       // Should NOT redirect - error should be thrown instead
       expect(mockWindow.location.href).toBe("https://example.com/current-page");
@@ -549,28 +523,13 @@ describe("DataClient", () => {
       mockLocalStorage["miso:client-token"] = "test-client-token";
       mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          message: "Logout successful",
-          timestamp: new Date().toISOString(),
-        }),
-      });
-      
       await dataClient.logout();
       
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/v1/auth/logout"),
-        expect.objectContaining({
-          method: "POST",
-          headers: expect.objectContaining({
-            "x-client-token": "test-client-token",
-          }),
-          body: JSON.stringify({ token: "test-token-123" }),
-        })
-      );
-      expect(mockWindow.location.href).toBe("https://example.com/login");
+      // Should redirect to controller logout URL with redirect param
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/login");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Flogin");
+      expect(mockWindow.location.href).toContain("x-client-token=test-client-token");
+      expect(mockWindow.location.href).toContain("token=test-token-123");
       expect(mockLocalStorage["token"]).toBeUndefined();
     });
 
@@ -579,28 +538,13 @@ describe("DataClient", () => {
       mockLocalStorage["miso:client-token"] = "test-client-token";
       mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
       
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          message: "Logout successful",
-          timestamp: new Date().toISOString(),
-        }),
-      });
-      
       await dataClient.logout("/home");
       
-      expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining("/api/v1/auth/logout"),
-        expect.objectContaining({
-          method: "POST",
-          headers: expect.objectContaining({
-            "x-client-token": "test-client-token",
-          }),
-          body: JSON.stringify({ token: "test-token-123" }),
-        })
-      );
-      expect(mockWindow.location.href).toBe("https://example.com/home");
+      // Should redirect to controller logout URL with custom redirect param
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/login");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Fhome");
+      expect(mockWindow.location.href).toContain("x-client-token=test-client-token");
+      expect(mockWindow.location.href).toContain("token=test-token-123");
       expect(mockLocalStorage["token"]).toBeUndefined();
     });
 
@@ -610,28 +554,18 @@ describe("DataClient", () => {
         logoutUrl: "/goodbye",
       });
       mockLocalStorage["token"] = "test-token-123";
-      const misoClientInstance = (client as any).misoClient;
-      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
-        success: true,
-        message: "Logout successful",
-        timestamp: new Date().toISOString(),
-      });
       
       await client.logout();
       
-      expect(mockWindow.location.href).toBe("https://example.com/goodbye");
+      // Should redirect to controller logout URL with logoutUrl as path and redirect param
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/goodbye");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Fgoodbye");
       expect(mockLocalStorage["token"]).toBeUndefined();
     });
 
     it("should logout and clear tokens from localStorage", async () => {
       mockLocalStorage["token"] = "test-token-123";
       mockLocalStorage["accessToken"] = "access-token-456";
-      const misoClientInstance = (dataClient as any).misoClient;
-      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
-        success: true,
-        message: "Logout successful",
-        timestamp: new Date().toISOString(),
-      });
       
       await dataClient.logout();
       
@@ -641,12 +575,6 @@ describe("DataClient", () => {
 
     it("should logout and clear cache", async () => {
       mockLocalStorage["token"] = "test-token-123";
-      const misoClientInstance = (dataClient as any).misoClient;
-      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
-        success: true,
-        message: "Logout successful",
-        timestamp: new Date().toISOString(),
-      });
       
       // Add something to cache
       (dataClient as any).cache.set("test-key", {
@@ -660,22 +588,14 @@ describe("DataClient", () => {
       expect((dataClient as any).cache.size).toBe(0);
     });
 
-    it("should logout even if API call fails", async () => {
-      mockLocalStorage["token"] = "test-token-123";
-      const misoClientInstance = (dataClient as any).misoClient;
-      (misoClientInstance.logout as jest.Mock) = jest.fn().mockRejectedValue(new Error("API error"));
-      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
+    it("should logout and redirect even without token", async () => {
+      // No token in localStorage
       
       await dataClient.logout();
       
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "Logout API call failed:",
-        expect.any(Error),
-      );
-      expect(mockWindow.location.href).toBe("https://example.com/login");
-      expect(mockLocalStorage["token"]).toBeUndefined();
-      
-      consoleErrorSpy.mockRestore();
+      // Should still redirect to controller logout URL (without token param)
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/login");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Flogin");
     });
 
     it("should logout when misoClient not available", async () => {
@@ -692,19 +612,20 @@ describe("DataClient", () => {
       
       await client.logout();
       
-      expect(mockWindow.location.href).toBe("https://example.com/login");
+      // Should redirect to controller logout URL
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/login");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Flogin");
       expect(mockLocalStorage["token"]).toBeUndefined();
     });
 
     it("should logout when no token exists", async () => {
-      const misoClientInstance = (dataClient as any).misoClient;
-      (misoClientInstance.logout as jest.Mock) = jest.fn();
+      // No token in localStorage
       
       await dataClient.logout();
       
-      // Should not call logout API when no token
-      expect(misoClientInstance.logout).not.toHaveBeenCalled();
-      expect(mockWindow.location.href).toBe("https://example.com/login");
+      // Should redirect to controller logout URL (without token param)
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/login");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Flogin");
     });
 
     it("should handle multiple token keys", async () => {
@@ -714,12 +635,6 @@ describe("DataClient", () => {
       });
       mockLocalStorage["customToken"] = "custom-token-123";
       mockLocalStorage["anotherToken"] = "another-token-456";
-      const misoClientInstance = (client as any).misoClient;
-      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
-        success: true,
-        message: "Logout successful",
-        timestamp: new Date().toISOString(),
-      });
       
       await client.logout();
       
@@ -733,16 +648,12 @@ describe("DataClient", () => {
         logoutUrl: "/goodbye",
       });
       mockLocalStorage["token"] = "test-token-123";
-      const misoClientInstance = (client as any).misoClient;
-      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
-        success: true,
-        message: "Logout successful",
-        timestamp: new Date().toISOString(),
-      });
       
       await client.logout();
       
-      expect(mockWindow.location.href).toBe("https://example.com/goodbye");
+      // Should redirect to controller logout URL with logoutUrl as path
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/goodbye");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Fgoodbye");
     });
 
     it("should handle absolute logoutUrl", async () => {
@@ -751,16 +662,12 @@ describe("DataClient", () => {
         logoutUrl: "https://myapp.com/goodbye",
       });
       mockLocalStorage["token"] = "test-token-123";
-      const misoClientInstance = (client as any).misoClient;
-      (misoClientInstance.logout as jest.Mock) = jest.fn().mockResolvedValue({
-        success: true,
-        message: "Logout successful",
-        timestamp: new Date().toISOString(),
-      });
       
       await client.logout();
       
-      expect(mockWindow.location.href).toBe("https://myapp.com/goodbye");
+      // Should redirect to absolute logoutUrl with redirect param
+      expect(mockWindow.location.href).toContain("https://myapp.com/goodbye");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fmyapp.com%2Fgoodbye");
     });
   });
 
@@ -1102,27 +1009,16 @@ describe("DataClient", () => {
         headers: new Headers({ "content-type": "application/json" }),
         json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
       } as any);
-      
-      // Mock the redirectToLogin fetch call
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          data: {
-            loginUrl: "https://keycloak.example.com/auth?redirect=...",
-            state: "abc123",
-          },
-          timestamp: new Date().toISOString(),
-        }),
-      });
 
       await expect(dataClient.get("/api/users")).rejects.toThrow(
         AuthenticationError,
       );
       // Wait for async redirect to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
-      // Should redirect to controller login URL
-      expect(mockWindow.location.href).toBe("https://keycloak.example.com/auth?redirect=...");
+      // Should redirect to controller login URL directly (no API call)
+      expect(mockWindow.location.href).toContain("https://controller.aifabrix.ai/login");
+      expect(mockWindow.location.href).toContain("redirect=https%3A%2F%2Fexample.com%2Fcurrent-page");
+      expect(mockWindow.location.href).toContain("x-client-token=test-client-token");
     }, 10000);
   });
 
@@ -1930,7 +1826,7 @@ describe("DataClient", () => {
           token: "new-token-123",
           expiresIn: 1800,
         }),
-      } as Response);
+        } as unknown as Response);
 
       const token = await dataClient.getEnvironmentToken();
 
@@ -1947,7 +1843,7 @@ describe("DataClient", () => {
           token: "new-token-123",
           expiresIn: 1800,
         }),
-      } as Response);
+        } as unknown as Response);
 
       const token = await dataClient.getEnvironmentToken();
 
@@ -1963,7 +1859,7 @@ describe("DataClient", () => {
           token: "new-token-123",
           expiresIn: 1800,
         }),
-      } as Response);
+        } as unknown as Response);
 
       await dataClient.getEnvironmentToken();
 
@@ -1989,7 +1885,7 @@ describe("DataClient", () => {
           token: "new-token-123",
           expiresIn: 1800,
         }),
-      } as Response);
+        } as unknown as Response);
 
       await customClient.getEnvironmentToken();
 
@@ -2015,7 +1911,7 @@ describe("DataClient", () => {
           token: "new-token-123",
           expiresIn: 1800,
         }),
-      } as Response);
+        } as unknown as Response);
 
       await customClient.getEnvironmentToken();
 
@@ -2035,7 +1931,7 @@ describe("DataClient", () => {
             expiresIn: 1800,
           },
         }),
-      } as Response);
+        } as unknown as Response);
 
       const token = await dataClient.getEnvironmentToken();
 
@@ -2050,7 +1946,7 @@ describe("DataClient", () => {
           token: "flat-token-123",
           expiresIn: 1800,
         }),
-      } as Response);
+        } as unknown as Response);
 
       const token = await dataClient.getEnvironmentToken();
 
@@ -2067,7 +1963,7 @@ describe("DataClient", () => {
             expiresIn: 3600,
           },
         }),
-      } as Response);
+        } as unknown as Response);
 
       await dataClient.getEnvironmentToken();
 
@@ -2083,7 +1979,7 @@ describe("DataClient", () => {
         json: async () => ({
           token: "token-123",
         }),
-      } as Response);
+        } as unknown as Response);
 
       await dataClient.getEnvironmentToken();
 
@@ -2098,7 +1994,7 @@ describe("DataClient", () => {
         status: 403,
         statusText: "Forbidden",
         text: async () => "Access denied",
-      } as Response);
+        } as unknown as Response);
 
       await expect(dataClient.getEnvironmentToken()).rejects.toThrow(
         "Failed to get environment token",
@@ -2112,7 +2008,7 @@ describe("DataClient", () => {
         json: async () => ({
           success: true,
         }),
-      } as Response);
+        } as unknown as Response);
 
       await expect(dataClient.getEnvironmentToken()).rejects.toThrow(
         "Invalid response format",
@@ -2127,7 +2023,7 @@ describe("DataClient", () => {
           token: "token-123",
           expiresIn: 1800,
         }),
-      } as Response);
+        } as unknown as Response);
 
       await dataClient.getEnvironmentToken();
 
@@ -2154,7 +2050,7 @@ describe("DataClient", () => {
         status: 403,
         statusText: "Forbidden",
         text: async () => "Access denied",
-      } as Response);
+        } as unknown as Response);
 
       await expect(dataClient.getEnvironmentToken()).rejects.toThrow();
 
@@ -2189,7 +2085,7 @@ describe("DataClient", () => {
           token: "new-token-123",
           expiresIn: 1800,
         }),
-      } as Response);
+        } as unknown as Response);
 
       await dataClient.getEnvironmentToken();
 
@@ -2319,6 +2215,666 @@ describe("DataClient", () => {
       const info = dataClient.getClientTokenInfo();
 
       expect(info).toEqual({});
+    });
+  });
+
+  describe("onTokenRefresh callback", () => {
+    beforeEach(() => {
+      mockLocalStorage = {};
+      mockWindow.location.href = "";
+      mockWindow.location.hash = "";
+      mockFetch.mockClear();
+      mockFetch.mockReset(); // Reset both call history and implementation
+    });
+
+    it("should call onTokenRefresh callback on 401 error and retry request", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "new-access-token-456",
+        expiresIn: 3600,
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      // First request returns 401
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          statusText: "Unauthorized",
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        // Second request (after refresh) succeeds
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ data: "success" }),
+        } as unknown as Response);
+
+      mockLocalStorage["token"] = "old-token-123";
+
+      const result = await customClient.get("/api/test");
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result).toEqual({ data: "success" });
+      // Verify new token was stored in localStorage
+      expect(mockLocalStorage["token"]).toBe("new-access-token-456");
+    });
+
+    it("should update token in all configured tokenKeys after refresh", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "refreshed-token-789",
+        expiresIn: 3600,
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        tokenKeys: ["token", "accessToken", "authToken"],
+        onTokenRefresh,
+      });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ data: "success" }),
+        } as unknown as Response);
+
+      await customClient.get("/api/test");
+
+      expect(mockLocalStorage["token"]).toBe("refreshed-token-789");
+      expect(mockLocalStorage["accessToken"]).toBe("refreshed-token-789");
+      expect(mockLocalStorage["authToken"]).toBe("refreshed-token-789");
+    });
+
+    it("should redirect to login when onTokenRefresh fails", async () => {
+      const onTokenRefresh = jest
+        .fn()
+        .mockRejectedValue(new Error("Refresh failed"));
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      // First request returns 401, triggering refresh attempt
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response);
+
+      mockLocalStorage["miso:client-token"] = "client-token-123";
+      mockLocalStorage["miso:client-token-expires-at"] = (
+        Date.now() + 3600000
+      ).toString();
+
+      // The request should throw AuthenticationError after refresh fails
+      await expect(customClient.get("/api/test")).rejects.toThrow(
+        AuthenticationError,
+      );
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("should redirect to login when onTokenRefresh returns null", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue(null);
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response);
+
+      mockLocalStorage["miso:client-token"] = "client-token-123";
+      mockLocalStorage["miso:client-token-expires-at"] = (
+        Date.now() + 3600000
+      ).toString();
+
+      await expect(customClient.get("/api/test")).rejects.toThrow();
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("should not call onTokenRefresh if callback is not provided", async () => {
+      const customClient = new DataClient({
+        ...config,
+        // onTokenRefresh not provided
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response);
+
+      mockLocalStorage["miso:client-token"] = "client-token-123";
+      mockLocalStorage["miso:client-token-expires-at"] = (
+        Date.now() + 3600000
+      ).toString();
+
+      await expect(customClient.get("/api/test")).rejects.toThrow();
+
+      // Should not have called any refresh callback
+      expect(mockFetch).toHaveBeenCalledTimes(1); // Only the original request
+    });
+
+    it("should only attempt refresh once per request", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "new-token-123",
+        expiresIn: 3600,
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      // First request returns 401, second also returns 401 (refresh didn't help)
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Still unauthorized" }),
+        } as unknown as Response);
+
+      mockLocalStorage["token"] = "old-token";
+
+      await expect(customClient.get("/api/test")).rejects.toThrow();
+
+      // Should only call refresh once, not retry again
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(2); // Original + one retry
+    });
+
+    it("should not store refresh token in localStorage", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "new-access-token-456",
+        expiresIn: 3600,
+        // Note: refreshToken should NOT be in the response or stored
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ data: "success" }),
+        } as unknown as Response);
+
+      await customClient.get("/api/test");
+
+      // Verify only access token is stored, not refresh token
+      expect(mockLocalStorage["token"]).toBe("new-access-token-456");
+      // Verify no refresh token keys exist
+      expect(mockLocalStorage["refreshToken"]).toBeUndefined();
+      expect(mockLocalStorage["refresh_token"]).toBeUndefined();
+    });
+
+    it("should handle refresh for POST requests", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "new-token-post-123",
+        expiresIn: 3600,
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ data: "created" }),
+        } as unknown as Response);
+
+      await customClient.post("/api/test", { data: "test" });
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockLocalStorage["token"]).toBe("new-token-post-123");
+    });
+
+    it("should handle refresh for PUT requests", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "new-token-put-456",
+        expiresIn: 3600,
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ data: "updated" }),
+        } as unknown as Response);
+
+      await customClient.put("/api/test", { data: "test" });
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockLocalStorage["token"]).toBe("new-token-put-456");
+    });
+
+    it("should handle refresh for DELETE requests", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "new-token-delete-789",
+        expiresIn: 3600,
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 204,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({}),
+          text: jest.fn().mockResolvedValue(""),
+          blob: jest.fn().mockResolvedValue(new Blob()),
+        } as any);
+
+      await customClient.delete("/api/test");
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockLocalStorage["token"]).toBe("new-token-delete-789");
+    });
+
+    it("should handle refresh callback returning invalid token format", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "", // Empty token
+        expiresIn: 3600,
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response);
+
+      mockLocalStorage["miso:client-token"] = "client-token-123";
+      mockLocalStorage["miso:client-token-expires-at"] = (
+        Date.now() + 3600000
+      ).toString();
+
+      await expect(customClient.get("/api/test")).rejects.toThrow();
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      // Empty token should NOT be stored (code checks `if (result.token)`)
+      expect(mockLocalStorage["token"]).toBeUndefined();
+    });
+
+    it("should handle refresh callback with different expiresIn values", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "new-token-expires-123",
+        expiresIn: 7200, // 2 hours
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ data: "success" }),
+        } as unknown as Response);
+
+      await customClient.get("/api/test");
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockLocalStorage["token"]).toBe("new-token-expires-123");
+    });
+
+    it("should handle refresh callback timing out", async () => {
+      const onTokenRefresh = jest.fn().mockImplementation(
+        () =>
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Timeout")), 100),
+          ),
+      );
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+        timeout: 50, // Shorter timeout than refresh callback
+      });
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 401,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response);
+
+      mockLocalStorage["miso:client-token"] = "client-token-123";
+      mockLocalStorage["miso:client-token-expires-at"] = (
+        Date.now() + 3600000
+      ).toString();
+
+      await expect(customClient.get("/api/test")).rejects.toThrow();
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+    });
+
+    it("should handle refresh when callback returns token without expiresIn", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "new-token-no-expires",
+        // Missing expiresIn
+      } as any);
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ data: "success" }),
+        } as unknown as Response);
+
+      await customClient.get("/api/test");
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockLocalStorage["token"]).toBe("new-token-no-expires");
+    });
+
+    it("should handle concurrent requests each triggering refresh", async () => {
+      const onTokenRefresh1 = jest.fn().mockResolvedValue({
+        token: "new-token-concurrent-1",
+        expiresIn: 3600,
+      });
+      const onTokenRefresh2 = jest.fn().mockResolvedValue({
+        token: "new-token-concurrent-2",
+        expiresIn: 3600,
+      });
+
+      const customClient1 = new DataClient({
+        ...config,
+        onTokenRefresh: onTokenRefresh1,
+      });
+      const customClient2 = new DataClient({
+        ...config,
+        onTokenRefresh: onTokenRefresh2,
+      });
+
+      // Wait for any async initialization to complete
+      await Promise.all([
+        new Promise((resolve) => setTimeout(resolve, 50)),
+        new Promise((resolve) => setTimeout(resolve, 50)),
+      ]);
+
+      // Reset call count after initialization
+      onTokenRefresh1.mockClear();
+      onTokenRefresh2.mockClear();
+
+      // Setup client tokens to avoid client token fetch calls
+      mockLocalStorage["miso:client-token"] = "client-token-123";
+      mockLocalStorage["miso:client-token-expires-at"] = (
+        Date.now() + 3600000
+      ).toString();
+
+      // Track request counts per endpoint to handle concurrent requests
+      const requestCounts: Record<string, number> = {};
+      mockFetch.mockImplementation((url: string) => {
+        const urlStr = url.toString();
+        const isTest1 = urlStr.includes("/api/test1");
+        const isTest2 = urlStr.includes("/api/test2");
+        
+        if (!isTest1 && !isTest2) {
+          // Not one of our test endpoints, return a default response
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-type": "application/json" }),
+            json: jest.fn().mockResolvedValue({}),
+          } as unknown as Response);
+        }
+        
+        const endpoint = isTest1 ? "/api/test1" : "/api/test2";
+        requestCounts[endpoint] = (requestCounts[endpoint] || 0) + 1;
+        const attempt = requestCounts[endpoint];
+        
+        if (attempt === 1) {
+          // First attempt: 401
+          return Promise.resolve({
+            ok: false,
+            status: 401,
+            headers: new Headers({ "content-type": "application/json" }),
+            json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+          } as unknown as Response);
+        } else {
+          // Retry after refresh: success
+          const data = isTest1 ? "success1" : "success2";
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            headers: new Headers({ "content-type": "application/json" }),
+            json: jest.fn().mockResolvedValue({ data }),
+          } as unknown as Response);
+        }
+      });
+
+      // Make concurrent requests with different clients
+      const [result1, result2] = await Promise.all([
+        customClient1.get("/api/test1"),
+        customClient2.get("/api/test2"),
+      ]);
+
+      // Each client should trigger its own refresh
+      expect(onTokenRefresh1).toHaveBeenCalledTimes(1);
+      expect(onTokenRefresh2).toHaveBeenCalledTimes(1);
+      expect(result1).toEqual({ data: "success1" });
+      expect(result2).toEqual({ data: "success2" });
+    });
+
+    it("should handle refresh with token containing special characters", async () => {
+      const specialToken = "token-with-special-!@#$%^&*()-chars";
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: specialToken,
+        expiresIn: 3600,
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+        tokenKeys: ["token"], // Use single key to avoid confusion
+      });
+
+      // Wait for any async initialization to complete
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // Reset call count after initialization
+      onTokenRefresh.mockClear();
+
+      // Setup client tokens to avoid client token fetch calls
+      mockLocalStorage["miso:client-token"] = "client-token-123";
+      mockLocalStorage["miso:client-token-expires-at"] = (
+        Date.now() + 3600000
+      ).toString();
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ data: "success" }),
+        } as unknown as Response);
+
+      await customClient.get("/api/test");
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockLocalStorage["token"]).toBe(specialToken);
+    });
+
+    it("should handle refresh with very long token", async () => {
+      const longToken = "a".repeat(10000); // Very long token
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: longToken,
+        expiresIn: 3600,
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+        tokenKeys: ["token"], // Use single key to avoid confusion
+      });
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ data: "success" }),
+        } as unknown as Response);
+
+      await customClient.get("/api/test");
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockLocalStorage["token"]).toBe(longToken);
+    });
+
+    it("should not refresh on 403 Forbidden (only 401)", async () => {
+      // Ensure no hash in URL to prevent handleOAuthCallback from running
+      mockWindow.location.href = "https://example.com/test";
+      mockWindow.location.hash = "";
+      mockLocalStorage = {}; // Clear localStorage
+
+      const onTokenRefresh = jest.fn();
+
+      const customClient = new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      // Wait for any async initialization to complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Reset call count after initialization (handleOAuthCallback doesn't call onTokenRefresh,
+      // but we clear to ensure we only count calls from the actual request)
+      const initCallCount = onTokenRefresh.mock.calls.length;
+      onTokenRefresh.mockClear();
+      
+      // Ensure no calls happened during initialization
+      expect(initCallCount).toBe(0);
+
+      mockFetch.mockResolvedValue({
+        ok: false,
+        status: 403,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: jest.fn().mockResolvedValue({ error: "Forbidden" }),
+        } as unknown as Response);
+
+      mockLocalStorage["miso:client-token"] = "client-token-123";
+      mockLocalStorage["miso:client-token-expires-at"] = (
+        Date.now() + 3600000
+      ).toString();
+
+      await expect(customClient.get("/api/test")).rejects.toThrow();
+
+      // Should not call refresh for 403 errors (only 401 triggers refresh)
+      // Refresh should only be called for 401, not 403
+      expect(onTokenRefresh).not.toHaveBeenCalled();
     });
   });
 });

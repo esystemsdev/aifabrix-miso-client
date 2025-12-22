@@ -3,11 +3,14 @@
  */
 
 import { EventEmitter } from "events";
+import { Request } from "express";
 import { HttpClient } from "../utils/http-client";
 import { RedisService } from "./redis.service";
 import { DataMasker } from "../utils/data-masker";
 import { MisoClientConfig, LogEntry } from "../types/config.types";
 import { AuditLogQueue } from "../utils/audit-log-queue";
+import { extractRequestContext } from "../utils/request-context";
+import { IndexedLoggingContext } from "../utils/logging-helpers";
 import jwt from "jsonwebtoken";
 
 export interface ClientLoggingOptions {
@@ -18,20 +21,30 @@ export interface ClientLoggingOptions {
   sessionId?: string;
   token?: string; // JWT token for context extraction
   maskSensitiveData?: boolean;
-  performanceMetrics?: boolean;
-}
+  // Request metadata (top-level LogEntry fields)
+  ipAddress?: string;
+  userAgent?: string;
 
-export interface PerformanceMetrics {
-  startTime: number;
-  endTime?: number;
-  duration?: number;
-  memoryUsage?: {
-    rss: number;
-    heapTotal: number;
-    heapUsed: number;
-    external: number;
-    arrayBuffers: number;
-  };
+  // Indexed context fields
+  sourceKey?: string;
+  sourceDisplayName?: string;
+  externalSystemKey?: string;
+  externalSystemDisplayName?: string;
+  recordKey?: string;
+  recordDisplayName?: string;
+
+  // Credential context
+  credentialId?: string;
+  credentialType?: string;
+
+  // Request metrics
+  requestSize?: number;
+  responseSize?: number;
+  durationMs?: number;
+
+  // Error classification
+  errorCategory?: string;
+  httpStatusCategory?: string;
 }
 
 export class LoggerService extends EventEmitter {
@@ -40,7 +53,6 @@ export class LoggerService extends EventEmitter {
   private config: MisoClientConfig;
   private maskSensitiveData = true; // Default: mask sensitive data
   private correlationCounter = 0;
-  private performanceMetrics: Map<string, PerformanceMetrics> = new Map();
   private auditLogQueue: AuditLogQueue | null = null;
   // Circuit breaker for HTTP logging - skip attempts after repeated failures
   private httpLoggingFailures = 0;
@@ -154,34 +166,6 @@ export class LoggerService extends EventEmitter {
   }
 
   /**
-   * Start performance tracking
-   */
-  startPerformanceTracking(operationId: string): void {
-    this.performanceMetrics.set(operationId, {
-      startTime: Date.now(),
-      memoryUsage:
-        typeof process !== "undefined" ? process.memoryUsage() : undefined,
-    });
-  }
-
-  /**
-   * End performance tracking and get metrics
-   */
-  endPerformanceTracking(operationId: string): PerformanceMetrics | null {
-    const metrics = this.performanceMetrics.get(operationId);
-    if (!metrics) return null;
-
-    metrics.endTime = Date.now();
-    metrics.duration = metrics.endTime - metrics.startTime;
-    if (typeof process !== "undefined") {
-      metrics.memoryUsage = process.memoryUsage();
-    }
-
-    this.performanceMetrics.delete(operationId);
-    return metrics;
-  }
-
-  /**
    * Log error message with optional stack trace and enhanced options
    */
   async error(
@@ -270,18 +254,6 @@ export class LoggerService extends EventEmitter {
         ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
         : context;
 
-    // Add performance metrics if requested
-    let enhancedContext = maskedContext;
-    if (options?.performanceMetrics && typeof process !== "undefined") {
-      enhancedContext = {
-        ...enhancedContext,
-        performance: {
-          memoryUsage: process.memoryUsage(),
-          uptime: process.uptime(),
-        },
-      };
-    }
-
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
@@ -289,13 +261,32 @@ export class LoggerService extends EventEmitter {
       application: this.config.clientId, // Use clientId as application identifier
       applicationId: options?.applicationId || "", // Optional from options
       message,
-      context: enhancedContext,
+      context: maskedContext,
       stackTrace,
       correlationId,
       userId: options?.userId || jwtContext.userId,
       sessionId: options?.sessionId || jwtContext.sessionId,
       requestId: options?.requestId,
+      ipAddress: options?.ipAddress || metadata.ipAddress,
+      userAgent: options?.userAgent || metadata.userAgent,
       ...metadata,
+      // Indexed context fields
+      sourceKey: options?.sourceKey,
+      sourceDisplayName: options?.sourceDisplayName,
+      externalSystemKey: options?.externalSystemKey,
+      externalSystemDisplayName: options?.externalSystemDisplayName,
+      recordKey: options?.recordKey,
+      recordDisplayName: options?.recordDisplayName,
+      // Credential context
+      credentialId: options?.credentialId,
+      credentialType: options?.credentialType,
+      // Request metrics
+      requestSize: options?.requestSize,
+      responseSize: options?.responseSize,
+      durationMs: options?.durationMs,
+      // Error classification
+      errorCategory: options?.errorCategory,
+      httpStatusCategory: options?.httpStatusCategory,
     };
 
     // If emitEvents is enabled, emit event and skip HTTP/Redis
@@ -369,12 +360,24 @@ export class LoggerService extends EventEmitter {
     return new LoggerChain(this, {}, { token });
   }
 
-  withPerformance(): LoggerChain {
-    return new LoggerChain(this, {}, { performanceMetrics: true });
-  }
-
   withoutMasking(): LoggerChain {
     return new LoggerChain(this, {}, { maskSensitiveData: false });
+  }
+
+  /**
+   * Create logger chain with request context pre-populated
+   * Auto-extracts: IP, method, path, user-agent, correlation ID, user from JWT
+   *
+   * @param req - Express Request object
+   * @returns LoggerChain with request context pre-populated
+   *
+   * @example
+   * ```typescript
+   * await miso.log.forRequest(req).info("Processing request");
+   * ```
+   */
+  forRequest(req: Request): LoggerChain {
+    return new LoggerChain(this, {}, {}).withRequest(req);
   }
 }
 
@@ -421,13 +424,132 @@ export class LoggerChain {
     return this;
   }
 
-  withPerformance(): LoggerChain {
-    this.options.performanceMetrics = true;
+  withoutMasking(): LoggerChain {
+    this.options.maskSensitiveData = false;
     return this;
   }
 
-  withoutMasking(): LoggerChain {
-    this.options.maskSensitiveData = false;
+  /**
+   * Add indexed logging context fields for fast queries
+   * 
+   * @param context - Indexed logging context with source, external system, and record fields
+   * @returns LoggerChain instance for method chaining
+   * 
+   * @example
+   * ```typescript
+   * await logger
+   *   .withIndexedContext({
+   *     sourceKey: 'datasource-1',
+   *     sourceDisplayName: 'PostgreSQL DB',
+   *     externalSystemKey: 'system-1',
+   *     recordKey: 'record-123'
+   *   })
+   *   .info('Sync completed');
+   * ```
+   */
+  withIndexedContext(context: IndexedLoggingContext): LoggerChain {
+    this.options.sourceKey = context.sourceKey;
+    this.options.sourceDisplayName = context.sourceDisplayName;
+    this.options.externalSystemKey = context.externalSystemKey;
+    this.options.externalSystemDisplayName = context.externalSystemDisplayName;
+    this.options.recordKey = context.recordKey;
+    this.options.recordDisplayName = context.recordDisplayName;
+    return this;
+  }
+
+  /**
+   * Add credential context for audit logging
+   * 
+   * @param credentialId - Optional credential identifier
+   * @param credentialType - Optional credential type (e.g., 'oauth2', 'api-key')
+   * @returns LoggerChain instance for method chaining
+   * 
+   * @example
+   * ```typescript
+   * await logger
+   *   .withCredentialContext('cred-123', 'oauth2')
+   *   .info('API call completed');
+   * ```
+   */
+  withCredentialContext(credentialId?: string, credentialType?: string): LoggerChain {
+    this.options.credentialId = credentialId;
+    this.options.credentialType = credentialType;
+    return this;
+  }
+
+  /**
+   * Add request/response metrics for performance logging
+   * 
+   * @param requestSize - Optional request size in bytes
+   * @param responseSize - Optional response size in bytes
+   * @param durationMs - Optional request duration in milliseconds
+   * @returns LoggerChain instance for method chaining
+   * 
+   * @example
+   * ```typescript
+   * await logger
+   *   .withRequestMetrics(1024, 2048, 150)
+   *   .info('Upstream API call completed');
+   * ```
+   */
+  withRequestMetrics(requestSize?: number, responseSize?: number, durationMs?: number): LoggerChain {
+    this.options.requestSize = requestSize;
+    this.options.responseSize = responseSize;
+    this.options.durationMs = durationMs;
+    return this;
+  }
+
+  /**
+   * Auto-extract logging context from Express Request
+   * Extracts: IP, method, path, user-agent, correlation ID, user from JWT
+   *
+   * @param req - Express Request object
+   * @returns LoggerChain instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * await miso.log
+   *   .withRequest(req)
+   *   .info("Processing request");
+   * ```
+   */
+  withRequest(req: Request): LoggerChain {
+    const ctx = extractRequestContext(req);
+
+    // Merge into options (these become top-level LogEntry fields)
+    if (ctx.userId) {
+      this.options.userId = ctx.userId;
+    }
+    if (ctx.sessionId) {
+      this.options.sessionId = ctx.sessionId;
+    }
+    if (ctx.correlationId) {
+      this.options.correlationId = ctx.correlationId;
+    }
+    if (ctx.requestId) {
+      this.options.requestId = ctx.requestId;
+    }
+    if (ctx.ipAddress) {
+      this.options.ipAddress = ctx.ipAddress;
+    }
+    if (ctx.userAgent) {
+      this.options.userAgent = ctx.userAgent;
+    }
+
+    // Merge into context (additional request info, not top-level LogEntry fields)
+    if (ctx.method) {
+      this.context.method = ctx.method;
+    }
+    if (ctx.path) {
+      this.context.path = ctx.path;
+    }
+    if (ctx.referer) {
+      this.context.referer = ctx.referer;
+    }
+    if (ctx.requestSize !== undefined) {
+      this.context.requestSize = ctx.requestSize;
+    }
+
     return this;
   }
 
