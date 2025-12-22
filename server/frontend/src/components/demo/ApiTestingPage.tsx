@@ -1,9 +1,24 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { toast } from 'sonner';
 import { useDataClient } from '../../hooks/useDataClient';
+
+interface ApiResult {
+  method?: string;
+  endpoint?: string;
+  status?: number | string;
+  timestamp: string;
+  data?: unknown;
+  error?: string;
+  type?: string;
+  message?: string;
+  details?: unknown;
+  authenticated?: boolean;
+  token?: string;
+  tokenInfo?: unknown;
+}
 
 /**
  * API Testing page component for testing HTTP methods, authentication, and error handling
@@ -16,12 +31,12 @@ import { useDataClient } from '../../hooks/useDataClient';
 export function ApiTestingPage() {
   const { dataClient, isLoading: contextLoading } = useDataClient();
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<ApiResult | null>(null);
 
   /**
    * Execute HTTP request using DataClient
    */
-  const executeRequest = async (method: string, endpoint: string, data?: any) => {
+  const executeRequest = async (method: string, endpoint: string, data?: Record<string, unknown>) => {
     if (!dataClient) {
       toast.error('DataClient not initialized');
       return;
@@ -29,7 +44,7 @@ export function ApiTestingPage() {
 
     setLoading(true);
     try {
-      let response: any;
+      let response: unknown;
       
       switch (method) {
         case 'GET':
@@ -59,15 +74,19 @@ export function ApiTestingPage() {
         data: response,
       });
       toast.success(`${method} ${endpoint} successful`);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Request failed';
+      const errorStatus = (error as { status?: number; response?: { status?: number } })?.status || 
+                         (error as { response?: { status?: number } })?.response?.status || 
+                         'ERROR';
       setResult({
         method,
         endpoint,
-        error: error.message || 'Request failed',
-        status: error.status || error.response?.status || 'ERROR',
+        error: errorMessage,
+        status: errorStatus,
         timestamp: new Date().toISOString(),
       });
-      toast.error('Request failed', { description: error.message });
+      toast.error('Request failed', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -104,8 +123,9 @@ export function ApiTestingPage() {
         timestamp: new Date().toISOString(),
       });
       toast.success(isAuth ? 'User is authenticated' : 'User is not authenticated');
-    } catch (error: any) {
-      toast.error('Failed to check authentication', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to check authentication', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -125,8 +145,9 @@ export function ApiTestingPage() {
         timestamp: new Date().toISOString(),
       });
       toast.success('Token retrieved successfully');
-    } catch (error: any) {
-      toast.error('Failed to get token', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to get token', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -146,8 +167,9 @@ export function ApiTestingPage() {
         timestamp: new Date().toISOString(),
       });
       toast.success('Token info retrieved successfully');
-    } catch (error: any) {
-      toast.error('Failed to get token info', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to get token info', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -162,10 +184,14 @@ export function ApiTestingPage() {
     setLoading(true);
     try {
       await dataClient.logout();
-      setResult({ message: 'User logged out successfully' });
+      setResult({ 
+        message: 'User logged out successfully',
+        timestamp: new Date().toISOString(),
+      });
       toast.success('Logged out successfully');
-    } catch (error: any) {
-      toast.error('Logout failed', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Logout failed', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -180,18 +206,18 @@ export function ApiTestingPage() {
     setLoading(true);
     try {
       setResult({ 
-        message: 'Redirecting to login...', 
-        note: 'Page will redirect to miso-controller login endpoint',
+        message: 'Redirecting to login... (Page will redirect to miso-controller login endpoint)',
         timestamp: new Date().toISOString(),
       });
       await dataClient.redirectToLogin();
       // Note: This will redirect the page, so we won't reach here
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Redirect failed';
       setResult({
-        error: error.message || 'Redirect failed',
+        error: errorMessage,
         timestamp: new Date().toISOString(),
       });
-      toast.error('Redirect to login failed', { description: error.message });
+      toast.error('Redirect to login failed', { description: errorMessage });
       setLoading(false);
     }
   };
@@ -209,14 +235,15 @@ export function ApiTestingPage() {
       await dataClient.get('/api/invalid-endpoint-that-does-not-exist-12345', {
         cache: { enabled: false },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Network Error';
       setResult({
-        error: error.message || 'Network Error',
+        error: errorMessage,
         type: 'NETWORK_ERROR',
-        message: error.message || 'Failed to connect to server',
+        message: errorMessage,
         timestamp: new Date().toISOString(),
       });
-      toast.error('Network error occurred', { description: error.message });
+      toast.error('Network error occurred', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -235,14 +262,15 @@ export function ApiTestingPage() {
         cache: { enabled: false },
         timeout: 100, // 100ms timeout
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Request Timeout';
       setResult({
-        error: error.message || 'Request Timeout',
+        error: errorMessage,
         type: 'TIMEOUT_ERROR',
-        message: error.message || 'Request exceeded timeout',
+        message: errorMessage,
         timestamp: new Date().toISOString(),
       });
-      toast.error('Request timeout occurred', { description: error.message });
+      toast.error('Request timeout occurred', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -258,14 +286,16 @@ export function ApiTestingPage() {
     try {
       // Try to trigger a 400 error (e.g., invalid request)
       await dataClient.post('/api/users', { invalid: 'data' });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Bad Request';
+      const errorObj = error as { status?: number; response?: { status?: number; data?: unknown } };
       setResult({
-        error: error.message || 'Bad Request',
-        status: error.status || error.response?.status || 400,
-        details: error.response?.data || error.message,
+        error: errorMessage,
+        status: errorObj.status || errorObj.response?.status || 400,
+        details: errorObj.response?.data || errorMessage,
         timestamp: new Date().toISOString(),
       });
-      toast.error('API error occurred', { description: error.message });
+      toast.error('API error occurred', { description: errorMessage });
     } finally {
       setLoading(false);
     }

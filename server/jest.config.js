@@ -18,4 +18,8 @@ module.exports = {
   moduleNameMapper: {
     '^@aifabrix/miso-client$': '<rootDir>/../src/index.ts',
   },
+  // Increase timeout for slow endpoint tests
+  testTimeout: 10000,
+  // Force exit after tests to prevent hanging on open handles
+  forceExit: true,
 };

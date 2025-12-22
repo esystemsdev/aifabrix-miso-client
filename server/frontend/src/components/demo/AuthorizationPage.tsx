@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
@@ -21,7 +21,6 @@ import { useAuthorizationTests } from '../../hooks/useAuthorizationTests';
 export function AuthorizationPage() {
   const { dataClient, isLoading: contextLoading } = useDataClient();
   const {
-    loading,
     result,
     roles,
     permissions,

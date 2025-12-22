@@ -23,6 +23,7 @@ describe('API Routes', () => {
   let responseSend: jest.Mock;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     responseJson = jest.fn().mockReturnThis();
     responseStatus = jest.fn().mockReturnThis();
     responseSend = jest.fn().mockReturnThis();
@@ -38,19 +39,22 @@ describe('API Routes', () => {
     };
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   describe('getUsers', () => {
-    it('should return list of users', (done: jest.DoneCallback) => {
+    it('should return list of users', () => {
       getUsers(mockRequest as Request, mockResponse as Response);
 
-      setTimeout(() => {
-        expect(responseJson).toHaveBeenCalledWith(
-          expect.objectContaining({
-            users: expect.any(Array),
-            count: expect.any(Number),
-          })
-        );
-        done();
-      }, 150);
+      jest.advanceTimersByTime(100);
+
+      expect(responseJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          users: expect.any(Array),
+          count: expect.any(Number),
+        })
+      );
     });
   });
 
@@ -192,19 +196,46 @@ describe('API Routes', () => {
   });
 
   describe('slowEndpoint', () => {
-    it('should return response after delay', (done: jest.DoneCallback) => {
+    it('should return response after delay', () => {
       mockRequest.query = { delay: '100' };
       slowEndpoint(mockRequest as Request, mockResponse as Response);
 
-      setTimeout(() => {
-        expect(responseJson).toHaveBeenCalledWith(
-          expect.objectContaining({
-            message: 'Slow response',
-            delay: 100,
-          })
-        );
-        done();
-      }, 150);
+      jest.advanceTimersByTime(100);
+
+      expect(responseJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Slow response',
+          delay: 100,
+        })
+      );
+    });
+
+    it('should use default delay when not specified', () => {
+      mockRequest.query = {};
+      slowEndpoint(mockRequest as Request, mockResponse as Response);
+
+      jest.advanceTimersByTime(5000);
+
+      expect(responseJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Slow response',
+          delay: 5000,
+        })
+      );
+    });
+
+    it('should handle invalid delay query parameter', () => {
+      mockRequest.query = { delay: 'invalid' };
+      slowEndpoint(mockRequest as Request, mockResponse as Response);
+
+      jest.advanceTimersByTime(5000);
+
+      expect(responseJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Slow response',
+          delay: 5000, // Should default to 5000 when parseInt fails
+        })
+      );
     });
   });
 

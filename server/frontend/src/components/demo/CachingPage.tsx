@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { toast } from 'sonner';
-import { Clock, Database, Trash2, RefreshCw } from 'lucide-react';
+import { Database, Trash2, RefreshCw } from 'lucide-react';
 import { useDataClient } from '../../hooks/useDataClient';
 
 /**
@@ -17,12 +17,27 @@ import { useDataClient } from '../../hooks/useDataClient';
  * - Testing request interceptors
  * - Testing retry logic
  */
+interface CacheResult {
+  data?: unknown;
+  cached?: boolean;
+  cacheKey?: string;
+  ttl?: string;
+  duration?: string;
+  timestamp: string;
+  message?: string;
+  cacheHitRate?: number;
+  interceptor?: string;
+  originalRequest?: { url: string; method: string };
+  modifiedRequest?: { url: string; method: string; headers: Record<string, string> };
+  error?: string;
+  retries?: string;
+}
+
 export function CachingPage() {
   const { dataClient, isLoading: contextLoading } = useDataClient();
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<CacheResult | null>(null);
   const [cacheTTL, setCacheTTL] = useState('60000');
-  const [cacheKey, setCacheKey] = useState('');
 
   /**
    * Test cache-enabled GET request
@@ -52,8 +67,9 @@ export function CachingPage() {
       toast.success('Data retrieved', {
         description: duration < 100 ? 'Response served from cache' : 'Fetched from server',
       });
-    } catch (error: any) {
-      toast.error('Request failed', { description: error.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Request failed', { description: message });
     } finally {
       setLoading(false);
     }
@@ -85,8 +101,9 @@ export function CachingPage() {
       toast.success('Fresh data retrieved', {
         description: 'Cache bypassed, fetched from server',
       });
-    } catch (error: any) {
-      toast.error('Request failed', { description: error.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Request failed', { description: message });
     } finally {
       setLoading(false);
     }
@@ -113,8 +130,9 @@ export function CachingPage() {
       toast.success('Cache cleared', {
         description: 'All cache entries removed',
       });
-    } catch (error: any) {
-      toast.error('Failed to clear cache', { description: error.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to clear cache', { description: message });
     } finally {
       setLoading(false);
     }
@@ -133,7 +151,7 @@ export function CachingPage() {
     try {
       // Set up request interceptor
       dataClient.setInterceptors({
-        onRequest: async (url, options) => {
+        onRequest: async (_url, options) => {
           return {
             ...options,
             headers: {
@@ -166,8 +184,9 @@ export function CachingPage() {
         timestamp: new Date().toISOString(),
       });
       toast.success('Request interceptor applied');
-    } catch (error: any) {
-      toast.error('Interceptor test failed', { description: error.message });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Interceptor test failed', { description: message });
     } finally {
       setLoading(false);
     }
@@ -199,13 +218,14 @@ export function CachingPage() {
         timestamp: new Date().toISOString(),
       });
       toast.success('Request completed');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
       setResult({
-        error: error.message,
+        error: message,
         retries: 'Retry logic attempted',
         timestamp: new Date().toISOString(),
       });
-      toast.error('Request failed after retries', { description: error.message });
+      toast.error('Request failed after retries', { description: message });
     } finally {
       setLoading(false);
     }

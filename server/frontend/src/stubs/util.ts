@@ -1,5 +1,6 @@
 // Util stub for browser compatibility
 // Define inherits function separately to ensure it's properly bound
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function inherits(ctor: any, superCtor: any) {
   if (superCtor) {
     ctor.super_ = superCtor;
@@ -17,6 +18,7 @@ function inherits(ctor: any, superCtor: any) {
 
 const util = {
   inherits: inherits,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   inspect: (obj: any) => {
     try {
       return JSON.stringify(obj, null, 2);
@@ -24,9 +26,12 @@ const util = {
       return String(obj);
     }
   },
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   promisify: (fn: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return function(...args: any[]) {
       return new Promise((resolve, reject) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         fn(...args, (err: any, result: any) => {
           if (err) reject(err);
           else resolve(result);
@@ -42,6 +47,7 @@ export { util };
 // CommonJS exports - ensure inherits is directly accessible
 if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
   // Set module.exports to util object, but ensure inherits is a function
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const exportsObj: any = {
     ...util,
     inherits: inherits, // Explicitly set as function

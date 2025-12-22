@@ -11,17 +11,24 @@ import { toast } from 'sonner';
 import Favicon from './imports/Favicon1';
 import { useDataClient } from './hooks/useDataClient';
 import { Button } from './components/ui/button';
+import { ErrorDetailsDialog } from './components/ErrorDetailsDialog';
 
 declare global {
   interface Window {
     DataClientLoaded: boolean;
     DataClientError: string | null;
-    DataClient?: any;
+    DataClient?: unknown;
   }
 }
 
 export default function App() {
   const [activeSection, setActiveSection] = useState('configuration');
+  const [errorDialogOpen, setErrorDialogOpen] = useState(false);
+  const [errorDetails, setErrorDetails] = useState<{
+    message: string;
+    details?: unknown;
+    stack?: string;
+  } | null>(null);
 
   const renderContent = () => {
     switch (activeSection) {
@@ -44,17 +51,29 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-background">
-      <DemoSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+      <DemoSidebar 
+        activeSection={activeSection} 
+        onSectionChange={setActiveSection}
+        onError={(error) => {
+          setErrorDetails(error);
+          setErrorDialogOpen(true);
+        }}
+      />
       <main className="flex-1 overflow-auto">
         {renderContent()}
       </main>
       <Toaster position="top-right" />
+      <ErrorDetailsDialog 
+        open={errorDialogOpen} 
+        onOpenChange={setErrorDialogOpen}
+        errorDetails={errorDetails}
+      />
     </div>
   );
 }
 
 // Auth status component for sidebar
-function AuthSection() {
+function AuthSection({ onError }: { onError: (error: { message: string; details?: unknown; stack?: string }) => void }) {
   const { dataClient, isLoading } = useDataClient();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
@@ -70,6 +89,7 @@ function AuthSection() {
     if (!dataClient) {
       toast.error('DataClient not initialized', {
         description: 'Please initialize DataClient first on the Configuration page',
+        duration: 5000,
       });
       return;
     }
@@ -78,9 +98,34 @@ function AuthSection() {
     try {
       await dataClient.redirectToLogin();
       // Note: This will redirect the page, so we won't reach here
+      // If we do reach here, it means redirectToLogin didn't redirect (error or fallback)
+      toast.warning('Login redirect did not occur', {
+        description: 'The authentication redirect did not happen.',
+        duration: 7000,
+      });
+      setAuthLoading(false);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Login failed', { description: errorMessage });
+      const errorDetailsObj = (error as Error & { details?: unknown })?.details;
+      
+      // Store error details for dialog
+      const errorInfo = {
+        message: errorMessage,
+        details: errorDetailsObj,
+        stack: error instanceof Error ? error.stack : undefined,
+      };
+      
+      // Show user-friendly error message
+      toast.error('Login failed', { 
+        description: errorMessage,
+        duration: 10000, // Longer duration
+        action: {
+          label: 'View Details',
+          onClick: () => {
+            onError(errorInfo);
+          },
+        },
+      });
       setAuthLoading(false);
     }
   };
@@ -150,8 +195,17 @@ function AuthSection() {
   );
 }
 
+
 // Custom Sidebar for Demo App
-function DemoSidebar({ activeSection, onSectionChange }: { activeSection: string; onSectionChange: (section: string) => void }) {
+function DemoSidebar({ 
+  activeSection, 
+  onSectionChange,
+  onError 
+}: { 
+  activeSection: string; 
+  onSectionChange: (section: string) => void;
+  onError: (error: { message: string; details?: unknown; stack?: string }) => void;
+}) {
   const navigationItems = [
     { id: 'configuration', label: 'Configuration', icon: Settings },
     { id: 'api-testing', label: 'API Testing', icon: Radio },
@@ -205,7 +259,7 @@ function DemoSidebar({ activeSection, onSectionChange }: { activeSection: string
       </nav>
 
       {/* Auth Section */}
-      <AuthSection />
+      <AuthSection onError={onError} />
 
       {/* Footer */}
       <div className="p-4 border-t border-sidebar-border">

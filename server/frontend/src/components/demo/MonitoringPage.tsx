@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { toast } from 'sonner';
-import { Activity, BarChart3, FileText, TrendingUp } from 'lucide-react';
+import { Activity, FileText, TrendingUp } from 'lucide-react';
 import { useDataClient } from '../../hooks/useDataClient';
 
 /**
@@ -15,11 +15,32 @@ import { useDataClient } from '../../hooks/useDataClient';
  * - Displaying audit logs from requests
  * - Making multiple requests to test metrics
  */
+interface Metrics {
+  totalRequests: number;
+  successfulRequests: number;
+  failedRequests: number;
+  cacheHits: number;
+  cacheMisses: number;
+  averageResponseTime: number;
+  cacheHitRate: number;
+  errorRate: number;
+}
+
+interface AuditLog {
+  id?: string;
+  action?: string;
+  timestamp: string;
+  endpoint: string;
+  method?: string;
+  status: number;
+  duration: string;
+}
+
 export function MonitoringPage() {
   const { dataClient, isLoading: contextLoading } = useDataClient();
   const [loading, setLoading] = useState(false);
-  const [metrics, setMetrics] = useState<any>(null);
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   /**
    * Load metrics from DataClient
@@ -41,7 +62,7 @@ export function MonitoringPage() {
         cacheHitRate: clientMetrics.cacheHitRate,
         errorRate: clientMetrics.errorRate,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Failed to load metrics:', error);
     }
   };
@@ -65,8 +86,9 @@ export function MonitoringPage() {
     try {
       loadMetrics();
       toast.success('Metrics retrieved successfully');
-    } catch (error: any) {
-      toast.error('Failed to get metrics', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to get metrics', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -106,8 +128,9 @@ export function MonitoringPage() {
       toast.success('All requests completed', {
         description: `Total duration: ${duration}ms`,
       });
-    } catch (error: any) {
-      toast.error('Some requests failed', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Some requests failed', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -140,8 +163,9 @@ export function MonitoringPage() {
       setAuditLogs(prev => [newLog, ...prev]);
       loadMetrics(); // Refresh metrics
       toast.success('Audit log created');
-    } catch (error: any) {
-      toast.error('Audit logging test failed', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Audit logging test failed', { description: errorMessage });
     } finally {
       setLoading(false);
     }

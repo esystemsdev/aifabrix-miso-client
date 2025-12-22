@@ -1,46 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { ArrowRight, Zap, Settings, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Zap, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { useDataClient } from '../../hooks/useDataClient';
-import { DataClient } from '@aifabrix/miso-client';
+import { getCachedDataClientConfig } from '@aifabrix/miso-client';
 
 /**
  * Configuration page component for DataClient initialization and testing
  * 
  * Provides UI for:
  * - Zero-config auto-initialization (uses context)
- * - Manual configuration with custom settings
- * - Connection testing
- * - Displaying current configuration state
+ * - Environment variable configuration instructions
+ * - Displaying current configuration state and errors
  */
 export function ConfigurationPage() {
-  const { dataClient, isLoading, error, reinitialize, setManualClient } = useDataClient();
-  const [baseUrl, setBaseUrl] = useState('http://localhost:3083');
-  const [controllerUrl, setControllerUrl] = useState('');
-  const [clientId, setClientId] = useState('');
+  const { dataClient, error, reinitialize } = useDataClient();
   const [loading, setLoading] = useState(false);
   const [configInfo, setConfigInfo] = useState<{
     baseUrl: string;
     controllerUrl: string;
     clientId: string;
+    clientTokenUri?: string;
   } | null>(null);
 
-  // Update config info when DataClient changes
+  /**
+   * Read cached config using SDK utility
+   * Uses getCachedDataClientConfig() from miso-client SDK
+   */
+  const readCachedConfig = (): {
+    baseUrl: string;
+    controllerUrl: string;
+    clientId: string;
+    clientTokenUri?: string;
+  } | null => {
+    const cached = getCachedDataClientConfig();
+    if (!cached) {
+      return null;
+    }
+
+    return {
+      baseUrl: cached.baseUrl || '',
+      controllerUrl: cached.controllerUrl || '',
+      clientId: cached.clientId || '',
+      clientTokenUri: cached.clientTokenUri,
+    };
+  };
+
+  // Load cached config on mount and when DataClient changes
   useEffect(() => {
     if (dataClient) {
-      // Extract config info from DataClient instance
-      // Note: DataClient doesn't expose config directly, so we use what we know
-      setConfigInfo({
-        baseUrl: baseUrl || window.location.origin,
-        controllerUrl: controllerUrl || '',
-        clientId: clientId || '',
-      });
+      const cached = readCachedConfig();
+      if (cached) {
+        setConfigInfo(cached);
+      } else {
+        // Fallback to window location if no cached config
+        setConfigInfo({
+          baseUrl: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3183',
+          controllerUrl: '',
+          clientId: '',
+        });
+      }
+    } else {
+      setConfigInfo(null);
     }
-  }, [dataClient, baseUrl, controllerUrl, clientId]);
+  }, [dataClient]);
 
   /**
    * Handle zero-config initialization using context
@@ -49,100 +73,48 @@ export function ConfigurationPage() {
     setLoading(true);
     try {
       await reinitialize();
-      toast.success('DataClient initialized successfully (Zero-Config)', {
+      // Refresh config info from cache after successful initialization
+      const cached = readCachedConfig();
+      if (cached) {
+        setConfigInfo(cached);
+      }
+      toast.success('DataClient initialized successfully', {
         description: 'Configuration fetched from server endpoint',
       });
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      toast.error('Failed to initialize DataClient', {
-        description: errorMessage,
+      const error = err instanceof Error ? err : new Error(String(err));
+      let errorMessage = error.message;
+      let description = 'Please check your server configuration and try again.';
+
+      // Categorize errors for better user feedback
+      if (error.message.includes('Network') || error.message.includes('Failed to fetch')) {
+        errorMessage = 'Network error';
+        description = 'Unable to connect to server. Please check if the server is running and accessible.';
+      } else if (error.message.includes('404')) {
+        errorMessage = 'Endpoint not found';
+        description = 'The client token endpoint was not found. Please check your server configuration.';
+      } else if (error.message.includes('503')) {
+        errorMessage = 'Service unavailable';
+        description = 'MisoClient is not initialized on the server. Please configure MISO_CLIENTID and MISO_CLIENTSECRET.';
+      } else if (error.message.includes('CORS')) {
+        errorMessage = 'CORS error';
+        description = 'Cross-origin request blocked. Please check CORS configuration on the server.';
+      }
+
+      toast.error(`Failed to initialize DataClient: ${errorMessage}`, {
+        description,
+        duration: 5000,
       });
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Handle manual initialization with custom configuration
-   */
-  const handleManualInit = async () => {
-    if (!baseUrl) {
-      toast.error('Base URL is required');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const config: Record<string, unknown> = {
-        baseUrl,
-      };
-
-      if (controllerUrl) {
-        config.misoConfig = {
-          controllerUrl,
-        };
-      }
-
-      if (clientId) {
-        config.misoConfig = {
-          ...(config.misoConfig as Record<string, unknown> || {}),
-          clientId,
-        };
-      }
-
-      const client = new DataClient(config as Parameters<typeof DataClient>[0]);
-      setManualClient(client);  // Updates shared context - AuthSection will see this
-      
-      toast.success('DataClient initialized successfully (Manual)', {
-        description: 'Custom configuration applied',
-      });
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      toast.error('Failed to initialize DataClient', {
-        description: errorMessage,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Test connection using DataClient
-   */
-  const handleTestConnection = async () => {
-    if (!dataClient) {
-      toast.error('DataClient not initialized');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Try a simple GET request to test connection
-      await dataClient.get('/api/health', { cache: { enabled: false } });
-      toast.success('Connection test successful', {
-        description: 'Server is responding normally',
-      });
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      // Even if health endpoint doesn't exist, if we get a response, connection works
-      if (errorMessage && !errorMessage.includes('Network')) {
-        toast.success('Connection test successful', {
-          description: 'Server is responding (endpoint may not exist)',
-        });
-      } else {
-        toast.error('Connection test failed', {
-          description: errorMessage || 'Unable to connect to server',
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const initialized = !!dataClient;
-  const currentBaseUrl = configInfo?.baseUrl || baseUrl || window.location.origin;
-  const currentControllerUrl = configInfo?.controllerUrl || controllerUrl || 'Not set';
-  const currentClientId = configInfo?.clientId || clientId || 'Auto-generated';
+  const currentBaseUrl = configInfo?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+  const currentControllerUrl = configInfo?.controllerUrl || 'Not set';
+  const currentClientId = configInfo?.clientId || 'Not set';
 
   return (
     <div className="flex flex-col h-full">
@@ -159,8 +131,23 @@ export function ConfigurationPage() {
       {/* Content */}
       <div className="flex-1 overflow-auto p-8">
         <div className="max-w-4xl space-y-6">
+          {/* Error Card */}
+          {error && (
+            <Card className="border-red-200 bg-red-50">
+              <CardContent className="pt-6">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="font-medium text-red-900 mb-1">Error</p>
+                    <p className="text-sm text-red-700 font-mono break-all">{error.message}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Status Card */}
-          {initialized && (
+          {initialized && !error && (
             <Card className="border-green-200 bg-green-50">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-3">
@@ -209,76 +196,36 @@ export function ConfigurationPage() {
             </CardContent>
           </Card>
 
-          {/* Manual Configuration */}
+          {/* Environment Configuration */}
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                  <Settings className="w-5 h-5 text-muted-foreground" />
+                  <FileText className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <CardTitle>Manual Configuration</CardTitle>
-                  <CardDescription>Configure DataClient with custom settings</CardDescription>
+                  <CardTitle>Configuration Settings</CardTitle>
+                  <CardDescription>Configure settings via environment variables</CardDescription>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="baseUrl">Base URL</Label>
-                <Input
-                  id="baseUrl"
-                  type="text"
-                  value={baseUrl}
-                  onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder="http://localhost:3083"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="controllerUrl">Controller URL (Optional)</Label>
-                <Input
-                  id="controllerUrl"
-                  type="text"
-                  value={controllerUrl}
-                  onChange={(e) => setControllerUrl(e.target.value)}
-                  placeholder="https://miso.aifabrix.com"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="clientId">Client ID (Optional)</Label>
-                <Input
-                  id="clientId"
-                  type="text"
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  placeholder="Enter client ID"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleManualInit}
-                  disabled={loading}
-                  variant="secondary"
-                  className="flex-1"
-                >
-                  {loading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                      Initializing...
-                    </>
-                  ) : (
-                    'Initialize DataClient'
-                  )}
-                </Button>
-                <Button
-                  onClick={handleTestConnection}
-                  disabled={loading || !baseUrl}
-                  variant="outline"
-                >
-                  Test Connection
-                </Button>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  You can change configuration settings by editing the <code className="px-1.5 py-0.5 bg-muted rounded text-xs">.env</code> file in the root directory:
+                </p>
+                <div className="bg-muted rounded-lg p-4 font-mono text-xs space-y-1">
+                <div className="text-muted-foreground"># Application port (default: 3083)</div>
+                  <div className="text-muted-foreground">PORT=3183</div>
+                  <div className="text-muted-foreground"># MISO Application Client Credentials (per application)</div>
+                  <div>MISO_CLIENTID=miso-controller-dev-miso-test</div>
+                  <div>MISO_CLIENTSECRET=your-secret-here</div>
+                  <div className="text-muted-foreground"># MISO Controller URL</div>
+                  <div>MISO_CONTROLLER_URL=http://localhost:3000</div>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  After modifying the <code className="px-1.5 py-0.5 bg-muted rounded text-xs">.env</code> file, restart the server for changes to take effect.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -297,12 +244,6 @@ export function ConfigurationPage() {
                     {initialized ? 'Connected' : 'Not Initialized'}
                   </span>
                 </div>
-                {error && (
-                  <div className="flex justify-between py-2 border-b border-border">
-                    <span className="text-muted-foreground">Error</span>
-                    <span className="font-mono text-xs text-red-600">{error.message}</span>
-                  </div>
-                )}
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Base URL</span>
                   <span className="font-mono text-xs">{currentBaseUrl}</span>
@@ -311,10 +252,16 @@ export function ConfigurationPage() {
                   <span className="text-muted-foreground">Controller URL</span>
                   <span className="font-mono text-xs">{currentControllerUrl}</span>
                 </div>
-                <div className="flex justify-between py-2">
+                <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Client ID</span>
                   <span className="font-mono text-xs">{currentClientId}</span>
                 </div>
+                {configInfo?.clientTokenUri && (
+                  <div className="flex justify-between py-2">
+                    <span className="text-muted-foreground">Client Token URI</span>
+                    <span className="font-mono text-xs">{configInfo.clientTokenUri}</span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

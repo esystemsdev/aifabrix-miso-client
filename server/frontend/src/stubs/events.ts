@@ -1,9 +1,11 @@
 // Events stub for browser compatibility
 // EventEmitter must be a proper class that can be extended
+type EventListener = (...args: unknown[]) => void;
+
 class EventEmitter {
-  private _events: Map<string, Function[]> = new Map();
+  private _events: Map<string, EventListener[]> = new Map();
   
-  on(event: string, listener: Function) {
+  on(event: string, listener: EventListener) {
     if (!this._events.has(event)) {
       this._events.set(event, []);
     }
@@ -11,15 +13,15 @@ class EventEmitter {
     return this;
   }
   
-  once(event: string, listener: Function): Promise<any> {
-    const onceWrapper = (...args: any[]) => {
+  once(event: string, listener: EventListener): Promise<EventEmitter> {
+    const onceWrapper = (...args: unknown[]) => {
       this.removeListener(event, onceWrapper);
       listener(...args);
     };
-    return this.on(event, onceWrapper) as any;
+    return Promise.resolve(this.on(event, onceWrapper));
   }
   
-  emit(event: string, ...args: any[]): boolean {
+  emit(event: string, ...args: unknown[]): boolean {
     const listeners = this._events.get(event);
     if (listeners && listeners.length > 0) {
       listeners.forEach(listener => {
@@ -34,7 +36,7 @@ class EventEmitter {
     return false;
   }
   
-  removeListener(event: string, listener: Function) {
+  removeListener(event: string, listener: EventListener) {
     const listeners = this._events.get(event);
     if (listeners) {
       const index = listeners.indexOf(listener);
@@ -54,11 +56,11 @@ class EventEmitter {
     return this;
   }
   
-  off(event: string, listener: Function) {
+  off(event: string, listener: EventListener) {
     return this.removeListener(event, listener);
   }
   
-  addListener(event: string, listener: Function) {
+  addListener(event: string, listener: EventListener) {
     return this.on(event, listener);
   }
 }

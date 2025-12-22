@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Button } from '../ui/button';
@@ -39,22 +39,23 @@ export function CodeExamplesPage() {
    * Render code block with copy button
    */
   const CodeBlock = ({ code, id }: { code: string; id: string }) => (
-    <div className="relative group">
-      <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto">
+    <div className="group">
+      <pre className="text-xs bg-muted p-4 rounded-lg overflow-x-auto relative">
         <code>{code}</code>
+        <Button
+          size="sm"
+          variant="ghost"
+          style={{ position: 'absolute', top: '0.5rem', right: '0.5rem' }}
+          className="z-10 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 backdrop-blur-sm"
+          onClick={() => copyToClipboard(code, id)}
+        >
+          {copiedId === id ? (
+            <CheckCircle2 className="w-4 h-4 text-green-600" />
+          ) : (
+            <Copy className="w-4 h-4" />
+          )}
+        </Button>
       </pre>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-        onClick={() => copyToClipboard(code, id)}
-      >
-        {copiedId === id ? (
-          <CheckCircle2 className="w-4 h-4 text-green-600" />
-        ) : (
-          <Copy className="w-4 h-4" />
-        )}
-      </Button>
     </div>
   );
 

@@ -1,17 +1,15 @@
 // Buffer stub for browser compatibility
 class BufferStub {
-  static from(data?: any, encoding?: string) {
+  static from(data?: unknown, _encoding?: string) {
     const stub = new BufferStub();
     stub._data = data;
-    stub._encoding = encoding;
     return stub;
   }
   
-  static alloc(size: number, fill?: any, encoding?: string) {
+  static alloc(size: number, fill?: unknown, _encoding?: string) {
     const stub = new BufferStub();
     stub._size = size;
     stub._fill = fill;
-    stub._encoding = encoding;
     return stub;
   }
   
@@ -19,16 +17,16 @@ class BufferStub {
     return BufferStub.alloc(size);
   }
   
-  static isBuffer(obj: any): boolean {
+  static isBuffer(obj: unknown): boolean {
     return obj instanceof BufferStub;
   }
   
-  _data?: any;
+  _data?: unknown;
   _encoding?: string;
   _size?: number;
-  _fill?: any;
+  _fill?: unknown;
   
-  toString(encoding?: string): string {
+  toString(_encoding?: string): string {
     if (this._data !== undefined) {
       if (typeof this._data === 'string') {
         return this._data;
@@ -74,12 +72,12 @@ if (typeof exports !== 'undefined') {
 // Make Buffer available globally for browser compatibility
 // Set on both window and globalThis for maximum compatibility
 if (typeof window !== 'undefined') {
-  (window as any).Buffer = BufferStub;
+  (window as unknown as Record<string, unknown>).Buffer = BufferStub;
 }
 if (typeof globalThis !== 'undefined') {
-  (globalThis as any).Buffer = BufferStub;
+  (globalThis as unknown as Record<string, unknown>).Buffer = BufferStub;
 }
 // Also set on global for Node.js-like environments
 if (typeof global !== 'undefined') {
-  (global as any).Buffer = BufferStub;
+  (global as unknown as Record<string, unknown>).Buffer = BufferStub;
 }

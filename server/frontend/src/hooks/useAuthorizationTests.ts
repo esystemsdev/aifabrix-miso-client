@@ -9,7 +9,24 @@ import { DataClient } from '@aifabrix/miso-client';
  */
 export function useAuthorizationTests(dataClient: DataClient | null, isLoading: boolean) {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  interface AuthorizationResult {
+    roles?: string[];
+    permissions?: string[];
+    count?: number;
+    timestamp: string;
+    message?: string;
+    error?: string;
+    role?: string;
+    hasRole?: boolean;
+    permission?: string;
+    hasPermission?: boolean;
+    hasAnyRole?: boolean;
+    hasAllRoles?: boolean;
+    hasAnyPermission?: boolean;
+    hasAllPermissions?: boolean;
+  }
+  
+  const [result, setResult] = useState<AuthorizationResult | null>(null);
   const [roles, setRoles] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<string[]>([]);
 
@@ -32,8 +49,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success(`Retrieved ${userRoles.length} roles`);
-    } catch (error: any) {
-      toast.error('Failed to get roles', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to get roles', { description: errorMessage });
       setRoles([]);
     } finally {
       setLoading(false);
@@ -59,8 +77,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success(`Retrieved ${userPermissions.length} permissions`);
-    } catch (error: any) {
-      toast.error('Failed to get permissions', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to get permissions', { description: errorMessage });
       setPermissions([]);
     } finally {
       setLoading(false);
@@ -90,8 +109,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success(hasRole ? `User has role: ${roleToCheck}` : `User does not have role: ${roleToCheck}`);
-    } catch (error: any) {
-      toast.error('Failed to check role', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to check role', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -120,8 +140,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success(hasPermission ? `User has permission: ${permissionToCheck}` : `User does not have permission: ${permissionToCheck}`);
-    } catch (error: any) {
-      toast.error('Failed to check permission', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to check permission', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -151,8 +172,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success(hasAny ? 'User has at least one of the roles' : 'User does not have any of the roles');
-    } catch (error: any) {
-      toast.error('Failed to check roles', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to check roles', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -182,8 +204,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success(hasAll ? 'User has all of the roles' : 'User does not have all of the roles');
-    } catch (error: any) {
-      toast.error('Failed to check roles', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to check roles', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -213,8 +236,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success(hasAny ? 'User has at least one of the permissions' : 'User does not have any of the permissions');
-    } catch (error: any) {
-      toast.error('Failed to check permissions', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to check permissions', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -244,8 +268,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success(hasAll ? 'User has all of the permissions' : 'User does not have all of the permissions');
-    } catch (error: any) {
-      toast.error('Failed to check permissions', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to check permissions', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -270,8 +295,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success('Roles cache refreshed');
-    } catch (error: any) {
-      toast.error('Failed to refresh roles', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to refresh roles', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -296,8 +322,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success('Permissions cache refreshed');
-    } catch (error: any) {
-      toast.error('Failed to refresh permissions', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to refresh permissions', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -320,8 +347,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success('Roles cache cleared');
-    } catch (error: any) {
-      toast.error('Failed to clear roles cache', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to clear roles cache', { description: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -344,8 +372,9 @@ export function useAuthorizationTests(dataClient: DataClient | null, isLoading: 
         timestamp: new Date().toISOString(),
       });
       toast.success('Permissions cache cleared');
-    } catch (error: any) {
-      toast.error('Failed to clear permissions cache', { description: error.message });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error('Failed to clear permissions cache', { description: errorMessage });
     } finally {
       setLoading(false);
     }

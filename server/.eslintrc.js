@@ -17,7 +17,7 @@ module.exports = {
   rules: {
     '@typescript-eslint/no-explicit-any': 'warn',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
-    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     'no-console': 'off',
   },
   overrides: [
@@ -39,6 +39,21 @@ module.exports = {
       rules: {
         'no-unused-vars': 'off',
         '@typescript-eslint/no-unused-vars': 'off',
+      },
+    },
+    {
+      files: ['frontend/**/*.{ts,tsx}'],
+      parserOptions: {
+        project: './frontend/tsconfig.json',
+        tsconfigRootDir: __dirname,
+      },
+      env: {
+        browser: true,
+        node: false,
+      },
+      rules: {
+        '@typescript-eslint/no-var-requires': 'off',
+        '@typescript-eslint/no-require-imports': 'off',
       },
     },
   ],

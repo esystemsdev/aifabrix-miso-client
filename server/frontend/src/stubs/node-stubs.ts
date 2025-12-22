@@ -4,7 +4,7 @@
 // Stream stub - minimal implementation for jws package
 // jws uses stream.Readable.from() method
 class ReadableStub {
-  static from(iterable: any) {
+  static from(_iterable: unknown) {
     const instance = new ReadableStub();
     return instance;
   }
@@ -53,6 +53,7 @@ export const stream = {
 export const util = {
   inherits: () => {},
   inspect: () => '',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   promisify: (fn: any) => fn,
 };
 

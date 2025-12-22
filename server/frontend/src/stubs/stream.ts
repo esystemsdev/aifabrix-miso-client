@@ -2,7 +2,7 @@
 // jws package uses stream.Readable.from()
 
 class ReadableStub {
-  static from(iterable: any) {
+  static from(_iterable: unknown) {
     const instance = new ReadableStub();
     return instance;
   }

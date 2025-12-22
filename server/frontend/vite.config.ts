@@ -2,6 +2,7 @@
 import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
+import fs from 'fs';
 
 // Plugin to intercept Node.js built-in module imports
 function nodePolyfillsPlugin(): Plugin {
@@ -22,12 +23,12 @@ function nodePolyfillsPlugin(): Plugin {
     name: 'node-polyfills',
     enforce: 'pre',
     resolveId(id, importer) {
-      // Remove 'node:' prefix if present
-      const cleanId = id.startsWith('node:') ? id.slice(5) : id;
+      // Remove query parameters (like ?commonjs-external) from id
+      const cleanId = id.split('?')[0];
       
       // CRITICAL: Intercept @ioredis/* packages FIRST
       // This must happen before other checks to catch all @ioredis imports
-      if (id.startsWith('@ioredis/')) {
+      if (cleanId.startsWith('@ioredis/')) {
         // Log to verify it's being called
         console.log(`[node-polyfills] Resolving ${id} -> ${ioredisCommandsStub}`);
         return ioredisCommandsStub;
@@ -35,9 +36,91 @@ function nodePolyfillsPlugin(): Plugin {
       
       // Intercept dotenv - it's Node.js only and uses process.argv
       const dotenvStub = path.resolve(__dirname, './src/stubs/dotenv.js');
-      if (id === 'dotenv' || id === 'dotenv/config' || id.startsWith('dotenv/')) {
+      if (cleanId === 'dotenv' || cleanId === 'dotenv/config' || cleanId.startsWith('dotenv/')) {
         console.log(`[node-polyfills] Resolving ${id} -> ${dotenvStub}`);
         return dotenvStub;
+      }
+      
+      // Handle relative imports from @aifabrix/miso-client package
+      // These are internal module imports that need to be resolved properly
+      if (cleanId.startsWith('./') || cleanId.startsWith('../')) {
+        // Check if importer is from SDK, or if this looks like an SDK internal import
+        const isFromSDK = importer && (
+          importer.includes('@aifabrix/miso-client') || 
+          importer.includes('node_modules/@aifabrix/miso-client') ||
+          importer.includes('/aifabrix-miso-client/')
+        );
+        
+        // Also check if the id itself suggests it's an SDK internal import
+        const looksLikeSDKImport = cleanId.includes('data-client-') || 
+                                   cleanId.includes('token-utils') ||
+                                   cleanId.includes('data-masker');
+        
+        if (isFromSDK || looksLikeSDKImport) {
+          let importerDir: string;
+          if (importer) {
+            importerDir = path.dirname(importer);
+          } else {
+            // If no importer, try to find the SDK package root
+            // Check common locations for workspace-linked packages
+            const possiblePaths = [
+              path.resolve(__dirname, '../../src/utils'),
+              path.resolve(__dirname, '../../../src/utils'),
+              path.resolve(__dirname, '../../node_modules/@aifabrix/miso-client/src/utils'),
+            ];
+            importerDir = possiblePaths[0]; // Default to first
+            for (const possiblePath of possiblePaths) {
+              try {
+                if (fs.existsSync(possiblePath)) {
+                  importerDir = possiblePath;
+                  break;
+                }
+              } catch {
+                // Continue
+              }
+            }
+          }
+          
+          const resolvedPath = path.resolve(importerDir, cleanId);
+          
+          // Try to find the file with common extensions
+          const extensions = ['.ts', '.js', '.tsx', '.jsx'];
+          for (const ext of extensions) {
+            const fullPath = resolvedPath + ext;
+            try {
+              if (fs.existsSync(fullPath)) {
+                const stats = fs.statSync(fullPath);
+                if (stats.isFile()) {
+                  console.log(`[node-polyfills] Resolving ${id} (importer: ${importer || 'none'}) -> ${fullPath}`);
+                  return fullPath;
+                }
+              }
+            } catch {
+              // Continue to next extension
+            }
+          }
+          
+          // If no file found, check if resolvedPath is a directory and look for index files
+          try {
+            if (fs.existsSync(resolvedPath)) {
+              const stats = fs.statSync(resolvedPath);
+              if (stats.isDirectory()) {
+                const indexPath = path.join(resolvedPath, 'index.ts');
+                if (fs.existsSync(indexPath)) {
+                  console.log(`[node-polyfills] Resolving ${id} -> ${indexPath}`);
+                  return indexPath;
+                }
+                const indexJsPath = path.join(resolvedPath, 'index.js');
+                if (fs.existsSync(indexJsPath)) {
+                  console.log(`[node-polyfills] Resolving ${id} -> ${indexJsPath}`);
+                  return indexJsPath;
+                }
+              }
+            }
+          } catch {
+            // Continue
+          }
+        }
       }
       
       // Intercept Node.js built-in module imports
@@ -46,7 +129,6 @@ function nodePolyfillsPlugin(): Plugin {
         const jsPath = path.resolve(__dirname, `./src/stubs/${cleanId}.js`);
         const tsPath = path.resolve(__dirname, `./src/stubs/${cleanId}.ts`);
         try {
-          const fs = require('fs');
           if (fs.existsSync(jsPath)) {
             return jsPath;
           }
@@ -65,7 +147,6 @@ function nodePolyfillsPlugin(): Plugin {
         const jsPath = path.resolve(__dirname, `./src/stubs/${cleanId}.js`);
         const tsPath = path.resolve(__dirname, `./src/stubs/${cleanId}.ts`);
         try {
-          const fs = require('fs');
           if (fs.existsSync(jsPath)) {
             return jsPath;
           }
@@ -85,7 +166,6 @@ function nodePolyfillsPlugin(): Plugin {
     load(id) {
       if (id.includes('@ioredis/commands') && !id.includes('ioredis-commands.js')) {
         // This shouldn't happen if resolveId works, but as a fallback
-        const fs = require('fs');
         if (fs.existsSync(ioredisCommandsStub)) {
           return fs.readFileSync(ioredisCommandsStub, 'utf8');
         }
@@ -183,8 +263,24 @@ export default defineConfig({
     commonjsOptions: {
       include: [/node_modules/],
       transformMixedEsModules: true,
+      // Don't externalize relative imports - these are internal to packages
+      // This prevents commonjs plugin from marking ./ imports as external
+      defaultIsModuleExports: true,
+      // Note: CommonJS plugin automatically transforms CommonJS modules by default
     },
     rollupOptions: {
+      // Prevent externalization of relative imports from SDK package
+      external(id) {
+        // Don't externalize relative imports (these are internal to packages)
+        if (id.startsWith('./') || id.startsWith('../')) {
+          return false;
+        }
+        // Don't externalize SDK internal imports even if they have query params
+        if (id.includes('data-client-') || id.includes('token-utils') || id.includes('data-masker')) {
+          return false;
+        }
+        return null; // Let Rollup decide for other imports
+      },
       plugins: [
         // Rollup plugin to intercept @ioredis/commands during build
         // This runs during the build phase and should catch imports from node_modules
@@ -194,17 +290,92 @@ export default defineConfig({
             console.log('[rollup-plugin] replace-node-modules plugin started');
           },
           resolveId(id, importer) {
+            // Remove query parameters (like ?commonjs-external) from id
+            const cleanId = id.split('?')[0];
+            
             // Handle @ioredis packages
-            if (id.startsWith('@ioredis/')) {
+            if (cleanId.startsWith('@ioredis/')) {
               const stubPath = path.resolve(__dirname, './src/stubs/ioredis-commands.js');
               console.log(`[rollup-plugin] resolveId: ${id} -> ioredis stub`);
               return stubPath;
             }
             // Handle dotenv (Node.js only, uses process.argv)
-            if (id === 'dotenv' || id === 'dotenv/config' || id.startsWith('dotenv/')) {
+            if (cleanId === 'dotenv' || cleanId === 'dotenv/config' || cleanId.startsWith('dotenv/')) {
               const stubPath = path.resolve(__dirname, './src/stubs/dotenv.js');
               console.log(`[rollup-plugin] resolveId: ${id} -> dotenv stub`);
               return stubPath;
+            }
+            // Handle relative imports from @aifabrix/miso-client package
+            // These are internal module imports that need to be resolved properly
+            if (cleanId.startsWith('./') || cleanId.startsWith('../')) {
+              // Check if importer is from @aifabrix/miso-client or if id looks like an SDK internal import
+              const cleanImporter = importer ? importer.split('?')[0] : null;
+              const isFromSDK = cleanImporter && (
+                cleanImporter.includes('@aifabrix/miso-client') || 
+                cleanImporter.includes('node_modules/@aifabrix/miso-client') ||
+                cleanImporter.includes('/aifabrix-miso-client/')
+              );
+              
+              // Also check if the id itself suggests it's an SDK internal import
+              const looksLikeSDKImport = cleanId.includes('data-client-') || 
+                                         cleanId.includes('token-utils') ||
+                                         cleanId.includes('data-masker');
+              
+              if (isFromSDK || looksLikeSDKImport || !importer) {
+                let importerDir: string;
+                
+                if (cleanImporter && cleanImporter !== cleanId) {
+                  // Use the importer's directory
+                  importerDir = path.dirname(cleanImporter);
+                } else {
+                  // No valid importer or importer is same as id - try to find SDK source directory
+                  const possibleDirs = [
+                    path.resolve(__dirname, '../../src/utils'),
+                    path.resolve(__dirname, '../../../src/utils'),
+                    path.resolve(__dirname, '../../node_modules/@aifabrix/miso-client/src/utils'),
+                    path.resolve(__dirname, '../../node_modules/@aifabrix/miso-client/dist/utils'),
+                  ];
+                  importerDir = possibleDirs[0];
+                  for (const dir of possibleDirs) {
+                    if (fs.existsSync(dir)) {
+                      importerDir = dir;
+                      break;
+                    }
+                  }
+                }
+                
+                const resolvedPath = path.resolve(importerDir, cleanId);
+                
+                // Try to find the file with common extensions
+                const extensions = ['.ts', '.js', '.tsx', '.jsx'];
+                for (const ext of extensions) {
+                  const fullPath = resolvedPath + ext;
+                  if (fs.existsSync(fullPath)) {
+                    console.log(`[rollup-plugin] resolveId: ${id} (importer: ${importer || 'none'}) -> ${fullPath}`);
+                    return fullPath;
+                  }
+                }
+                
+                // Try without extension (might be a directory with index)
+                if (fs.existsSync(resolvedPath)) {
+                  const stats = fs.statSync(resolvedPath);
+                  if (stats.isDirectory()) {
+                    const indexPath = path.join(resolvedPath, 'index.ts');
+                    if (fs.existsSync(indexPath)) {
+                      console.log(`[rollup-plugin] resolveId: ${id} -> ${indexPath}`);
+                      return indexPath;
+                    }
+                    const indexJsPath = path.join(resolvedPath, 'index.js');
+                    if (fs.existsSync(indexJsPath)) {
+                      console.log(`[rollup-plugin] resolveId: ${id} -> ${indexJsPath}`);
+                      return indexJsPath;
+                    }
+                  } else {
+                    console.log(`[rollup-plugin] resolveId: ${id} -> ${resolvedPath}`);
+                    return resolvedPath;
+                  }
+                }
+              }
             }
             return null;
           },
@@ -215,6 +386,17 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
+    proxy: {
+      // Proxy API requests to backend server
+      // Backend runs on port 3183 in dev mode (see server/scripts/start-dev.sh)
+      '/api': {
+        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:3183',
+        changeOrigin: true,
+        secure: false,
+        // Also proxy WebSocket connections if needed
+        ws: true,
+      },
+    },
     watch: {
       // Watch for changes in stubs directory
       ignored: ['!**/src/stubs/**'],

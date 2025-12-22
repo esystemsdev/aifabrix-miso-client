@@ -42,6 +42,7 @@ import {
   getMetrics,
   slowEndpoint,
   errorEndpoint,
+  logEndpoint,
 } from './routes/api';
 
 const app = express();
@@ -348,7 +349,11 @@ app.patch('/api/users/:id', patchUser);
 app.delete('/api/users/:id', deleteUser);
 app.get('/api/metrics', getMetrics);
 app.get('/api/slow', slowEndpoint);
+app.get('/api/slow-endpoint', slowEndpoint); // Alias for frontend compatibility
 app.get('/api/error/:code', errorEndpoint);
+
+// MisoClient logging endpoint (for testing logger functionality)
+app.post('/api/v1/logs', logEndpoint);
 
 // SPA catch-all route: serve index.html for all non-API routes
 // This allows client-side routing to work properly

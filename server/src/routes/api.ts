@@ -24,7 +24,7 @@ export function getUsers(req: Request, res: Response): void {
         count: users.length,
       });
     }, 100);
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 }
@@ -43,7 +43,7 @@ export function getUserById(req: Request, res: Response): void {
     }
 
     res.json({ user });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to fetch user' });
   }
 }
@@ -71,7 +71,7 @@ export function createUser(req: Request, res: Response): void {
     users.push(newUser);
 
     res.status(201).json({ user: newUser });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to create user' });
   }
 }
@@ -104,7 +104,7 @@ export function updateUser(req: Request, res: Response): void {
     };
 
     res.json({ user: users[userIndex] });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to update user' });
   }
 }
@@ -118,9 +118,12 @@ export function patchUser(req: Request, res: Response): void {
     const { id } = req.params;
     const updates = req.body;
 
+    console.log(`[PATCH /api/users/${id}] Request received:`, { id, updates });
+
     const userIndex = users.findIndex((u) => u.id === id);
 
     if (userIndex === -1) {
+      console.log(`[PATCH /api/users/${id}] User not found`);
       res.status(404).json({ error: 'User not found' });
       return;
     }
@@ -130,8 +133,10 @@ export function patchUser(req: Request, res: Response): void {
       ...updates,
     };
 
+    console.log(`[PATCH /api/users/${id}] User updated:`, users[userIndex]);
     res.json({ user: users[userIndex] });
   } catch (error) {
+    console.error(`[PATCH /api/users/:id] Error:`, error);
     res.status(500).json({ error: 'Failed to update user' });
   }
 }
@@ -177,7 +182,7 @@ export function getMetrics(req: Request, res: Response): void {
         '>500ms': 5,
       },
     });
-  } catch (error) {
+  } catch (_error) {
     res.status(500).json({ error: 'Failed to fetch metrics' });
   }
 }
@@ -189,13 +194,45 @@ export function getMetrics(req: Request, res: Response): void {
 export function slowEndpoint(req: Request, res: Response): void {
   const delay = parseInt(req.query.delay as string) || 5000;
 
-  setTimeout(() => {
+  const timeout = setTimeout(() => {
     res.json({
       message: 'Slow response',
       delay,
       timestamp: new Date().toISOString(),
     });
   }, delay);
+  
+  // Unref timeout so it doesn't keep the process alive in tests
+  // This allows Jest to exit gracefully after tests complete
+  if (timeout.unref) {
+    timeout.unref();
+  }
+}
+
+/**
+ * POST /api/v1/logs - Logging endpoint for MisoClient logger
+ * Accepts audit logs and application logs from the SDK
+ */
+export function logEndpoint(req: Request, res: Response): void {
+  try {
+    const logEntry = req.body;
+    
+    // Log to console for debugging (in production, this would go to a logging service)
+    console.log('[LOG]', JSON.stringify(logEntry, null, 2));
+    
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: 'Log received',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('[LOG ERROR]', error);
+    res.status(500).json({
+      error: 'Failed to process log',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
 }
 
 /**

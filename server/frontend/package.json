@@ -48,6 +48,17 @@
     "vaul": "^1.1.2"
   },
   "devDependencies": {
+    "@types/d3-array": "^3.2.0",
+    "@types/d3-color": "^3.1.0",
+    "@types/d3-ease": "^3.0.2",
+    "@types/d3-interpolate": "^3.0.0",
+    "@types/d3-path": "^3.0.0",
+    "@types/d3-scale": "^4.0.0",
+    "@types/d3-shape": "^3.1.0",
+    "@types/d3-time": "^3.0.0",
+    "@types/d3-timer": "^3.0.0",
+    "@types/estree": "^1.0.0",
+    "@types/prop-types": "^15.7.0",
     "@vitejs/plugin-react-swc": "^3.10.2",
     "vite": "6.3.5",
     "vitest": "^2.1.0",
