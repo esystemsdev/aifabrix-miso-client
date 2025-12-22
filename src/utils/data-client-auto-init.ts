@@ -68,6 +68,31 @@ function getCachedConfig(): CachedConfig | null {
 }
 
 /**
+ * Get cached DataClient configuration from localStorage
+ * 
+ * Returns the cached configuration that was stored by autoInitializeDataClient.
+ * Useful for reading configuration without re-initializing DataClient.
+ * 
+ * @returns Cached config or null if not found or expired
+ * 
+ * @example
+ * ```typescript
+ * import { getCachedDataClientConfig } from '@aifabrix/miso-client';
+ * 
+ * const cachedConfig = getCachedDataClientConfig();
+ * if (cachedConfig) {
+ *   console.log('Base URL:', cachedConfig.baseUrl);
+ *   console.log('Controller URL:', cachedConfig.controllerUrl);
+ *   console.log('Client ID:', cachedConfig.clientId);
+ * }
+ * ```
+ */
+export function getCachedDataClientConfig(): DataClientConfigResponse | null {
+  const cached = getCachedConfig();
+  return cached?.config || null;
+}
+
+/**
  * Cache config in localStorage
  * 
  * @param config - Config to cache

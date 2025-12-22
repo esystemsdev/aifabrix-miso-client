@@ -27,11 +27,13 @@ import {
   hasAnyToken,
   getClientToken,
   getControllerUrl,
-  redirectToLogin as redirectToLoginAuth,
   logout,
   getEnvironmentToken,
   getClientTokenInfo,
 } from "./data-client-auth";
+import {
+  redirectToLogin as redirectToLoginAuth,
+} from "./data-client-redirect";
 import { BrowserPermissionService } from "../services/browser-permission.service";
 import { BrowserRoleService } from "../services/browser-role.service";
 import { CacheService } from "../services/cache.service";

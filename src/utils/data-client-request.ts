@@ -132,13 +132,24 @@ export async function makeFetchRequest(
     ? mergeSignals(controller.signal, options.signal)
     : controller.signal;
 
+  // Extract custom properties that shouldn't be passed to fetch
+  // These are DataClient-specific options, not native RequestInit properties
+  const {
+    cache: _customCache,
+    skipAuth: _skipAuth,
+    retries: _retries,
+    skipAudit: _skipAudit,
+    timeout: _timeout,
+    ...fetchOptions
+  } = options || {};
+
   try {
     const response = await fetch(url, {
       method,
       headers,
-      body: options?.body,
+      body: fetchOptions.body,
       signal,
-      ...options,
+      ...fetchOptions,
     });
 
     clearTimeout(timeoutId);

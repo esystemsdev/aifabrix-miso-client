@@ -12,7 +12,9 @@ import {
   removeLocalStorage,
 } from "./data-client-utils";
 import { extractClientTokenInfo, ClientTokenInfo } from "./token-utils";
+import jwt from "jsonwebtoken";
 import { shouldSkipAudit } from "./data-client-audit";
+import { getValidatedRedirectUrl } from "./data-client-redirect";
 
 /**
  * Get authentication token from localStorage
@@ -95,6 +97,7 @@ export async function getClientToken(
 ): Promise<string | null> {
   if (!isBrowser()) {
     // Server-side: return null (client token handled by MisoClient)
+    console.log("[getClientToken] Not in browser environment");
     return null;
   }
 
@@ -102,21 +105,94 @@ export async function getClientToken(
   const cachedToken = getLocalStorage("miso:client-token");
   const expiresAtStr = getLocalStorage("miso:client-token-expires-at");
   
-  if (cachedToken && expiresAtStr) {
-    const expiresAt = parseInt(expiresAtStr, 10);
-    if (expiresAt > Date.now()) {
-      return cachedToken; // Valid cached token
+  console.log("[getClientToken] Checking localStorage:", {
+    hasToken: !!cachedToken,
+    hasExpiresAt: !!expiresAtStr,
+    expiresAt: expiresAtStr,
+    currentTime: Date.now(),
+  });
+  
+  if (cachedToken) {
+    // If we have expiration timestamp, check it
+    if (expiresAtStr) {
+      const expiresAt = parseInt(expiresAtStr, 10);
+      const now = Date.now();
+      const timeUntilExpiry = expiresAt - now;
+      const timeUntilExpirySeconds = Math.floor(timeUntilExpiry / 1000);
+      
+      console.log("[getClientToken] Token expiration check:", {
+        expiresAt,
+        expiresAtISO: new Date(expiresAt).toISOString(),
+        now,
+        nowISO: new Date(now).toISOString(),
+        timeUntilExpiry,
+        timeUntilExpirySeconds,
+        isValid: expiresAt > now,
+        expired: expiresAt <= now,
+        isNaN: isNaN(expiresAt),
+      });
+      
+      if (isNaN(expiresAt)) {
+        console.warn("[getClientToken] Invalid expiration timestamp format, assuming token is valid");
+        return cachedToken;
+      } else if (expiresAt > now) {
+        console.log("[getClientToken] Returning valid cached token (checked expiration)");
+        return cachedToken; // Valid cached token
+      } else {
+        console.warn("[getClientToken] Cached token expired, removing from cache");
+        removeLocalStorage("miso:client-token");
+        removeLocalStorage("miso:client-token-expires-at");
+      }
+    } else {
+      // No expiration timestamp - try to decode JWT to check expiration
+      try {
+        // Decode JWT to check exp claim
+        const decoded = jwt.decode(cachedToken) as { exp?: number } | null;
+        if (decoded && decoded.exp) {
+          const now = Date.now();
+          const jwtExpiresAt = decoded.exp * 1000; // Convert to milliseconds
+          const jwtTimeUntilExpiry = jwtExpiresAt - now;
+          console.log("[getClientToken] Token expiration from JWT:", {
+            jwtExpiresAt,
+            jwtExpiresAtISO: new Date(jwtExpiresAt).toISOString(),
+            now,
+            nowISO: new Date(now).toISOString(),
+            jwtTimeUntilExpiry,
+            jwtTimeUntilExpirySeconds: Math.floor(jwtTimeUntilExpiry / 1000),
+            jwtIsValid: jwtExpiresAt > now,
+          });
+          
+          if (jwtExpiresAt > now) {
+            console.log("[getClientToken] Returning valid cached token (checked JWT expiration)");
+            return cachedToken;
+          } else {
+            console.warn("[getClientToken] Token expired (from JWT), removing from cache");
+            removeLocalStorage("miso:client-token");
+            removeLocalStorage("miso:client-token-expires-at");
+          }
+        } else {
+          // Can't determine expiration - assume token is valid if it exists
+          console.log("[getClientToken] No expiration info available, assuming token is valid");
+          return cachedToken;
+        }
+      } catch (error) {
+        // Failed to decode token - assume it's valid if it exists
+        console.warn("[getClientToken] Failed to decode token, assuming valid:", error);
+        return cachedToken;
+      }
     }
   }
 
   // Check config token
   if (misoConfig?.clientToken) {
+    console.log("[getClientToken] Returning token from config");
     return misoConfig.clientToken;
   }
 
   // Don't fetch client token if we don't have a cached token
   // This prevents unnecessary fetch calls during auth error handling
   // redirectToLogin can work without a client token (it's optional)
+  console.warn("[getClientToken] No token available, returning null");
   return null;
 }
 
@@ -145,92 +221,9 @@ export function getControllerUrl(misoConfig: MisoClientConfig | undefined): stri
 
 /**
  * Redirect to login page via controller
- * Calls the controller login endpoint with redirect parameter and x-client-token header
- * @param redirectUrl - Optional redirect URL to return to after login (defaults to current page URL)
+ * Re-exported from data-client-redirect for backward compatibility
  */
-export async function redirectToLogin(
-  config: DataClientConfig,
-  getClientTokenFn: () => Promise<string | null>,
-  redirectUrl?: string,
-): Promise<void> {
-  if (!isBrowser()) return;
-  
-  // Get redirect URL - use provided URL or current page URL
-  const currentUrl = (globalThis as unknown as { window: { location: { href: string } } }).window.location.href;
-  const finalRedirectUrl = redirectUrl || currentUrl;
-  
-  // Build controller URL
-  const controllerUrl = getControllerUrl(config.misoConfig);
-  if (!controllerUrl) {
-    // Fallback to static loginUrl if controller URL not configured
-    const loginUrl = config.loginUrl || "/login";
-    const fullUrl = /^https?:\/\//i.test(loginUrl)
-      ? loginUrl
-      : `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}${loginUrl.startsWith("/") ? loginUrl : `/${loginUrl}`}`;
-    (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fullUrl;
-    return;
-  }
-
-  try {
-    // Get client token
-    const clientToken = await getClientTokenFn();
-    
-    // Build login endpoint URL with query parameters
-    const loginEndpoint = `${controllerUrl}/api/v1/auth/login`;
-    const url = new URL(loginEndpoint);
-    url.searchParams.set("redirect", finalRedirectUrl);
-    
-    // Build headers
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    
-    // Add x-client-token header if available
-    if (clientToken) {
-      headers["x-client-token"] = clientToken;
-    }
-    
-    // Make fetch request
-    const response = await fetch(url.toString(), {
-      method: "GET",
-      headers,
-      credentials: "include", // Include cookies for CORS
-    });
-
-    if (!response.ok) {
-      throw new Error(`Login request failed: ${response.status} ${response.statusText}`);
-    }
-
-    const data = (await response.json()) as {
-      success?: boolean;
-      data?: { loginUrl?: string; state?: string };
-      loginUrl?: string; // Support flat format
-    };
-
-    // Extract loginUrl (support both nested and flat formats)
-    const loginUrl = data.data?.loginUrl || data.loginUrl;
-
-    if (loginUrl) {
-      // Redirect to the login URL returned by controller
-      (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = loginUrl;
-    } else {
-      // Fallback if loginUrl not in response
-      const fallbackLoginUrl = config.loginUrl || "/login";
-      const fullUrl = /^https?:\/\//i.test(fallbackLoginUrl)
-        ? fallbackLoginUrl
-        : `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}${fallbackLoginUrl.startsWith("/") ? fallbackLoginUrl : `/${fallbackLoginUrl}`}`;
-      (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fullUrl;
-    }
-  } catch (error) {
-    // On error, fallback to static loginUrl
-    console.error("Failed to get login URL from controller:", error);
-    const loginUrl = config.loginUrl || "/login";
-    const fullUrl = /^https?:\/\//i.test(loginUrl)
-      ? loginUrl
-      : `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}${loginUrl.startsWith("/") ? loginUrl : `/${loginUrl}`}`;
-    (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fullUrl;
-  }
-}
+export { redirectToLogin } from "./data-client-redirect";
 
 /**
  * Logout user and redirect
@@ -311,13 +304,38 @@ export async function logout(
     config.loginUrl || 
     "/login";
   
-  // Construct full URL
-  const fullUrl = /^https?:\/\//i.test(finalRedirectUrl)
-    ? finalRedirectUrl
-    : `${(globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin}${finalRedirectUrl.startsWith("/") ? finalRedirectUrl : `/${finalRedirectUrl}`}`;
+  // Construct full URL (if relative, make absolute)
+  let fullUrl: string;
+  if (/^https?:\/\//i.test(finalRedirectUrl)) {
+    fullUrl = finalRedirectUrl;
+  } else {
+    const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
+    fullUrl = `${origin}${finalRedirectUrl.startsWith("/") ? finalRedirectUrl : `/${finalRedirectUrl}`}`;
+  }
   
-  // Redirect
-  (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fullUrl;
+  // Validate URL before redirecting
+  const validatedUrl = getValidatedRedirectUrl(fullUrl);
+  if (!validatedUrl) {
+    console.error("[logout] Invalid redirect URL, cannot redirect:", fullUrl);
+    // Fallback to current origin/login if validation fails
+    const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
+    const fallbackUrl = `${origin}/login`;
+    console.warn("[logout] Using fallback redirect URL:", fallbackUrl);
+    (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fallbackUrl;
+    return;
+  }
+  
+  // Redirect to validated URL
+  console.log("[logout] Redirecting to validated URL:", validatedUrl);
+  try {
+    (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = validatedUrl;
+  } catch (redirectError) {
+    console.error("[logout] Failed to redirect:", redirectError);
+    // Fallback to current origin/login if redirect fails
+    const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
+    const fallbackUrl = `${origin}/login`;
+    (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = fallbackUrl;
+  }
 }
 
 /**

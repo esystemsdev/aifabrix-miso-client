@@ -42,6 +42,11 @@ export class LoggerService extends EventEmitter {
   private correlationCounter = 0;
   private performanceMetrics: Map<string, PerformanceMetrics> = new Map();
   private auditLogQueue: AuditLogQueue | null = null;
+  // Circuit breaker for HTTP logging - skip attempts after repeated failures
+  private httpLoggingFailures = 0;
+  private httpLoggingDisabledUntil: number | null = null;
+  private static readonly MAX_FAILURES = 3;
+  private static readonly DISABLE_DURATION_MS = 60000; // 1 minute
 
   constructor(httpClient: HttpClient, redis: RedisService) {
     super(); // Initialize EventEmitter
@@ -320,6 +325,13 @@ export class LoggerService extends EventEmitter {
       }
     }
 
+    // Check circuit breaker - skip HTTP logging if we've had too many failures
+    const now = Date.now();
+    if (this.httpLoggingDisabledUntil && now < this.httpLoggingDisabledUntil) {
+      // Circuit breaker is open - skip HTTP logging attempt
+      return;
+    }
+
     // Fallback to unified logging endpoint with client credentials
     try {
       // Backend extracts environment and application from client credentials
@@ -329,8 +341,18 @@ export class LoggerService extends EventEmitter {
         environment: undefined,
         application: undefined,
       });
+      // Success - reset failure counter
+      this.httpLoggingFailures = 0;
+      this.httpLoggingDisabledUntil = null;
     } catch (error) {
       // Failed to send log to controller
+      // Increment failure counter and open circuit breaker after too many failures
+      this.httpLoggingFailures++;
+      if (this.httpLoggingFailures >= LoggerService.MAX_FAILURES) {
+        // Open circuit breaker - disable HTTP logging for a period
+        this.httpLoggingDisabledUntil = now + LoggerService.DISABLE_DURATION_MS;
+        this.httpLoggingFailures = 0; // Reset counter for next attempt after cooldown
+      }
       // Silently fail to avoid infinite logging loops
       // Application should implement retry or buffer strategy if needed
     }

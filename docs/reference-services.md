@@ -289,6 +289,26 @@ All EventEmitter methods are available (`on`, `once`, `off`, `removeListener`, e
 
 → [Event Emission Mode Guide](./configuration.md#event-emission-mode)
 
+**Circuit Breaker for HTTP Logging:**
+
+The `LoggerService` and `AuditLogQueue` implement a circuit breaker pattern to prevent infinite retry loops when the logging service is unavailable. This improves performance and prevents resource exhaustion.
+
+**How it works:**
+
+- After 3 consecutive HTTP logging failures, the circuit breaker opens
+- HTTP logging is disabled for 60 seconds (circuit breaker cooldown period)
+- After the cooldown period, the circuit breaker resets and logging attempts resume
+- Success resets the failure counter immediately
+
+**Benefits:**
+
+- Prevents performance degradation when controller logging endpoint is unavailable
+- Reduces network traffic during outages
+- Gracefully handles network errors and server unavailability
+- Automatic recovery when service becomes available again
+
+**Note:** This is an internal implementation detail. Logging failures are handled silently to avoid disrupting application functionality. For critical logging requirements, consider using event emission mode or implementing your own retry/buffer strategy.
+
 ### RedisService
 
 ```typescript

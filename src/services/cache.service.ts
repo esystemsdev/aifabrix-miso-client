@@ -28,6 +28,10 @@ export class CacheService {
       },
       5 * 60 * 1000,
     );
+    // Use unref() so the interval doesn't keep the process alive (important for tests)
+    if (this.cleanupInterval && typeof this.cleanupInterval.unref === 'function') {
+      this.cleanupInterval.unref();
+    }
   }
 
   /**

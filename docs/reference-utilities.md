@@ -6,6 +6,10 @@ Complete API reference for utility functions in the MisoClient SDK: Express util
 
 - [Express Utilities](#express-utilities)
 - [Standalone Utilities](#standalone-utilities)
+  - [resolveControllerUrl](#resolvecontrollerurlconfig-misoclientconfig-string)
+  - [isBrowser](#isbrowser-boolean)
+  - [validateUrl](#validateurlurl-string-boolean)
+  - [getCachedDataClientConfig](#getcacheddataclientconfig-dataclientconfigresponse--null)
 - [Pagination Utilities](#pagination-utilities)
 - [Filter Utilities](#filter-utilities)
 - [Sort Utilities](#sort-utilities)
@@ -264,6 +268,78 @@ console.log('Environment:', isBrowser() ? 'Browser' : 'Server');
 
 - [Public and Private Controller URLs](./configuration.md#public-and-private-controller-urls) - Complete configuration guide
 - [Advanced: Manual URL Resolution](./configuration.md#advanced-manual-url-resolution) - Advanced usage examples
+
+### `validateUrl(url: string): boolean`
+
+Validates that a URL string is a valid HTTP or HTTPS URL. Useful for validating URLs before use in application code.
+
+**Parameters:**
+
+- `url` - URL string to validate
+
+**Returns:** `true` if URL is valid HTTP or HTTPS, `false` otherwise
+
+**Example:**
+
+```typescript
+import { validateUrl } from '@aifabrix/miso-client';
+
+// Valid URLs
+validateUrl('https://example.com'); // true
+validateUrl('http://localhost:3000'); // true
+
+// Invalid URLs
+validateUrl('ftp://example.com'); // false
+validateUrl('javascript:alert(1)'); // false
+validateUrl('invalid'); // false
+
+// Usage in application code
+const userInput = 'https://example.com';
+if (validateUrl(userInput)) {
+  window.location.href = userInput;
+} else {
+  console.error('Invalid URL');
+}
+```
+
+**Use Cases:**
+
+- Validating user-provided URLs
+- Pre-validating configuration URLs
+- Security checks before redirects
+- Testing and debugging URL formats
+
+### `getCachedDataClientConfig(): DataClientConfigResponse | null`
+
+Gets the cached DataClient configuration from localStorage without re-initializing DataClient. Useful for accessing configuration values that were cached by `autoInitializeDataClient()`.
+
+**Returns:** Cached configuration object or `null` if not found or expired
+
+**Example:**
+
+```typescript
+import { getCachedDataClientConfig } from '@aifabrix/miso-client';
+
+// Read cached configuration
+const cachedConfig = getCachedDataClientConfig();
+if (cachedConfig) {
+  console.log('Base URL:', cachedConfig.baseUrl);
+  console.log('Controller URL:', cachedConfig.controllerUrl);
+  console.log('Client ID:', cachedConfig.clientId);
+  console.log('Client Token URI:', cachedConfig.clientTokenUri);
+} else {
+  console.log('No cached configuration found');
+}
+```
+
+**Use Cases:**
+
+- Accessing configuration values without re-initializing DataClient
+- Reading configuration in application code
+- Debugging configuration issues
+- Conditional logic based on cached configuration
+
+**Note:** This function only works in browser environments and requires that `autoInitializeDataClient()` has been called previously with `cacheConfig: true` (default).
 
 ## Pagination Utilities
 

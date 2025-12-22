@@ -273,6 +273,16 @@ const dataClient = new DataClient({
 const token = await dataClient.getEnvironmentToken();
 ```
 
+**Client Token Expiration:**
+
+The SDK automatically checks token expiration using multiple methods:
+
+1. **Expiration timestamp**: Checks `miso:client-token-expires-at` from localStorage
+2. **JWT expiration claim**: If expiration timestamp is missing, decodes JWT to extract `exp` claim
+3. **Automatic cleanup**: Expired tokens are automatically removed from cache
+
+This ensures tokens are always validated before use, preventing authentication errors from expired tokens.
+
 ### User Token Management
 
 DataClient automatically retrieves user authentication tokens from `localStorage` using configurable keys:

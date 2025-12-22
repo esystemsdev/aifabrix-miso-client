@@ -159,17 +159,37 @@ export async function logDataClientAudit(
   } catch (auditError) {
     // Handle audit logging errors gracefully
     // Don't fail main request if audit logging fails
-    const error = auditError as Error & { statusCode?: number; response?: { status?: number } };
+    const error = auditError as Error & { 
+      statusCode?: number; 
+      response?: { status?: number };
+      code?: string;
+      message?: string;
+    };
     const statusCode = error.statusCode || error.response?.status;
+    const errorMessage = error.message || String(auditError);
+    const errorCode = error.code;
     
-    if (statusCode === 401) {
-      // User not authenticated - this is expected for unauthenticated requests
-      // Silently skip to avoid noise (we already check hasAnyToken() before attempting)
-      // This catch block handles edge cases where token becomes unavailable between check and audit call
-    } else {
-      // Other errors - log warning but don't fail request
-      console.warn("Failed to log audit event:", auditError);
+    // Silently skip for expected error conditions:
+    // - 401: User not authenticated (expected for unauthenticated requests)
+    // - Network errors: Connection refused, ECONNREFUSED, ERR_CONNECTION_REFUSED
+    // - These are expected when server is unavailable or misconfigured
+    const isNetworkError = 
+      errorCode === 'ECONNREFUSED' ||
+      errorCode === 'ENOTFOUND' ||
+      errorMessage.includes('ERR_CONNECTION_REFUSED') ||
+      errorMessage.includes('Failed to fetch') ||
+      errorMessage.includes('NetworkError') ||
+      errorMessage.includes('network error');
+    
+    if (statusCode === 401 || isNetworkError) {
+      // Silently skip to avoid noise - these are expected conditions
+      // 401: User not authenticated (we already check hasAnyToken() before attempting)
+      // Network errors: Server unavailable or misconfigured (expected in demo/dev environments)
+      return;
     }
+    
+    // Other unexpected errors - log warning but don't fail request
+    console.warn("Failed to log audit event:", auditError);
   }
 }
 

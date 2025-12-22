@@ -497,7 +497,7 @@ export { getEnvironmentToken } from "./utils/environment-token";
 export { extractClientTokenInfo } from "./utils/token-utils";
 export type { ClientTokenInfo } from "./utils/token-utils";
 export type { OriginValidationResult } from "./utils/origin-validator";
-export { resolveControllerUrl, isBrowser } from "./utils/controller-url-resolver";
+export { resolveControllerUrl, isBrowser, validateUrl } from "./utils/controller-url-resolver";
 
 // Export pagination, filter, sort utilities
 export * from "./utils/pagination.utils";
@@ -563,5 +563,5 @@ export type {
 } from "./types/data-client.types";
 
 // Export DataClient auto-initialization helper
-export { autoInitializeDataClient } from "./utils/data-client-auto-init";
+export { autoInitializeDataClient, getCachedDataClientConfig } from "./utils/data-client-auto-init";
 export type { AutoInitOptions } from "./utils/data-client-auto-init";

@@ -471,7 +471,7 @@ describe("DataClient", () => {
       expect(mockWindow.location.href).toBe("https://keycloak.example.com/auth?redirect=...");
     });
 
-    it("should fallback to static loginUrl when misoClient is not available", async () => {
+    it("should throw error when misoClient is not available and controller fails", async () => {
       const client = new DataClient({
         baseUrl: "https://api.example.com",
         misoConfig: {
@@ -479,15 +479,16 @@ describe("DataClient", () => {
           clientId: "test-client",
         },
       });
-      // Manually set misoClient to null to test fallback
+      // Manually set misoClient to null to test error handling
       (client as any).misoClient = null;
       
-      await client.redirectToLogin();
+      await expect(client.redirectToLogin()).rejects.toThrow();
       
-      expect(mockWindow.location.href).toBe("https://example.com/login");
+      // Should NOT redirect - error should be thrown instead
+      expect(mockWindow.location.href).not.toBe("https://example.com/login");
     });
 
-    it("should fallback to custom static loginUrl when misoClient is not available", async () => {
+    it("should throw error when misoClient is not available and controller fails (custom loginUrl)", async () => {
       const client = new DataClient({
         baseUrl: "https://api.example.com",
         loginUrl: "/custom-login",
@@ -496,33 +497,37 @@ describe("DataClient", () => {
           clientId: "test-client",
         },
       });
-      // Manually set misoClient to null to test fallback
+      // Manually set misoClient to null to test error handling
       (client as any).misoClient = null;
       
-      await client.redirectToLogin();
+      await expect(client.redirectToLogin()).rejects.toThrow();
       
-      expect(mockWindow.location.href).toBe("https://example.com/custom-login");
+      // Should NOT redirect - error should be thrown instead
+      expect(mockWindow.location.href).not.toBe("https://example.com/custom-login");
     });
 
-    it("should fallback to static loginUrl when controller login fails", async () => {
+    it("should throw error when controller login fails", async () => {
       mockWindow.location.href = "https://example.com/current-page";
       mockLocalStorage["miso:client-token"] = "test-client-token";
       mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
       
       mockFetch.mockRejectedValueOnce(new Error("Controller error"));
       
-      await dataClient.redirectToLogin();
+      await expect(dataClient.redirectToLogin()).rejects.toThrow();
       
-      expect(mockWindow.location.href).toBe("https://example.com/login");
+      // Should NOT redirect - error should be thrown instead
+      expect(mockWindow.location.href).toBe("https://example.com/current-page");
     });
 
-    it("should fallback when controller returns no loginUrl", async () => {
+    it("should throw error when controller returns no loginUrl", async () => {
       mockWindow.location.href = "https://example.com/current-page";
       mockLocalStorage["miso:client-token"] = "test-client-token";
       mockLocalStorage["miso:client-token-expires-at"] = (Date.now() + 3600000).toString();
       
       mockFetch.mockResolvedValueOnce({
         ok: true,
+        status: 200,
+        headers: new Headers({ "content-type": "application/json" }),
         json: async () => ({
           success: true,
           data: {
@@ -533,9 +538,10 @@ describe("DataClient", () => {
         }),
       });
       
-      await dataClient.redirectToLogin();
+      await expect(dataClient.redirectToLogin()).rejects.toThrow("Controller did not return a valid login URL");
       
-      expect(mockWindow.location.href).toBe("https://example.com/login");
+      // Should NOT redirect - error should be thrown instead
+      expect(mockWindow.location.href).toBe("https://example.com/current-page");
     });
 
     it("should logout and redirect to loginUrl", async () => {

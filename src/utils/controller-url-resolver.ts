@@ -22,8 +22,19 @@ export function isBrowser(): boolean {
 /**
  * Validate URL format
  * Ensures URL is a valid HTTP or HTTPS URL
+ * 
+ * @param url - URL string to validate
+ * @returns true if URL is valid HTTP or HTTPS, false otherwise
+ * 
+ * @example
+ * ```typescript
+ * validateUrl('https://example.com'); // true
+ * validateUrl('http://localhost:3000'); // true
+ * validateUrl('ftp://example.com'); // false
+ * validateUrl('invalid'); // false
+ * ```
  */
-function validateUrl(url: string): boolean {
+export function validateUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     return parsed.protocol === "http:" || parsed.protocol === "https:";

@@ -5,6 +5,108 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2025-12-22
+
+### Added
+
+- **Circuit breaker for HTTP logging** - Prevents infinite retry loops when logging service is unavailable
+  - Added circuit breaker pattern to `LoggerService` and `AuditLogQueue`
+  - Automatically disables HTTP logging after 3 consecutive failures
+  - Circuit breaker opens for 60 seconds after failures, then resets
+  - Prevents performance degradation when controller logging endpoint is unavailable
+  - Gracefully handles network errors and server unavailability
+
+- **DataClient redirect utilities** - Comprehensive redirect handling for login flows
+  - New `data-client-redirect.ts` utility module with robust redirect logic
+  - Enhanced `redirectToLogin()` with comprehensive error handling
+  - URL validation prevents dangerous redirects (javascript:, data:, etc.)
+  - User-friendly error messages for network, CORS, and authentication errors
+  - Proper timeout handling (30 seconds) to prevent hanging requests
+  - Only redirects when controller returns valid login URL (no fallback redirects on error)
+  - Supports both nested (`data.loginUrl`) and flat (`loginUrl`) response formats
+
+- **Client token expiration checking** - Enhanced token validation with JWT expiration support
+  - Improved `getClientToken()` to check JWT expiration claims when expiration timestamp is missing
+  - Decodes JWT tokens to extract `exp` claim for expiration validation
+  - Better logging for debugging token expiration issues
+  - Handles missing expiration timestamps gracefully
+  - Automatically removes expired tokens from cache
+
+- **Auto-initialization improvements** - New utility for accessing cached configuration
+  - New `getCachedDataClientConfig()` function exported from `src/index.ts`
+  - Allows reading cached DataClient configuration without re-initializing
+  - Useful for accessing configuration values in application code
+  - Returns cached config or null if not found or expired
+
+- **Controller URL validation utility** - Exported URL validation function
+  - `validateUrl()` function now exported from `controller-url-resolver.ts`
+  - Validates HTTP/HTTPS URLs with comprehensive JSDoc documentation
+  - Useful for validating URLs before use in application code
+  - Exported from `src/index.ts` for public use
+
+### Changed
+
+- **Documentation restructure** - Improved documentation organization and clarity
+  - New reference documentation structure with dedicated files for each major component
+  - Added `docs/reference-authentication.md` - Comprehensive authentication guide
+  - Added `docs/reference-authorization.md` - RBAC and permissions documentation
+  - Added `docs/reference-dataclient.md` - Complete DataClient API reference
+  - Added `docs/reference-errors.md` - Error handling and troubleshooting guide
+  - Added `docs/reference-misoclient.md` - MisoClient API reference
+  - Added `docs/reference-services.md` - Service layer documentation
+  - Added `docs/reference-types.md` - TypeScript type definitions reference
+  - Added `docs/reference-utilities.md` - Utility functions documentation
+  - Enhanced examples with improved clarity and error handling
+  - Updated all example files with corrected import paths
+
+- **DataClient enhancements** - Improved robustness and developer experience
+  - Enhanced DataClient configuration and performance optimizations
+  - Improved authorization examples and documentation
+  - Better error handling in example code
+
+- **Audit logging error handling** - Improved handling of network errors in audit logging
+  - Enhanced error detection for network errors (ECONNREFUSED, ENOTFOUND, ERR_CONNECTION_REFUSED)
+  - Silently skips audit logging for expected network errors (server unavailable, misconfigured)
+  - Prevents error noise in development and demo environments
+  - Better error classification and handling
+
+### Fixed
+
+- **DataClient metrics** - Fixed handling of missing response times in metrics
+  - Modified `getMetrics()` method to handle cases where `responseTimes` may be undefined
+  - Ensures robust performance metrics retrieval without errors
+
+- **Example imports** - Fixed import paths in all example files
+  - Updated example imports for clarity and proper error handling
+  - Corrected script source references in demo applications
+
+- **Cache service test handling** - Fixed cleanup interval keeping process alive in tests
+  - Added `unref()` to cleanup interval in `CacheService` to prevent tests from hanging
+  - Ensures Node.js process can exit cleanly after tests complete
+  - Important for CI/CD environments and test suites
+
+### Removed
+
+- **Performance logging** - Removed deprecated performance logging functionality
+  - Eliminated all performance logging code from the codebase
+  - Removed PerformanceMetrics interface and related methods
+  - Removed performance tracking logic from logger service
+  - Functionality replaced by OpenTelemetry integration
+
+### Technical
+
+- **Code quality improvements** - Enhanced development workflow and configuration
+  - Updated ESLint and Jest configurations for improved testing and code quality
+  - Enhanced configuration files and scripts for better development workflow
+  - Improved .gitignore patterns
+  - Updated package.json for testing enhancements
+
+- **New utility file**: `src/utils/data-client-redirect.ts` - Comprehensive redirect handling
+  - Extracted redirect logic from DataClient into dedicated utility module
+  - 424 lines of robust redirect handling with comprehensive error handling
+  - URL validation, timeout handling, and user-friendly error messages
+  - Proper separation of concerns for better maintainability
+
 ## [3.1.2] - 2025-12-15
 
 ### Changed
