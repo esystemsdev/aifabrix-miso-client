@@ -174,8 +174,41 @@ describe("handleOAuthCallback", () => {
       expect(result).toBe(token);
     });
 
-    it("should reject token with only 2 parts", () => {
-      const invalidToken = "header.payload";
+    it("should accept token with 2 parts (non-JWT format)", () => {
+      const token = "header.payload";
+      mockWindow.location.hash = `#token=${token}`;
+
+      const result = handleOAuthCallback(createConfig());
+
+      // Non-JWT tokens are now accepted if they meet length requirements
+      expect(result).toBe(token);
+      expect(mockLocalStorage["token"]).toBe(token);
+    });
+
+    it("should accept token with 4 parts (non-JWT format)", () => {
+      const token = "header.payload.signature.extra";
+      mockWindow.location.hash = `#token=${token}`;
+
+      const result = handleOAuthCallback(createConfig());
+
+      // Non-JWT tokens are now accepted if they meet length requirements
+      expect(result).toBe(token);
+      expect(mockLocalStorage["token"]).toBe(token);
+    });
+
+    it("should accept token with empty parts if length is sufficient", () => {
+      const token = "header..signature";
+      mockWindow.location.hash = `#token=${token}`;
+
+      const result = handleOAuthCallback(createConfig());
+
+      // Tokens with empty parts are accepted if they meet length requirements
+      expect(result).toBe(token);
+      expect(mockLocalStorage["token"]).toBe(token);
+    });
+
+    it("should reject token that is too short (< 5 characters)", () => {
+      const invalidToken = "abcd"; // 4 characters
       mockWindow.location.hash = `#token=${invalidToken}`;
 
       const result = handleOAuthCallback(createConfig());
@@ -185,32 +218,12 @@ describe("handleOAuthCallback", () => {
       expect(console.error).toHaveBeenCalledWith(
         "[handleOAuthCallback] Invalid token format - token rejected",
         expect.objectContaining({
-          tokenLength: expect.any(Number),
-          hasDots: true,
-          partsCount: 2,
-          expectedFormat: "JWT (3 parts separated by dots)",
+          tokenLength: 4,
+          isEmpty: false,
+          tooShort: true,
+          expectedFormat: "Non-empty string with at least 5 characters",
         }),
       );
-    });
-
-    it("should reject token with 4 parts", () => {
-      const invalidToken = "header.payload.signature.extra";
-      mockWindow.location.hash = `#token=${invalidToken}`;
-
-      const result = handleOAuthCallback(createConfig());
-
-      expect(result).toBeNull();
-      expect(mockLocalStorage["token"]).toBeUndefined();
-    });
-
-    it("should reject token with empty parts", () => {
-      const invalidToken = "header..signature";
-      mockWindow.location.hash = `#token=${invalidToken}`;
-
-      const result = handleOAuthCallback(createConfig());
-
-      expect(result).toBeNull();
-      expect(mockLocalStorage["token"]).toBeUndefined();
     });
 
     it("should reject non-string token", () => {
@@ -315,11 +328,13 @@ describe("handleOAuthCallback", () => {
     it("should handle localStorage.setItem errors gracefully", () => {
       const token = createValidJWT();
       mockWindow.location.hash = `#token=${token}`;
-      (global as any).localStorage.setItem.mockImplementation((key: string) => {
+      // Mock setLocalStorage to throw for one key
+      const originalSetLocalStorage = require("../../src/utils/data-client-utils").setLocalStorage;
+      jest.spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage").mockImplementation((key: string, value: string) => {
         if (key === "accessToken") {
           throw new Error("Storage quota exceeded");
         }
-        mockLocalStorage[key] = token;
+        mockLocalStorage[key] = value;
       });
 
       const result = handleOAuthCallback(createConfig());
@@ -331,21 +346,25 @@ describe("handleOAuthCallback", () => {
         "[handleOAuthCallback] Failed to store token in key accessToken:",
         expect.any(Error),
       );
+
+      // Restore original implementation
+      jest.restoreAllMocks();
     });
 
-    it("should return null when localStorage is unavailable", () => {
+    it("should return null when not in browser environment", () => {
       const token = createValidJWT();
       mockWindow.location.hash = `#token=${token}`;
-      // Set localStorage to null to trigger the check inside handleOAuthCallback
-      (globalThis as any).localStorage = null;
-      (global as any).localStorage = null;
+      // Mock isBrowser to return false
+      jest.spyOn(require("../../src/utils/data-client-utils"), "isBrowser").mockReturnValue(false);
 
       const result = handleOAuthCallback(createConfig());
 
+      // Function returns null early without logging (isBrowser check at function start)
       expect(result).toBeNull();
-      expect(console.warn).toHaveBeenCalledWith(
-        "[handleOAuthCallback] localStorage not available",
-      );
+      expect(mockLocalStorage["token"]).toBeUndefined();
+
+      // Restore original implementation
+      jest.restoreAllMocks();
     });
   });
 
@@ -491,12 +510,12 @@ describe("handleOAuthCallback", () => {
     it("should handle storage errors without exposing token", () => {
       const token = createValidJWT();
       mockWindow.location.hash = `#token=${token}`;
-      // Mock setItem to throw only for some keys, not all
+      // Mock setLocalStorage to throw only for some keys, not all
       let callCount = 0;
-      (global as any).localStorage.setItem.mockImplementation((key: string, value: string) => {
+      jest.spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage").mockImplementation((key: string, value: string) => {
         callCount++;
         if (callCount === 2) {
-          // Throw error on second call
+          // Throw error on second call (accessToken)
           throw new Error("Storage error");
         }
         mockLocalStorage[key] = value;
@@ -516,37 +535,33 @@ describe("handleOAuthCallback", () => {
       );
       expect(warnCall).toBeDefined();
       expect(JSON.stringify(warnCall)).not.toContain(token);
+
+      // Restore original implementation
+      jest.restoreAllMocks();
     });
 
     it("should handle outer try-catch storage errors", () => {
       const token = createValidJWT();
       mockWindow.location.hash = `#token=${token}`;
-      // Create a localStorage that throws when trying to access it in the forEach
-      // The code does: storage.localStorage!.setItem(key, token)
-      // So we need to make setItem throw for all keys
-      const mockStorage = {
-        setItem: jest.fn(() => {
-          throw new Error("Storage quota exceeded");
-        }),
-      };
-      (globalThis as any).localStorage = mockStorage;
-      (global as any).localStorage = mockStorage;
-      // Make all setItem calls throw
-      mockStorage.setItem.mockImplementation(() => {
+      // Mock setLocalStorage to throw for all keys
+      jest.spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage").mockImplementation(() => {
         throw new Error("Storage completely unavailable");
       });
 
       const result = handleOAuthCallback(createConfig());
 
-      // Individual setItem errors are caught in forEach, but if the whole try block fails,
-      // the outer catch should handle it. However, since each setItem is wrapped in try-catch,
+      // Individual setLocalStorage errors are caught in forEach, but if the whole try block fails,
+      // the outer catch should handle it. However, since each setLocalStorage is wrapped in try-catch,
       // the function will still return the token. Let's verify the behavior matches implementation.
-      // Actually, looking at the code, if all setItem calls fail, it still returns the token
+      // Actually, looking at the code, if all setLocalStorage calls fail, it still returns the token
       // because each failure is caught individually. The outer try-catch only catches
-      // errors from accessing storage.localStorage or other unexpected errors.
+      // errors from accessing storage or other unexpected errors.
       // So this test should verify that individual failures are handled gracefully
       expect(result).toBe(token); // Token is still returned even if storage fails
       expect(console.warn).toHaveBeenCalled();
+
+      // Restore original implementation
+      jest.restoreAllMocks();
     });
   });
 

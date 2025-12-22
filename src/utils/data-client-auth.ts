@@ -52,23 +52,32 @@ function cleanupHash(): void {
 }
 
 /**
- * Validate token format (basic JWT format check)
+ * Validate token format (basic validation - non-empty string with reasonable length)
+ * Accepts both JWT and non-JWT tokens (controller may send different formats)
  * @param token - Token string to validate
- * @returns True if token appears to be valid JWT format
+ * @returns True if token appears to be valid format
  */
 function isValidTokenFormat(token: string): boolean {
   if (!token || typeof token !== "string") {
     return false;
   }
 
-  // Basic JWT format check (3 parts separated by dots)
-  const parts = token.split(".");
-  if (parts.length !== 3) {
+  // Trim whitespace
+  const trimmed = token.trim();
+  
+  // Must be non-empty after trimming
+  if (trimmed.length === 0) {
     return false;
   }
 
-  // Each part should be non-empty
-  return parts.every((part) => part.length > 0);
+  // Must have reasonable length (at least 5 characters to avoid obviously invalid tokens)
+  // This allows both JWT tokens and other token formats
+  if (trimmed.length < 5) {
+    return false;
+  }
+
+  // Token is valid if it passes basic checks
+  return true;
 }
 
 /**
@@ -120,18 +129,16 @@ export function handleOAuthCallback(config: DataClientConfig): string | null {
     return null; // No token in hash
   }
 
-  // SECURITY: Validate token format (basic JWT check)
+  // SECURITY: Validate token format (basic validation - non-empty with reasonable length)
   if (!isValidTokenFormat(token)) {
-    const tokenLength = token.length;
-    const hasDots = token.includes(".");
-    const parts = token.split(".");
+    const tokenLength = token ? token.length : 0;
     console.error(
       "[handleOAuthCallback] Invalid token format - token rejected",
       {
         tokenLength,
-        hasDots,
-        partsCount: parts.length,
-        expectedFormat: "JWT (3 parts separated by dots)",
+        isEmpty: !token || token.trim().length === 0,
+        tooShort: tokenLength > 0 && tokenLength < 5,
+        expectedFormat: "Non-empty string with at least 5 characters",
       },
     );
     // Still clean up hash even if token is invalid
@@ -188,18 +195,11 @@ export function handleOAuthCallback(config: DataClientConfig): string | null {
   // Store token in localStorage
   const tokenKeys = config.tokenKeys || ["token", "accessToken", "authToken"];
   try {
-    const storage = globalThis as unknown as {
-      localStorage?: { setItem: (key: string, value: string) => void };
-    };
-    if (!storage.localStorage) {
-      console.warn("[handleOAuthCallback] localStorage not available");
-      return null;
-    }
-
     // Store in all tokenKeys for compatibility
+    // Note: isBrowser() check already done at function start (line 88)
     tokenKeys.forEach((key) => {
       try {
-        storage.localStorage!.setItem(key, token);
+        setLocalStorage(key, token);
       } catch (e) {
         console.warn(
           `[handleOAuthCallback] Failed to store token in key ${key}:`,
