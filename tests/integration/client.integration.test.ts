@@ -146,8 +146,12 @@ describe("MisoClient Integration", () => {
     it("should validate token successfully", async () => {
       mockAxiosInstance.post.mockResolvedValue({
         data: {
-          authenticated: true,
-          user: { id: "123", username: "testuser" },
+          success: true,
+          data: {
+            authenticated: true,
+            user: { id: "123", username: "testuser", email: "test@example.com" },
+          },
+          timestamp: new Date().toISOString(),
         },
       });
 
@@ -163,7 +167,14 @@ describe("MisoClient Integration", () => {
         email: "test@example.com",
       };
       mockAxiosInstance.post.mockResolvedValue({
-        data: { authenticated: true, user: userInfo },
+        data: {
+          success: true,
+          data: {
+            authenticated: true,
+            user: userInfo,
+          },
+          timestamp: new Date().toISOString(),
+        },
       });
 
       const result = await client.getUser("valid-token");
@@ -173,7 +184,14 @@ describe("MisoClient Integration", () => {
 
     it("should check authentication status", async () => {
       mockAxiosInstance.post.mockResolvedValue({
-        data: { authenticated: true, user: { id: "123" } },
+        data: {
+          success: true,
+          data: {
+            authenticated: true,
+            user: { id: "123", username: "testuser", email: "test@example.com" },
+          },
+          timestamp: new Date().toISOString(),
+        },
       });
 
       const result = await client.isAuthenticated("valid-token");
@@ -208,10 +226,11 @@ describe("MisoClient Integration", () => {
       // Mock the authenticated request (which internally uses axios.get with token interceptor)
       mockAxiosInstance.get.mockResolvedValue({
         data: {
-          userId: "123",
-          roles: ["admin", "user"],
-          environment: "dev",
-          application: "test-app",
+          success: true,
+          data: {
+            roles: ["admin", "user"],
+          },
+          timestamp: new Date().toISOString(),
         },
       });
 
@@ -309,12 +328,15 @@ describe("MisoClient Integration", () => {
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         "/api/v1/logs",
         expect.objectContaining({
-          level: "info",
-          message: "Test info",
-          application: undefined,
-          applicationId: "",
-          environment: undefined,
-          timestamp: expect.any(String),
+          type: "general",
+          data: expect.objectContaining({
+            level: "info",
+            message: "Test info",
+            correlationId: expect.any(String),
+            context: expect.objectContaining({
+              applicationId: "",
+            }),
+          }),
         }),
         undefined,
       );

@@ -1,0 +1,9 @@
+{
+  "markdownlint.ignore": [
+    ".cursor/plans/**"
+  ],
+  "files.exclude": {
+    ".cursor/plans/**": false
+  }
+}
+

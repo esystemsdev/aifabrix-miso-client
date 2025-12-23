@@ -10,6 +10,7 @@ import { RedisService } from "./services/redis.service";
 import { CacheService } from "./services/cache.service";
 import { HttpClient } from "./utils/http-client";
 import { InternalHttpClient } from "./utils/internal-http-client";
+import { ApiClient } from "./api";
 import { DataMasker } from "./utils/data-masker";
 import { AuthStrategyHandler } from "./utils/auth-strategy";
 import { MisoClientConfig, UserInfo, AuthStrategy } from "./types/config.types";
@@ -19,6 +20,7 @@ import { Request } from "express";
 export class MisoClient {
   private config: MisoClientConfig;
   private httpClient: HttpClient;
+  private apiClient: ApiClient;
   private redis: RedisService;
   private auth: AuthService;
   private roles: RoleService;
@@ -57,16 +59,23 @@ export class MisoClient {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (this.logger as any).httpClient = this.httpClient;
 
+    // Create ApiClient that wraps HttpClient (provides typed API interfaces)
+    this.apiClient = new ApiClient(this.httpClient);
+
+    // Set ApiClient in LoggerService (resolves circular dependency)
+    this.logger.setApiClient(this.apiClient);
+
     // Initialize cache service with Redis support (used by auth, roles and permissions)
     this.cacheService = new CacheService(this.redis);
 
-    // Create services
-    this.auth = new AuthService(this.httpClient, this.cacheService);
+    // Create services (pass both httpClient and apiClient for gradual migration)
+    this.auth = new AuthService(this.httpClient, this.apiClient, this.cacheService);
 
     // Initialize services that use cache
-    this.roles = new RoleService(this.httpClient, this.cacheService);
+    this.roles = new RoleService(this.httpClient, this.apiClient, this.cacheService);
     this.permissions = new PermissionService(
       this.httpClient,
+      this.apiClient,
       this.cacheService,
     );
   }

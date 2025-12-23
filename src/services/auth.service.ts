@@ -3,11 +3,11 @@
  */
 
 import { HttpClient } from "../utils/http-client";
+import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
 import {
   MisoClientConfig,
   UserInfo,
-  AuthResult,
   AuthStrategy,
   LoginResponse,
   LogoutResponse,
@@ -24,14 +24,16 @@ interface TokenCacheData {
 
 export class AuthService {
   private httpClient: HttpClient;
+  private apiClient: ApiClient;
   private cache: CacheService;
   private config: MisoClientConfig;
   private tokenValidationTTL: number;
 
-  constructor(httpClient: HttpClient, cache: CacheService) {
+  constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
     this.config = httpClient.config;
     this.cache = cache;
     this.httpClient = httpClient;
+    this.apiClient = apiClient;
     this.tokenValidationTTL = this.config.cache?.tokenValidationTTL || 900; // 15 minutes default
   }
 
@@ -193,17 +195,22 @@ export class AuthService {
         queryParams.state = params.state;
       }
 
-      // Make GET request with query parameters
-      const response = await this.httpClient.request<LoginResponse>(
-        "GET",
-        "/api/v1/auth/login",
-        undefined,
-        {
-          params: queryParams,
-        },
+      // Use ApiClient for typed API call
+      const authStrategy = this.config.authStrategy;
+      const response = await this.apiClient.auth.login(
+        { redirect: params.redirect, state: params.state },
+        authStrategy,
       );
 
-      return response;
+      // Convert ApiClient response format to service response format
+      return {
+        success: response.success,
+        data: {
+          loginUrl: response.data.loginUrl,
+          state: response.data.state || '',
+        },
+        timestamp: response.timestamp,
+      };
     } catch (error) {
       // Check if it's a MisoClientError (converted from AxiosError by HttpClient)
       if (error instanceof MisoClientError) {
@@ -294,13 +301,18 @@ export class AuthService {
         }
       }
 
-      // Cache miss or no userId in token - fetch from controller
-      const result = await this.httpClient.validateTokenRequest<AuthResult>(
-        token,
-        authStrategy,
+      // Cache miss or no userId in token - fetch from controller using ApiClient
+      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyWithToken: AuthStrategy = authStrategyToUse 
+        ? { ...authStrategyToUse, bearerToken: token }
+        : { methods: ['bearer'], bearerToken: token };
+      
+      const result = await this.apiClient.auth.validateToken(
+        { token },
+        authStrategyWithToken,
       );
 
-      const authenticated = result.authenticated;
+      const authenticated = result.data?.authenticated || false;
 
       // Cache the result if we have userId
       if (userId && cacheKey) {
@@ -334,13 +346,22 @@ export class AuthService {
     }
 
     try {
-      const result = await this.httpClient.validateTokenRequest<AuthResult>(
-        token,
-        authStrategy,
+      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyWithToken: AuthStrategy = authStrategyToUse 
+        ? { ...authStrategyToUse, bearerToken: token }
+        : { methods: ['bearer'], bearerToken: token };
+      
+      const result = await this.apiClient.auth.validateToken(
+        { token },
+        authStrategyWithToken,
       );
 
-      if (result.authenticated && result.user) {
-        return result.user;
+      if (result.data?.authenticated && result.data.user) {
+        return {
+          id: result.data.user.id,
+          username: result.data.user.username,
+          email: result.data.user.email,
+        };
       }
 
       return null;
@@ -366,16 +387,22 @@ export class AuthService {
     }
 
     try {
-      const user = await this.httpClient.authenticatedRequest<UserInfo>(
-        "GET",
-        "/api/v1/auth/user",
-        token,
-        undefined,
-        undefined,
-        authStrategy,
-      );
+      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyWithToken: AuthStrategy = authStrategyToUse 
+        ? { ...authStrategyToUse, bearerToken: token }
+        : { methods: ['bearer'], bearerToken: token };
+      
+      const result = await this.apiClient.auth.getUser(authStrategyWithToken);
 
-      return user;
+      if (result.data?.authenticated && result.data.user) {
+        return {
+          id: result.data.user.id,
+          username: result.data.user.username,
+          email: result.data.user.email,
+        };
+      }
+
+      return null;
     } catch (error) {
       // Failed to get user info, return null
       return null;
@@ -415,12 +442,8 @@ export class AuthService {
     const clientId = this.config.clientId;
 
     try {
-      // Backend extracts app/env from client token
-      const response = await this.httpClient.request<LogoutResponse>(
-        "POST",
-        "/api/v1/auth/logout",
-        { token: params.token },
-      );
+      // Use ApiClient for typed API call
+      const response = await this.apiClient.auth.logoutWithToken(params.token);
 
       // Clear token cache after successful logout
       this.clearTokenCache(params.token);
@@ -544,24 +567,26 @@ export class AuthService {
     const clientId = this.config.clientId;
 
     try {
-      // Use authenticatedRequest if authStrategy is provided, otherwise use request
-      // Refresh endpoint uses client token (via request), but can accept authStrategy override
-      const response = authStrategy
-        ? await this.httpClient.authenticatedRequest<RefreshTokenResponse>(
-            "POST",
-            "/api/v1/auth/refresh",
-            "", // Empty token - authStrategy will handle authentication
-            { refreshToken },
-            undefined,
-            authStrategy,
-          )
-        : await this.httpClient.request<RefreshTokenResponse>(
-            "POST",
-            "/api/v1/auth/refresh",
-            { refreshToken },
-          );
+      // Use ApiClient for typed API call
+      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const response = await this.apiClient.auth.refreshToken(
+        { refreshToken },
+        authStrategyToUse,
+      );
 
-      return response;
+      // Convert ApiClient response format to service response format
+      if (response.data) {
+        return {
+          success: response.success,
+          accessToken: response.data.accessToken,
+          refreshToken: response.data.refreshToken || refreshToken,
+          expiresIn: response.data.expiresIn,
+          expiresAt: response.timestamp,
+          timestamp: response.timestamp,
+        };
+      }
+
+      return null;
     } catch (error) {
       // Check if it's a MisoClientError (converted from AxiosError by HttpClient)
       if (error instanceof MisoClientError) {

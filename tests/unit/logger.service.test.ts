@@ -753,7 +753,7 @@ describe("LoggerService", () => {
         socket: {
           remoteAddress: "192.168.1.1",
         },
-      } as Partial<Request>;
+      } as unknown as Partial<Request>;
     });
 
     it("should extract and set request context in LoggerChain", async () => {
@@ -790,7 +790,8 @@ describe("LoggerService", () => {
     });
 
     it("should handle request without Authorization header", async () => {
-      delete mockRequest.headers!["authorization"];
+      const { authorization, ...headersWithoutAuth } = mockRequest.headers || {};
+      mockRequest.headers = headersWithoutAuth;
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
@@ -831,7 +832,7 @@ describe("LoggerService", () => {
     });
 
     it("should handle request with proxy IP (x-forwarded-for)", async () => {
-      delete mockRequest.ip;
+      mockRequest.ip = undefined;
       mockRequest.headers = {
         ...mockRequest.headers,
         "x-forwarded-for": "10.0.0.1, 192.168.1.1",
@@ -907,7 +908,7 @@ describe("LoggerService", () => {
         socket: {
           remoteAddress: "127.0.0.1",
         },
-      } as Partial<Request>;
+      } as unknown as Partial<Request>;
     });
 
     it("should create LoggerChain with request context pre-populated", async () => {

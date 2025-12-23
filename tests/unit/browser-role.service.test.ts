@@ -4,15 +4,18 @@
 
 import { BrowserRoleService } from "../../src/services/browser-role.service";
 import { HttpClient } from "../../src/utils/http-client";
+import { ApiClient } from "../../src/api";
 import { CacheService } from "../../src/services/cache.service";
 import { MisoClientConfig } from "../../src/types/config.types";
 
 // Mock dependencies
 jest.mock("../../src/utils/http-client");
+jest.mock("../../src/api");
 jest.mock("../../src/services/cache.service");
 jest.mock("../../src/utils/browser-jwt-decoder");
 
 const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
+const MockedApiClient = ApiClient as jest.MockedClass<typeof ApiClient>;
 const MockedCacheService = CacheService as jest.MockedClass<
   typeof CacheService
 >;
@@ -29,6 +32,20 @@ describe("BrowserRoleService", () => {
   let roleService: BrowserRoleService;
   let config: MisoClientConfig;
   let mockHttpClient: jest.Mocked<HttpClient>;
+  let mockApiClient: {
+    auth: {
+      validateToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
+    };
+    roles: {
+      getRoles: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
+      refreshRoles: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
+    };
+    permissions: {
+      getPermissions: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
+      refreshPermissions: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
+    };
+    logs: Record<string, jest.MockedFunction<any>>;
+  };
   let mockCacheService: jest.Mocked<CacheService>;
 
   beforeEach(() => {
@@ -45,6 +62,21 @@ describe("BrowserRoleService", () => {
     } as any;
     (mockHttpClient as any).config = config; // Add config to httpClient for access
 
+    mockApiClient = {
+      auth: {
+        validateToken: jest.fn(),
+      },
+      roles: {
+        getRoles: jest.fn(),
+        refreshRoles: jest.fn(),
+      },
+      permissions: {
+        getPermissions: jest.fn(),
+        refreshPermissions: jest.fn(),
+      },
+      logs: {},
+    } as any;
+
     mockCacheService = {
       get: jest.fn(),
       set: jest.fn(),
@@ -52,9 +84,10 @@ describe("BrowserRoleService", () => {
     } as any;
 
     MockedHttpClient.mockImplementation(() => mockHttpClient);
+    MockedApiClient.mockImplementation(() => mockApiClient as any);
     MockedCacheService.mockImplementation(() => mockCacheService);
 
-    roleService = new BrowserRoleService(mockHttpClient, mockCacheService);
+    roleService = new BrowserRoleService(mockHttpClient, mockApiClient, mockCacheService);
   });
 
   afterEach(() => {
@@ -76,18 +109,19 @@ describe("BrowserRoleService", () => {
       expect(result).toEqual(["admin", "user"]);
       expect(mockCacheService.get).toHaveBeenCalledWith("roles:123");
       // No HTTP client calls when userId extracted from token and cache hit
-      expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
+      expect(mockApiClient.roles.getRoles).not.toHaveBeenCalled();
     });
 
     it("should fetch roles from controller when cache miss", async () => {
       mockCacheService.get.mockResolvedValue(null);
       // Mock JWT decode to return userId - avoids validate API call
       decodeJWT.mockReturnValue({ sub: "123", userId: "123" });
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
-        userId: "123",
-        roles: ["admin", "user"],
-        environment: "dev",
-        application: "test-app",
+      mockApiClient.roles.getRoles.mockResolvedValue({
+        success: true,
+        data: {
+          roles: ["admin", "user"],
+        },
+        timestamp: new Date().toISOString(),
       });
       mockCacheService.set.mockResolvedValue(true);
 
@@ -95,14 +129,13 @@ describe("BrowserRoleService", () => {
 
       expect(result).toEqual(["admin", "user"]);
       // Only one call - to get roles (userId extracted from token)
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledTimes(1);
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        "GET",
-        "/api/v1/auth/roles",
-        "token",
+      expect(mockApiClient.roles.getRoles).toHaveBeenCalledTimes(1);
+      expect(mockApiClient.roles.getRoles).toHaveBeenCalledWith(
         undefined,
-        undefined,
-        undefined,
+        expect.objectContaining({
+          methods: ['bearer'],
+          bearerToken: 'token',
+        }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
         "roles:123",
@@ -116,31 +149,39 @@ describe("BrowserRoleService", () => {
     it("should fetch userId from validate endpoint if not in token", async () => {
       mockCacheService.get.mockResolvedValue(null);
       decodeJWT.mockReturnValue(null); // No userId in token
-      mockHttpClient.validateTokenRequest.mockResolvedValue({
-        user: { id: "456" },
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: { id: "456", username: "test", email: "test@example.com" },
+        },
+        timestamp: new Date().toISOString(),
       });
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
-        userId: "456",
-        roles: ["admin"],
-        environment: "dev",
-        application: "test-app",
+      mockApiClient.roles.getRoles.mockResolvedValue({
+        success: true,
+        data: {
+          roles: ["admin"],
+        },
+        timestamp: new Date().toISOString(),
       });
       mockCacheService.set.mockResolvedValue(true);
 
       const result = await roleService.getRoles("token");
 
       expect(result).toEqual(["admin"]);
-      expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith(
-        "token",
-        undefined,
+      expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
+        { token: "token" },
+        expect.objectContaining({
+          methods: ['bearer'],
+          bearerToken: 'token',
+        }),
       );
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        "GET",
-        "/api/v1/auth/roles",
-        "token",
+      expect(mockApiClient.roles.getRoles).toHaveBeenCalledWith(
         undefined,
-        undefined,
-        undefined,
+        expect.objectContaining({
+          methods: ['bearer'],
+          bearerToken: 'token',
+        }),
       );
     });
 
@@ -156,8 +197,13 @@ describe("BrowserRoleService", () => {
     it("should return empty array if userId cannot be determined", async () => {
       mockCacheService.get.mockResolvedValue(null);
       decodeJWT.mockReturnValue(null);
-      mockHttpClient.validateTokenRequest.mockResolvedValue({
-        user: {},
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: {},
+        },
+        timestamp: new Date().toISOString(),
       });
 
       const result = await roleService.getRoles("token");
@@ -249,27 +295,31 @@ describe("BrowserRoleService", () => {
 
   describe("refreshRoles", () => {
     it("should fetch fresh roles and update cache", async () => {
-      mockHttpClient.validateTokenRequest.mockResolvedValue({
-        user: { id: "123" },
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: { id: "123", username: "test", email: "test@example.com" },
+        },
+        timestamp: new Date().toISOString(),
       });
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
-        userId: "123",
-        roles: ["admin", "user"],
-        environment: "dev",
-        application: "test-app",
+      mockApiClient.roles.refreshRoles.mockResolvedValue({
+        success: true,
+        data: {
+          roles: ["admin", "user"],
+        },
+        timestamp: new Date().toISOString(),
       });
       mockCacheService.set.mockResolvedValue(true);
 
       const result = await roleService.refreshRoles("token");
 
       expect(result).toEqual(["admin", "user"]);
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        "GET",
-        "/api/v1/auth/roles/refresh",
-        "token",
-        undefined,
-        undefined,
-        undefined,
+      expect(mockApiClient.roles.refreshRoles).toHaveBeenCalledWith(
+        expect.objectContaining({
+          methods: ['bearer'],
+          bearerToken: 'token',
+        }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
         "roles:123",
@@ -281,8 +331,13 @@ describe("BrowserRoleService", () => {
     });
 
     it("should return empty array if userId cannot be determined", async () => {
-      mockHttpClient.validateTokenRequest.mockResolvedValue({
-        user: {},
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: {},
+        },
+        timestamp: new Date().toISOString(),
       });
 
       const result = await roleService.refreshRoles("token");
@@ -291,7 +346,7 @@ describe("BrowserRoleService", () => {
     });
 
     it("should return empty array on error", async () => {
-      mockHttpClient.validateTokenRequest.mockRejectedValue(
+      mockApiClient.auth.validateToken.mockRejectedValue(
         new Error("Network error"),
       );
 
@@ -303,8 +358,13 @@ describe("BrowserRoleService", () => {
 
   describe("clearRolesCache", () => {
     it("should clear cached roles", async () => {
-      mockHttpClient.validateTokenRequest.mockResolvedValue({
-        user: { id: "123" },
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: { id: "123", username: "test", email: "test@example.com" },
+        },
+        timestamp: new Date().toISOString(),
       });
       mockCacheService.delete.mockResolvedValue(true);
 
@@ -314,7 +374,7 @@ describe("BrowserRoleService", () => {
     });
 
     it("should handle errors gracefully", async () => {
-      mockHttpClient.validateTokenRequest.mockRejectedValue(
+      mockApiClient.auth.validateToken.mockRejectedValue(
         new Error("Network error"),
       );
 

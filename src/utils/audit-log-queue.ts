@@ -6,6 +6,7 @@
 import { EventEmitter } from "events";
 import { LogEntry, MisoClientConfig } from "../types/config.types";
 import { HttpClient } from "./http-client";
+import { ApiClient } from "../api";
 import { RedisService } from "../services/redis.service";
 
 interface QueuedLogEntry {
@@ -17,6 +18,7 @@ export class AuditLogQueue {
   private queue: QueuedLogEntry[] = [];
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private httpClient: HttpClient;
+  private apiClient?: ApiClient;
   private redis: RedisService;
   private config: MisoClientConfig;
   private batchSize: number;
@@ -49,6 +51,14 @@ export class AuditLogQueue {
       process.on("SIGTERM", () => this.flush(true));
       process.on("beforeExit", () => this.flush(true));
     }
+  }
+
+  /**
+   * Set ApiClient instance (used to resolve circular dependency)
+   * @param apiClient - ApiClient instance
+   */
+  setApiClient(apiClient: ApiClient): void {
+    this.apiClient = apiClient;
   }
 
   /**
@@ -139,14 +149,27 @@ export class AuditLogQueue {
 
       // Fallback to HTTP batch endpoint
       try {
-        await this.httpClient.request("POST", "/api/v1/logs/batch", {
-          logs: logEntries.map((e) => ({
-            ...e,
-            // Remove fields that backend extracts from credentials
-            environment: undefined,
-            application: undefined,
-          })),
-        });
+        // Use ApiClient if available, otherwise fallback to HttpClient
+        if (this.apiClient) {
+          await this.apiClient.logs.createBatchLogs({
+            logs: logEntries.map((e) => ({
+              ...e,
+              // Remove fields that backend extracts from credentials
+              environment: undefined,
+              application: undefined,
+            })),
+          });
+        } else {
+          // Fallback to HttpClient (shouldn't happen after initialization)
+          await this.httpClient.request("POST", "/api/v1/logs/batch", {
+            logs: logEntries.map((e) => ({
+              ...e,
+              // Remove fields that backend extracts from credentials
+              environment: undefined,
+              application: undefined,
+            })),
+          });
+        }
         // Success - reset failure counter
         this.httpLoggingFailures = 0;
         this.httpLoggingDisabledUntil = null;

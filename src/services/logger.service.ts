@@ -5,6 +5,7 @@
 import { EventEmitter } from "events";
 import { Request } from "express";
 import { HttpClient } from "../utils/http-client";
+import { ApiClient } from "../api";
 import { RedisService } from "./redis.service";
 import { DataMasker } from "../utils/data-masker";
 import { MisoClientConfig, LogEntry } from "../types/config.types";
@@ -49,6 +50,7 @@ export interface ClientLoggingOptions {
 
 export class LoggerService extends EventEmitter {
   private httpClient: HttpClient;
+  private apiClient?: ApiClient;
   private redis: RedisService;
   private config: MisoClientConfig;
   private maskSensitiveData = true; // Default: mask sensitive data
@@ -78,6 +80,18 @@ export class LoggerService extends EventEmitter {
         this.config,
         this,
       );
+    }
+  }
+
+  /**
+   * Set ApiClient instance (used to resolve circular dependency)
+   * @param apiClient - ApiClient instance
+   */
+  setApiClient(apiClient: ApiClient): void {
+    this.apiClient = apiClient;
+    // Also set ApiClient in AuditLogQueue if available
+    if (this.auditLogQueue) {
+      this.auditLogQueue.setApiClient(apiClient);
     }
   }
 
@@ -325,13 +339,70 @@ export class LoggerService extends EventEmitter {
 
     // Fallback to unified logging endpoint with client credentials
     try {
-      // Backend extracts environment and application from client credentials
-      await this.httpClient.request("POST", "/api/v1/logs", {
-        ...logEntry,
-        // Remove fields that backend extracts from credentials
-        environment: undefined,
-        application: undefined,
-      });
+      // Use ApiClient if available, otherwise fallback to HttpClient
+      if (this.apiClient) {
+        // Map LogEntry to CreateLogRequest format
+        const logType = level === 'audit' ? 'audit' : level === 'error' ? 'error' : 'general';
+        // Map level: 'audit' -> 'info', others map directly (CreateLogRequest.data.level doesn't accept 'audit')
+        const logLevel = level === 'audit' ? 'info' : level === 'error' ? 'error' : level === 'info' ? 'info' : 'debug';
+        
+        // Build context with all LogEntry fields (backend extracts environment/application from credentials)
+        const enrichedContext: Record<string, unknown> = {
+          ...logEntry.context,
+          // Include additional LogEntry fields in context
+          userId: logEntry.userId,
+          sessionId: logEntry.sessionId,
+          requestId: logEntry.requestId,
+          ipAddress: logEntry.ipAddress,
+          userAgent: logEntry.userAgent,
+          hostname: logEntry.hostname,
+          applicationId: logEntry.applicationId,
+          sourceKey: logEntry.sourceKey,
+          sourceDisplayName: logEntry.sourceDisplayName,
+          externalSystemKey: logEntry.externalSystemKey,
+          externalSystemDisplayName: logEntry.externalSystemDisplayName,
+          recordKey: logEntry.recordKey,
+          recordDisplayName: logEntry.recordDisplayName,
+          credentialId: logEntry.credentialId,
+          credentialType: logEntry.credentialType,
+          requestSize: logEntry.requestSize,
+          responseSize: logEntry.responseSize,
+          durationMs: logEntry.durationMs,
+          errorCategory: logEntry.errorCategory,
+          httpStatusCategory: logEntry.httpStatusCategory,
+        };
+        
+        // Remove undefined values to keep payload clean
+        Object.keys(enrichedContext).forEach(key => {
+          if (enrichedContext[key] === undefined) {
+            delete enrichedContext[key];
+          }
+        });
+        
+        // Include stackTrace in context if present
+        if (logEntry.stackTrace) {
+          enrichedContext.stackTrace = logEntry.stackTrace;
+        }
+        
+        await this.apiClient.logs.createLog({
+          type: logType,
+          data: {
+            level: logLevel,
+            message: logEntry.message,
+            context: enrichedContext,
+            correlationId: logEntry.correlationId,
+          },
+        });
+      } else {
+        // Fallback to HttpClient (shouldn't happen after initialization)
+        // Backend extracts environment and application from client credentials
+        await this.httpClient.request("POST", "/api/v1/logs", {
+          ...logEntry,
+          // Remove fields that backend extracts from credentials
+          environment: undefined,
+          application: undefined,
+        });
+      }
       // Success - reset failure counter
       this.httpLoggingFailures = 0;
       this.httpLoggingDisabledUntil = null;

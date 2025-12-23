@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2025-12-23
+
+### Added
+
+- **Centralized API layer** - Typed interfaces for all controller API calls
+  - New API layer in `src/api/` with domain-specific API classes (`AuthApi`, `RolesApi`, `PermissionsApi`, `LogsApi`)
+  - `ApiClient` class wraps `HttpClient` and organizes APIs by domain
+  - Centralized endpoint URLs as constants in each API class for maintainability
+  - All API request/response types use interfaces (not types) with camelCase naming convention
+  - Services can optionally use `ApiClient` instead of direct `HttpClient` calls (gradual migration pattern)
+  - Improved type safety and code organization for controller API interactions
+  - API classes are composed from specialized sub-modules to keep file sizes manageable
+
+### Changed
+
+- **Token validation enhancements** - Improved token acceptance criteria
+  - Updated token validation logic to accept both JWT and non-JWT token formats
+  - Enhanced validation to ensure tokens are non-empty and of reasonable length
+  - Improved error handling for token validation failures
+  - Updated unit tests to reflect changes in token acceptance criteria
+
+- **OAuth callback handling** - Enhanced error feedback
+  - Updated error handling in `handleOAuthCallback()` to provide clearer feedback on token validation failures
+  - Improved documentation for token validation and OAuth handling
+
+- **Service dependencies** - Optional API client support
+  - Services can now optionally include `ApiClient` for typed API access
+  - Allows for gradual migration from direct `HttpClient` usage to typed API layer
+  - Maintains backward compatibility with existing service implementations
+
+### Technical
+
+- **New API layer structure**:
+  - `src/api/index.ts` - Main `ApiClient` class
+  - `src/api/auth.api.ts` - Authentication API (composed from sub-modules)
+  - `src/api/roles.api.ts` - Roles API
+  - `src/api/permissions.api.ts` - Permissions API
+  - `src/api/logs.api.ts` - Logs API
+  - `src/api/types/` - API request/response type definitions
+
+- **Test coverage**:
+  - Updated mock patterns to include `ApiClient` for testing purposes
+  - Enhanced unit tests for token validation with new acceptance criteria
+
+- **Documentation**:
+  - Added API layer pattern documentation to project rules
+  - Updated usage examples to demonstrate API layer pattern
+  - Enhanced documentation for token validation and OAuth handling
+
 ## [3.2.5] - 2025-12-22
 
 ### Added

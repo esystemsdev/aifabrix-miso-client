@@ -4,15 +4,18 @@
 
 import { BrowserPermissionService } from "../../src/services/browser-permission.service";
 import { HttpClient } from "../../src/utils/http-client";
+import { ApiClient } from "../../src/api";
 import { CacheService } from "../../src/services/cache.service";
 import { MisoClientConfig } from "../../src/types/config.types";
 
 // Mock dependencies
 jest.mock("../../src/utils/http-client");
+jest.mock("../../src/api");
 jest.mock("../../src/services/cache.service");
 jest.mock("../../src/utils/browser-jwt-decoder");
 
 const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
+const MockedApiClient = ApiClient as jest.MockedClass<typeof ApiClient>;
 const MockedCacheService = CacheService as jest.MockedClass<
   typeof CacheService
 >;
@@ -29,6 +32,20 @@ describe("BrowserPermissionService", () => {
   let permissionService: BrowserPermissionService;
   let config: MisoClientConfig;
   let mockHttpClient: jest.Mocked<HttpClient>;
+  let mockApiClient: {
+    auth: {
+      validateToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
+    };
+    roles: {
+      getRoles: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
+      refreshRoles: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
+    };
+    permissions: {
+      getPermissions: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
+      refreshPermissions: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
+    };
+    logs: Record<string, jest.MockedFunction<any>>;
+  };
   let mockCacheService: jest.Mocked<CacheService>;
 
   beforeEach(() => {
@@ -45,6 +62,21 @@ describe("BrowserPermissionService", () => {
     } as any;
     (mockHttpClient as any).config = config; // Add config to httpClient for access
 
+    mockApiClient = {
+      auth: {
+        validateToken: jest.fn(),
+      },
+      roles: {
+        getRoles: jest.fn(),
+        refreshRoles: jest.fn(),
+      },
+      permissions: {
+        getPermissions: jest.fn(),
+        refreshPermissions: jest.fn(),
+      },
+      logs: {},
+    } as any;
+
     mockCacheService = {
       get: jest.fn(),
       set: jest.fn(),
@@ -52,10 +84,12 @@ describe("BrowserPermissionService", () => {
     } as any;
 
     MockedHttpClient.mockImplementation(() => mockHttpClient);
+    MockedApiClient.mockImplementation(() => mockApiClient as any);
     MockedCacheService.mockImplementation(() => mockCacheService);
 
     permissionService = new BrowserPermissionService(
       mockHttpClient,
+      mockApiClient,
       mockCacheService,
     );
   });
@@ -79,18 +113,19 @@ describe("BrowserPermissionService", () => {
       expect(result).toEqual(["read:users", "write:posts"]);
       expect(mockCacheService.get).toHaveBeenCalledWith("permissions:123");
       // No HTTP client calls when userId extracted from token and cache hit
-      expect(mockHttpClient.authenticatedRequest).not.toHaveBeenCalled();
+      expect(mockApiClient.permissions.getPermissions).not.toHaveBeenCalled();
     });
 
     it("should fetch permissions from controller when cache miss", async () => {
       mockCacheService.get.mockResolvedValue(null);
       // Mock JWT decode to return userId - avoids validate API call
       decodeJWT.mockReturnValue({ sub: "123", userId: "123" });
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
-        userId: "123",
-        permissions: ["read:users", "write:posts"],
-        environment: "dev",
-        application: "test-app",
+      mockApiClient.permissions.getPermissions.mockResolvedValue({
+        success: true,
+        data: {
+          permissions: ["read:users", "write:posts"],
+        },
+        timestamp: new Date().toISOString(),
       });
       mockCacheService.set.mockResolvedValue(true);
 
@@ -98,14 +133,13 @@ describe("BrowserPermissionService", () => {
 
       expect(result).toEqual(["read:users", "write:posts"]);
       // Only one call - to get permissions (userId extracted from token)
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledTimes(1);
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        "GET",
-        "/api/v1/auth/permissions",
-        "token",
+      expect(mockApiClient.permissions.getPermissions).toHaveBeenCalledTimes(1);
+      expect(mockApiClient.permissions.getPermissions).toHaveBeenCalledWith(
         undefined,
-        undefined,
-        undefined,
+        expect.objectContaining({
+          methods: ['bearer'],
+          bearerToken: 'token',
+        }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
         "permissions:123",
@@ -119,31 +153,39 @@ describe("BrowserPermissionService", () => {
     it("should fetch userId from validate endpoint if not in token", async () => {
       mockCacheService.get.mockResolvedValue(null);
       decodeJWT.mockReturnValue(null); // No userId in token
-      mockHttpClient.validateTokenRequest.mockResolvedValue({
-        user: { id: "456" },
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: { id: "456", username: "test", email: "test@example.com" },
+        },
+        timestamp: new Date().toISOString(),
       });
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
-        userId: "456",
-        permissions: ["read:users"],
-        environment: "dev",
-        application: "test-app",
+      mockApiClient.permissions.getPermissions.mockResolvedValue({
+        success: true,
+        data: {
+          permissions: ["read:users"],
+        },
+        timestamp: new Date().toISOString(),
       });
       mockCacheService.set.mockResolvedValue(true);
 
       const result = await permissionService.getPermissions("token");
 
       expect(result).toEqual(["read:users"]);
-      expect(mockHttpClient.validateTokenRequest).toHaveBeenCalledWith(
-        "token",
-        undefined,
+      expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
+        { token: "token" },
+        expect.objectContaining({
+          methods: ['bearer'],
+          bearerToken: 'token',
+        }),
       );
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        "GET",
-        "/api/v1/auth/permissions",
-        "token",
+      expect(mockApiClient.permissions.getPermissions).toHaveBeenCalledWith(
         undefined,
-        undefined,
-        undefined,
+        expect.objectContaining({
+          methods: ['bearer'],
+          bearerToken: 'token',
+        }),
       );
     });
 
@@ -159,8 +201,13 @@ describe("BrowserPermissionService", () => {
     it("should return empty array if userId cannot be determined", async () => {
       mockCacheService.get.mockResolvedValue(null);
       decodeJWT.mockReturnValue(null);
-      mockHttpClient.validateTokenRequest.mockResolvedValue({
-        user: {},
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: {},
+        },
+        timestamp: new Date().toISOString(),
       });
 
       const result = await permissionService.getPermissions("token");
@@ -264,27 +311,38 @@ describe("BrowserPermissionService", () => {
 
   describe("refreshPermissions", () => {
     it("should fetch fresh permissions and update cache", async () => {
-      mockHttpClient.validateTokenRequest.mockResolvedValue({
-        user: { id: "123" },
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: { id: "123", username: "test", email: "test@example.com" },
+        },
+        timestamp: new Date().toISOString(),
       });
-      mockHttpClient.authenticatedRequest.mockResolvedValue({
-        userId: "123",
-        permissions: ["read:users", "write:posts"],
-        environment: "dev",
-        application: "test-app",
+      mockApiClient.permissions.refreshPermissions.mockResolvedValue({
+        success: true,
+        data: {
+          permissions: ["read:users", "write:posts"],
+        },
+        timestamp: new Date().toISOString(),
       });
       mockCacheService.set.mockResolvedValue(true);
 
       const result = await permissionService.refreshPermissions("token");
 
       expect(result).toEqual(["read:users", "write:posts"]);
-      expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        "GET",
-        "/api/v1/auth/permissions/refresh",
-        "token",
-        undefined,
-        undefined,
-        undefined,
+      expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
+        { token: "token" },
+        expect.objectContaining({
+          methods: ['bearer'],
+          bearerToken: 'token',
+        }),
+      );
+      expect(mockApiClient.permissions.refreshPermissions).toHaveBeenCalledWith(
+        expect.objectContaining({
+          methods: ['bearer'],
+          bearerToken: 'token',
+        }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
         "permissions:123",
@@ -296,8 +354,13 @@ describe("BrowserPermissionService", () => {
     });
 
     it("should return empty array if userId cannot be determined", async () => {
-      mockHttpClient.validateTokenRequest.mockResolvedValue({
-        user: {},
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: {},
+        },
+        timestamp: new Date().toISOString(),
       });
 
       const result = await permissionService.refreshPermissions("token");
@@ -306,7 +369,7 @@ describe("BrowserPermissionService", () => {
     });
 
     it("should return empty array on error", async () => {
-      mockHttpClient.validateTokenRequest.mockRejectedValue(
+      mockApiClient.auth.validateToken.mockRejectedValue(
         new Error("Network error"),
       );
 
@@ -318,8 +381,13 @@ describe("BrowserPermissionService", () => {
 
   describe("clearPermissionsCache", () => {
     it("should clear cached permissions", async () => {
-      mockHttpClient.validateTokenRequest.mockResolvedValue({
-        user: { id: "123" },
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: { id: "123", username: "test", email: "test@example.com" },
+        },
+        timestamp: new Date().toISOString(),
       });
       mockCacheService.delete.mockResolvedValue(true);
 
@@ -329,7 +397,7 @@ describe("BrowserPermissionService", () => {
     });
 
     it("should handle errors gracefully", async () => {
-      mockHttpClient.validateTokenRequest.mockRejectedValue(
+      mockApiClient.auth.validateToken.mockRejectedValue(
         new Error("Network error"),
       );
 

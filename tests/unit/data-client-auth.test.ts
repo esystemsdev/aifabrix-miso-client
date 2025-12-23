@@ -330,12 +330,12 @@ describe("handleOAuthCallback", () => {
       mockWindow.location.hash = `#token=${token}`;
       // Mock setLocalStorage to throw for one key
       const originalSetLocalStorage = require("../../src/utils/data-client-utils").setLocalStorage;
-      jest.spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage").mockImplementation((key: string, value: string) => {
+      jest.spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage").mockImplementation(((key: string, value: string) => {
         if (key === "accessToken") {
           throw new Error("Storage quota exceeded");
         }
         mockLocalStorage[key] = value;
-      });
+      }) as any);
 
       const result = handleOAuthCallback(createConfig());
 
@@ -512,14 +512,14 @@ describe("handleOAuthCallback", () => {
       mockWindow.location.hash = `#token=${token}`;
       // Mock setLocalStorage to throw only for some keys, not all
       let callCount = 0;
-      jest.spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage").mockImplementation((key: string, value: string) => {
+      jest.spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage").mockImplementation(((key: string, value: string) => {
         callCount++;
         if (callCount === 2) {
           // Throw error on second call (accessToken)
           throw new Error("Storage error");
         }
         mockLocalStorage[key] = value;
-      });
+      }) as any);
 
       const result = handleOAuthCallback(createConfig());
 

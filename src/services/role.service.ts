@@ -3,11 +3,12 @@
  */
 
 import { HttpClient } from "../utils/http-client";
+import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
 import {
   MisoClientConfig,
-  RoleResult,
   AuthStrategy,
+  AuthMethod,
 } from "../types/config.types";
 import jwt from "jsonwebtoken";
 
@@ -18,14 +19,16 @@ interface RoleCacheData {
 
 export class RoleService {
   private httpClient: HttpClient;
+  private apiClient: ApiClient;
   private cache: CacheService;
   private config: MisoClientConfig;
   private roleTTL: number;
 
-  constructor(httpClient: HttpClient, cache: CacheService) {
+  constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
     this.config = httpClient.config;
     this.cache = cache;
     this.httpClient = httpClient;
+    this.apiClient = apiClient;
     this.roleTTL = this.config.cache?.roleTTL || 900; // 15 minutes default
   }
 
@@ -73,26 +76,33 @@ export class RoleService {
       // Cache miss or no userId in token - fetch from controller
       // If we don't have userId, get it from validate endpoint
       if (!userId) {
-        const userInfo = await this.httpClient.validateTokenRequest<{
-          user: { id: string };
-        }>(token, authStrategy);
-        userId = userInfo.user?.id || null;
+        const authStrategyToUse = authStrategy || this.config.authStrategy;
+        const authStrategyWithToken: AuthStrategy = authStrategyToUse 
+          ? { ...authStrategyToUse, bearerToken: token }
+          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+        
+        const userInfo = await this.apiClient.auth.validateToken(
+          { token },
+          authStrategyWithToken,
+        );
+        userId = userInfo.data?.user?.id || null;
         if (!userId) {
           return [];
         }
       }
 
-      // Cache miss - fetch from controller
-      const roleResult = await this.httpClient.authenticatedRequest<RoleResult>(
-        "GET",
-        "/api/v1/auth/roles", // Backend knows app/env from client token
-        token,
+      // Cache miss - fetch from controller using ApiClient
+      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyWithToken = authStrategyToUse 
+        ? { ...authStrategyToUse, bearerToken: token }
+          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+      
+      const roleResult = await this.apiClient.roles.getRoles(
         undefined,
-        undefined,
-        authStrategy,
+        authStrategyWithToken,
       );
 
-      const roles = roleResult.roles || [];
+      const roles = roleResult.data?.roles || [];
 
       // Cache the result (use userId-based key)
       const finalCacheKey = `roles:${userId}`;
@@ -166,28 +176,29 @@ export class RoleService {
   ): Promise<string[]> {
     try {
       // Get user info to extract userId
-      const userInfo = await this.httpClient.validateTokenRequest<{
-        user: { id: string };
-      }>(token, authStrategy);
+      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyWithToken = authStrategyToUse 
+        ? { ...authStrategyToUse, bearerToken: token }
+          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+      
+      const userInfo = await this.apiClient.auth.validateToken(
+        { token },
+        authStrategyWithToken,
+      );
 
-      if (!userInfo.user?.id) {
+      if (!userInfo.data?.user?.id) {
         return [];
       }
 
-      const userId = userInfo.user.id;
+      const userId = userInfo.data.user.id;
       const cacheKey = `roles:${userId}`;
 
-      // Fetch fresh roles from controller using refresh endpoint
-      const roleResult = await this.httpClient.authenticatedRequest<RoleResult>(
-        "GET",
-        "/api/v1/auth/roles/refresh",
-        token,
-        undefined,
-        undefined,
-        authStrategy,
+      // Fetch fresh roles from controller using refresh endpoint via ApiClient
+      const roleResult = await this.apiClient.roles.refreshRoles(
+        authStrategyWithToken,
       );
 
-      const roles = roleResult.roles || [];
+      const roles = roleResult.data?.roles || [];
 
       // Update cache with fresh data
       await this.cache.set<RoleCacheData>(

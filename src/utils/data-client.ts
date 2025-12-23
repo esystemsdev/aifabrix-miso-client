@@ -40,6 +40,7 @@ import { BrowserRoleService } from "../services/browser-role.service";
 import { CacheService } from "../services/cache.service";
 import { HttpClient } from "../utils/http-client";
 import { InternalHttpClient } from "../utils/internal-http-client";
+import { ApiClient } from "../api";
 import { LoggerService } from "../services/logger.service";
 import { RedisService } from "../services/redis.service";
 import { UserInfo } from "../types/config.types";
@@ -170,15 +171,22 @@ export class DataClient {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (logger as any).httpClient = httpClient;
 
+      // Create ApiClient that wraps HttpClient (provides typed API interfaces)
+      const apiClient = new ApiClient(httpClient);
+
+      // Set ApiClient in LoggerService (resolves circular dependency)
+      logger.setApiClient(apiClient);
+
       // Create CacheService without Redis (in-memory only for browser)
       const cacheService = new CacheService(undefined);
 
-      // Create browser-compatible services
+      // Create browser-compatible services (pass both httpClient and apiClient)
       this.permissionService = new BrowserPermissionService(
         httpClient,
+        apiClient,
         cacheService,
       );
-      this.roleService = new BrowserRoleService(httpClient, cacheService);
+      this.roleService = new BrowserRoleService(httpClient, apiClient, cacheService);
     }
 
     // Auto-handle OAuth callback on initialization (browser only)

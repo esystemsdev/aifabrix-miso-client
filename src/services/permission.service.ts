@@ -3,11 +3,12 @@
  */
 
 import { HttpClient } from "../utils/http-client";
+import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
 import {
   MisoClientConfig,
-  PermissionResult,
   AuthStrategy,
+  AuthMethod,
 } from "../types/config.types";
 import jwt from "jsonwebtoken";
 
@@ -18,14 +19,16 @@ interface PermissionCacheData {
 
 export class PermissionService {
   private httpClient: HttpClient;
+  private apiClient: ApiClient;
   private cache: CacheService;
   private config: MisoClientConfig;
   private permissionTTL: number;
 
-  constructor(httpClient: HttpClient, cache: CacheService) {
+  constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
     this.config = httpClient.config;
     this.cache = cache;
     this.httpClient = httpClient;
+    this.apiClient = apiClient;
     this.permissionTTL = this.config.cache?.permissionTTL || 900; // 15 minutes default
   }
 
@@ -73,27 +76,33 @@ export class PermissionService {
       // Cache miss or no userId in token - fetch from controller
       // If we don't have userId, get it from validate endpoint
       if (!userId) {
-        const userInfo = await this.httpClient.validateTokenRequest<{
-          user: { id: string };
-        }>(token, authStrategy);
-        userId = userInfo.user?.id || null;
+        const authStrategyToUse = authStrategy || this.config.authStrategy;
+        const authStrategyWithToken: AuthStrategy = authStrategyToUse 
+          ? { ...authStrategyToUse, bearerToken: token }
+          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+        
+        const userInfo = await this.apiClient.auth.validateToken(
+          { token },
+          authStrategyWithToken,
+        );
+        userId = userInfo.data?.user?.id || null;
         if (!userId) {
           return [];
         }
       }
 
-      // Cache miss - fetch from controller
-      const permissionResult =
-        await this.httpClient.authenticatedRequest<PermissionResult>(
-          "GET",
-          "/api/v1/auth/permissions", // Backend knows app/env from client token
-          token,
-          undefined,
-          undefined,
-          authStrategy,
-        );
+      // Cache miss - fetch from controller using ApiClient
+      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyWithToken = authStrategyToUse 
+        ? { ...authStrategyToUse, bearerToken: token }
+          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+      
+      const permissionResult = await this.apiClient.permissions.getPermissions(
+        undefined,
+        authStrategyWithToken,
+      );
 
-      const permissions = permissionResult.permissions || [];
+      const permissions = permissionResult.data?.permissions || [];
 
       // Cache the result (use userId-based key)
       const finalCacheKey = `permissions:${userId}`;
@@ -171,29 +180,29 @@ export class PermissionService {
   ): Promise<string[]> {
     try {
       // Get user info to extract userId
-      const userInfo = await this.httpClient.validateTokenRequest<{
-        user: { id: string };
-      }>(token, authStrategy);
+      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyWithToken = authStrategyToUse 
+        ? { ...authStrategyToUse, bearerToken: token }
+          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+      
+      const userInfo = await this.apiClient.auth.validateToken(
+        { token },
+        authStrategyWithToken,
+      );
 
-      if (!userInfo.user?.id) {
+      if (!userInfo.data?.user?.id) {
         return [];
       }
 
-      const userId = userInfo.user.id;
+      const userId = userInfo.data.user.id;
       const cacheKey = `permissions:${userId}`;
 
-      // Fetch fresh permissions from controller using refresh endpoint
-      const permissionResult =
-        await this.httpClient.authenticatedRequest<PermissionResult>(
-          "GET",
-          "/api/v1/auth/permissions/refresh",
-          token,
-          undefined,
-          undefined,
-          authStrategy,
-        );
+      // Fetch fresh permissions from controller using refresh endpoint via ApiClient
+      const permissionResult = await this.apiClient.permissions.refreshPermissions(
+        authStrategyWithToken,
+      );
 
-      const permissions = permissionResult.permissions || [];
+      const permissions = permissionResult.data?.permissions || [];
 
       // Update cache with fresh data
       await this.cache.set<PermissionCacheData>(
@@ -221,15 +230,21 @@ export class PermissionService {
   ): Promise<void> {
     try {
       // Get user info to extract userId
-      const userInfo = await this.httpClient.validateTokenRequest<{
-        user: { id: string };
-      }>(token, authStrategy);
+      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyWithToken = authStrategyToUse 
+        ? { ...authStrategyToUse, bearerToken: token }
+          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+      
+      const userInfo = await this.apiClient.auth.validateToken(
+        { token },
+        authStrategyWithToken,
+      );
 
-      if (!userInfo.user?.id) {
+      if (!userInfo.data?.user?.id) {
         return;
       }
 
-      const userId = userInfo.user.id;
+      const userId = userInfo.data.user.id;
       const cacheKey = `permissions:${userId}`;
 
       // Clear from cache
