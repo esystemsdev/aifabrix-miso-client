@@ -27,7 +27,8 @@ Technologies:
 ### Service Layer
 
 - All services are in `src/services/`
-- Services receive `HttpClient` and `RedisService` as dependencies
+- Services receive `HttpClient` and `RedisService` (or `CacheService`) as dependencies
+- Services can optionally use `ApiClient` instead of direct `HttpClient` calls for typed API access
 - Services use `httpClient.config` (public readonly property) for configuration access
 - Services follow this pattern:
 
@@ -36,11 +37,13 @@ Technologies:
     private httpClient: HttpClient;
     private redis: RedisService;
     private config: MisoClientConfig;
+    // Optional: private apiClient: ApiClient;
 
     constructor(httpClient: HttpClient, redis: RedisService) {
       this.config = httpClient.config; // Access via public property
       this.httpClient = httpClient;
       this.redis = redis;
+      // Optional: this.apiClient = new ApiClient(httpClient);
     }
   }
   ```
@@ -53,6 +56,41 @@ Technologies:
 - User tokens are sent as `Authorization: Bearer <token>`
 - Always use `authenticatedRequest()` for user-authenticated requests
 - Use `request()` for unauthenticated requests (client token is automatic)
+
+### API Layer Pattern
+
+- Centralized API layer in `src/api/` provides typed interfaces for all controller API calls
+- `ApiClient` wraps `HttpClient` internally and organizes APIs by domain (auth, roles, permissions, logs)
+- All API classes use `HttpClient`'s `authenticatedRequest()` or `request()` methods internally
+- Endpoint URLs are centralized as constants in each API class (e.g., `AUTH_LOGIN_ENDPOINT = '/api/v1/auth/login'`)
+- All API request/response types use interfaces (not types) and camelCase naming convention
+- Services can optionally use `ApiClient` instead of direct `HttpClient` calls (gradual migration pattern)
+- API layer pattern:
+
+  ```typescript
+  export class ApiClient {
+    constructor(private httpClient: HttpClient) {}
+    
+    readonly auth = new AuthApi(this.httpClient);
+    readonly roles = new RolesApi(this.httpClient);
+    readonly permissions = new PermissionsApi(this.httpClient);
+    readonly logs = new LogsApi(this.httpClient);
+  }
+
+  export class AuthApi {
+    private static readonly LOGIN_ENDPOINT = '/api/v1/auth/login';
+    
+    constructor(private httpClient: HttpClient) {}
+    
+    async login(params: LoginRequest, authStrategy?: AuthStrategy): Promise<LoginResponse> {
+      return this.httpClient.request<LoginResponse>(
+        'GET',
+        AuthApi.LOGIN_ENDPOINT,
+        params
+      );
+    }
+  }
+  ```
 
 ### Token Management
 
@@ -183,6 +221,7 @@ All controller endpoints use `/api` prefix:
 ### Mock Patterns
 
 - Mock HttpClient: `const mockHttpClient = { authenticatedRequest: jest.fn(), request: jest.fn() } as any;`
+- Mock ApiClient: `const mockApiClient = { auth: { login: jest.fn() }, roles: { getRoles: jest.fn() } } as any;`
 - Mock Redis: `const mockRedisService = { isConnected: jest.fn(), get: jest.fn(), set: jest.fn() } as any;`
 - Mock JWT: `jest.mock('jsonwebtoken'); const jwt = require('jsonwebtoken');`
 - Mock axios create for token fetch: Return different instance when config has `x-client-id` header
@@ -202,6 +241,13 @@ All controller endpoints use `/api` prefix:
 ```yaml
 src/
   index.ts           # Main MisoClient class exports
+  api/                # Centralized API layer (typed interfaces for controller calls)
+    index.ts          # Main ApiClient class
+    types/            # API request/response type definitions
+    auth.api.ts       # Auth API functions
+    roles.api.ts      # Roles API functions
+    permissions.api.ts # Permissions API functions
+    logs.api.ts       # Logs API functions
   services/          # Service layer (auth, roles, permissions, logger, redis)
   utils/             # Utilities (http-client, config-loader, data-masker)
   types/             # TypeScript type definitions
@@ -213,8 +259,9 @@ src/
 1. External dependencies (axios, jsonwebtoken, etc.)
 2. Internal types
 3. Internal utilities
-4. Internal services
-5. Relative imports
+4. Internal API layer (if using ApiClient)
+5. Internal services
+6. Relative imports
 
 ### Export Strategy
 
@@ -330,6 +377,96 @@ private async fetchClientToken(): Promise<string> {
 }
 ```
 
+### API Layer Usage Pattern
+
+```typescript
+// Using ApiClient in services (optional, gradual migration)
+export class AuthService {
+  private httpClient: HttpClient;
+  private apiClient: ApiClient; // Optional typed API layer
+
+  constructor(httpClient: HttpClient, cacheService: CacheService) {
+    this.httpClient = httpClient;
+    this.apiClient = new ApiClient(httpClient); // Wrap HttpClient
+  }
+
+  async login(redirect: string, state?: string): Promise<LoginResponse> {
+    try {
+      // Option 1: Use ApiClient (typed, centralized endpoints)
+      return await this.apiClient.auth.login({ redirect, state });
+      
+      // Option 2: Use HttpClient directly (legacy pattern, still supported)
+      // return await this.httpClient.request<LoginResponse>(
+      //   'GET',
+      //   '/api/v1/auth/login',
+      //   { redirect, state }
+      // );
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
+  }
+}
+
+// API class implementation pattern
+export class AuthApi {
+  // Centralize endpoint URLs as constants
+  private static readonly LOGIN_ENDPOINT = '/api/v1/auth/login';
+  private static readonly VALIDATE_ENDPOINT = '/api/v1/auth/validate';
+  private static readonly USER_ENDPOINT = '/api/v1/auth/user';
+  private static readonly LOGOUT_ENDPOINT = '/api/v1/auth/logout';
+
+  constructor(private httpClient: HttpClient) {}
+
+  /**
+   * Login user and get login URL
+   * @param params - Login request parameters
+   * @param authStrategy - Optional authentication strategy override
+   * @returns Login response with loginUrl and state
+   */
+  async login(
+    params: LoginRequest,
+    authStrategy?: AuthStrategy
+  ): Promise<LoginResponse> {
+    try {
+      return await this.httpClient.request<LoginResponse>(
+        'GET',
+        AuthApi.LOGIN_ENDPOINT,
+        params
+      );
+    } catch (error) {
+      console.error('Login API call failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Validate user token
+   * @param token - User authentication token
+   * @param authStrategy - Optional authentication strategy override
+   * @returns Validation response with authenticated status and user info
+   */
+  async validateToken(
+    token: string,
+    authStrategy?: AuthStrategy
+  ): Promise<ValidateTokenResponse> {
+    try {
+      return await this.httpClient.authenticatedRequest<ValidateTokenResponse>(
+        'POST',
+        AuthApi.VALIDATE_ENDPOINT,
+        token,
+        { token },
+        undefined,
+        authStrategy
+      );
+    } catch (error) {
+      console.error('Token validation failed:', error);
+      throw error;
+    }
+  }
+}
+```
+
 ## Security Guidelines
 
 - Never log `clientId` or `clientSecret`
@@ -373,12 +510,13 @@ private async fetchClientToken(): Promise<string> {
 
 ## When Adding New Features
 
-1. Update types in `src/types/config.types.ts` first
-2. Add service method if needed
-3. Update `src/index.ts` to expose public API
-4. Write comprehensive tests
-5. Update documentation in `docs/`
-6. Maintain 80%+ branch coverage
+1. Update types in `src/types/config.types.ts` first (for config) or `src/api/types/` (for API types)
+2. Add API method in appropriate `src/api/*.api.ts` file if it's a controller API call
+3. Add service method in `src/services/` if needed (services can use ApiClient or HttpClient)
+4. Update `src/index.ts` to expose public API
+5. Write comprehensive tests (mock HttpClient or ApiClient as appropriate)
+6. Update documentation in `docs/`
+7. Maintain 80%+ branch coverage
 
 ## Critical Rules
 
@@ -394,6 +532,9 @@ private async fetchClientToken(): Promise<string> {
 - ✅ Mock JWT decode in tests: `jwt.decode.mockReturnValue({ sub: '123' })`
 - ✅ Use temporary axios instance for client token fetch (avoid recursion)
 - ✅ All public API outputs use camelCase (no snake_case)
+- ✅ Centralize endpoint URLs as constants in API classes (e.g., `AUTH_LOGIN_ENDPOINT`)
+- ✅ Use interfaces (not types) for API request/response types
+- ✅ Add JSDoc comments for all public API methods with parameter types and return types
 
 ### Must Not Do (❌)
 
@@ -405,6 +546,8 @@ private async fetchClientToken(): Promise<string> {
 - ❌ Don't skip Redis connection checks
 - ❌ Don't skip error handling in async operations
 - ❌ Don't log sensitive data without masking
+- ❌ Don't hardcode endpoint URLs in API methods (use constants)
+- ❌ Don't use types instead of interfaces for public API definitions
 
 ---
 
