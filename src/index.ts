@@ -16,6 +16,12 @@ import { AuthStrategyHandler } from "./utils/auth-strategy";
 import { MisoClientConfig, UserInfo, AuthStrategy } from "./types/config.types";
 import { validateOrigin as validateOriginUtil, OriginValidationResult } from "./utils/origin-validator";
 import { Request } from "express";
+import { TokenValidationService } from "./services/token-validation.service";
+import {
+  TokenValidationOptions,
+  TokenValidationResult,
+  KeycloakConfig,
+} from "./types/token-validation.types";
 
 export class MisoClient {
   private config: MisoClientConfig;
@@ -27,6 +33,7 @@ export class MisoClient {
   private permissions: PermissionService;
   private logger: LoggerService;
   private cacheService: CacheService;
+  private tokenValidation: TokenValidationService;
   private initialized = false;
 
   constructor(config: MisoClientConfig) {
@@ -78,6 +85,9 @@ export class MisoClient {
       this.apiClient,
       this.cacheService,
     );
+
+    // Initialize token validation service
+    this.tokenValidation = new TokenValidationService(config.keycloak);
   }
 
   /**
@@ -245,6 +255,50 @@ export class MisoClient {
     authStrategy?: AuthStrategy,
   ): Promise<import("./types/config.types").RefreshTokenResponse | null> {
     return this.auth.refreshToken(refreshToken, authStrategy);
+  }
+
+  /**
+   * Validate token locally using JWKS (no API call to controller)
+   * Results are cached for 1 minute, JWKS keys cached for 1 hour
+   * @param token - JWT token to validate
+   * @param options - Validation options (skipResultCache for high-security)
+   * @returns Validation result with payload or error
+   */
+  async validateTokenLocal(
+    token: string,
+    options?: TokenValidationOptions,
+  ): Promise<TokenValidationResult> {
+    return this.tokenValidation.validateTokenLocal(token, options);
+  }
+
+  /**
+   * Set or update Keycloak configuration for local validation
+   * @param config - Keycloak configuration
+   */
+  setKeycloakConfig(config: KeycloakConfig): void {
+    this.tokenValidation.setKeycloakConfig(config);
+  }
+
+  /**
+   * Clear JWKS cache (useful for key rotation scenarios)
+   * @param jwksUri - Specific URI to clear, or all if not provided
+   */
+  clearJwksCache(jwksUri?: string): void {
+    this.tokenValidation.clearCache(jwksUri);
+  }
+
+  /**
+   * Clear validation result cache
+   */
+  clearValidationCache(): void {
+    this.tokenValidation.clearResultCache();
+  }
+
+  /**
+   * Clear all token validation caches (JWKS + results)
+   */
+  clearAllTokenCaches(): void {
+    this.tokenValidation.clearAllCaches();
   }
 
   // ==================== AUTHORIZATION METHODS ====================
@@ -591,3 +645,17 @@ export type {
 // Export DataClient auto-initialization helper
 export { autoInitializeDataClient, getCachedDataClientConfig } from "./utils/data-client-auto-init";
 export type { AutoInitOptions } from "./utils/data-client-auto-init";
+
+// Token validation types (v3.4.0+)
+export type {
+  TokenType,
+  TokenValidationOptions,
+  TokenValidationResult,
+  TokenPayload,
+  KeycloakConfig,
+  DelegatedProviderConfig,
+  DelegatedProviderLookup,
+} from "./types/token-validation.types";
+
+// Token validation service (for advanced usage)
+export { TokenValidationService } from "./services/token-validation.service";

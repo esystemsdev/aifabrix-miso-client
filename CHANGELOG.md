@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2025-12-24
+
+### Added
+
+- **Local Token Validation** - JWKS-based JWT validation without API calls
+  - New `validateTokenLocal()` method for local JWT signature verification
+  - Supports Keycloak tokens and delegated OAuth provider tokens
+  - Dual-layer caching: JWKS keys (1 hour) + validation results (1 minute)
+  - `skipResultCache` option for high-security scenarios
+  - Auto-detection of token type based on issuer claim
+  - New `TokenValidationService` exported for advanced usage
+
+- **Keycloak Configuration** - Native Keycloak integration
+  - New `keycloak` config option in `MisoClientConfig`
+  - `setKeycloakConfig()` method for runtime configuration
+  - Audience validation support (opt-in via `verifyAudience`)
+
+- **Cache Management** - Fine-grained cache control
+  - `clearJwksCache(uri?)` - Clear JWKS key cache
+  - `clearValidationCache()` - Clear validation result cache
+  - `clearAllTokenCaches()` - Clear all caches
+
+### Changed
+
+- **Package Distribution** - Added CHANGELOG.md to npm package files
+
+### Dependencies
+
+- Added `jose` ^5.9.6 for JWT/JWKS operations
+
 ## [3.3.0] - 2025-12-23
 
 ### Added

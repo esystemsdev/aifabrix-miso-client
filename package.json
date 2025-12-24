@@ -1,6 +1,6 @@
 {
   "name": "@aifabrix/miso-client",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "AI Fabrix Client SDK - Authentication, authorization, logging, and Express.js utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -47,6 +47,7 @@
     "axios": "^1.6.2",
     "dotenv": "^17.2.3",
     "ioredis": "^5.3.2",
+    "jose": "^5.9.6",
     "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
@@ -68,7 +69,8 @@
   "files": [
     "dist/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "CHANGELOG.md"
   ],
   "repository": {
     "type": "git",

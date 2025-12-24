@@ -109,6 +109,15 @@ export interface MisoClientConfig {
 
   // Optional: Allowed origins for CORS validation
   allowedOrigins?: string[];
+
+  // Optional: Keycloak configuration for local token validation
+  keycloak?: {
+    authServerUrl: string;
+    realm: string;
+    clientId?: string;
+    clientSecret?: string;
+    verifyAudience?: boolean;
+  };
 }
 
 export interface AuditConfig {
