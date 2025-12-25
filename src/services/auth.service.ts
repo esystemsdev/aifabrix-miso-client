@@ -2,6 +2,7 @@
  * Authentication service for token validation and user management
  */
 
+import crypto from "crypto";
 import { HttpClient } from "../utils/http-client";
 import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
@@ -28,6 +29,7 @@ export class AuthService {
   private cache: CacheService;
   private config: MisoClientConfig;
   private tokenValidationTTL: number;
+  private minValidationTTL: number;
 
   constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
     this.config = httpClient.config;
@@ -35,6 +37,7 @@ export class AuthService {
     this.httpClient = httpClient;
     this.apiClient = apiClient;
     this.tokenValidationTTL = this.config.cache?.tokenValidationTTL || 900; // 15 minutes default
+    this.minValidationTTL = this.config.cache?.minValidationTTL || 60; // 60 seconds default
   }
 
   /**
@@ -61,6 +64,46 @@ export class AuthService {
         decoded.id) as string | null;
     } catch (error) {
       return null;
+    }
+  }
+
+  /**
+   * Generate cache key using SHA-256 hash of token (security)
+   * Uses token hash instead of userId to avoid exposing user information in cache keys
+   * @param token - JWT token
+   * @returns Cache key in format token_validation:{hash}
+   */
+  private getTokenCacheKey(token: string): string {
+    const hash = crypto.createHash("sha256").update(token).digest("hex");
+    return `token_validation:${hash}`;
+  }
+
+  /**
+   * Calculate smart TTL based on token expiration
+   * Uses min(token_exp - now - 30s buffer, tokenValidationTTL)
+   * with minimum minValidationTTL (default 60s), maximum tokenValidationTTL
+   * @param token - JWT token
+   * @returns TTL in seconds
+   */
+  private getCacheTtlFromToken(token: string): number {
+    const BUFFER_SECONDS = 30; // 30 second safety buffer
+
+    try {
+      const decoded = jwt.decode(token) as Record<string, unknown> | null;
+      if (!decoded || typeof decoded.exp !== "number") {
+        return this.tokenValidationTTL; // Fallback to configured TTL
+      }
+
+      const now = Math.floor(Date.now() / 1000);
+      const tokenTtl = decoded.exp - now - BUFFER_SECONDS;
+
+      // Clamp between minValidationTTL and tokenValidationTTL
+      return Math.max(
+        this.minValidationTTL,
+        Math.min(tokenTtl, this.tokenValidationTTL),
+      );
+    } catch {
+      return this.tokenValidationTTL;
     }
   }
 
@@ -273,7 +316,7 @@ export class AuthService {
 
   /**
    * Validate token with controller
-   * Caches validation results by userId with configurable TTL (default 15 minutes)
+   * Caches validation results by token hash with smart TTL based on token expiration
    * If API_KEY is configured and token matches, returns true without calling controller
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
@@ -289,24 +332,21 @@ export class AuthService {
     }
 
     try {
-      // Extract userId from token to check cache first (avoids API call on cache hit)
-      const userId = this.extractUserIdFromToken(token);
-      const cacheKey = userId ? `token:${userId}` : null;
+      // Generate cache key using token hash (security - no userId exposure)
+      const cacheKey = this.getTokenCacheKey(token);
 
-      // Check cache first if we have userId
-      if (cacheKey) {
-        const cached = await this.cache.get<TokenCacheData>(cacheKey);
-        if (cached) {
-          return cached.authenticated;
-        }
+      // Check cache first
+      const cached = await this.cache.get<TokenCacheData>(cacheKey);
+      if (cached) {
+        return cached.authenticated;
       }
 
-      // Cache miss or no userId in token - fetch from controller using ApiClient
+      // Cache miss - fetch from controller using ApiClient
       const authStrategyToUse = authStrategy || this.config.authStrategy;
-      const authStrategyWithToken: AuthStrategy = authStrategyToUse 
+      const authStrategyWithToken: AuthStrategy = authStrategyToUse
         ? { ...authStrategyToUse, bearerToken: token }
-        : { methods: ['bearer'], bearerToken: token };
-      
+        : { methods: ["bearer"], bearerToken: token };
+
       const result = await this.apiClient.auth.validateToken(
         { token },
         authStrategyWithToken,
@@ -314,14 +354,13 @@ export class AuthService {
 
       const authenticated = result.data?.authenticated || false;
 
-      // Cache the result if we have userId
-      if (userId && cacheKey) {
-        await this.cache.set<TokenCacheData>(
-          cacheKey,
-          { authenticated, timestamp: Date.now() },
-          this.tokenValidationTTL,
-        );
-      }
+      // Cache the result with smart TTL based on token expiration
+      const ttl = this.getCacheTtlFromToken(token);
+      await this.cache.set<TokenCacheData>(
+        cacheKey,
+        { authenticated, timestamp: Date.now() },
+        ttl,
+      );
 
       return authenticated;
     } catch (error) {
@@ -410,18 +449,15 @@ export class AuthService {
   }
 
   /**
-   * Clear cached token validation result for a user
-   * Extracts userId from JWT token directly (no API call)
+   * Clear cached token validation result
+   * Uses token hash for cache key (always clears regardless of token structure)
    * @param token - User authentication token
    */
   clearTokenCache(token: string): void {
     try {
-      const userId = this.extractUserIdFromToken(token);
-      if (userId) {
-        const cacheKey = `token:${userId}`;
-        // Use void to ignore promise result - cache clearing should not block
-        void this.cache.delete(cacheKey);
-      }
+      const cacheKey = this.getTokenCacheKey(token);
+      // Use void to ignore promise result - cache clearing should not block
+      void this.cache.delete(cacheKey);
     } catch (error) {
       // Log but don't throw - cache clearing failures should not break flow
       console.warn("Failed to clear token cache:", error);

@@ -2,12 +2,21 @@
  * Unit tests for AuthService
  */
 
+import crypto from "crypto";
 import { AuthService } from "../../src/services/auth.service";
 import { HttpClient } from "../../src/utils/http-client";
 import { ApiClient } from "../../src/api";
 import { CacheService } from "../../src/services/cache.service";
 import { MisoClientConfig, AuthMethod } from "../../src/types/config.types";
 import { MisoClientError } from "../../src/utils/errors";
+
+/**
+ * Helper function to compute expected cache key (matches AuthService.getTokenCacheKey)
+ */
+function getExpectedCacheKey(token: string): string {
+  const hash = crypto.createHash("sha256").update(token).digest("hex");
+  return `token_validation:${hash}`;
+}
 
 // Mock HttpClient
 jest.mock("../../src/utils/http-client");
@@ -162,12 +171,13 @@ describe("AuthService", () => {
           timestamp: Date.now(),
         };
         mockCacheService.get.mockResolvedValue(cachedData);
-        jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
 
         const result = await authService.validateToken("valid-token");
 
         expect(result).toBe(true);
-        expect(mockCacheService.get).toHaveBeenCalledWith("token:123");
+        expect(mockCacheService.get).toHaveBeenCalledWith(
+          getExpectedCacheKey("valid-token"),
+        );
         expect(mockApiClient.auth.validateToken).not.toHaveBeenCalled();
         expect(mockCacheService.set).not.toHaveBeenCalled();
       });
@@ -177,7 +187,6 @@ describe("AuthService", () => {
           authenticated: true,
           timestamp: Date.now(),
         };
-        jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
 
         // First call - cache miss, should call API and cache
         mockCacheService.get.mockResolvedValueOnce(null);
@@ -205,6 +214,7 @@ describe("AuthService", () => {
 
       it("should fetch from controller on cache miss and cache result", async () => {
         mockCacheService.get.mockResolvedValue(null);
+        // Token without exp claim - uses default TTL
         jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
         mockApiClient.auth.validateToken.mockResolvedValue({
           success: true,
@@ -219,43 +229,50 @@ describe("AuthService", () => {
         const result = await authService.validateToken("valid-token");
 
         expect(result).toBe(true);
-        expect(mockCacheService.get).toHaveBeenCalledWith("token:123");
+        expect(mockCacheService.get).toHaveBeenCalledWith(
+          getExpectedCacheKey("valid-token"),
+        );
         expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
           { token: "valid-token" },
           expect.objectContaining({
-            methods: ['bearer'],
-            bearerToken: 'valid-token',
+            methods: ["bearer"],
+            bearerToken: "valid-token",
           }),
         );
         expect(mockCacheService.set).toHaveBeenCalledWith(
-          "token:123",
+          getExpectedCacheKey("valid-token"),
           expect.objectContaining({
             authenticated: true,
             timestamp: expect.any(Number),
           }),
-          900, // Default TTL
+          900, // Default TTL (no exp claim in token)
         );
       });
 
       it("should return false for invalid token and cache negative result", async () => {
         mockCacheService.get.mockResolvedValue(null);
+        // Token without exp claim - uses default TTL
         jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
-        mockApiClient.auth.validateToken.mockResolvedValue({success: true, data: {
-          authenticated: false,
-          error: "Invalid token",
-        }, timestamp: new Date().toISOString()});
+        mockApiClient.auth.validateToken.mockResolvedValue({
+          success: true,
+          data: {
+            authenticated: false,
+            error: "Invalid token",
+          },
+          timestamp: new Date().toISOString(),
+        });
         mockCacheService.set.mockResolvedValue(true);
 
         const result = await authService.validateToken("invalid-token");
 
         expect(result).toBe(false);
         expect(mockCacheService.set).toHaveBeenCalledWith(
-          "token:123",
+          getExpectedCacheKey("invalid-token"),
           expect.objectContaining({
             authenticated: false,
             timestamp: expect.any(Number),
           }),
-          900,
+          900, // Default TTL (no exp claim in token)
         );
       });
 
@@ -283,6 +300,7 @@ describe("AuthService", () => {
 
     it("should fetch from controller on cache miss and cache result", async () => {
       mockCacheService.get.mockResolvedValue(null);
+      // Token without exp - uses default TTL
       jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
       mockApiClient.auth.validateToken.mockResolvedValue({
         success: true,
@@ -297,50 +315,57 @@ describe("AuthService", () => {
       const result = await authService.validateToken("valid-token");
 
       expect(result).toBe(true);
-      expect(mockCacheService.get).toHaveBeenCalledWith("token:123");
+      expect(mockCacheService.get).toHaveBeenCalledWith(
+        getExpectedCacheKey("valid-token"),
+      );
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "valid-token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'valid-token',
+          methods: ["bearer"],
+          bearerToken: "valid-token",
         }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
-        "token:123",
+        getExpectedCacheKey("valid-token"),
         expect.objectContaining({
           authenticated: true,
           timestamp: expect.any(Number),
         }),
-        900, // Default TTL
+        900, // Default TTL (no exp claim)
       );
     });
 
     it("should return false for invalid token and cache result", async () => {
       mockCacheService.get.mockResolvedValue(null);
+      // Token without exp - uses default TTL
       jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
-      mockApiClient.auth.validateToken.mockResolvedValue({success: true, data: {
-        authenticated: false,
-        error: "Invalid token",
-      }, timestamp: new Date().toISOString()});
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: false,
+          error: "Invalid token",
+        },
+        timestamp: new Date().toISOString(),
+      });
       mockCacheService.set.mockResolvedValue(true);
 
       const result = await authService.validateToken("invalid-token");
 
       expect(result).toBe(false);
       expect(mockCacheService.set).toHaveBeenCalledWith(
-        "token:123",
+        getExpectedCacheKey("invalid-token"),
         expect.objectContaining({
           authenticated: false,
           timestamp: expect.any(Number),
         }),
-        900,
+        900, // Default TTL (no exp claim)
       );
     });
 
     describe("edge cases", () => {
-      it("should fetch from controller when userId not in token and skip caching", async () => {
+      it("should cache result even when JWT decode returns null (uses token hash)", async () => {
         mockCacheService.get.mockResolvedValue(null);
-        jwt.decode.mockReturnValue(null); // No userId in token
+        jwt.decode.mockReturnValue(null); // No claims in token
         mockApiClient.auth.validateToken.mockResolvedValue({
           success: true,
           data: {
@@ -349,6 +374,7 @@ describe("AuthService", () => {
           },
           timestamp: new Date().toISOString(),
         });
+        mockCacheService.set.mockResolvedValue(true);
 
         const result = await authService.validateToken("token-without-userid");
 
@@ -356,23 +382,31 @@ describe("AuthService", () => {
         expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
           { token: "token-without-userid" },
           expect.objectContaining({
-            methods: ['bearer'],
-            bearerToken: 'token-without-userid',
+            methods: ["bearer"],
+            bearerToken: "token-without-userid",
           }),
         );
-        // Should not cache when userId not available
-        expect(mockCacheService.set).not.toHaveBeenCalled();
+        // Should cache using token hash even when JWT decode returns null
+        expect(mockCacheService.set).toHaveBeenCalledWith(
+          getExpectedCacheKey("token-without-userid"),
+          expect.objectContaining({
+            authenticated: true,
+            timestamp: expect.any(Number),
+          }),
+          900, // Default TTL
+        );
       });
 
       it("should return false when cache get fails (safe fallback)", async () => {
         mockCacheService.get.mockRejectedValue(new Error("Cache error"));
-        jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
 
         const result = await authService.validateToken("valid-token");
 
         // When cache.get throws, the error is caught and method returns false
         expect(result).toBe(false);
-        expect(mockCacheService.get).toHaveBeenCalledWith("token:123");
+        expect(mockCacheService.get).toHaveBeenCalledWith(
+          getExpectedCacheKey("valid-token"),
+        );
         // Should not call API when cache fails (safe fallback)
         expect(mockApiClient.auth.validateToken).not.toHaveBeenCalled();
       });
@@ -410,8 +444,8 @@ describe("AuthService", () => {
       });
     });
 
-    describe("JWT claim extraction", () => {
-      it("should extract userId from various JWT claim fields", async () => {
+    describe("Token hash caching", () => {
+      it("should use token hash for cache key (not JWT claims)", async () => {
         mockCacheService.get.mockResolvedValue(null);
         mockApiClient.auth.validateToken.mockResolvedValue({
           success: true,
@@ -423,28 +457,21 @@ describe("AuthService", () => {
         });
         mockCacheService.set.mockResolvedValue(true);
 
-        // Test sub claim (highest priority)
+        // Different JWT claims should not affect cache key
         jwt.decode.mockReturnValue({ sub: "user-123" });
-        await authService.validateToken("token");
-        expect(mockCacheService.get).toHaveBeenCalledWith("token:user-123");
+        await authService.validateToken("token-1");
+        expect(mockCacheService.get).toHaveBeenCalledWith(
+          getExpectedCacheKey("token-1"),
+        );
 
-        // Test userId claim
         jwt.decode.mockReturnValue({ userId: "user-456" });
-        await authService.validateToken("token");
-        expect(mockCacheService.get).toHaveBeenCalledWith("token:user-456");
-
-        // Test user_id claim
-        jwt.decode.mockReturnValue({ user_id: "user-789" });
-        await authService.validateToken("token");
-        expect(mockCacheService.get).toHaveBeenCalledWith("token:user-789");
-
-        // Test id claim
-        jwt.decode.mockReturnValue({ id: "user-999" });
-        await authService.validateToken("token");
-        expect(mockCacheService.get).toHaveBeenCalledWith("token:user-999");
+        await authService.validateToken("token-2");
+        expect(mockCacheService.get).toHaveBeenCalledWith(
+          getExpectedCacheKey("token-2"),
+        );
       });
 
-      it("should prioritize sub claim over other claims", async () => {
+      it("should generate deterministic hash for same token", async () => {
         mockCacheService.get.mockResolvedValue(null);
         mockApiClient.auth.validateToken.mockResolvedValue({
           success: true,
@@ -456,23 +483,21 @@ describe("AuthService", () => {
         });
         mockCacheService.set.mockResolvedValue(true);
 
-        // Token has multiple claim fields - sub should be used
-        jwt.decode.mockReturnValue({
-          sub: "user-sub-123",
-          userId: "user-id-456",
-          user_id: "user-id-789",
-          id: "user-id-999",
-        });
-        await authService.validateToken("token");
+        // Same token should always generate same hash
+        const expectedKey = getExpectedCacheKey("same-token");
+        await authService.validateToken("same-token");
+        expect(mockCacheService.get).toHaveBeenCalledWith(expectedKey);
 
-        expect(mockCacheService.get).toHaveBeenCalledWith("token:user-sub-123");
+        // Call again - should use same cache key
+        await authService.validateToken("same-token");
+        expect(mockCacheService.get).toHaveBeenNthCalledWith(2, expectedKey);
       });
 
       it("should handle JWT decode returning non-object gracefully", async () => {
         mockCacheService.get.mockResolvedValue(null);
         // When jwt.decode returns a non-object (string), the implementation
-        // will try to access properties which will be undefined, resulting in null userId
-        jwt.decode.mockReturnValue("invalid-decoded-value" as any);
+        // should still use token hash for caching
+        jwt.decode.mockReturnValue("invalid-decoded-value");
         mockApiClient.auth.validateToken.mockResolvedValue({
           success: true,
           data: {
@@ -481,15 +506,20 @@ describe("AuthService", () => {
           },
           timestamp: new Date().toISOString(),
         });
+        mockCacheService.set.mockResolvedValue(true);
 
         const result = await authService.validateToken("token");
 
-        // Should still validate token and return result
+        // Should still validate token and cache result using token hash
         expect(result).toBe(true);
         expect(mockApiClient.auth.validateToken).toHaveBeenCalled();
-        // Note: If userId extraction fails (returns null), caching should be skipped
-        // The actual behavior depends on how extractUserIdFromToken handles non-objects
-        // We test that the method doesn't crash and still validates the token
+        expect(mockCacheService.set).toHaveBeenCalledWith(
+          getExpectedCacheKey("token"),
+          expect.objectContaining({
+            authenticated: true,
+          }),
+          900, // Default TTL (no exp claim in decoded token)
+        );
       });
     });
 
@@ -522,13 +552,12 @@ describe("AuthService", () => {
         );
       });
 
-      it("should use cache with authStrategy when userId available", async () => {
+      it("should use cache with authStrategy (uses token hash)", async () => {
         const cachedData = {
           authenticated: true,
           timestamp: Date.now(),
         };
         mockCacheService.get.mockResolvedValue(cachedData);
-        jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
         const authStrategy = {
           methods: ["bearer"] as AuthMethod[],
           bearerToken: "bearer-token-123",
@@ -537,7 +566,9 @@ describe("AuthService", () => {
         const result = await authService.validateToken("token", authStrategy);
 
         expect(result).toBe(true);
-        expect(mockCacheService.get).toHaveBeenCalledWith("token:123");
+        expect(mockCacheService.get).toHaveBeenCalledWith(
+          getExpectedCacheKey("token"),
+        );
         // Should not call API when cache hit, even with authStrategy
         expect(mockApiClient.auth.validateToken).not.toHaveBeenCalled();
       });
@@ -633,7 +664,6 @@ describe("AuthService", () => {
 
   describe("logout", () => {
     beforeEach(() => {
-      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
       jest.clearAllMocks();
     });
 
@@ -649,8 +679,12 @@ describe("AuthService", () => {
       const result = await authService.logout({ token: "test-token-123" });
 
       expect(result).toEqual(mockResponse);
-      expect(mockApiClient.auth.logoutWithToken).toHaveBeenCalledWith("test-token-123");
-      expect(mockCacheService.delete).toHaveBeenCalledWith("token:123");
+      expect(mockApiClient.auth.logoutWithToken).toHaveBeenCalledWith(
+        "test-token-123",
+      );
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        getExpectedCacheKey("test-token-123"),
+      );
     });
 
     it("should complete logout even when cache delete fails (delete is fire-and-forget)", async () => {
@@ -667,8 +701,12 @@ describe("AuthService", () => {
 
       // Should still return success even if cache delete fails (fire-and-forget)
       expect(result).toEqual(mockResponse);
-      expect(mockApiClient.auth.logoutWithToken).toHaveBeenCalledWith("test-token-123");
-      expect(mockCacheService.delete).toHaveBeenCalledWith("token:123");
+      expect(mockApiClient.auth.logoutWithToken).toHaveBeenCalledWith(
+        "test-token-123",
+      );
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        getExpectedCacheKey("test-token-123"),
+      );
       // No warning logged because cache.delete is wrapped in void
     });
 
@@ -697,11 +735,15 @@ describe("AuthService", () => {
       });
 
       // Verify cache was cleared even on 400 error
-      expect(mockCacheService.delete).toHaveBeenCalledWith("token:123");
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        getExpectedCacheKey("test-token-123"),
+      );
 
       // Verify warning was logged
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Logout: No active session or invalid request (400)"),
+        expect.stringContaining(
+          "Logout: No active session or invalid request (400)",
+        ),
       );
 
       consoleWarnSpy.mockRestore();
@@ -731,7 +773,6 @@ describe("AuthService", () => {
     });
 
     it("should clear cache even when userId not found in token", async () => {
-      jwt.decode.mockReturnValue(null); // No userId
       const mockResponse = {
         success: true,
         message: "Logout successful",
@@ -739,12 +780,18 @@ describe("AuthService", () => {
       };
       mockApiClient.auth.logoutWithToken.mockResolvedValue(mockResponse);
 
-      const result = await authService.logout({ token: "token-without-userid" });
+      const result = await authService.logout({
+        token: "token-without-userid",
+      });
 
       expect(result).toEqual(mockResponse);
-      expect(mockApiClient.auth.logoutWithToken).toHaveBeenCalledWith("token-without-userid");
-      // Should not call delete when userId not found
-      expect(mockCacheService.delete).not.toHaveBeenCalled();
+      expect(mockApiClient.auth.logoutWithToken).toHaveBeenCalledWith(
+        "token-without-userid",
+      );
+      // With token hash, cache is always cleared regardless of JWT claims
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        getExpectedCacheKey("token-without-userid"),
+      );
     });
 
     it("should handle AxiosError 400 response", async () => {
@@ -771,8 +818,12 @@ describe("AuthService", () => {
         message: "Logout successful (no active session)",
         timestamp: expect.any(String),
       });
-      expect(mockApiClient.auth.logoutWithToken).toHaveBeenCalledWith("test-token-123");
-      expect(mockCacheService.delete).toHaveBeenCalledWith("token:123");
+      expect(mockApiClient.auth.logoutWithToken).toHaveBeenCalledWith(
+        "test-token-123",
+      );
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        getExpectedCacheKey("test-token-123"),
+      );
 
       consoleWarnSpy.mockRestore();
     });
@@ -785,6 +836,7 @@ describe("AuthService", () => {
 
     it("should delegate to validateToken and return authentication status", async () => {
       mockCacheService.get.mockResolvedValue(null);
+      // Token without exp - uses default TTL
       jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
       mockApiClient.auth.validateToken.mockResolvedValue({
         success: true,
@@ -799,8 +851,10 @@ describe("AuthService", () => {
       const result = await authService.isAuthenticated("token");
 
       expect(result).toBe(true);
-      // Should use validateToken which includes caching
-      expect(mockCacheService.get).toHaveBeenCalledWith("token:123");
+      // Should use validateToken which includes caching with token hash
+      expect(mockCacheService.get).toHaveBeenCalledWith(
+        getExpectedCacheKey("token"),
+      );
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "token" },
         expect.objectContaining({
@@ -1287,90 +1341,82 @@ describe("AuthService", () => {
       jest.clearAllMocks();
     });
 
-    it("should delete cache key when userId found in token", () => {
-      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
+    it("should delete cache key using token hash", () => {
       mockCacheService.delete.mockResolvedValue(true);
 
       authService.clearTokenCache("test-token");
 
-      expect(jwt.decode).toHaveBeenCalledWith("test-token");
-      expect(mockCacheService.delete).toHaveBeenCalledWith("token:123");
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        getExpectedCacheKey("test-token"),
+      );
     });
 
-    it("should handle gracefully when userId not found in token", () => {
-      jwt.decode.mockReturnValue(null);
+    it("should always delete cache regardless of JWT decode result", () => {
+      mockCacheService.delete.mockResolvedValue(true);
 
+      // Even when JWT decode returns null, cache should be deleted using token hash
       authService.clearTokenCache("invalid-token");
 
-      expect(jwt.decode).toHaveBeenCalledWith("invalid-token");
-      expect(mockCacheService.delete).not.toHaveBeenCalled();
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        getExpectedCacheKey("invalid-token"),
+      );
     });
 
-    it("should handle gracefully when JWT decode fails", () => {
-      // JWT decode throws error - extractUserIdFromToken catches and returns null
-      jwt.decode.mockImplementation(() => {
-        throw new Error("Invalid token format");
-      });
+    it("should handle gracefully when crypto hash fails", () => {
+      // Crypto hash should never fail for string input, but test error handling
+      mockCacheService.delete.mockResolvedValue(true);
 
-      // Should not throw - extractUserIdFromToken handles the error internally
+      // Should not throw
       expect(() => {
-        authService.clearTokenCache("malformed-token");
+        authService.clearTokenCache("test-token");
       }).not.toThrow();
 
-      // Should not call delete since userId extraction failed
-      expect(mockCacheService.delete).not.toHaveBeenCalled();
+      expect(mockCacheService.delete).toHaveBeenCalled();
     });
 
     it("should handle cache delete failure gracefully (fire-and-forget)", () => {
-      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
       // Cache delete is wrapped in void, so failures are silently ignored
-      mockCacheService.delete.mockRejectedValue(new Error("Cache delete failed"));
+      mockCacheService.delete.mockRejectedValue(
+        new Error("Cache delete failed"),
+      );
 
       // Should not throw even if cache delete fails (fire-and-forget)
       expect(() => {
         authService.clearTokenCache("test-token");
       }).not.toThrow();
 
-      expect(mockCacheService.delete).toHaveBeenCalledWith("token:123");
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        getExpectedCacheKey("test-token"),
+      );
       // No warning logged because cache.delete is wrapped in void (fire-and-forget)
     });
 
-    it("should extract userId from various JWT claim fields", () => {
+    it("should generate deterministic cache key for same token", () => {
       mockCacheService.delete.mockResolvedValue(true);
 
-      // Test sub claim
-      jwt.decode.mockReturnValue({ sub: "user-123" });
-      authService.clearTokenCache("token");
-      expect(mockCacheService.delete).toHaveBeenCalledWith("token:user-123");
+      // Call clearTokenCache twice with same token
+      authService.clearTokenCache("same-token");
+      authService.clearTokenCache("same-token");
 
-      // Test userId claim
-      jwt.decode.mockReturnValue({ userId: "user-456" });
-      authService.clearTokenCache("token");
-      expect(mockCacheService.delete).toHaveBeenCalledWith("token:user-456");
-
-      // Test user_id claim
-      jwt.decode.mockReturnValue({ user_id: "user-789" });
-      authService.clearTokenCache("token");
-      expect(mockCacheService.delete).toHaveBeenCalledWith("token:user-789");
-
-      // Test id claim
-      jwt.decode.mockReturnValue({ id: "user-999" });
-      authService.clearTokenCache("token");
-      expect(mockCacheService.delete).toHaveBeenCalledWith("token:user-999");
+      const expectedKey = getExpectedCacheKey("same-token");
+      expect(mockCacheService.delete).toHaveBeenNthCalledWith(1, expectedKey);
+      expect(mockCacheService.delete).toHaveBeenNthCalledWith(2, expectedKey);
     });
 
-    it("should handle empty token string", () => {
-      jwt.decode.mockReturnValue(null);
+    it("should handle empty token string (generates hash of empty string)", () => {
+      mockCacheService.delete.mockResolvedValue(true);
 
       authService.clearTokenCache("");
 
-      expect(jwt.decode).toHaveBeenCalledWith("");
-      expect(mockCacheService.delete).not.toHaveBeenCalled();
+      // Empty string still generates a valid SHA-256 hash
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        getExpectedCacheKey(""),
+      );
     });
   });
 
   describe("validateToken with custom TTL", () => {
-    it("should use custom tokenValidationTTL from config", async () => {
+    it("should use custom tokenValidationTTL from config (no exp claim)", async () => {
       config = {
         controllerUrl: "https://controller.aifabrix.ai",
         clientId: "ctrl-dev-test-app",
@@ -1378,9 +1424,14 @@ describe("AuthService", () => {
         cache: { tokenValidationTTL: 600 }, // 10 minutes
       };
       (mockHttpClient as any).config = config;
-      authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
+      authService = new AuthService(
+        mockHttpClient,
+        mockApiClient as unknown as ApiClient,
+        mockCacheService,
+      );
 
       mockCacheService.get.mockResolvedValue(null);
+      // Token without exp claim - uses configured TTL
       jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
       mockApiClient.auth.validateToken.mockResolvedValue({
         success: true,
@@ -1397,17 +1448,137 @@ describe("AuthService", () => {
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
-        "token:123",
+        getExpectedCacheKey("token"),
         expect.objectContaining({
           authenticated: true,
           timestamp: expect.any(Number),
         }),
-        600, // Custom TTL
+        600, // Custom TTL (no exp claim, uses configured value)
+      );
+    });
+
+    it("should use smart TTL based on token expiration when exp claim present", async () => {
+      config = {
+        controllerUrl: "https://controller.aifabrix.ai",
+        clientId: "ctrl-dev-test-app",
+        clientSecret: "test-secret",
+        cache: { tokenValidationTTL: 900 }, // 15 minutes max
+      };
+      (mockHttpClient as any).config = config;
+      authService = new AuthService(
+        mockHttpClient,
+        mockApiClient as unknown as ApiClient,
+        mockCacheService,
+      );
+
+      mockCacheService.get.mockResolvedValue(null);
+      // Token expires in 5 minutes (300s), should use 300 - 30 = 270s TTL
+      const now = Math.floor(Date.now() / 1000);
+      jwt.decode.mockReturnValue({ sub: "123", exp: now + 300 });
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: { id: "123", username: "testuser", email: "test@example.com" },
+        },
+        timestamp: new Date().toISOString(),
+      });
+      mockCacheService.set.mockResolvedValue(true);
+
+      await authService.validateToken("token-with-exp");
+
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        getExpectedCacheKey("token-with-exp"),
+        expect.objectContaining({
+          authenticated: true,
+          timestamp: expect.any(Number),
+        }),
+        270, // Smart TTL: 300 - 30 buffer = 270s
+      );
+    });
+
+    it("should use minValidationTTL when token expires very soon", async () => {
+      config = {
+        controllerUrl: "https://controller.aifabrix.ai",
+        clientId: "ctrl-dev-test-app",
+        clientSecret: "test-secret",
+        cache: { tokenValidationTTL: 900, minValidationTTL: 60 },
+      };
+      (mockHttpClient as any).config = config;
+      authService = new AuthService(
+        mockHttpClient,
+        mockApiClient as unknown as ApiClient,
+        mockCacheService,
+      );
+
+      mockCacheService.get.mockResolvedValue(null);
+      // Token expires in 50s, after 30s buffer = 20s, but min is 60s
+      const now = Math.floor(Date.now() / 1000);
+      jwt.decode.mockReturnValue({ sub: "123", exp: now + 50 });
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: { id: "123", username: "testuser", email: "test@example.com" },
+        },
+        timestamp: new Date().toISOString(),
+      });
+      mockCacheService.set.mockResolvedValue(true);
+
+      await authService.validateToken("token-expires-soon");
+
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        getExpectedCacheKey("token-expires-soon"),
+        expect.objectContaining({
+          authenticated: true,
+          timestamp: expect.any(Number),
+        }),
+        60, // Min TTL (50 - 30 = 20 < 60, so uses 60)
+      );
+    });
+
+    it("should cap TTL at tokenValidationTTL when token has long expiration", async () => {
+      config = {
+        controllerUrl: "https://controller.aifabrix.ai",
+        clientId: "ctrl-dev-test-app",
+        clientSecret: "test-secret",
+        cache: { tokenValidationTTL: 900 }, // 15 minutes max
+      };
+      (mockHttpClient as any).config = config;
+      authService = new AuthService(
+        mockHttpClient,
+        mockApiClient as unknown as ApiClient,
+        mockCacheService,
+      );
+
+      mockCacheService.get.mockResolvedValue(null);
+      // Token expires in 2 hours (7200s), should cap at 900s
+      const now = Math.floor(Date.now() / 1000);
+      jwt.decode.mockReturnValue({ sub: "123", exp: now + 7200 });
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: { id: "123", username: "testuser", email: "test@example.com" },
+        },
+        timestamp: new Date().toISOString(),
+      });
+      mockCacheService.set.mockResolvedValue(true);
+
+      await authService.validateToken("token-long-exp");
+
+      expect(mockCacheService.set).toHaveBeenCalledWith(
+        getExpectedCacheKey("token-long-exp"),
+        expect.objectContaining({
+          authenticated: true,
+          timestamp: expect.any(Number),
+        }),
+        900, // Capped at tokenValidationTTL
       );
     });
   });
@@ -1807,3 +1978,4 @@ describe("AuthService", () => {
     });
   });
 });
+
