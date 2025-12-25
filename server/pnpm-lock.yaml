@@ -3061,6 +3061,9 @@ packages:
       node-notifier:
         optional: true
 
+  jose@5.10.0:
+    resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
+
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
@@ -4091,6 +4094,7 @@ snapshots:
       axios: 1.13.2
       dotenv: 17.2.3
       ioredis: 5.8.2
+      jose: 5.10.0
       jsonwebtoken: 9.0.3
     optionalDependencies:
       express: 4.22.1
@@ -7184,6 +7188,8 @@ snapshots:
       - babel-plugin-macros
       - supports-color
       - ts-node
+
+  jose@5.10.0: {}
 
   js-tokens@4.0.0: {}
 

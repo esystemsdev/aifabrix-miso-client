@@ -218,9 +218,18 @@ export function createClientTokenEndpoint(
 
         // Check if it's a timeout error (from our wrapper or axios timeout)
         if (isTimeoutWrapperError || errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
+          const config = misoClient.getConfig();
+          const controllerUrl = config.controllerPrivateUrl || config.controllerUrl;
           res.status(504).json({
             error: "Gateway Timeout",
             message: "Failed to get environment token: Controller request timed out",
+            details: {
+              controllerUrl: controllerUrl || "NOT CONFIGURED",
+              timeout: "4 seconds",
+              suggestion: controllerUrl 
+                ? `Controller at ${controllerUrl} is not responding. Please check if the controller is running and accessible.`
+                : "Controller URL is not configured. Please set MISO_CONTROLLER_URL environment variable.",
+            },
           });
           return;
         }

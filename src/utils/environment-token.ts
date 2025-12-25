@@ -7,6 +7,7 @@ import { Request } from "express";
 import { MisoClient } from "../index";
 import { validateOrigin } from "./origin-validator";
 import { DataMasker } from "./data-masker";
+import { resolveControllerUrl } from "./controller-url-resolver";
 
 /**
  * Get environment token with origin validation and audit logging
@@ -71,6 +72,11 @@ export async function getEnvironmentToken(
   // Origin is valid, proceed with token fetch
   try {
     // Fetch token from controller
+    // Use resolveControllerUrl to properly resolve URL (handles controllerPrivateUrl/controllerPublicUrl/controllerUrl)
+    const controllerUrl = resolveControllerUrl(config);
+    const tokenUri = config.clientTokenUri || "/api/v1/auth/token";
+    const fullUrl = `${controllerUrl}${tokenUri}`;
+    console.log(`[getEnvironmentToken] Fetching token from controller: ${fullUrl}`);
     const token = await misoClient.getEnvironmentToken();
 
     // Log audit event with masked client credentials (ISO 27001 compliance)

@@ -128,9 +128,15 @@ export class AuthService {
     try {
       // Use a temporary axios instance to avoid interceptor recursion
       const axios = (await import("axios")).default;
+      const controllerUrl = resolveControllerUrl(this.config);
+      const tokenUri = this.config.clientTokenUri || "/api/v1/auth/token";
+      const fullUrl = `${controllerUrl}${tokenUri}`;
+      
+      // Use shorter timeout (4 seconds) to match handler timeout (5 seconds)
+      // This ensures axios fails before the handler timeout wrapper
       const tempAxios = axios.create({
-        baseURL: resolveControllerUrl(this.config),
-        timeout: 30000,
+        baseURL: controllerUrl,
+        timeout: 4000, // 4 seconds - fail fast, handler has 5 second timeout
         headers: {
           "Content-Type": "application/json",
           "x-client-id": this.config.clientId,
@@ -138,7 +144,7 @@ export class AuthService {
         },
       });
 
-      const tokenUri = this.config.clientTokenUri || "/api/v1/auth/token";
+      console.log(`[getEnvironmentToken] Calling controller: ${fullUrl} [correlationId: ${correlationId}, clientId: ${clientId}]`);
       const response =
         await tempAxios.post<
           import("../types/config.types").ClientTokenResponse
@@ -147,6 +153,7 @@ export class AuthService {
       // Handle both nested (new) and flat (old) response formats
       const token = response.data.data?.token || response.data.token;
       if (response.data.success && token) {
+        console.log(`[getEnvironmentToken] Successfully received token from controller [correlationId: ${correlationId}]`);
         return token;
       }
 
@@ -184,10 +191,18 @@ export class AuthService {
             );
           }
         } else if (axiosError.request) {
+          // Network/timeout error - controller unreachable
+          const controllerUrl = resolveControllerUrl(this.config);
+          const tokenUri = this.config.clientTokenUri || "/api/v1/auth/token";
+          console.error(
+            `[getEnvironmentToken] Controller unreachable or timeout: ${controllerUrl}${tokenUri} [correlationId: ${correlationId}, clientId: ${clientId}]`,
+            axiosError.message
+          );
           responseDetails.push(
             `request: [Request object - not serializable]`,
           );
           responseDetails.push(`message: ${axiosError.message}`);
+          responseDetails.push(`controllerUrl: ${controllerUrl}`);
         } else {
           responseDetails.push(`message: ${axiosError.message}`);
         }
