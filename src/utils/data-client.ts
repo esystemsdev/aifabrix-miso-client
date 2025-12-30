@@ -50,6 +50,8 @@ export class DataClient {
   private misoClient: MisoClient | null = null;
   private cache: Map<string, CacheEntry> = new Map();
   private pendingRequests: Map<string, Promise<unknown>> = new Map();
+  // Track failed requests to prevent rapid re-requests (deduplication for failures)
+  private failedRequests: Map<string, { timestamp: number; error: Error }> = new Map();
   private interceptors: InterceptorConfig = {};
   private metrics: {
     totalRequests: number;
@@ -399,6 +401,20 @@ export class DataClient {
       if (pendingRequest) {
         return pendingRequest as Promise<T>;
       }
+      
+      // Check for recently failed requests to prevent rapid re-requests
+      // Keep failed requests in map for 2 seconds to prevent retry storms
+      const failedRequest = this.failedRequests.get(cacheKey);
+      if (failedRequest) {
+        const timeSinceFailure = Date.now() - failedRequest.timestamp;
+        if (timeSinceFailure < 2000) {
+          // Return rejected promise with the same error to prevent duplicate requests
+          return Promise.reject(failedRequest.error) as Promise<T>;
+        } else {
+          // Clean up old failed request entry
+          this.failedRequests.delete(cacheKey);
+        }
+      }
     }
 
     // Create request promise
@@ -428,7 +444,24 @@ export class DataClient {
 
     try {
       const result = await requestPromise;
+      // Clean up failed request entry on success
+      if (isGetRequest) {
+        this.failedRequests.delete(cacheKey);
+      }
       return result;
+    } catch (error) {
+      // Store failed request to prevent rapid re-requests
+      if (isGetRequest) {
+        this.failedRequests.set(cacheKey, {
+          timestamp: Date.now(),
+          error: error as Error,
+        });
+        // Clean up after 2 seconds
+        setTimeout(() => {
+          this.failedRequests.delete(cacheKey);
+        }, 2000);
+      }
+      throw error;
     } finally {
       // Cleanup pending request
       if (isGetRequest) {

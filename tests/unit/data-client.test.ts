@@ -851,29 +851,18 @@ describe("DataClient", () => {
       expect(result).toEqual({ success: true });
     });
 
-    it("should retry on 5xx errors", async () => {
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 500,
-          headers: new Headers(),
-        } as any)
-        .mockResolvedValueOnce({
-          ok: true,
-          status: 200,
-          headers: new Headers({ "content-type": "application/json" }),
-          json: jest.fn().mockResolvedValue({ success: true }),
-        } as any);
+    it("should not retry on 5xx errors (fail immediately)", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        headers: new Headers({ "content-type": "application/json" }),
+        json: jest.fn().mockResolvedValue({ error: "Internal server error" }),
+        text: jest.fn().mockResolvedValue(JSON.stringify({ error: "Internal server error" })),
+      } as any);
 
-      const promise = dataClient.get("/api/users");
-      
-      // Fast-forward through retry delays
-      await jest.runAllTimersAsync();
-      
-      const result = await promise;
-
-      expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(result).toEqual({ success: true });
+      await expect(dataClient.get("/api/users")).rejects.toThrow();
+      // 500 errors should NOT retry - fail immediately
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
     it("should not retry on 4xx errors (except 401/403)", async () => {
@@ -882,6 +871,7 @@ describe("DataClient", () => {
         status: 400,
         headers: new Headers({ "content-type": "application/json" }),
         json: jest.fn().mockResolvedValue({ error: "Bad request" }),
+        text: jest.fn().mockResolvedValue(JSON.stringify({ error: "Bad request" })),
       } as any);
 
       await expect(dataClient.get("/api/users")).rejects.toThrow();

@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.1] - 2025-12-30
+
+### Fixed
+
+- **Token validation caching** - Improved caching strategy for token validation
+  - Enhanced cache key generation using SHA-256 hash of token for security
+  - Smart TTL calculation based on token expiration with safety buffer
+  - Minimum TTL enforcement to prevent excessive API calls
+  - Better cache invalidation handling
+
+### Changed
+
+- **Error handling** - Enhanced error handling and logging for token retrieval
+  - Added detailed error responses for timeout scenarios in client token endpoint
+  - Updated AuthService to use shorter timeout for axios requests (aligns with handler timeout)
+  - Improved logging for token retrieval processes with controller URL details
+  - Integrated controller URL resolution in environment token utility for consistent URL handling
+
+### Technical
+
+- **Dependencies** - Updated dependencies and improved linting configuration
+  - Removed unnecessary "peer" flags from package-lock.json
+  - Updated linting scripts to ignore declaration files for better efficiency
+  - Updated package dependencies for improved functionality and performance
+
 ## [3.4.0] - 2025-12-24
 
 ### Added

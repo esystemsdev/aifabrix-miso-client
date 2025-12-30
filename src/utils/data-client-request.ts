@@ -505,9 +505,18 @@ export async function executeHttpRequest<T>(
         ? 401
         : (errorObj.statusCode ?? errorResponseStatus ?? responseStatus ?? undefined);
       
+      // CRITICAL: Completely disable retries for 500 errors (persistent server errors)
+      // This prevents excessive retries when combined with React Query or other retry mechanisms
+      // 500 errors indicate server problems that won't be fixed by retrying
+      const is500Error = statusCode && statusCode >= 500 && statusCode < 600;
+      const effectiveMaxRetries = is500Error
+        ? 0  // No retries for 500 errors - fail immediately
+        : maxRetries;
+      
       const isRetryable =
         retryEnabled &&
-        attempt < maxRetries &&
+        !is500Error && // Never retry 500 errors
+        attempt < effectiveMaxRetries &&
         isRetryableError(statusCode, error as Error);
 
       // If not retryable, handle and throw
