@@ -263,12 +263,14 @@ export default defineConfig({
     emptyOutDir: true, // Clear public directory on build - DataClient is served via route handler
     sourcemap: true, // Enable source maps for debugging
     commonjsOptions: {
-      include: [/node_modules/],
+      include: [/node_modules/, /aifabrix-miso-client/, /\.\.\/\.\.\/dist/],
       transformMixedEsModules: true,
       // Don't externalize relative imports - these are internal to packages
       // This prevents commonjs plugin from marking ./ imports as external
       defaultIsModuleExports: true,
       // Note: CommonJS plugin automatically transforms CommonJS modules by default
+      // Require returns default export for better compatibility
+      requireReturnsDefault: 'auto',
     },
     rollupOptions: {
       // Prevent externalization of relative imports from SDK package

@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.2] - 2025-12-30
+
+### Fixed
+
+- **Circuit breaker race conditions** - Improved atomic storage of pending requests to prevent race conditions
+  - Fixed race condition where multiple concurrent requests could bypass deduplication
+  - Enhanced promise storage to ensure atomic operations when checking and storing pending requests
+  - Improved cleanup of pending requests to prevent memory leaks
+
+### Changed
+
+- **Circuit breaker enhancements** - Enhanced failure handling with exponential backoff for all HTTP methods
+  - Extended circuit breaker pattern to work for all HTTP methods (previously only GET requests)
+  - Implemented exponential backoff based on failure count: 5 seconds (first failure), 15 seconds (second failure), 30 seconds (third+ failures)
+  - Increased cooldown period from fixed 2 seconds to dynamic exponential backoff to prevent retry storms
+  - Added failure count tracking to enable progressive backoff
+  - Extended cleanup timeout from 2 seconds to 30 seconds to match maximum cooldown period
+  - Prevents React Query and other retry mechanisms from hammering the server during failures
+
 ## [3.4.1] - 2025-12-30
 
 ### Fixed

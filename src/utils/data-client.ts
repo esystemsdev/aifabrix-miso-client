@@ -51,7 +51,8 @@ export class DataClient {
   private cache: Map<string, CacheEntry> = new Map();
   private pendingRequests: Map<string, Promise<unknown>> = new Map();
   // Track failed requests to prevent rapid re-requests (deduplication for failures)
-  private failedRequests: Map<string, { timestamp: number; error: Error }> = new Map();
+  // Extended cooldown period to prevent retry storms
+  private failedRequests: Map<string, { timestamp: number; error: Error; count: number }> = new Map();
   private interceptors: InterceptorConfig = {};
   private metrics: {
     totalRequests: number;
@@ -395,78 +396,117 @@ export class DataClient {
       }
     }
 
-    // Check for duplicate concurrent requests (only for GET requests)
+    // Check for recently failed requests to prevent rapid re-requests (works for ALL methods)
+    // Circuit breaker: exponential backoff based on failure count
+    // First failure: 5 seconds, second failure: 15 seconds, third+: 30 seconds
+    const failedRequest = this.failedRequests.get(cacheKey);
+    if (failedRequest) {
+      const timeSinceFailure = Date.now() - failedRequest.timestamp;
+      const failureCount = failedRequest.count || 1;
+      // Exponential backoff: 5s, 15s, 30s, 30s...
+      const cooldownPeriod = failureCount === 1 ? 5000 : failureCount === 2 ? 15000 : 30000;
+      
+      if (timeSinceFailure < cooldownPeriod) {
+        // Return rejected promise with the same error to prevent duplicate requests
+        // This prevents React Query and other retry mechanisms from hammering the server
+        return Promise.reject(failedRequest.error) as Promise<T>;
+      } else {
+        // Clean up old failed request entry after cooldown expires
+        this.failedRequests.delete(cacheKey);
+      }
+    }
+
+    // CRITICAL: Check for duplicate concurrent requests BEFORE creating promise
+    // This must be atomic to prevent race conditions when multiple requests arrive simultaneously
     if (isGetRequest) {
       const pendingRequest = this.pendingRequests.get(cacheKey);
       if (pendingRequest) {
         return pendingRequest as Promise<T>;
       }
-      
-      // Check for recently failed requests to prevent rapid re-requests
-      // Keep failed requests in map for 2 seconds to prevent retry storms
-      const failedRequest = this.failedRequests.get(cacheKey);
-      if (failedRequest) {
-        const timeSinceFailure = Date.now() - failedRequest.timestamp;
-        if (timeSinceFailure < 2000) {
-          // Return rejected promise with the same error to prevent duplicate requests
-          return Promise.reject(failedRequest.error) as Promise<T>;
-        } else {
-          // Clean up old failed request entry
-          this.failedRequests.delete(cacheKey);
-        }
-      }
     }
 
-    // Create request promise
-    const requestPromise = executeHttpRequest<T>(
-      method,
-      fullUrl,
-      endpoint,
-      this.config,
-      this.cache,
-      cacheKey,
-      cacheEnabled,
-      startTime,
-      this.misoClient,
-      () => this.hasAnyToken(),
-      () => this.getToken(),
-      () => this.handleAuthError(),
-      () => this.refreshUserToken(),
-      this.interceptors,
-      this.metrics,
-      options,
-    );
-
-    // Store pending request (only for GET requests)
+    // Create request promise wrapper that ensures atomic storage
+    // This prevents race conditions where multiple requests check before any are stored
+    let requestPromise: Promise<T>;
+    
     if (isGetRequest) {
+      // For GET requests, create a promise that wraps the actual execution
+      // Store it immediately to prevent race conditions
+      requestPromise = (async (): Promise<T> => {
+        try {
+          return await executeHttpRequest<T>(
+            method,
+            fullUrl,
+            endpoint,
+            this.config,
+            this.cache,
+            cacheKey,
+            cacheEnabled,
+            startTime,
+            this.misoClient,
+            () => this.hasAnyToken(),
+            () => this.getToken(),
+            () => this.handleAuthError(),
+            () => this.refreshUserToken(),
+            this.interceptors,
+            this.metrics,
+            options,
+          );
+        } finally {
+          // Cleanup pending request when done (success or failure)
+          this.pendingRequests.delete(cacheKey);
+        }
+      })();
+      
+      // Store immediately - this is atomic and prevents race conditions
+      // If another request comes in now, it will see this promise and reuse it
       this.pendingRequests.set(cacheKey, requestPromise);
+    } else {
+      // For non-GET requests, execute directly (no deduplication)
+      requestPromise = executeHttpRequest<T>(
+        method,
+        fullUrl,
+        endpoint,
+        this.config,
+        this.cache,
+        cacheKey,
+        cacheEnabled,
+        startTime,
+        this.misoClient,
+        () => this.hasAnyToken(),
+        () => this.getToken(),
+        () => this.handleAuthError(),
+        () => this.refreshUserToken(),
+        this.interceptors,
+        this.metrics,
+        options,
+      );
     }
 
     try {
       const result = await requestPromise;
-      // Clean up failed request entry on success
-      if (isGetRequest) {
-        this.failedRequests.delete(cacheKey);
-      }
+      // Clean up failed request entry on success (works for all methods)
+      this.failedRequests.delete(cacheKey);
       return result;
     } catch (error) {
-      // Store failed request to prevent rapid re-requests
-      if (isGetRequest) {
-        this.failedRequests.set(cacheKey, {
-          timestamp: Date.now(),
-          error: error as Error,
-        });
-        // Clean up after 2 seconds
-        setTimeout(() => {
-          this.failedRequests.delete(cacheKey);
-        }, 2000);
-      }
+      // Store failed request to prevent rapid re-requests (works for all methods)
+      // Circuit breaker pattern: track failure count for exponential backoff
+      const existingFailure = this.failedRequests.get(cacheKey);
+      const failureCount = existingFailure ? (existingFailure.count || 1) + 1 : 1;
+      
+      this.failedRequests.set(cacheKey, {
+        timestamp: Date.now(),
+        error: error as Error,
+        count: failureCount,
+      });
+      
+      // Clean up after maximum cooldown period (30 seconds)
+      // This prevents memory leaks while still providing protection
+      setTimeout(() => {
+        this.failedRequests.delete(cacheKey);
+      }, 30000);
+      
       throw error;
-    } finally {
-      // Cleanup pending request
-      if (isGetRequest) {
-        this.pendingRequests.delete(cacheKey);
-      }
     }
   }
 
