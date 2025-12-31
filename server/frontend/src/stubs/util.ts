@@ -2,10 +2,43 @@
 // Define inherits function separately to ensure it's properly bound
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function inherits(ctor: any, superCtor: any) {
-  if (superCtor) {
-    ctor.super_ = superCtor;
-    // Set up prototype chain
-    ctor.prototype = Object.create(superCtor.prototype, {
+  if (!superCtor) {
+    // If superCtor is null/undefined, just return without error
+    return;
+  }
+  
+  // Get or create superCtor.prototype safely
+  let superProto = superCtor.prototype;
+  
+  // If superCtor doesn't have a prototype, try to create one
+  if (!superProto) {
+    // Check if superCtor is extensible before trying to add prototype
+    try {
+      // Try to check if we can add properties
+      if (Object.isExtensible && Object.isExtensible(superCtor)) {
+        superCtor.prototype = {};
+        superProto = superCtor.prototype;
+      } else {
+        // If not extensible, use Object.prototype as fallback
+        superProto = Object.prototype;
+      }
+    } catch (e) {
+      // If assignment fails (object not extensible), use Object.prototype
+      superProto = Object.prototype;
+    }
+  }
+  
+  // Ensure superProto is an object (not null)
+  if (typeof superProto !== 'object' || superProto === null) {
+    superProto = Object.prototype;
+  }
+  
+  ctor.super_ = superCtor;
+  
+  // Set up prototype chain
+  // Use Object.create with proper fallback
+  try {
+    ctor.prototype = Object.create(superProto, {
       constructor: {
         value: ctor,
         enumerable: false,
@@ -13,6 +46,32 @@ function inherits(ctor: any, superCtor: any) {
         configurable: true
       }
     });
+  } catch (e) {
+    // Fallback: if Object.create fails, just copy the prototype
+    try {
+      ctor.prototype = Object.create(Object.prototype);
+      ctor.prototype.constructor = ctor;
+      // Copy properties from superProto if possible
+      if (superProto && typeof superProto === 'object' && superProto !== Object.prototype) {
+        for (const key in superProto) {
+          if (superProto.hasOwnProperty(key)) {
+            try {
+              ctor.prototype[key] = superProto[key];
+            } catch (copyError) {
+              // Ignore errors when copying properties
+            }
+          }
+        }
+      }
+    } catch (fallbackError) {
+      // Last resort: create minimal prototype
+      if (!ctor.prototype) {
+        ctor.prototype = {};
+      }
+      if (!ctor.prototype.constructor) {
+        ctor.prototype.constructor = ctor;
+      }
+    }
   }
 }
 

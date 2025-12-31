@@ -135,5 +135,15 @@ export function loadConfig(): MisoClientConfig {
     }
   }
 
+  // Optional response validation
+  // Default: true in development (NODE_ENV !== 'production'), false in production
+  if (process.env.MISO_VALIDATE_RESPONSES !== undefined) {
+    config.validateResponses =
+      process.env.MISO_VALIDATE_RESPONSES.toLowerCase() === "true";
+  } else {
+    // Default: true in development, false in production
+    config.validateResponses = process.env.NODE_ENV !== "production";
+  }
+
   return config;
 }

@@ -134,4 +134,3 @@ describe('Redirect to Login - Controller Endpoint', () => {
     expect(decodeURIComponent(loginUrl)).toContain('http://localhost:3000');
   });
 });
-

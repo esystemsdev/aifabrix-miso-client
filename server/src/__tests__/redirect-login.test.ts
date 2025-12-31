@@ -139,8 +139,9 @@ describe('Redirect to Login Integration Tests', () => {
 
     it('should accept valid JWT-like client tokens', async () => {
       // Valid JWT-like tokens should be accepted
-      const validToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
-      
+      const validToken =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+
       const response = await request(mockControllerApp)
         .get('/api/v1/auth/login')
         .set('x-client-token', validToken)
@@ -218,7 +219,7 @@ describe('Redirect to Login Integration Tests', () => {
       originalLocalStorage = (global as any).localStorage;
 
       // Create mock window.location with proper getter/setter
-      mockLocation = { 
+      mockLocation = {
         href: 'http://localhost:3000/current-page',
         origin: 'http://localhost:3000',
         protocol: 'http:',
@@ -282,7 +283,9 @@ describe('Redirect to Login Integration Tests', () => {
         const dataClient = new DataClient(config);
 
         // Mock getClientToken to return a token
-        const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+        const mockGetClientToken = jest
+          .fn()
+          .mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
@@ -297,13 +300,17 @@ describe('Redirect to Login Integration Tests', () => {
         // Note: URL search params order is not guaranteed, so we check components individually
         expect(mockLocation.href).toContain(`${controllerUrl}/login`);
         expect(mockLocation.href).toContain('redirect=http%3A%2F%2Flocalhost%3A3000%2Fdashboard');
-        expect(mockLocation.href).toContain('x-client-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
-        
+        expect(mockLocation.href).toContain(
+          'x-client-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token'
+        );
+
         // Verify URL is valid and contains both parameters
         const url = new URL(mockLocation.href);
         expect(url.pathname).toBe('/login');
         expect(url.searchParams.get('redirect')).toBe('http://localhost:3000/dashboard');
-        expect(url.searchParams.get('x-client-token')).toBe('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+        expect(url.searchParams.get('x-client-token')).toBe(
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token'
+        );
       } catch (error) {
         console.error('[TEST] Error in redirectToLogin test:', error);
         console.error('[TEST] Error stack:', (error as Error).stack);
@@ -328,7 +335,7 @@ describe('Redirect to Login Integration Tests', () => {
       jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
       await dataClient.redirectToLogin();
-      
+
       // Should redirect to controller login URL without x-client-token if token is null
       expect(mockLocation.href).toContain(`${controllerUrl}/login?redirect=`);
       expect(mockLocation.href).not.toContain('x-client-token');
@@ -346,7 +353,9 @@ describe('Redirect to Login Integration Tests', () => {
       };
 
       const dataClient = new DataClient(config);
-      const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      const mockGetClientToken = jest
+        .fn()
+        .mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
@@ -356,13 +365,17 @@ describe('Redirect to Login Integration Tests', () => {
       // Note: URL search params order is not guaranteed, so we check components individually
       expect(mockLocation.href).toContain(`${controllerUrl}/custom-login`);
       expect(mockLocation.href).toContain('redirect=http%3A%2F%2Flocalhost%3A3000%2Fdashboard');
-      expect(mockLocation.href).toContain('x-client-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
-      
+      expect(mockLocation.href).toContain(
+        'x-client-token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token'
+      );
+
       // Verify URL is valid and contains both parameters
       const url = new URL(mockLocation.href);
       expect(url.pathname).toBe('/custom-login');
       expect(url.searchParams.get('redirect')).toBe('http://localhost:3000/dashboard');
-      expect(url.searchParams.get('x-client-token')).toBe('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      expect(url.searchParams.get('x-client-token')).toBe(
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token'
+      );
     });
 
     it('should use current page URL as redirect when not provided', async () => {
@@ -379,7 +392,9 @@ describe('Redirect to Login Integration Tests', () => {
       };
 
       const dataClient = new DataClient(config);
-      const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      const mockGetClientToken = jest
+        .fn()
+        .mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
@@ -405,7 +420,9 @@ describe('Redirect to Login Integration Tests', () => {
       };
 
       const dataClient = new DataClient(config);
-      const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      const mockGetClientToken = jest
+        .fn()
+        .mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
@@ -430,7 +447,9 @@ describe('Redirect to Login Integration Tests', () => {
       };
 
       const dataClient = new DataClient(config);
-      const mockGetClientToken = jest.fn().mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
+      const mockGetClientToken = jest
+        .fn()
+        .mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
 
@@ -443,4 +462,3 @@ describe('Redirect to Login Integration Tests', () => {
     });
   });
 });
-

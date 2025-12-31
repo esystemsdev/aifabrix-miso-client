@@ -13,6 +13,17 @@ import {
   ListLogsQueryParams,
   PaginatedLogsResponse,
   GeneralLogEntry,
+  AuditLogEntry,
+  JobLogEntry,
+  GetLogStatsQueryParams,
+  LogStatsSummaryResponse,
+  ErrorStatsQueryParams,
+  ErrorStatsResponse,
+  UserActivityStatsQueryParams,
+  UserActivityStatsResponse,
+  ApplicationStatsResponse,
+  ExportLogsQueryParams,
+  ExportLogsResponse,
 } from '../../../src/api/types/logs.types';
 
 // Mock HttpClient
@@ -225,6 +236,356 @@ describe('LogsApi', () => {
         authStrategy,
       );
       expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('getGeneralLog', () => {
+    it('should delegate to list.getGeneralLog', async () => {
+      const id = 'log-id-123';
+      const environment = 'production';
+      const mockResponse: GeneralLogEntry = {
+        timestamp: '2024-01-01T00:00:00Z',
+        level: 'info',
+        environment: 'production',
+        application: 'my-app',
+        message: 'Test log',
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.getGeneralLog(id, environment);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/general/log-id-123',
+        undefined,
+        { params: { environment } },
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('listAuditLogs', () => {
+    it('should delegate to list.listAuditLogs', async () => {
+      const params: ListLogsQueryParams = {
+        page: 1,
+        pageSize: 10,
+      };
+      const mockResponse: PaginatedLogsResponse<AuditLogEntry> = {
+        data: [
+          {
+            timestamp: '2024-01-01T00:00:00Z',
+            environment: 'production',
+            application: 'my-app',
+            entityType: 'user',
+            entityId: 'user-123',
+            action: 'update',
+          },
+        ],
+        meta: {
+          totalItems: 1,
+          currentPage: 1,
+          pageSize: 10,
+          type: 'audit',
+        },
+        links: {},
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.listAuditLogs(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/audit',
+        undefined,
+        { params },
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('getAuditLog', () => {
+    it('should delegate to list.getAuditLog', async () => {
+      const id = 'audit-log-id-123';
+      const mockResponse: AuditLogEntry = {
+        timestamp: '2024-01-01T00:00:00Z',
+        environment: 'production',
+        application: 'my-app',
+        entityType: 'user',
+        entityId: 'user-123',
+        action: 'update',
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.getAuditLog(id);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/audit/audit-log-id-123',
+        undefined,
+        { params: undefined },
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('listJobLogs', () => {
+    it('should delegate to list.listJobLogs', async () => {
+      const params: ListLogsQueryParams = {
+        page: 1,
+        pageSize: 10,
+      };
+      const mockResponse: PaginatedLogsResponse<JobLogEntry> = {
+        data: [
+          {
+            id: 'job-log-123',
+            jobId: 'job-123',
+            timestamp: '2024-01-01T00:00:00Z',
+            level: 'info',
+            message: 'Job started',
+          },
+        ],
+        meta: {
+          totalItems: 1,
+          currentPage: 1,
+          pageSize: 10,
+          type: 'jobs',
+        },
+        links: {},
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.listJobLogs(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/jobs',
+        undefined,
+        { params },
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('getJobLog', () => {
+    it('should delegate to list.getJobLog', async () => {
+      const id = 'job-log-id-123';
+      const mockResponse: JobLogEntry = {
+        id: 'job-log-id-123',
+        jobId: 'job-123',
+        timestamp: '2024-01-01T00:00:00Z',
+        level: 'info',
+        message: 'Job completed',
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.getJobLog(id);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/jobs/job-log-id-123',
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('getLogStatsSummary', () => {
+    it('should delegate to stats.getLogStatsSummary', async () => {
+      const params: GetLogStatsQueryParams = {
+        environment: 'production',
+      };
+      const mockResponse: LogStatsSummaryResponse = {
+        success: true,
+        data: {
+          totalLogs: 1000,
+          byLevel: {
+            info: 600,
+            error: 200,
+          },
+          byApplication: {
+            'my-app': 800,
+          },
+          environment: 'production',
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.getLogStatsSummary(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/stats/summary',
+        undefined,
+        { params },
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('getErrorStats', () => {
+    it('should delegate to stats.getErrorStats', async () => {
+      const params: ErrorStatsQueryParams = {
+        environment: 'production',
+        limit: 10,
+      };
+      const mockResponse: ErrorStatsResponse = {
+        success: true,
+        data: {
+          totalErrors: 50,
+          topErrors: [
+            { message: 'Database connection failed', count: 20 },
+          ],
+          environment: 'production',
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.getErrorStats(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/stats/errors',
+        undefined,
+        { params },
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('getUserActivityStats', () => {
+    it('should delegate to stats.getUserActivityStats', async () => {
+      const params: UserActivityStatsQueryParams = {
+        environment: 'production',
+      };
+      const mockResponse: UserActivityStatsResponse = {
+        success: true,
+        data: {
+          totalUsers: 100,
+          topUsers: [
+            { userId: 'user-123', actionCount: 50 },
+          ],
+          byAction: {
+            login: 80,
+            logout: 60,
+          },
+          environment: 'production',
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.getUserActivityStats(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/stats/users',
+        undefined,
+        { params },
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('getApplicationStats', () => {
+    it('should delegate to stats.getApplicationStats', async () => {
+      const params: GetLogStatsQueryParams = {
+        environment: 'production',
+      };
+      const mockResponse: ApplicationStatsResponse = {
+        success: true,
+        data: {
+          totalApplications: 5,
+          applications: [
+            { application: 'my-app', logCount: 800 },
+          ],
+          environment: 'production',
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.getApplicationStats(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/stats/applications',
+        undefined,
+        { params },
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('exportLogs', () => {
+    it('should delegate to export.exportLogs and return CSV string', async () => {
+      const params: ExportLogsQueryParams = {
+        type: 'general',
+        format: 'csv',
+        startDate: '2024-01-01',
+        endDate: '2024-01-31',
+      };
+      const mockResponse = 'timestamp,level,message\n2024-01-01T00:00:00Z,info,Test log';
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.exportLogs(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/export',
+        undefined,
+        { params },
+      );
+      expect(result).toEqual(mockResponse);
+      expect(typeof result).toBe('string');
+    });
+
+    it('should delegate to export.exportLogs and return JSON ExportLogsResponse', async () => {
+      const params: ExportLogsQueryParams = {
+        type: 'general',
+        format: 'json',
+        startDate: '2024-01-01',
+        endDate: '2024-01-31',
+      };
+      const mockResponse: ExportLogsResponse = {
+        success: true,
+        data: [
+          {
+            timestamp: '2024-01-01T00:00:00Z',
+            level: 'info',
+            message: 'Test log',
+          },
+        ],
+        meta: {
+          type: 'general',
+          environment: 'production',
+          exportedAt: new Date().toISOString(),
+          count: 1,
+        },
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await logsApi.exportLogs(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/export',
+        undefined,
+        { params },
+      );
+      expect(result).toEqual(mockResponse);
+      expect(typeof result).toBe('object');
     });
   });
 });

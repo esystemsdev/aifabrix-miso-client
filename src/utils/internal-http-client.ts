@@ -20,6 +20,11 @@ import {
 import { MisoClientError } from "./errors";
 import { AuthStrategyHandler } from "./auth-strategy";
 import { resolveControllerUrl } from "./controller-url-resolver";
+import {
+  validateSuccessResponse,
+  validatePaginatedResponse,
+  getResponseType,
+} from "./response-validator";
 
 export class InternalHttpClient {
   private axios: AxiosInstance;
@@ -297,6 +302,62 @@ export class InternalHttpClient {
   }
 
   /**
+   * Validate response structure if validation is enabled
+   * Logs warnings for validation failures but doesn't throw (non-breaking behavior)
+   * @param data - Response data to validate
+   * @param url - Request URL for error context
+   * @returns True if validation passed or is disabled, false if validation failed
+   */
+  private validateResponse(data: unknown, url: string): boolean {
+    // Skip validation if explicitly disabled
+    if (this.config.validateResponses === false) {
+      return true;
+    }
+
+    // Default to enabled (true) if not explicitly set
+    // validateResponses can be true | undefined (defaults to true in development)
+
+    // Determine response type and validate accordingly
+    const responseType = getResponseType(data);
+
+    if (responseType === "unknown") {
+      // Log warning but don't throw (backward compatibility)
+      console.warn(
+        `Response validation failed for ${url}: Response structure doesn't match expected format.`,
+        `Expected: success response ({success, data?, message?, timestamp}) or paginated response ({data[], meta, links?}).`,
+        `Actual:`,
+        data,
+      );
+      return false;
+    }
+
+    // Validate based on detected type
+    if (responseType === "success") {
+      if (!validateSuccessResponse(data)) {
+        console.warn(
+          `Response validation failed for ${url}: Success response structure invalid.`,
+          `Expected: {success: boolean, data?: T, message?: string, timestamp: string}.`,
+          `Actual:`,
+          data,
+        );
+        return false;
+      }
+    } else if (responseType === "paginated") {
+      if (!validatePaginatedResponse(data)) {
+        console.warn(
+          `Response validation failed for ${url}: Paginated response structure invalid.`,
+          `Expected: {data: T[], meta: {totalItems, currentPage, pageSize, type}, links?}.`,
+          `Actual:`,
+          data,
+        );
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
    * Parse error response from AxiosError
    * Attempts to parse structured ErrorResponse, falls back to null if parsing fails
    */
@@ -401,6 +462,8 @@ export class InternalHttpClient {
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     try {
       const response = await this.axios.get<T>(url, config);
+      const requestUrl = response.config?.url || url;
+      this.validateResponse(response.data, requestUrl);
       return response.data;
     } catch (error) {
       if (this.isAxiosError(error)) {
@@ -418,6 +481,8 @@ export class InternalHttpClient {
   ): Promise<T> {
     try {
       const response = await this.axios.post<T>(url, data, config);
+      const requestUrl = response.config?.url || url;
+      this.validateResponse(response.data, requestUrl);
       return response.data;
     } catch (error) {
       if (this.isAxiosError(error)) {
@@ -435,6 +500,8 @@ export class InternalHttpClient {
   ): Promise<T> {
     try {
       const response = await this.axios.put<T>(url, data, config);
+      const requestUrl = response.config?.url || url;
+      this.validateResponse(response.data, requestUrl);
       return response.data;
     } catch (error) {
       if (this.isAxiosError(error)) {
@@ -448,6 +515,8 @@ export class InternalHttpClient {
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     try {
       const response = await this.axios.delete<T>(url, config);
+      const requestUrl = response.config?.url || url;
+      this.validateResponse(response.data, requestUrl);
       return response.data;
     } catch (error) {
       if (this.isAxiosError(error)) {

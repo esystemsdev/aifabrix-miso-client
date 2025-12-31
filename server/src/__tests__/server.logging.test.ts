@@ -91,4 +91,3 @@ describe('Logging Endpoint', () => {
     expect(response.status).toBe(200);
   });
 });
-

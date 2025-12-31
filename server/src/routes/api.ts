@@ -201,7 +201,7 @@ export function slowEndpoint(req: Request, res: Response): void {
       timestamp: new Date().toISOString(),
     });
   }, delay);
-  
+
   // Unref timeout so it doesn't keep the process alive in tests
   // This allows Jest to exit gracefully after tests complete
   if (timeout.unref) {
@@ -216,10 +216,10 @@ export function slowEndpoint(req: Request, res: Response): void {
 export function logEndpoint(req: Request, res: Response): void {
   try {
     const logEntry = req.body;
-    
+
     // Log to console for debugging (in production, this would go to a logging service)
     console.log('[LOG]', JSON.stringify(logEntry, null, 2));
-    
+
     // Return success response
     res.status(200).json({
       success: true,

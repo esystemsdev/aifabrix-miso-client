@@ -119,6 +119,11 @@ export interface MisoClientConfig {
     clientSecret?: string;
     verifyAudience?: boolean;
   };
+
+  // Optional: Enable/disable response structure validation
+  // When enabled, validates that API responses match expected structure
+  // Default: true in development (NODE_ENV !== 'production'), false in production
+  validateResponses?: boolean;
 }
 
 export interface AuditConfig {

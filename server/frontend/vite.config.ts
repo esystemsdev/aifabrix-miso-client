@@ -56,7 +56,8 @@ function nodePolyfillsPlugin(): Plugin {
                                    cleanId.includes('token-utils') ||
                                    cleanId.includes('data-masker') ||
                                    cleanId.includes('request-context') ||
-                                   cleanId.includes('logging-helpers');
+                                   cleanId.includes('logging-helpers') ||
+                                   cleanId.includes('response-validator');
         
         if (isFromSDK || looksLikeSDKImport) {
           let importerDir: string;
@@ -271,6 +272,11 @@ export default defineConfig({
       // Note: CommonJS plugin automatically transforms CommonJS modules by default
       // Require returns default export for better compatibility
       requireReturnsDefault: 'auto',
+      // Don't treat relative imports as external
+      ignore(id: string) {
+        // Don't ignore anything - we want to transform all CommonJS modules
+        return false;
+      },
     },
     rollupOptions: {
       // Prevent externalization of relative imports from SDK package
@@ -283,7 +289,7 @@ export default defineConfig({
           return false;
         }
         // Don't externalize SDK internal imports even if they have query params
-        if (cleanId.includes('data-client-') || cleanId.includes('token-utils') || cleanId.includes('data-masker') || cleanId.includes('request-context') || cleanId.includes('logging-helpers')) {
+        if (cleanId.includes('data-client-') || cleanId.includes('token-utils') || cleanId.includes('data-masker') || cleanId.includes('request-context') || cleanId.includes('logging-helpers') || cleanId.includes('response-validator')) {
           return false;
         }
         return null; // Let Rollup decide for other imports
@@ -314,7 +320,39 @@ export default defineConfig({
             }
             // Handle relative imports from @aifabrix/miso-client package
             // These are internal module imports that need to be resolved properly
+            // Special handling for SDK internal imports like response-validator
             if (cleanId.startsWith('./') || cleanId.startsWith('../')) {
+              // Check if this is an SDK internal import
+              const isSDKImport = cleanId.includes('response-validator') || 
+                                  cleanId.includes('data-client-') || 
+                                  cleanId.includes('token-utils') ||
+                                  cleanId.includes('data-masker') ||
+                                  cleanId.includes('request-context') ||
+                                  cleanId.includes('logging-helpers');
+              
+              // Always resolve SDK imports from root workspace dist first (before checking importer directory)
+              // This ensures we find the file even if it doesn't exist in pnpm directory
+              if (isSDKImport) {
+                const rootWorkspaceDist = path.resolve(__dirname, '../../dist'); // server/frontend -> aifabrix-miso-client/dist
+                if (fs.existsSync(rootWorkspaceDist)) {
+                  let resolvePath: string;
+                  if (cleanId.startsWith('./') && !cleanId.startsWith('./utils/') && !cleanId.startsWith('../')) {
+                    // ./response-validator -> dist/utils/response-validator
+                    resolvePath = path.join(rootWorkspaceDist, 'utils', cleanId.substring(2));
+                  } else if (cleanId.startsWith('../utils/')) {
+                    resolvePath = path.join(rootWorkspaceDist, 'utils', cleanId.replace('../utils/', ''));
+                  } else {
+                    resolvePath = path.resolve(rootWorkspaceDist, cleanId);
+                  }
+                  const extensions = ['.ts', '.js', '.tsx', '.jsx'];
+                  for (const ext of extensions) {
+                    const fullPath = resolvePath + ext;
+                    if (fs.existsSync(fullPath)) {
+                      return fullPath;
+                    }
+                  }
+                }
+              }
               // Check if importer is from @aifabrix/miso-client or if id looks like an SDK internal import
               const cleanImporter = importer ? importer.split('?')[0] : null;
               const isFromSDK = cleanImporter && (
@@ -328,15 +366,38 @@ export default defineConfig({
                                          cleanId.includes('token-utils') ||
                                          cleanId.includes('data-masker') ||
                                          cleanId.includes('request-context') ||
-                                         cleanId.includes('logging-helpers');
+                                         cleanId.includes('logging-helpers') ||
+                                         cleanId.includes('response-validator');
               
-              if (isFromSDK || looksLikeSDKImport || !importer) {
+              if (isFromSDK || looksLikeSDKImport || !importer || cleanImporter === cleanId || (cleanImporter && cleanImporter.includes('?commonjs-external'))) {
                 let importerDir: string;
                 
-                if (cleanImporter && cleanImporter !== cleanId && isFromSDK) {
-                  // Use the importer's directory if it's from SDK
+                // If importer is the same as id or has ?commonjs-external, resolve directly from root workspace dist
+                if ((cleanImporter === cleanId || (cleanImporter && cleanImporter.includes('?commonjs-external'))) && looksLikeSDKImport) {
+                  // Try to find root workspace dist folder directly
+                  const possibleRootDists = [
+                    path.resolve(__dirname, '../../../../dist'), // server/frontend -> aifabrix-miso-client/dist
+                    path.resolve(__dirname, '../../../dist'),    // server/frontend -> server/dist (fallback)
+                    path.resolve(__dirname, '../../dist'),       // Alternative
+                  ];
+                  for (const rootWorkspaceDist of possibleRootDists) {
+                    if (fs.existsSync(rootWorkspaceDist)) {
+                      // For ./response-validator, resolve to dist/utils/response-validator
+                      if (cleanId.startsWith('./') && !cleanId.startsWith('./utils/') && !cleanId.startsWith('../')) {
+                        importerDir = path.join(rootWorkspaceDist, 'utils');
+                      } else {
+                        importerDir = rootWorkspaceDist;
+                      }
+                      console.log(`[rollup-plugin] Direct resolution from root dist: ${rootWorkspaceDist}, cleanId: ${cleanId}, importerDir: ${importerDir}`);
+                      break;
+                    }
+                  }
+                }
+                
+                if (!importerDir && cleanImporter && cleanImporter !== cleanId && isFromSDK && !cleanImporter.includes('?commonjs-external')) {
+                  // Use the importer's directory if it's from SDK and it's a real file path
                   importerDir = path.dirname(cleanImporter);
-                } else {
+                } else if (!importerDir) {
                   // No valid importer or importer is same as id - try to find SDK package directory
                   // First try to find the SDK package root (dist or src)
                   // Check pnpm structure first (.pnpm/@aifabrix+miso-client*/node_modules/@aifabrix/miso-client)
@@ -380,11 +441,16 @@ export default defineConfig({
                   }
                   
                   if (packageRoot) {
-                    // If cleanId starts with ./utils/ or ../utils/, resolve relative to package root
-                    // This will correctly resolve ./utils/logging-helpers to packageRoot/utils/logging-helpers
-                    // Note: path.resolve(packageRoot, './utils/logging-helpers') = packageRoot/utils/logging-helpers
-                    importerDir = packageRoot;
-                    console.log(`[rollup-plugin] Found packageRoot: ${packageRoot}, cleanId: ${cleanId}, will resolve to: ${path.resolve(packageRoot, cleanId)}`);
+                    // For relative imports like ./response-validator, resolve relative to utils directory
+                    // since these imports come from files in the utils directory
+                    if (cleanId.startsWith('./') && !cleanId.startsWith('./utils/') && !cleanId.startsWith('../')) {
+                      // ./response-validator -> utils/response-validator
+                      importerDir = path.join(packageRoot, 'utils');
+                    } else {
+                      // For other relative imports, resolve relative to package root
+                      importerDir = packageRoot;
+                    }
+                    console.log(`[rollup-plugin] Found packageRoot: ${packageRoot}, cleanId: ${cleanId}, importerDir: ${importerDir}, will resolve to: ${path.resolve(importerDir, cleanId)}`);
                   } else {
                     // Fallback to utils directory
                     const possibleDirs = [
@@ -403,35 +469,85 @@ export default defineConfig({
                   }
                 }
                 
-                let resolvedPath = path.resolve(importerDir, cleanId);
+                let resolvedPath = importerDir ? path.resolve(importerDir, cleanId) : null;
                 
                 // Try to find the file with common extensions
                 const extensions = ['.ts', '.js', '.tsx', '.jsx'];
-                for (const ext of extensions) {
-                  const fullPath = resolvedPath + ext;
-                  if (fs.existsSync(fullPath)) {
-                    console.log(`[rollup-plugin] resolveId: ${id} (importer: ${importer || 'none'}) -> ${fullPath}`);
-                    return fullPath;
+                
+                // For SDK imports, always check root workspace dist folder first
+                if (looksLikeSDKImport) {
+                  const rootWorkspaceDist = path.resolve(__dirname, '../../dist'); // server/frontend -> aifabrix-miso-client/dist
+                  if (fs.existsSync(rootWorkspaceDist)) {
+                    let rootResolvePath: string;
+                    if (cleanId.startsWith('./') && !cleanId.startsWith('./utils/') && !cleanId.startsWith('../')) {
+                      // ./response-validator -> dist/utils/response-validator
+                      rootResolvePath = path.join(rootWorkspaceDist, 'utils', cleanId.substring(2));
+                    } else if (cleanId.startsWith('../utils/')) {
+                      rootResolvePath = path.join(rootWorkspaceDist, 'utils', cleanId.replace('../utils/', ''));
+                    } else {
+                      rootResolvePath = path.resolve(rootWorkspaceDist, cleanId);
+                    }
+                    for (const ext of extensions) {
+                      const fullPath = rootResolvePath + ext;
+                      if (fs.existsSync(fullPath)) {
+                        console.log(`[rollup-plugin] resolveId: ${id} (root workspace dist first) -> ${fullPath}`);
+                        return fullPath;
+                      }
+                    }
                   }
                 }
                 
-                // Try without extension (might be a directory with index)
-                if (fs.existsSync(resolvedPath)) {
-                  const stats = fs.statSync(resolvedPath);
-                  if (stats.isDirectory()) {
-                    const indexPath = path.join(resolvedPath, 'index.ts');
-                    if (fs.existsSync(indexPath)) {
-                      console.log(`[rollup-plugin] resolveId: ${id} -> ${indexPath}`);
-                      return indexPath;
+                // First, try resolving from importerDir if we have one
+                if (resolvedPath) {
+                  for (const ext of extensions) {
+                    const fullPath = resolvedPath + ext;
+                    if (fs.existsSync(fullPath)) {
+                      console.log(`[rollup-plugin] resolveId: ${id} (importer: ${importer || 'none'}) -> ${fullPath}`);
+                      return fullPath;
                     }
-                    const indexJsPath = path.join(resolvedPath, 'index.js');
-                    if (fs.existsSync(indexJsPath)) {
-                      console.log(`[rollup-plugin] resolveId: ${id} -> ${indexJsPath}`);
-                      return indexJsPath;
+                  }
+                  
+                  // Try without extension (might be a directory with index)
+                  if (fs.existsSync(resolvedPath)) {
+                    const stats = fs.statSync(resolvedPath);
+                    if (stats.isDirectory()) {
+                      const indexPath = path.join(resolvedPath, 'index.ts');
+                      if (fs.existsSync(indexPath)) {
+                        console.log(`[rollup-plugin] resolveId: ${id} -> ${indexPath}`);
+                        return indexPath;
+                      }
+                      const indexJsPath = path.join(resolvedPath, 'index.js');
+                      if (fs.existsSync(indexJsPath)) {
+                        console.log(`[rollup-plugin] resolveId: ${id} -> ${indexJsPath}`);
+                        return indexJsPath;
+                      }
+                    } else {
+                      console.log(`[rollup-plugin] resolveId: ${id} -> ${resolvedPath}`);
+                      return resolvedPath;
                     }
-                  } else {
-                    console.log(`[rollup-plugin] resolveId: ${id} -> ${resolvedPath}`);
-                    return resolvedPath;
+                  }
+                }
+                
+                // If not found and this is an SDK import, try root workspace dist folder immediately
+                if (looksLikeSDKImport && (!resolvedPath || !fs.existsSync(resolvedPath + '.js'))) {
+                  const rootWorkspaceDist = path.resolve(__dirname, '../../dist'); // server/frontend -> aifabrix-miso-client/dist
+                  if (fs.existsSync(rootWorkspaceDist)) {
+                    let rootResolvePath: string;
+                    if (cleanId.startsWith('./') && !cleanId.startsWith('./utils/') && !cleanId.startsWith('../')) {
+                      // ./response-validator -> dist/utils/response-validator
+                      rootResolvePath = path.join(rootWorkspaceDist, 'utils', cleanId.substring(2));
+                    } else if (cleanId.startsWith('../utils/')) {
+                      rootResolvePath = path.join(rootWorkspaceDist, 'utils', cleanId.replace('../utils/', ''));
+                    } else {
+                      rootResolvePath = path.resolve(rootWorkspaceDist, cleanId);
+                    }
+                    for (const ext of extensions) {
+                      const fullPath = rootResolvePath + ext;
+                      if (fs.existsSync(fullPath)) {
+                        console.log(`[rollup-plugin] resolveId: ${id} (root workspace dist fallback) -> ${fullPath}`);
+                        return fullPath;
+                      }
+                    }
                   }
                 }
                 
@@ -446,6 +562,7 @@ export default defineConfig({
                   for (const rootWorkspaceDist of possibleRootDists) {
                     if (fs.existsSync(rootWorkspaceDist)) {
                       // Handle relative paths: if cleanId starts with ../utils/, resolve it relative to dist/utils
+                      // For ./response-validator, resolve to dist/utils/response-validator
                       // Otherwise resolve normally
                       let fallbackPath: string;
                       if (cleanId.startsWith('../utils/')) {
@@ -455,6 +572,9 @@ export default defineConfig({
                       } else if (cleanId.startsWith('./utils/')) {
                         // ./utils/logging-helpers -> dist/utils/logging-helpers
                         fallbackPath = path.resolve(rootWorkspaceDist, cleanId);
+                      } else if (cleanId.startsWith('./') && !cleanId.includes('/')) {
+                        // ./response-validator -> dist/utils/response-validator (same directory as importer)
+                        fallbackPath = path.join(rootWorkspaceDist, 'utils', cleanId.substring(2));
                       } else {
                         // Other relative paths - resolve normally
                         fallbackPath = path.resolve(rootWorkspaceDist, cleanId);
@@ -468,7 +588,23 @@ export default defineConfig({
                       }
                     }
                   }
-                  console.log(`[rollup-plugin] WARNING: Could not resolve ${id} from importer ${importer || 'none'}, tried ${resolvedPath}`);
+                  console.log(`[rollup-plugin] WARNING: Could not resolve ${id} from importer ${importer || 'none'}, tried ${resolvedPath || 'no path'}`);
+                  // Last resort: try to resolve from root workspace dist/utils directly
+                  if (looksLikeSDKImport && cleanId.startsWith('./') && !cleanId.startsWith('./utils/') && !cleanId.startsWith('../')) {
+                    const lastResortPath = path.resolve(__dirname, '../../../../dist/utils', cleanId.substring(2) + '.js');
+                    if (fs.existsSync(lastResortPath)) {
+                      console.log(`[rollup-plugin] Last resort resolution: ${id} -> ${lastResortPath}`);
+                      return lastResortPath;
+                    }
+                  }
+                  // If still not found, try one more time with absolute path resolution
+                  if (looksLikeSDKImport) {
+                    const absolutePath = path.resolve(__dirname, '../../../../dist/utils/response-validator.js');
+                    if (fs.existsSync(absolutePath)) {
+                      console.log(`[rollup-plugin] Absolute path resolution: ${id} -> ${absolutePath}`);
+                      return absolutePath;
+                    }
+                  }
                 }
               }
             }

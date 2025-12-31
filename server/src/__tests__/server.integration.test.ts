@@ -153,9 +153,7 @@ describe('Server Integration Tests', () => {
         email: 'test@example.com',
       };
 
-      const response = await request(app)
-        .post('/api/users')
-        .send(newUser);
+      const response = await request(app).post('/api/users').send(newUser);
 
       expect(response.status).toBe(201);
       expect(response.body).toMatchObject({
@@ -169,9 +167,7 @@ describe('Server Integration Tests', () => {
     });
 
     it('POST /api/users should return 400 when data is missing', async () => {
-      const response = await request(app)
-        .post('/api/users')
-        .send({});
+      const response = await request(app).post('/api/users').send({});
 
       expect(response.status).toBe(400);
       expect(response.body).toMatchObject({
@@ -185,9 +181,7 @@ describe('Server Integration Tests', () => {
         email: 'updated@example.com',
       };
 
-      const response = await request(app)
-        .put('/api/users/1')
-        .send(updateData);
+      const response = await request(app).put('/api/users/1').send(updateData);
 
       expect(response.status).toBe(200);
       expect(response.body).toMatchObject({
@@ -200,12 +194,10 @@ describe('Server Integration Tests', () => {
     });
 
     it('PUT /api/users/:id should return 404 when user not found', async () => {
-      const response = await request(app)
-        .put('/api/users/999')
-        .send({
-          name: 'Updated User',
-          email: 'updated@example.com',
-        });
+      const response = await request(app).put('/api/users/999').send({
+        name: 'Updated User',
+        email: 'updated@example.com',
+      });
 
       expect(response.status).toBe(404);
     });
@@ -215,9 +207,7 @@ describe('Server Integration Tests', () => {
         email: 'patched@example.com',
       };
 
-      const response = await request(app)
-        .patch('/api/users/1')
-        .send(patchData);
+      const response = await request(app).patch('/api/users/1').send(patchData);
 
       expect(response.status).toBe(200);
       expect(response.body).toMatchObject({
@@ -230,12 +220,10 @@ describe('Server Integration Tests', () => {
 
     it('DELETE /api/users/:id should delete user when found', async () => {
       // First create a user to delete
-      const createResponse = await request(app)
-        .post('/api/users')
-        .send({
-          name: 'To Delete',
-          email: 'delete@example.com',
-        });
+      const createResponse = await request(app).post('/api/users').send({
+        name: 'To Delete',
+        email: 'delete@example.com',
+      });
 
       const userId = createResponse.body.user.id;
 
@@ -277,9 +265,7 @@ describe('Server Integration Tests', () => {
 
     it('GET /api/slow should return response after delay', async () => {
       const startTime = Date.now();
-      const response = await request(app)
-        .get('/api/slow')
-        .query({ delay: '100' });
+      const response = await request(app).get('/api/slow').query({ delay: '100' });
 
       const elapsed = Date.now() - startTime;
 
@@ -294,9 +280,7 @@ describe('Server Integration Tests', () => {
     }, 10000); // Increase timeout for slow endpoint
 
     it('GET /api/slow-endpoint should work (alias)', async () => {
-      const response = await request(app)
-        .get('/api/slow-endpoint')
-        .query({ delay: '50' });
+      const response = await request(app).get('/api/slow-endpoint').query({ delay: '50' });
 
       expect(response.status).toBe(200);
       expect(response.body).toMatchObject({
@@ -308,9 +292,7 @@ describe('Server Integration Tests', () => {
     it('GET /api/slow should use default delay when not specified', async () => {
       // Skip default delay test in integration (too slow - 5 seconds)
       // This is tested in unit tests with fake timers
-      const response = await request(app)
-        .get('/api/slow')
-        .query({ delay: '100' }); // Use short delay instead
+      const response = await request(app).get('/api/slow').query({ delay: '100' }); // Use short delay instead
 
       expect(response.status).toBe(200);
       expect(response.body).toMatchObject({
@@ -369,13 +351,9 @@ describe('Server Integration Tests', () => {
 
   describe('CORS', () => {
     it('should include CORS headers for allowed origins', async () => {
-      const response = await request(app)
-        .get('/api/users')
-        .set('Origin', 'http://localhost:3083');
+      const response = await request(app).get('/api/users').set('Origin', 'http://localhost:3083');
 
       expect(response.headers['access-control-allow-origin']).toBeDefined();
     });
   });
-
 });
-

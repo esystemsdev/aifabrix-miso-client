@@ -376,7 +376,10 @@ export class DataClient {
   ): Promise<T> {
     const startTime = Date.now();
     const fullUrl = `${this.config.baseUrl}${endpoint}`;
-    const cacheKey = getCacheKeyForRequest(endpoint, options);
+    // Generate cache key with explicit method to ensure consistency
+    // Use method parameter (from get/post/etc) not options.method which might be undefined
+    const cacheKeyOptions = { ...options, method: method.toUpperCase() };
+    const cacheKey = getCacheKeyForRequest(endpoint, cacheKeyOptions);
     const isGetRequest = method.toUpperCase() === "GET";
     const cacheEnabled = isCacheEnabled(
       method,
@@ -384,21 +387,8 @@ export class DataClient {
       options,
     );
 
-    // Check cache for GET requests
-    if (cacheEnabled) {
-      const cached = getCachedEntry<T>(
-        this.cache,
-        cacheKey,
-        this.metrics,
-      );
-      if (cached !== null) {
-        return cached;
-      }
-    }
-
-    // Check for recently failed requests to prevent rapid re-requests (works for ALL methods)
-    // Circuit breaker: exponential backoff based on failure count
-    // First failure: 5 seconds, second failure: 15 seconds, third+: 30 seconds
+    // CRITICAL: Check circuit breaker FIRST (before cache/pending checks)
+    // This prevents any requests to failing endpoints, even if cache is cleared
     const failedRequest = this.failedRequests.get(cacheKey);
     if (failedRequest) {
       const timeSinceFailure = Date.now() - failedRequest.timestamp;
@@ -409,10 +399,23 @@ export class DataClient {
       if (timeSinceFailure < cooldownPeriod) {
         // Return rejected promise with the same error to prevent duplicate requests
         // This prevents React Query and other retry mechanisms from hammering the server
-        return Promise.reject(failedRequest.error) as Promise<T>;
+        // Re-throw the same error to maintain error consistency
+        throw failedRequest.error;
       } else {
         // Clean up old failed request entry after cooldown expires
         this.failedRequests.delete(cacheKey);
+      }
+    }
+
+    // Check cache for GET requests (after circuit breaker check)
+    if (cacheEnabled) {
+      const cached = getCachedEntry<T>(
+        this.cache,
+        cacheKey,
+        this.metrics,
+      );
+      if (cached !== null) {
+        return cached;
       }
     }
 

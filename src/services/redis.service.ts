@@ -29,6 +29,8 @@ export class RedisService {
         keyPrefix: this.config.keyPrefix || "miso:",
         maxRetriesPerRequest: 3,
         lazyConnect: true,
+        enableReadyCheck: false, // Disable ready check to avoid this.info error
+        disableClientInfo: true, // Disable client info for Redis < 7.2 compatibility
       });
 
       await this.redis.connect();
