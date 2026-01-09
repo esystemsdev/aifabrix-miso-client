@@ -22,7 +22,10 @@ const _mockHandleRouteError = jest.fn();
 
 jest.mock('@aifabrix/miso-client', () => {
   const mockHandleRouteErrorFn = jest.fn(async (error: unknown, req: Request, res: Response) => {
-    const statusCode = error instanceof Error && 'statusCode' in error ? (error as { statusCode: number }).statusCode : 500;
+    const statusCode =
+      error instanceof Error && 'statusCode' in error
+        ? (error as { statusCode: number }).statusCode
+        : 500;
     res.status(statusCode).json({
       error: error instanceof Error ? error.message : 'Unknown error',
       statusCode,
@@ -41,7 +44,10 @@ jest.mock('@aifabrix/miso-client', () => {
       };
     }),
     AppError: class AppError extends Error {
-      constructor(message: string, public statusCode: number) {
+      constructor(
+        message: string,
+        public statusCode: number
+      ) {
         super(message);
         this.name = 'AppError';
       }
@@ -84,7 +90,7 @@ describe('API Routes', () => {
     mockLoggerChain = {
       info: jest.fn().mockResolvedValue(undefined),
       error: jest.fn().mockResolvedValue(undefined),
-      addContext: jest.fn(function(this: typeof mockLoggerChain) {
+      addContext: jest.fn(function (this: typeof mockLoggerChain) {
         return this;
       }),
     };
@@ -136,7 +142,7 @@ describe('API Routes', () => {
     it('should return 404 when user not found', async () => {
       mockRequest.params = { id: '999' };
       const handler = getUserById(mockMisoClient as MisoClient | null);
-      
+
       try {
         await handler(mockRequest as Request, mockResponse as Response, mockNext);
       } catch (error) {
@@ -170,7 +176,7 @@ describe('API Routes', () => {
     it('should return 400 when data is missing', async () => {
       mockRequest.body = {};
       const handler = createUser(mockMisoClient as MisoClient | null);
-      
+
       try {
         await handler(mockRequest as Request, mockResponse as Response, mockNext);
       } catch (error) {
@@ -208,7 +214,7 @@ describe('API Routes', () => {
         email: 'updated@example.com',
       };
       const handler = updateUser(mockMisoClient as MisoClient | null);
-      
+
       try {
         await handler(mockRequest as Request, mockResponse as Response, mockNext);
       } catch (error) {
@@ -222,14 +228,16 @@ describe('API Routes', () => {
       mockRequest.params = { id: '1' };
       mockRequest.body = { name: 'Updated User' }; // Missing email
       const handler = updateUser(mockMisoClient as MisoClient | null);
-      
+
       try {
         await handler(mockRequest as Request, mockResponse as Response, mockNext);
       } catch (error) {
         // Error should be handled by handleRouteError
       }
 
-      expect(mockLoggerChain.info).toHaveBeenCalledWith(expect.stringContaining('Update user failed: Name and email are required: 1'));
+      expect(mockLoggerChain.info).toHaveBeenCalledWith(
+        expect.stringContaining('Update user failed: Name and email are required: 1')
+      );
       expect(handleRouteError).toHaveBeenCalled();
     });
   });
@@ -254,14 +262,16 @@ describe('API Routes', () => {
       mockRequest.params = { id: '999' };
       mockRequest.body = { email: 'patched@example.com' };
       const handler = patchUser(mockMisoClient as MisoClient | null);
-      
+
       try {
         await handler(mockRequest as Request, mockResponse as Response, mockNext);
       } catch (error) {
         // Error should be handled by handleRouteError
       }
 
-      expect(mockLoggerChain.info).toHaveBeenCalledWith(expect.stringContaining('PATCH /api/users/999 failed: User not found'));
+      expect(mockLoggerChain.info).toHaveBeenCalledWith(
+        expect.stringContaining('PATCH /api/users/999 failed: User not found')
+      );
       expect(handleRouteError).toHaveBeenCalled();
     });
   });
@@ -279,7 +289,7 @@ describe('API Routes', () => {
     it('should return 404 when user not found', async () => {
       mockRequest.params = { id: '999' };
       const handler = deleteUser(mockMisoClient as MisoClient | null);
-      
+
       try {
         await handler(mockRequest as Request, mockResponse as Response, mockNext);
       } catch (error) {
@@ -365,7 +375,7 @@ describe('API Routes', () => {
     it('should return error with specified status code', async () => {
       mockRequest.params = { code: '404' };
       const handler = errorEndpoint(mockMisoClient as MisoClient | null);
-      
+
       try {
         await handler(mockRequest as Request, mockResponse as Response, mockNext);
       } catch (error) {
@@ -378,7 +388,7 @@ describe('API Routes', () => {
     it('should default to 500 for invalid code', async () => {
       mockRequest.params = { code: 'invalid' };
       const handler = errorEndpoint(mockMisoClient as MisoClient | null);
-      
+
       try {
         await handler(mockRequest as Request, mockResponse as Response, mockNext);
       } catch (error) {
@@ -410,7 +420,9 @@ describe('API Routes', () => {
       expect(responseJson).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
+          data: null,
           message: 'Log received',
+          timestamp: expect.any(String),
         })
       );
     });
@@ -424,8 +436,19 @@ describe('API Routes', () => {
       const handler = logEndpoint(null);
       await handler(mockRequest as Request, mockResponse as Response, mockNext);
 
-      expect(consoleLogSpy).toHaveBeenCalledWith('[LOG]', expect.stringContaining('"level": "info"'));
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        '[LOG]',
+        expect.stringContaining('"level": "info"')
+      );
       expect(responseStatus).toHaveBeenCalledWith(200);
+      expect(responseJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          data: null,
+          message: 'Log received',
+          timestamp: expect.any(String),
+        })
+      );
       consoleLogSpy.mockRestore();
     });
   });

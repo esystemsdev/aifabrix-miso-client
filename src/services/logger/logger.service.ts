@@ -4,15 +4,20 @@
 
 import { EventEmitter } from "events";
 import { Request } from "express";
-import { HttpClient } from "../utils/http-client";
-import { ApiClient } from "../api";
-import { RedisService } from "./redis.service";
-import { DataMasker } from "../utils/data-masker";
-import { MisoClientConfig, LogEntry } from "../types/config.types";
-import { AuditLogQueue } from "../utils/audit-log-queue";
-import { extractRequestContext } from "../utils/request-context";
-import { IndexedLoggingContext } from "../utils/logging-helpers";
-import jwt from "jsonwebtoken";
+import { HttpClient } from "../../utils/http-client";
+import { ApiClient } from "../../api";
+import { RedisService } from "../redis.service";
+import { DataMasker } from "../../utils/data-masker";
+import { MisoClientConfig, LogEntry } from "../../types/config.types";
+import { AuditLogQueue } from "../../utils/audit-log-queue";
+import { LoggerChain } from "./logger-chain";
+import {
+  extractJwtContext,
+  extractEnvironmentMetadata,
+  getLogWithRequest,
+  getWithContext,
+  getWithToken,
+} from "./logger-context";
 
 export interface ClientLoggingOptions {
   applicationId?: string;
@@ -123,71 +128,6 @@ export class LoggerService extends EventEmitter {
   }
 
   /**
-   * Extract JWT token information
-   */
-  private extractJWTContext(token?: string): {
-    userId?: string;
-    applicationId?: string;
-    sessionId?: string;
-    roles?: string[];
-    permissions?: string[];
-  } {
-    if (!token) return {};
-
-    try {
-      const decoded = jwt.decode(token) as Record<string, unknown> | null;
-      if (!decoded) return {};
-
-      return {
-        userId: (decoded.sub || decoded.userId || decoded.user_id) as
-          | string
-          | undefined,
-        applicationId: (decoded.applicationId || decoded.app_id) as
-          | string
-          | undefined,
-        sessionId: (decoded.sessionId || decoded.sid) as string | undefined,
-        roles: (decoded.roles ||
-          (decoded.realm_access as { roles?: string[] } | undefined)?.roles ||
-          []) as string[],
-        permissions: (decoded.permissions ||
-          (decoded.scope as string | undefined)?.split(" ") ||
-          []) as string[],
-      };
-    } catch (error) {
-      // JWT parsing failed, return empty context
-      return {};
-    }
-  }
-
-  /**
-   * Extract metadata from environment (browser or Node.js)
-   */
-  private extractMetadata(): Partial<LogEntry> {
-    const metadata: Record<string, unknown> = {};
-
-    // Try to extract browser metadata
-    if (typeof globalThis !== "undefined" && "window" in globalThis) {
-      const win = globalThis as Record<string, unknown>;
-      const navigator = (win.window as Record<string, unknown>)?.navigator as
-        | Record<string, unknown>
-        | undefined;
-      const location = (win.window as Record<string, unknown>)?.location as
-        | Record<string, unknown>
-        | undefined;
-
-      metadata.userAgent = navigator?.userAgent as string | undefined;
-      metadata.hostname = location?.hostname as string | undefined;
-    }
-
-    // Try to extract Node.js metadata
-    if (typeof process !== "undefined" && process.env) {
-      metadata.hostname = process.env["HOSTNAME"] || "unknown";
-    }
-
-    return metadata as Partial<LogEntry>;
-  }
-
-  /**
    * Log error message with optional stack trace and enhanced options
    */
   async error(
@@ -258,11 +198,11 @@ export class LoggerService extends EventEmitter {
   ): Promise<void> {
     // Extract JWT context if token provided
     const jwtContext = options?.token
-      ? this.extractJWTContext(options.token)
+      ? extractJwtContext(options.token)
       : {};
 
     // Extract environment metadata
-    const metadata = this.extractMetadata();
+    const metadata = extractEnvironmentMetadata();
 
     // Generate correlation ID if not provided
     const correlationId =
@@ -462,12 +402,20 @@ export class LoggerService extends EventEmitter {
       this.httpLoggingDisabledUntil = null;
     } catch (error) {
       // Failed to send log to controller
-      // Increment failure counter and open circuit breaker after too many failures
-      this.httpLoggingFailures++;
-      if (this.httpLoggingFailures >= LoggerService.MAX_FAILURES) {
-        // Open circuit breaker - disable HTTP logging for a period
-        this.httpLoggingDisabledUntil = now + LoggerService.DISABLE_DURATION_MS;
-        this.httpLoggingFailures = 0; // Reset counter for next attempt after cooldown
+      // Check if it's a 401 (token expired) - don't count towards failure threshold
+      const isAuthError = error instanceof Error && 
+        (error.message.includes('401') || 
+         error.message.includes('Unauthorized') ||
+         (error as { statusCode?: number }).statusCode === 401);
+      
+      if (!isAuthError) {
+        // Only increment failure counter for non-auth errors
+        this.httpLoggingFailures++;
+        if (this.httpLoggingFailures >= LoggerService.MAX_FAILURES) {
+          // Open circuit breaker - disable HTTP logging for a period
+          this.httpLoggingDisabledUntil = now + LoggerService.DISABLE_DURATION_MS;
+          this.httpLoggingFailures = 0; // Reset counter for next attempt after cooldown
+        }
       }
       // Silently fail to avoid infinite logging loops
       // Application should implement retry or buffer strategy if needed
@@ -512,38 +460,15 @@ export class LoggerService extends EventEmitter {
     level: LogEntry["level"] = "info",
     context?: Record<string, unknown>,
   ): LogEntry {
-    const requestContext = extractRequestContext(req);
-    const jwtContext = this.extractJWTContext(
-      req.headers.authorization?.replace("Bearer ", ""),
-    );
-    const metadata = this.extractMetadata();
-
-    const correlationId =
-      requestContext.correlationId || this.generateCorrelationId();
-
-    // Mask sensitive data in context if enabled
-    const maskSensitive = this.maskSensitiveData;
-    const maskedContext =
-      maskSensitive && context
-        ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
-        : context;
-
-    return {
-      timestamp: new Date().toISOString(),
-      level,
-      environment: "unknown", // Backend extracts from client credentials
-      application: this.config.clientId,
-      applicationId: jwtContext.applicationId || "",
+    return getLogWithRequest(
+      req,
       message,
-      context: maskedContext,
-      correlationId,
-      userId: requestContext.userId || jwtContext.userId,
-      sessionId: requestContext.sessionId || jwtContext.sessionId,
-      requestId: requestContext.requestId,
-      ipAddress: requestContext.ipAddress || metadata.ipAddress,
-      userAgent: requestContext.userAgent || metadata.userAgent,
-      ...metadata,
-    };
+      level,
+      context,
+      this.config,
+      () => this.generateCorrelationId(),
+      this.maskSensitiveData,
+    );
   }
 
   /**
@@ -566,26 +491,14 @@ export class LoggerService extends EventEmitter {
     message: string,
     level: LogEntry["level"] = "info",
   ): LogEntry {
-    const metadata = this.extractMetadata();
-    const correlationId = this.generateCorrelationId();
-
-    // Mask sensitive data in context if enabled
-    const maskSensitive = this.maskSensitiveData;
-    const maskedContext = maskSensitive
-      ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
-      : context;
-
-    return {
-      timestamp: new Date().toISOString(),
-      level,
-      environment: "unknown", // Backend extracts from client credentials
-      application: this.config.clientId,
-      applicationId: "",
+    return getWithContext(
+      context,
       message,
-      context: maskedContext,
-      correlationId,
-      ...metadata,
-    };
+      level,
+      this.config,
+      () => this.generateCorrelationId(),
+      this.maskSensitiveData,
+    );
   }
 
   /**
@@ -611,30 +524,15 @@ export class LoggerService extends EventEmitter {
     level: LogEntry["level"] = "info",
     context?: Record<string, unknown>,
   ): LogEntry {
-    const jwtContext = this.extractJWTContext(token);
-    const metadata = this.extractMetadata();
-    const correlationId = this.generateCorrelationId();
-
-    // Mask sensitive data in context if enabled
-    const maskSensitive = this.maskSensitiveData;
-    const maskedContext =
-      maskSensitive && context
-        ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
-        : context;
-
-    return {
-      timestamp: new Date().toISOString(),
-      level,
-      environment: "unknown", // Backend extracts from client credentials
-      application: this.config.clientId,
-      applicationId: jwtContext.applicationId || "",
+    return getWithToken(
+      token,
       message,
-      context: maskedContext,
-      correlationId,
-      userId: jwtContext.userId,
-      sessionId: jwtContext.sessionId,
-      ...metadata,
-    };
+      level,
+      context,
+      this.config,
+      () => this.generateCorrelationId(),
+      this.maskSensitiveData,
+    );
   }
 
   /**
@@ -676,190 +574,5 @@ export class LoggerService extends EventEmitter {
    */
   forRequest(req: Request): LoggerChain {
     return new LoggerChain(this, {}, {}).withRequest(req);
-  }
-}
-
-/**
- * Method chaining class for fluent logging API
- */
-export class LoggerChain {
-  private logger: LoggerService;
-  private context: Record<string, unknown>;
-  private options: ClientLoggingOptions;
-
-  constructor(
-    logger: LoggerService,
-    context: Record<string, unknown> = {},
-    options: ClientLoggingOptions = {},
-  ) {
-    this.logger = logger;
-    this.context = context;
-    this.options = options;
-  }
-
-  addContext(key: string, value: unknown): LoggerChain {
-    this.context[key] = value;
-    return this;
-  }
-
-  addUser(userId: string): LoggerChain {
-    this.options.userId = userId;
-    return this;
-  }
-
-  addApplication(applicationId: string): LoggerChain {
-    this.options.applicationId = applicationId;
-    return this;
-  }
-
-  addCorrelation(correlationId: string): LoggerChain {
-    this.options.correlationId = correlationId;
-    return this;
-  }
-
-  withToken(token: string): LoggerChain {
-    this.options.token = token;
-    return this;
-  }
-
-  withoutMasking(): LoggerChain {
-    this.options.maskSensitiveData = false;
-    return this;
-  }
-
-  /**
-   * Add indexed logging context fields for fast queries
-   * 
-   * @param context - Indexed logging context with source, external system, and record fields
-   * @returns LoggerChain instance for method chaining
-   * 
-   * @example
-   * ```typescript
-   * await logger
-   *   .withIndexedContext({
-   *     sourceKey: 'datasource-1',
-   *     sourceDisplayName: 'PostgreSQL DB',
-   *     externalSystemKey: 'system-1',
-   *     recordKey: 'record-123'
-   *   })
-   *   .info('Sync completed');
-   * ```
-   */
-  withIndexedContext(context: IndexedLoggingContext): LoggerChain {
-    this.options.sourceKey = context.sourceKey;
-    this.options.sourceDisplayName = context.sourceDisplayName;
-    this.options.externalSystemKey = context.externalSystemKey;
-    this.options.externalSystemDisplayName = context.externalSystemDisplayName;
-    this.options.recordKey = context.recordKey;
-    this.options.recordDisplayName = context.recordDisplayName;
-    return this;
-  }
-
-  /**
-   * Add credential context for audit logging
-   * 
-   * @param credentialId - Optional credential identifier
-   * @param credentialType - Optional credential type (e.g., 'oauth2', 'api-key')
-   * @returns LoggerChain instance for method chaining
-   * 
-   * @example
-   * ```typescript
-   * await logger
-   *   .withCredentialContext('cred-123', 'oauth2')
-   *   .info('API call completed');
-   * ```
-   */
-  withCredentialContext(credentialId?: string, credentialType?: string): LoggerChain {
-    this.options.credentialId = credentialId;
-    this.options.credentialType = credentialType;
-    return this;
-  }
-
-  /**
-   * Add request/response metrics for performance logging
-   * 
-   * @param requestSize - Optional request size in bytes
-   * @param responseSize - Optional response size in bytes
-   * @param durationMs - Optional request duration in milliseconds
-   * @returns LoggerChain instance for method chaining
-   * 
-   * @example
-   * ```typescript
-   * await logger
-   *   .withRequestMetrics(1024, 2048, 150)
-   *   .info('Upstream API call completed');
-   * ```
-   */
-  withRequestMetrics(requestSize?: number, responseSize?: number, durationMs?: number): LoggerChain {
-    this.options.requestSize = requestSize;
-    this.options.responseSize = responseSize;
-    this.options.durationMs = durationMs;
-    return this;
-  }
-
-  /**
-   * Auto-extract logging context from Express Request
-   * Extracts: IP, method, path, user-agent, correlation ID, user from JWT
-   *
-   * @param req - Express Request object
-   * @returns LoggerChain instance for method chaining
-   *
-   * @example
-   * ```typescript
-   * await miso.log
-   *   .withRequest(req)
-   *   .info("Processing request");
-   * ```
-   */
-  withRequest(req: Request): LoggerChain {
-    const ctx = extractRequestContext(req);
-
-    // Merge into options (these become top-level LogEntry fields)
-    if (ctx.userId) {
-      this.options.userId = ctx.userId;
-    }
-    if (ctx.sessionId) {
-      this.options.sessionId = ctx.sessionId;
-    }
-    if (ctx.correlationId) {
-      this.options.correlationId = ctx.correlationId;
-    }
-    if (ctx.requestId) {
-      this.options.requestId = ctx.requestId;
-    }
-    if (ctx.ipAddress) {
-      this.options.ipAddress = ctx.ipAddress;
-    }
-    if (ctx.userAgent) {
-      this.options.userAgent = ctx.userAgent;
-    }
-
-    // Merge into context (additional request info, not top-level LogEntry fields)
-    if (ctx.method) {
-      this.context.method = ctx.method;
-    }
-    if (ctx.path) {
-      this.context.path = ctx.path;
-    }
-    if (ctx.referer) {
-      this.context.referer = ctx.referer;
-    }
-    if (ctx.requestSize !== undefined) {
-      this.context.requestSize = ctx.requestSize;
-    }
-
-    return this;
-  }
-
-  async error(message: string, stackTrace?: string): Promise<void> {
-    await this.logger.error(message, this.context, stackTrace, this.options);
-  }
-
-  async info(message: string): Promise<void> {
-    await this.logger.info(message, this.context, this.options);
-  }
-
-  async audit(action: string, resource: string): Promise<void> {
-    await this.logger.audit(action, resource, this.context, this.options);
   }
 }

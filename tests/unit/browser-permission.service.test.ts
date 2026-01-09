@@ -339,6 +339,7 @@ describe("BrowserPermissionService", () => {
         }),
       );
       expect(mockApiClient.permissions.refreshPermissions).toHaveBeenCalledWith(
+        undefined,
         expect.objectContaining({
           methods: ['bearer'],
           bearerToken: 'token',

@@ -67,10 +67,12 @@ export class PermissionsApi {
 
   /**
    * Refresh user permissions
+   * @param params - Optional query parameters (environment, application)
    * @param authStrategy - Optional authentication strategy override
    * @returns Refresh permissions response with updated permissions array
    */
   async refreshPermissions(
+    params?: GetPermissionsQueryParams,
     authStrategy?: AuthStrategy,
   ): Promise<RefreshPermissionsResponse> {
     try {
@@ -80,7 +82,7 @@ export class PermissionsApi {
           PermissionsApi.PERMISSIONS_REFRESH_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
-          undefined,
+          { params },
           authStrategy,
         );
       }
@@ -89,6 +91,8 @@ export class PermissionsApi {
           'GET',
           PermissionsApi.PERMISSIONS_REFRESH_ENDPOINT,
           authStrategy,
+          undefined,
+          { params },
         );
       }
       throw new Error('refreshPermissions requires authentication - provide authStrategy with bearerToken');
@@ -98,7 +102,6 @@ export class PermissionsApi {
         method: 'GET',
       });
       logErrorWithContext(errorInfo, '[PermissionsApi]');
-      throw error;
       throw error;
     }
   }

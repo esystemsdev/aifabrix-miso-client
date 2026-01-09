@@ -74,7 +74,6 @@ export class LogsStatsApi {
       });
       logErrorWithContext(errorInfo, '[LogsStatsApi]');
       throw error;
-      throw error;
     }
   }
 
@@ -120,7 +119,6 @@ export class LogsStatsApi {
         method: 'GET',
       });
       logErrorWithContext(errorInfo, '[LogsStatsApi]');
-      throw error;
       throw error;
     }
   }
@@ -168,7 +166,6 @@ export class LogsStatsApi {
       });
       logErrorWithContext(errorInfo, '[LogsStatsApi]');
       throw error;
-      throw error;
     }
   }
 
@@ -214,7 +211,6 @@ export class LogsStatsApi {
         method: 'GET',
       });
       logErrorWithContext(errorInfo, '[LogsStatsApi]');
-      throw error;
       throw error;
     }
   }

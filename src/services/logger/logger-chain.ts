@@ -1,0 +1,193 @@
+/**
+ * Method chaining class for fluent logging API
+ */
+
+import { Request } from "express";
+import { LoggerService, ClientLoggingOptions } from "./logger.service";
+import { IndexedLoggingContext } from "../../utils/logging-helpers";
+import { extractRequestContext } from "../../utils/request-context";
+
+/**
+ * Method chaining class for fluent logging API
+ */
+export class LoggerChain {
+  private logger: LoggerService;
+  private context: Record<string, unknown>;
+  private options: ClientLoggingOptions;
+
+  constructor(
+    logger: LoggerService,
+    context: Record<string, unknown> = {},
+    options: ClientLoggingOptions = {},
+  ) {
+    this.logger = logger;
+    this.context = context;
+    this.options = options;
+  }
+
+  addContext(key: string, value: unknown): LoggerChain {
+    this.context[key] = value;
+    return this;
+  }
+
+  addUser(userId: string): LoggerChain {
+    this.options.userId = userId;
+    return this;
+  }
+
+  addApplication(applicationId: string): LoggerChain {
+    this.options.applicationId = applicationId;
+    return this;
+  }
+
+  addCorrelation(correlationId: string): LoggerChain {
+    this.options.correlationId = correlationId;
+    return this;
+  }
+
+  withToken(token: string): LoggerChain {
+    this.options.token = token;
+    return this;
+  }
+
+  withoutMasking(): LoggerChain {
+    this.options.maskSensitiveData = false;
+    return this;
+  }
+
+  /**
+   * Add indexed logging context fields for fast queries
+   * 
+   * @param context - Indexed logging context with source, external system, and record fields
+   * @returns LoggerChain instance for method chaining
+   * 
+   * @example
+   * ```typescript
+   * await logger
+   *   .withIndexedContext({
+   *     sourceKey: 'datasource-1',
+   *     sourceDisplayName: 'PostgreSQL DB',
+   *     externalSystemKey: 'system-1',
+   *     recordKey: 'record-123'
+   *   })
+   *   .info('Sync completed');
+   * ```
+   */
+  withIndexedContext(context: IndexedLoggingContext): LoggerChain {
+    this.options.sourceKey = context.sourceKey;
+    this.options.sourceDisplayName = context.sourceDisplayName;
+    this.options.externalSystemKey = context.externalSystemKey;
+    this.options.externalSystemDisplayName = context.externalSystemDisplayName;
+    this.options.recordKey = context.recordKey;
+    this.options.recordDisplayName = context.recordDisplayName;
+    return this;
+  }
+
+  /**
+   * Add credential context for audit logging
+   * 
+   * @param credentialId - Optional credential identifier
+   * @param credentialType - Optional credential type (e.g., 'oauth2', 'api-key')
+   * @returns LoggerChain instance for method chaining
+   * 
+   * @example
+   * ```typescript
+   * await logger
+   *   .withCredentialContext('cred-123', 'oauth2')
+   *   .info('API call completed');
+   * ```
+   */
+  withCredentialContext(credentialId?: string, credentialType?: string): LoggerChain {
+    this.options.credentialId = credentialId;
+    this.options.credentialType = credentialType;
+    return this;
+  }
+
+  /**
+   * Add request/response metrics for performance logging
+   * 
+   * @param requestSize - Optional request size in bytes
+   * @param responseSize - Optional response size in bytes
+   * @param durationMs - Optional request duration in milliseconds
+   * @returns LoggerChain instance for method chaining
+   * 
+   * @example
+   * ```typescript
+   * await logger
+   *   .withRequestMetrics(1024, 2048, 150)
+   *   .info('Upstream API call completed');
+   * ```
+   */
+  withRequestMetrics(requestSize?: number, responseSize?: number, durationMs?: number): LoggerChain {
+    this.options.requestSize = requestSize;
+    this.options.responseSize = responseSize;
+    this.options.durationMs = durationMs;
+    return this;
+  }
+
+  /**
+   * Auto-extract logging context from Express Request
+   * Extracts: IP, method, path, user-agent, correlation ID, user from JWT
+   *
+   * @param req - Express Request object
+   * @returns LoggerChain instance for method chaining
+   *
+   * @example
+   * ```typescript
+   * await miso.log
+   *   .withRequest(req)
+   *   .info("Processing request");
+   * ```
+   */
+  withRequest(req: Request): LoggerChain {
+    const ctx = extractRequestContext(req);
+
+    // Merge into options (these become top-level LogEntry fields)
+    if (ctx.userId) {
+      this.options.userId = ctx.userId;
+    }
+    if (ctx.sessionId) {
+      this.options.sessionId = ctx.sessionId;
+    }
+    if (ctx.correlationId) {
+      this.options.correlationId = ctx.correlationId;
+    }
+    if (ctx.requestId) {
+      this.options.requestId = ctx.requestId;
+    }
+    if (ctx.ipAddress) {
+      this.options.ipAddress = ctx.ipAddress;
+    }
+    if (ctx.userAgent) {
+      this.options.userAgent = ctx.userAgent;
+    }
+
+    // Merge into context (additional request info, not top-level LogEntry fields)
+    if (ctx.method) {
+      this.context.method = ctx.method;
+    }
+    if (ctx.path) {
+      this.context.path = ctx.path;
+    }
+    if (ctx.referer) {
+      this.context.referer = ctx.referer;
+    }
+    if (ctx.requestSize !== undefined) {
+      this.context.requestSize = ctx.requestSize;
+    }
+
+    return this;
+  }
+
+  async error(message: string, stackTrace?: string): Promise<void> {
+    await this.logger.error(message, this.context, stackTrace, this.options);
+  }
+
+  async info(message: string): Promise<void> {
+    await this.logger.info(message, this.context, this.options);
+  }
+
+  async audit(action: string, resource: string): Promise<void> {
+    await this.logger.audit(action, resource, this.context, this.options);
+  }
+}

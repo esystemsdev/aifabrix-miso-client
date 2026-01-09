@@ -41,9 +41,9 @@ import { CacheService } from "../services/cache.service";
 import { HttpClient } from "../utils/http-client";
 import { InternalHttpClient } from "../utils/internal-http-client";
 import { ApiClient } from "../api";
-import { LoggerService } from "../services/logger.service";
+import { LoggerService } from "../services/logger";
 import { RedisService } from "../services/redis.service";
-import { UserInfo } from "../types/config.types";
+import { UserInfo, MisoClientConfig } from "../types/config.types";
 
 export class DataClient {
   private config: DataClientConfig;
@@ -109,11 +109,12 @@ export class DataClient {
     }
 
     // Initialize MisoClient if config provided
+    let misoConfigWithRefresh: MisoClientConfig | undefined;
     if (this.config.misoConfig) {
       // Automatically bridge DataClient.getEnvironmentToken() to MisoClient
       // This allows MisoClient's logger service to get client tokens automatically
       // Users don't need to manually provide onClientTokenRefresh!
-      const misoConfigWithRefresh = {
+      misoConfigWithRefresh = {
         ...this.config.misoConfig,
         // Only auto-bridge if:
         // 1. User hasn't provided onClientTokenRefresh (allow override)
@@ -154,12 +155,13 @@ export class DataClient {
 
     // Initialize browser-compatible permission and role services
     // These services need HttpClient and CacheService, so they're initialized after MisoClient
-    if (this.misoClient && this.config.misoConfig) {
+    if (this.misoClient && misoConfigWithRefresh) {
       // Create InternalHttpClient first (base HTTP functionality)
-      const internalClient = new InternalHttpClient(this.config.misoConfig);
+      // Use misoConfigWithRefresh which includes onClientTokenRefresh callback
+      const internalClient = new InternalHttpClient(misoConfigWithRefresh);
 
       // Create Redis service (will be undefined for browser, but needed for LoggerService)
-      const redis = new RedisService(this.config.misoConfig.redis);
+      const redis = new RedisService(misoConfigWithRefresh.redis);
 
       // Create LoggerService with InternalHttpClient (needs httpClient.request() and httpClient.config)
       const logger = new LoggerService(
@@ -168,7 +170,8 @@ export class DataClient {
       );
 
       // Create HttpClient that wraps InternalHttpClient with logger
-      const httpClient = new HttpClient(this.config.misoConfig, logger);
+      // Use misoConfigWithRefresh which includes onClientTokenRefresh callback
+      const httpClient = new HttpClient(misoConfigWithRefresh, logger);
 
       // Update LoggerService to use the new HttpClient (for logging)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

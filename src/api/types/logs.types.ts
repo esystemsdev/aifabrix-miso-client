@@ -4,7 +4,20 @@
  */
 
 /**
+ * Foreign key reference object
+ * Used for applicationId and userId fields in log entry responses
+ * Matches OpenAPI schema: ForeignKeyReference
+ */
+export interface ForeignKeyReference {
+  id: string;
+  key: string;
+  name: string;
+  type: string;
+}
+
+/**
  * Log entry base structure
+ * Used in batch log requests and responses
  */
 export interface LogEntry {
   timestamp: string;
@@ -12,8 +25,8 @@ export interface LogEntry {
   message: string;
   environment?: string;
   application?: string;
-  applicationId?: string;
-  userId?: string;
+  applicationId?: ForeignKeyReference | null;
+  userId?: ForeignKeyReference | null;
   context?: Record<string, unknown>;
   stackTrace?: string;
   correlationId?: string;
@@ -26,14 +39,15 @@ export interface LogEntry {
 
 /**
  * General log entry
+ * Response type from GET /api/v1/logs/general
  */
 export interface GeneralLogEntry {
   timestamp: string;
   level: 'error' | 'warn' | 'info' | 'debug';
   environment: string;
   application: string;
-  applicationId?: string;
-  userId?: string;
+  applicationId?: ForeignKeyReference | null;
+  userId?: ForeignKeyReference | null;
   message: string;
   stackTrace?: string;
   context?: Record<string, unknown>;
@@ -47,13 +61,14 @@ export interface GeneralLogEntry {
 
 /**
  * Audit log entry
+ * Response type from GET /api/v1/logs/audit
  */
 export interface AuditLogEntry {
   timestamp: string;
   environment: string;
   application: string;
-  applicationId?: string;
-  userId?: string;
+  applicationId?: ForeignKeyReference | null;
+  userId?: ForeignKeyReference | null;
   entityType: string;
   entityId: string;
   action: string;
@@ -103,15 +118,40 @@ export interface CreateLogRequest {
  */
 export interface CreateLogResponse {
   success: boolean;
+  data: null;
   message: string;
   timestamp: string;
 }
 
 /**
+ * Batch log entry for requests
+ * Accepts both string IDs and ForeignKeyReference objects for backward compatibility
+ * Controller accepts strings and converts them to ForeignKeyReference objects
+ */
+export interface BatchLogEntry {
+  timestamp: string;
+  level: 'error' | 'audit' | 'info' | 'debug';
+  message: string;
+  environment?: string;
+  application?: string;
+  applicationId?: ForeignKeyReference | string | null;
+  userId?: ForeignKeyReference | string | null;
+  context?: Record<string, unknown>;
+  stackTrace?: string;
+  correlationId?: string;
+  requestId?: string;
+  sessionId?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  hostname?: string;
+}
+
+/**
  * Batch log request (1-100 items)
+ * Uses BatchLogEntry which accepts both strings and ForeignKeyReference objects
  */
 export interface BatchLogRequest {
-  logs: LogEntry[];
+  logs: BatchLogEntry[];
 }
 
 /**

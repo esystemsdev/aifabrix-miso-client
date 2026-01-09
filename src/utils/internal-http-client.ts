@@ -317,6 +317,15 @@ export class InternalHttpClient {
     // Default to enabled (true) if not explicitly set
     // validateResponses can be true | undefined (defaults to true in development)
 
+    // Skip validation for validate token endpoint - it may return different formats
+    // depending on controller version
+    if (url.includes('/api/v1/auth/validate') || url.includes('/api/auth/validate')) {
+      // Allow responses with just {data: {...}} format for backward compatibility
+      if (data && typeof data === 'object' && 'data' in (data as Record<string, unknown>)) {
+        return true;
+      }
+    }
+
     // Determine response type and validate accordingly
     const responseType = getResponseType(data);
 

@@ -4,7 +4,7 @@
 
 import { HttpClient } from "../../src/utils/http-client";
 import { InternalHttpClient } from "../../src/utils/internal-http-client";
-import { LoggerService } from "../../src/services/logger.service";
+import { LoggerService } from "../../src/services/logger";
 import { MisoClientConfig } from "../../src/types/config.types";
 import { MisoClientError } from "../../src/utils/errors";
 import { AxiosError } from "axios";
@@ -14,7 +14,7 @@ jest.mock("axios");
 // Mock InternalHttpClient
 jest.mock("../../src/utils/internal-http-client");
 // Mock LoggerService
-jest.mock("../../src/services/logger.service");
+jest.mock("../../src/services/logger");
 // Mock jsonwebtoken
 jest.mock("jsonwebtoken");
 

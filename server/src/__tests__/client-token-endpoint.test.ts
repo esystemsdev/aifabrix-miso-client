@@ -7,8 +7,8 @@ import request from 'supertest';
 import express from 'express';
 import { Server } from 'http';
 import { AddressInfo } from 'net';
-import { 
-  MisoClient, 
+import {
+  MisoClient,
   createClientTokenEndpoint,
   asyncHandler,
   AppError,
@@ -37,7 +37,10 @@ describe('Client Token Endpoint Integration Tests', () => {
       const clientSecret = req.headers['x-client-secret'] as string;
 
       // Simulate valid credentials
-      if (clientId === 'miso-controller-miso-miso-test' && clientSecret === '5YEFODhnClk1c3Xg0q_LKwAce5d1bO779iC3YsDq_FM') {
+      if (
+        clientId === 'miso-controller-miso-miso-test' &&
+        clientSecret === '5YEFODhnClk1c3Xg0q_LKwAce5d1bO779iC3YsDq_FM'
+      ) {
         return res.json({
           success: true,
           data: {
@@ -98,31 +101,37 @@ describe('Client Token Endpoint Integration Tests', () => {
     await misoClient.initialize();
 
     // Register client-token endpoint
-    app.post('/api/v1/auth/client-token', asyncHandler(async (req: Request, res: Response): Promise<void> => {
-      if (!misoClient) {
-        throw new AppError('MisoClient is not initialized', 503);
-      }
+    app.post(
+      '/api/v1/auth/client-token',
+      asyncHandler(async (req: Request, res: Response): Promise<void> => {
+        if (!misoClient) {
+          throw new AppError('MisoClient is not initialized', 503);
+        }
 
-      if (!misoClient.isInitialized()) {
-        throw new AppError('MisoClient is not initialized yet', 503);
-      }
+        if (!misoClient.isInitialized()) {
+          throw new AppError('MisoClient is not initialized yet', 503);
+        }
 
-      const handler = createClientTokenEndpoint(misoClient);
-      await handler(req, res);
-    }, 'getClientToken'));
+        const handler = createClientTokenEndpoint(misoClient);
+        await handler(req, res);
+      }, 'getClientToken')
+    );
 
-    app.get('/api/v1/auth/client-token', asyncHandler(async (req: Request, res: Response): Promise<void> => {
-      if (!misoClient) {
-        throw new AppError('MisoClient is not initialized', 503);
-      }
+    app.get(
+      '/api/v1/auth/client-token',
+      asyncHandler(async (req: Request, res: Response): Promise<void> => {
+        if (!misoClient) {
+          throw new AppError('MisoClient is not initialized', 503);
+        }
 
-      if (!misoClient.isInitialized()) {
-        throw new AppError('MisoClient is not initialized yet', 503);
-      }
+        if (!misoClient.isInitialized()) {
+          throw new AppError('MisoClient is not initialized yet', 503);
+        }
 
-      const handler = createClientTokenEndpoint(misoClient);
-      await handler(req, res);
-    }, 'getClientToken'));
+        const handler = createClientTokenEndpoint(misoClient);
+        await handler(req, res);
+      }, 'getClientToken')
+    );
 
     // Error handlers
     app.use(notFoundHandler);

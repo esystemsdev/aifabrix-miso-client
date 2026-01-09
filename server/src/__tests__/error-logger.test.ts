@@ -68,18 +68,24 @@ describe('Error Logger Configuration', () => {
         async logError(message: string, options: unknown): Promise<void> {
           const req = (options as { req?: Request })?.req;
           if (req && mockMisoClient) {
-            const loggerChain = (mockMisoClient.log as unknown as { forRequest: (req: Request) => { error: jest.Mock; info: jest.Mock; addContext: jest.Mock } }).forRequest(req);
+            const loggerChain = (
+              mockMisoClient.log as unknown as {
+                forRequest: (req: Request) => {
+                  error: jest.Mock;
+                  info: jest.Mock;
+                  addContext: jest.Mock;
+                };
+              }
+            ).forRequest(req);
             if (loggerChain) {
-              await loggerChain.error(
-                message,
-                (options as { stack?: string })?.stack
-              );
+              await loggerChain.error(message, (options as { stack?: string })?.stack);
             }
           } else if (mockMisoClient) {
-            await (mockMisoClient.log as unknown as { error: (message: string, options: Record<string, unknown>) => Promise<void> }).error(
-              message,
-              options as Record<string, unknown>
-            );
+            await (
+              mockMisoClient.log as unknown as {
+                error: (message: string, options: Record<string, unknown>) => Promise<void>;
+              }
+            ).error(message, options as Record<string, unknown>);
           }
         },
       };
@@ -94,20 +100,30 @@ describe('Error Logger Configuration', () => {
         async logError(message: string, options: unknown): Promise<void> {
           const req = (options as { req?: Request })?.req;
           if (req && mockMisoClient) {
-            const loggerChain = (mockMisoClient.log as unknown as { forRequest: (req: Request) => { error: jest.Mock; info: jest.Mock; addContext: jest.Mock } }).forRequest(req);
+            const loggerChain = (
+              mockMisoClient.log as unknown as {
+                forRequest: (req: Request) => {
+                  error: jest.Mock;
+                  info: jest.Mock;
+                  addContext: jest.Mock;
+                };
+              }
+            ).forRequest(req);
             if (loggerChain) {
-              await loggerChain.error(
-                message,
-                (options as { stack?: string })?.stack
-              );
+              await loggerChain.error(message, (options as { stack?: string })?.stack);
             }
           }
         },
       };
 
-      await errorLogger.logError('Test error', { req: mockRequest as Request, stack: 'Error stack' });
+      await errorLogger.logError('Test error', {
+        req: mockRequest as Request,
+        stack: 'Error stack',
+      });
 
-      expect((mockMisoClient.log as unknown as { forRequest: jest.Mock }).forRequest).toHaveBeenCalledWith(mockRequest as Request);
+      expect(
+        (mockMisoClient.log as unknown as { forRequest: jest.Mock }).forRequest
+      ).toHaveBeenCalledWith(mockRequest as Request);
       expect(mockLoggerChain.error).toHaveBeenCalledWith('Test error', 'Error stack');
     });
 
@@ -115,17 +131,21 @@ describe('Error Logger Configuration', () => {
       const errorLogger = {
         async logError(message: string, options: unknown): Promise<void> {
           if (mockMisoClient) {
-            await (mockMisoClient.log as unknown as { error: (message: string, options: Record<string, unknown>) => Promise<void> }).error(
-              message,
-              options as Record<string, unknown>
-            );
+            await (
+              mockMisoClient.log as unknown as {
+                error: (message: string, options: Record<string, unknown>) => Promise<void>;
+              }
+            ).error(message, options as Record<string, unknown>);
           }
         },
       };
 
       await errorLogger.logError('Test error', { stack: 'Error stack' });
 
-      expect((mockMisoClient.log as unknown as { error: jest.Mock }).error).toHaveBeenCalledWith('Test error', { stack: 'Error stack' });
+      expect((mockMisoClient.log as unknown as { error: jest.Mock }).error).toHaveBeenCalledWith(
+        'Test error',
+        { stack: 'Error stack' }
+      );
     });
 
     it('should fallback to console.error when MisoClient not available', async () => {
@@ -135,18 +155,24 @@ describe('Error Logger Configuration', () => {
         async logError(message: string, options: unknown): Promise<void> {
           const req = (options as { req?: Request })?.req;
           if (req && mockMisoClient) {
-            const loggerChain = (mockMisoClient.log as unknown as { forRequest: (req: Request) => { error: jest.Mock; info: jest.Mock; addContext: jest.Mock } }).forRequest(req);
+            const loggerChain = (
+              mockMisoClient.log as unknown as {
+                forRequest: (req: Request) => {
+                  error: jest.Mock;
+                  info: jest.Mock;
+                  addContext: jest.Mock;
+                };
+              }
+            ).forRequest(req);
             if (loggerChain) {
-              await loggerChain.error(
-                message,
-                (options as { stack?: string })?.stack
-              );
+              await loggerChain.error(message, (options as { stack?: string })?.stack);
             }
           } else if (mockMisoClient) {
-            await (mockMisoClient.log as unknown as { error: (message: string, options: Record<string, unknown>) => Promise<void> }).error(
-              message,
-              options as Record<string, unknown>
-            );
+            await (
+              mockMisoClient.log as unknown as {
+                error: (message: string, options: Record<string, unknown>) => Promise<void>;
+              }
+            ).error(message, options as Record<string, unknown>);
           } else {
             console.error('[ERROR]', message);
             if ((options as { stack?: string })?.stack) {
@@ -184,10 +210,7 @@ describe('Error Logger Configuration', () => {
           if (req && mockMisoClient) {
             const loggerChain = mockMisoClient.log?.forRequest(req as Request);
             if (loggerChain) {
-              await loggerChain.error(
-                message,
-                (options as { stack?: string })?.stack
-              );
+              await loggerChain.error(message, (options as { stack?: string })?.stack);
             }
           }
         },
@@ -195,7 +218,9 @@ describe('Error Logger Configuration', () => {
 
       await errorLogger.logError('Test error', { req: mockRequest as Request });
 
-      expect((mockMisoClient.log as unknown as { forRequest: jest.Mock }).forRequest).toHaveBeenCalledWith(mockRequest as Request);
+      expect(
+        (mockMisoClient.log as unknown as { forRequest: jest.Mock }).forRequest
+      ).toHaveBeenCalledWith(mockRequest as Request);
     });
 
     it('should handle options without request', async () => {
@@ -203,26 +228,37 @@ describe('Error Logger Configuration', () => {
         async logError(message: string, options: unknown): Promise<void> {
           const req = (options as { req?: Request })?.req;
           if (req && mockMisoClient) {
-            const loggerChain = (mockMisoClient.log as unknown as { forRequest: (req: Request) => { error: jest.Mock; info: jest.Mock; addContext: jest.Mock } }).forRequest(req);
+            const loggerChain = (
+              mockMisoClient.log as unknown as {
+                forRequest: (req: Request) => {
+                  error: jest.Mock;
+                  info: jest.Mock;
+                  addContext: jest.Mock;
+                };
+              }
+            ).forRequest(req);
             if (loggerChain) {
-              await loggerChain.error(
-                message,
-                (options as { stack?: string })?.stack
-              );
+              await loggerChain.error(message, (options as { stack?: string })?.stack);
             }
           } else if (mockMisoClient) {
-            await (mockMisoClient.log as unknown as { error: (message: string, options: Record<string, unknown>) => Promise<void> }).error(
-              message,
-              options as Record<string, unknown>
-            );
+            await (
+              mockMisoClient.log as unknown as {
+                error: (message: string, options: Record<string, unknown>) => Promise<void>;
+              }
+            ).error(message, options as Record<string, unknown>);
           }
         },
       };
 
       await errorLogger.logError('Test error', { stack: 'Error stack' });
 
-      expect((mockMisoClient.log as unknown as { error: jest.Mock }).error).toHaveBeenCalledWith('Test error', { stack: 'Error stack' });
-      expect((mockMisoClient.log as unknown as { forRequest: jest.Mock }).forRequest).not.toHaveBeenCalled();
+      expect((mockMisoClient.log as unknown as { error: jest.Mock }).error).toHaveBeenCalledWith(
+        'Test error',
+        { stack: 'Error stack' }
+      );
+      expect(
+        (mockMisoClient.log as unknown as { forRequest: jest.Mock }).forRequest
+      ).not.toHaveBeenCalled();
     });
 
     it('should pass stack trace to logger', async () => {
@@ -230,12 +266,17 @@ describe('Error Logger Configuration', () => {
         async logError(message: string, options: unknown): Promise<void> {
           const req = (options as { req?: Request })?.req;
           if (req && mockMisoClient) {
-            const loggerChain = (mockMisoClient.log as unknown as { forRequest: (req: Request) => { error: jest.Mock; info: jest.Mock; addContext: jest.Mock } }).forRequest(req);
+            const loggerChain = (
+              mockMisoClient.log as unknown as {
+                forRequest: (req: Request) => {
+                  error: jest.Mock;
+                  info: jest.Mock;
+                  addContext: jest.Mock;
+                };
+              }
+            ).forRequest(req);
             if (loggerChain) {
-              await loggerChain.error(
-                message,
-                (options as { stack?: string })?.stack
-              );
+              await loggerChain.error(message, (options as { stack?: string })?.stack);
             }
           }
         },
@@ -245,7 +286,9 @@ describe('Error Logger Configuration', () => {
       await errorLogger.logError('Test error', { req: mockRequest as Request, stack: stackTrace });
 
       expect(mockLoggerChain.error).toHaveBeenCalledWith('Test error', stackTrace);
-      expect((mockMisoClient.log as unknown as { forRequest: jest.Mock }).forRequest).toHaveBeenCalledWith(mockRequest as Request);
+      expect(
+        (mockMisoClient.log as unknown as { forRequest: jest.Mock }).forRequest
+      ).toHaveBeenCalledWith(mockRequest as Request);
     });
   });
 });

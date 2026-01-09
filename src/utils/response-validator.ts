@@ -57,10 +57,8 @@ export function validateSuccessResponse<T = unknown>(
   }
 
   // data and message are optional, but if present must be correct types
-  if (obj.data !== undefined && obj.data === null) {
-    // null is allowed for data
-    return true;
-  }
+  // data can be null, undefined, or any value - all are valid
+  // No need to validate data type since it can be anything (null, object, array, string, number, boolean)
 
   if (obj.message !== undefined && typeof obj.message !== "string") {
     return false;

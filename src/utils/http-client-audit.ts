@@ -5,7 +5,7 @@
 
 import { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { MisoClientConfig } from "../types/config.types";
-import { LoggerService } from "../services/logger.service";
+import { LoggerService } from "../services/logger";
 import { ExtractedMetadata } from "./http-client-metadata";
 import { applyMaskingStrategy } from "./http-client-masking";
 

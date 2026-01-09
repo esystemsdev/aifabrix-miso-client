@@ -29,9 +29,9 @@ if (existsSync(rootEnvPath)) {
 
 import express from 'express';
 import { readFileSync } from 'fs';
-import { 
-  MisoClient, 
-  loadConfig, 
+import {
+  MisoClient,
+  loadConfig,
   createClientTokenEndpoint,
   setErrorLogger,
   handleRouteError,
@@ -52,6 +52,8 @@ import {
   slowEndpoint,
   errorEndpoint,
   logEndpoint,
+  getProducts,
+  getOrders,
 } from './routes/api';
 import { healthHandler } from './routes/health';
 
@@ -68,14 +70,17 @@ setImmediate(() => {
     const config = loadConfig();
     const controllerUrl = config.controllerPrivateUrl || config.controllerUrl || 'NOT CONFIGURED';
     const clientId = config.clientId || 'NOT CONFIGURED';
-    
+
     console.log('[MisoClient] Creating MisoClient instance...');
     console.log(`[MisoClient] Controller URL: ${controllerUrl}`);
-    console.log(`[MisoClient] Client ID: ${clientId ? clientId.substring(0, 20) + '...' : 'NOT CONFIGURED'}`);
-    
+    console.log(
+      `[MisoClient] Client ID: ${clientId ? clientId.substring(0, 20) + '...' : 'NOT CONFIGURED'}`
+    );
+
     misoClient = new MisoClient(config);
     // Initialize asynchronously
-    misoClient.initialize()
+    misoClient
+      .initialize()
       .then(async () => {
         // Configure error logger to use MisoClient logger with withRequest()
         setErrorLogger({
@@ -96,7 +101,7 @@ setImmediate(() => {
                 console.error('[ERROR] Stack:', (options as { stack?: string }).stack);
               }
             }
-          }
+          },
         });
         // Use logger for success message (but fallback to console if logger not ready)
         try {
@@ -113,7 +118,7 @@ setImmediate(() => {
         // Log error using logger if available, otherwise console
         const errorMessage = error instanceof Error ? error.message : String(error);
         const errorStack = error instanceof Error ? error.stack : undefined;
-        
+
         if (misoClient) {
           try {
             await misoClient.log.error('MisoClient initialization failed', {
@@ -131,8 +136,13 @@ setImmediate(() => {
               console.error('   Stack:', errorStack);
             }
             console.error('   Controller URL:', controllerUrl);
-            console.error('   Client ID:', clientId ? clientId.substring(0, 20) + '...' : 'NOT CONFIGURED');
-            console.error('   Suggestion: Check if controller is running and MISO_CONTROLLER_URL is correct');
+            console.error(
+              '   Client ID:',
+              clientId ? clientId.substring(0, 20) + '...' : 'NOT CONFIGURED'
+            );
+            console.error(
+              '   Suggestion: Check if controller is running and MISO_CONTROLLER_URL is correct'
+            );
           }
         } else {
           console.error('❌ MisoClient initialization failed:');
@@ -141,8 +151,13 @@ setImmediate(() => {
             console.error('   Stack:', errorStack);
           }
           console.error('   Controller URL:', controllerUrl);
-          console.error('   Client ID:', clientId ? clientId.substring(0, 20) + '...' : 'NOT CONFIGURED');
-          console.error('   Suggestion: Check if controller is running and MISO_CONTROLLER_URL is correct');
+          console.error(
+            '   Client ID:',
+            clientId ? clientId.substring(0, 20) + '...' : 'NOT CONFIGURED'
+          );
+          console.error(
+            '   Suggestion: Check if controller is running and MISO_CONTROLLER_URL is correct'
+          );
         }
       });
   } catch (error) {
@@ -332,17 +347,152 @@ window.DataClient = class DataClient {
   }
 
   getClientTokenInfo() {
-    const token = localStorage.getItem('miso:client-token');
-    if (!token) return null;
+    // Log all localStorage keys to see what tokens are available
+    console.log('[getClientTokenInfo] Checking localStorage for tokens...');
+    const allKeys = Object.keys(localStorage);
+    console.log('[getClientTokenInfo] All localStorage keys:', allKeys);
+    
+    const tokenKeys = allKeys.filter(key => {
+      const lowerKey = key.toLowerCase();
+      return lowerKey.includes('token') || lowerKey.includes('miso') || lowerKey.includes('auth');
+    });
+    console.log('[getClientTokenInfo] Found token-related keys:', tokenKeys);
+    
+    // Check all token keys and log their values (truncated)
+    const tokenCandidates = [];
+    for (const key of tokenKeys) {
+      const value = localStorage.getItem(key);
+      const isEmpty = !value || value.trim().length === 0;
+      const isJWT = value && value.includes('.') && value.split('.').length === 3;
+      console.log(\`[getClientTokenInfo] Key "\${key}": isEmpty=\${isEmpty}, isJWT=\${isJWT}, length=\${value ? value.length : 0}\`);
+      if (!isEmpty && isJWT) {
+        tokenCandidates.push({ key, value });
+        console.log(\`[getClientTokenInfo] Candidate token from "\${key}": \${value.substring(0, 50)}...\`);
+      }
+    }
+    
+    // Try multiple possible keys for client token (in priority order)
+    const possibleKeys = [
+      'miso:client-token',
+      'client-token',
+      'clientToken',
+      'miso_client_token',
+      'miso-client-token',
+    ];
+    
+    let token = null;
+    let tokenKey = null;
+    
+    // First, try standard keys
+    for (const key of possibleKeys) {
+      const value = localStorage.getItem(key);
+      if (value && value.trim().length > 0 && value.includes('.') && value.split('.').length === 3) {
+        token = value;
+        tokenKey = key;
+        console.log(\`[getClientTokenInfo] Found valid token in key: \${key}\`);
+        break;
+      } else if (value) {
+        console.log(\`[getClientTokenInfo] Key "\${key}" exists but value is invalid: isEmpty=\${!value || value.trim().length === 0}, isJWT=\${value && value.includes('.') && value.split('.').length === 3}\`);
+      }
+    }
+    
+    // If no token found in standard keys, try the first candidate from all keys
+    if (!token && tokenCandidates.length > 0) {
+      token = tokenCandidates[0].value;
+      tokenKey = tokenCandidates[0].key;
+      console.log(\`[getClientTokenInfo] Using first candidate token from key: \${tokenKey}\`);
+    }
+    
+    if (!token) {
+      console.warn('[getClientTokenInfo] No valid client token found in localStorage');
+      console.log('[getClientTokenInfo] Summary:');
+      console.log('  - Total localStorage keys:', allKeys.length);
+      console.log('  - Token-related keys:', tokenKeys);
+      console.log('  - Valid JWT candidates:', tokenCandidates.length);
+      return null;
+    }
+    
+    console.log(\`[getClientTokenInfo] Processing token from key: \${tokenKey}\`);
+    console.log(\`[getClientTokenInfo] Token length: \${token.length}\`);
+    console.log(\`[getClientTokenInfo] Token preview: \${token.substring(0, 50)}...\`);
     
     try {
       // Decode JWT (simple base64 decode)
       const parts = token.split('.');
-      if (parts.length !== 3) return null;
-      const payload = JSON.parse(atob(parts[1]));
-      return payload;
-    } catch {
-      return null;
+      if (parts.length !== 3) {
+        console.warn('[getClientTokenInfo] Token does not have 3 parts (not a valid JWT)');
+        console.warn('[getClientTokenInfo] Token parts count:', parts.length);
+        return {};
+      }
+      
+      // Decode payload (handle base64url encoding)
+      let payloadStr = parts[1];
+      // Add padding if needed
+      while (payloadStr.length % 4) {
+        payloadStr += '=';
+      }
+      // Replace URL-safe characters
+      payloadStr = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+      
+      const payload = JSON.parse(atob(payloadStr));
+      console.log('[getClientTokenInfo] Decoded token payload:', payload);
+      console.log('[getClientTokenInfo] Payload keys:', Object.keys(payload));
+      
+      // Extract client token info with field name fallbacks (matching real implementation)
+      const info = {};
+      
+      // application or app
+      if (payload.application && typeof payload.application === 'string') {
+        info.application = payload.application;
+      } else if (payload.app && typeof payload.app === 'string') {
+        info.application = payload.app;
+      }
+      
+      // environment or env
+      if (payload.environment && typeof payload.environment === 'string') {
+        info.environment = payload.environment;
+      } else if (payload.env && typeof payload.env === 'string') {
+        info.environment = payload.env;
+      }
+      
+      // applicationId or app_id
+      if (payload.applicationId && typeof payload.applicationId === 'string') {
+        info.applicationId = payload.applicationId;
+      } else if (payload.app_id && typeof payload.app_id === 'string') {
+        info.applicationId = payload.app_id;
+      }
+      
+      // clientId or client_id
+      if (payload.clientId && typeof payload.clientId === 'string') {
+        info.clientId = payload.clientId;
+      } else if (payload.client_id && typeof payload.client_id === 'string') {
+        info.clientId = payload.client_id;
+      }
+      
+      // If no standard fields found, include common JWT fields for debugging
+      if (Object.keys(info).length === 0) {
+        console.log('[getClientTokenInfo] No standard fields found in token payload');
+        console.log('[getClientTokenInfo] Available payload fields:', Object.keys(payload));
+        console.log('[getClientTokenInfo] Full payload:', JSON.stringify(payload, null, 2));
+        
+        // Include common JWT fields that might be present
+        if (payload.iss) info.issuer = payload.iss;
+        if (payload.sub) info.subject = payload.sub;
+        if (payload.aud) info.audience = payload.aud;
+        if (payload.exp) info.expiresAt = new Date(payload.exp * 1000).toISOString();
+        if (payload.iat) info.issuedAt = new Date(payload.iat * 1000).toISOString();
+      } else {
+        console.log('[getClientTokenInfo] Successfully extracted token info:', info);
+      }
+      
+      return info;
+    } catch (error) {
+      console.error('[getClientTokenInfo] Failed to decode client token:', error);
+      console.error('[getClientTokenInfo] Error details:', error.message);
+      if (error.stack) {
+        console.error('[getClientTokenInfo] Stack trace:', error.stack);
+      }
+      return {}; // Return empty object on error (matching real implementation)
     }
   }
 
@@ -389,51 +539,57 @@ window.DataClientLoaded = true;
 
 // Routes
 // Add a simple test route first to verify routing works
-app.get('/test', asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  if (misoClient) {
+app.get(
+  '/test',
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    if (misoClient) {
       await misoClient.log.forRequest(req).info('Test route accessed');
-  }
-  res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
-}, 'testRoute'));
+    }
+    res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
+  }, 'testRoute')
+);
 
 // Health check - use health handler
 app.get('/health', healthHandler(misoClient));
 
 // Diagnostic endpoint - check MisoClient status
-app.get('/api/diagnostics', asyncHandler(async (req: Request, res: Response): Promise<void> => {
-  const diagnostics: {
-    misoClientExists: boolean;
-    misoClientInitialized: boolean;
-    config?: {
-      controllerUrl?: string;
-      controllerPrivateUrl?: string;
-      controllerPublicUrl?: string;
-      clientId?: string;
-      hasClientSecret: boolean;
-    };
-    error?: string;
-  } = {
-    misoClientExists: !!misoClient,
-    misoClientInitialized: misoClient ? misoClient.isInitialized() : false,
-  };
-
-  if (misoClient) {
-    try {
-      const config = misoClient.getConfig();
-      diagnostics.config = {
-        controllerUrl: config.controllerUrl,
-        controllerPrivateUrl: config.controllerPrivateUrl,
-        controllerPublicUrl: config.controllerPublicUrl,
-        clientId: config.clientId,
-        hasClientSecret: !!config.clientSecret,
+app.get(
+  '/api/diagnostics',
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const diagnostics: {
+      misoClientExists: boolean;
+      misoClientInitialized: boolean;
+      config?: {
+        controllerUrl?: string;
+        controllerPrivateUrl?: string;
+        controllerPublicUrl?: string;
+        clientId?: string;
+        hasClientSecret: boolean;
       };
-    } catch (error) {
-      diagnostics.error = error instanceof Error ? error.message : 'Unknown error';
-    }
-  }
+      error?: string;
+    } = {
+      misoClientExists: !!misoClient,
+      misoClientInitialized: misoClient ? misoClient.isInitialized() : false,
+    };
 
-  res.json(diagnostics);
-}, 'getDiagnostics'));
+    if (misoClient) {
+      try {
+        const config = misoClient.getConfig();
+        diagnostics.config = {
+          controllerUrl: config.controllerUrl,
+          controllerPrivateUrl: config.controllerPrivateUrl,
+          controllerPublicUrl: config.controllerPublicUrl,
+          clientId: config.clientId,
+          hasClientSecret: !!config.clientSecret,
+        };
+      } catch (error) {
+        diagnostics.error = error instanceof Error ? error.message : 'Unknown error';
+      }
+    }
+
+    res.json(diagnostics);
+  }, 'getDiagnostics')
+);
 
 // Client token endpoint with zero-config setup
 // Automatically includes DataClient configuration in response
@@ -453,12 +609,18 @@ const clientTokenHandler = asyncHandler(async (req: Request, res: Response): Pro
     const config = misoClient.getConfig();
     const controllerUrl = config.controllerPrivateUrl || config.controllerUrl || 'NOT CONFIGURED';
     if (misoClient) {
-      await misoClient.log.forRequest(req).addContext('level', 'warning').info('MisoClient exists but not initialized yet. Initialization may still be in progress.');
+      await misoClient.log
+        .forRequest(req)
+        .addContext('level', 'warning')
+        .info(
+          'MisoClient exists but not initialized yet. Initialization may still be in progress.'
+        );
     }
-    const suggestion = controllerUrl === 'NOT CONFIGURED' 
-      ? 'Controller URL is not configured. Please set MISO_CONTROLLER_URL environment variable.'
-      : `Controller at ${controllerUrl} may not be reachable. Please check if the controller is running.`;
-    
+    const suggestion =
+      controllerUrl === 'NOT CONFIGURED'
+        ? 'Controller URL is not configured. Please set MISO_CONTROLLER_URL environment variable.'
+        : `Controller at ${controllerUrl} may not be reachable. Please check if the controller is running.`;
+
     throw new AppError(
       `MisoClient is not initialized yet. Please wait a moment and try again. ${suggestion}`,
       503,
@@ -482,6 +644,8 @@ app.post('/api/users', createUser(misoClient));
 app.put('/api/users/:id', updateUser(misoClient));
 app.patch('/api/users/:id', patchUser(misoClient));
 app.delete('/api/users/:id', deleteUser(misoClient));
+app.get('/api/products', getProducts(misoClient));
+app.get('/api/orders', getOrders(misoClient));
 app.get('/api/metrics', getMetrics(misoClient));
 app.get('/api/slow', slowEndpoint(misoClient));
 app.get('/api/slow-endpoint', slowEndpoint(misoClient)); // Alias for frontend compatibility
@@ -493,36 +657,46 @@ app.post('/api/v1/logs', logEndpoint(misoClient));
 // SPA catch-all route: serve index.html for all non-API routes
 // This allows client-side routing to work properly
 // API routes and static files are handled by middleware above
-app.get('*', asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // Skip if this is an API route or static file request
-  if (
-    req.path.startsWith('/api/') ||
-    req.path.startsWith('/dataclient.js') ||
-    req.path.startsWith('/health') ||
-    req.path.startsWith('/test')
-  ) {
-    next();
-    return;
-  }
+app.get(
+  '*',
+  asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    // Skip if this is an API route or static file request
+    if (
+      req.path.startsWith('/api/') ||
+      req.path.startsWith('/dataclient.js') ||
+      req.path.startsWith('/health') ||
+      req.path.startsWith('/test')
+    ) {
+      next();
+      return;
+    }
 
-  // Serve index.html for SPA routing
-  const indexPath = join(process.cwd(), 'public', 'index.html');
-  if (existsSync(indexPath)) {
-    const html = readFileSync(indexPath, 'utf-8');
-    res.setHeader('Content-Type', 'text/html');
-    res.send(html);
-  } else {
-    throw new AppError('Index page not found', 404);
-  }
-}, 'serveSPA'));
+    // Serve index.html for SPA routing
+    const indexPath = join(process.cwd(), 'public', 'index.html');
+    if (existsSync(indexPath)) {
+      const html = readFileSync(indexPath, 'utf-8');
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    } else {
+      throw new AppError('Index page not found', 404);
+    }
+  }, 'serveSPA')
+);
 
 // 404 handler
 app.use(notFoundHandler);
 
 // Error handler (must be last) - use handleRouteError from SDK
-app.use(async (error: Error | unknown, req: Request, res: Response, _next: NextFunction): Promise<void> => {
-  await handleRouteError(error, req, res);
-});
+app.use(
+  async (
+    error: Error | unknown,
+    req: Request,
+    res: Response,
+    _next: NextFunction
+  ): Promise<void> => {
+    await handleRouteError(error, req, res);
+  }
+);
 
 // Start server
 const PORT = envConfig.port;

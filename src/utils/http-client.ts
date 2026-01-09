@@ -11,7 +11,7 @@ import {
 } from "axios";
 import { MisoClientConfig, AuthStrategy } from "../types/config.types";
 import { InternalHttpClient } from "./internal-http-client";
-import { LoggerService } from "../services/logger.service";
+import { LoggerService } from "../services/logger";
 import { DataMasker } from "./data-masker";
 import {
   extractRequestMetadata,

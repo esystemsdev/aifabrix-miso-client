@@ -12,6 +12,8 @@ import {
   AuthMethod,
 } from "../types/config.types";
 import { decodeJWT } from "../utils/browser-jwt-decoder";
+import { extractClientTokenInfo } from "../utils/token-utils";
+import { isBrowser, getLocalStorage } from "../utils/data-client-utils";
 
 interface RoleCacheData {
   roles: string[];
@@ -52,6 +54,38 @@ export class BrowserRoleService {
           decoded.id) as string | null
       );
     } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Extract environment from client token stored in localStorage
+   * Returns null if not available (browser-only)
+   */
+  private getEnvironmentFromClientToken(): string | null {
+    if (!isBrowser()) {
+      return null;
+    }
+
+    try {
+      const clientToken = getLocalStorage("miso:client-token");
+      if (!clientToken) {
+        console.warn("[BrowserRoleService] No client token found in localStorage");
+        return null;
+      }
+
+      const tokenInfo = extractClientTokenInfo(clientToken);
+      
+      // Log token info for debugging
+      if (!tokenInfo.environment) {
+        console.warn("[BrowserRoleService] No environment in client token. Token info:", tokenInfo);
+        console.log("[BrowserRoleService] Available token info fields:", Object.keys(tokenInfo));
+      }
+      
+      return tokenInfo.environment || null;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn("Failed to extract environment from client token:", error);
       return null;
     }
   }
@@ -103,8 +137,23 @@ export class BrowserRoleService {
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
       
+      // Extract environment from client token for query parameter
+      const environment = this.getEnvironmentFromClientToken();
+      
+      // Log warning if environment is missing (required by controller)
+      if (!environment) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[BrowserRoleService] Environment not found in client token. " +
+          "Roles API requires environment parameter. " +
+          "This may cause a 400 Bad Request error."
+        );
+      }
+      
+      const queryParams = environment ? { environment } : undefined;
+      
       const roleResult = await this.apiClient.roles.getRoles(
-        undefined,
+        queryParams,
         authStrategyWithToken,
       );
 
@@ -199,8 +248,13 @@ export class BrowserRoleService {
       const userId = userInfo.data.user.id;
       const cacheKey = `roles:${userId}`;
 
+      // Extract environment from client token for query parameter
+      const environment = this.getEnvironmentFromClientToken();
+      const queryParams = environment ? { environment } : undefined;
+
       // Fetch fresh roles from controller using refresh endpoint via ApiClient
       const roleResult = await this.apiClient.roles.refreshRoles(
+        queryParams,
         authStrategyWithToken,
       );
 

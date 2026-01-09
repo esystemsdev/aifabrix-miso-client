@@ -66,7 +66,13 @@ describe('Redirect to Login - Controller Endpoint', () => {
       // Then close the server
       controllerServer.close(() => {
         // Give it a moment to fully close
-        setTimeout(() => done(), 100);
+        const timeout = setTimeout(() => {
+          done();
+        }, 100);
+        // Unref the timeout so it doesn't keep the process alive
+        if (timeout.unref) {
+          timeout.unref();
+        }
       });
     } else {
       done();

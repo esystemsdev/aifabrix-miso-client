@@ -12,6 +12,8 @@ import {
   AuthMethod,
 } from "../types/config.types";
 import { decodeJWT } from "../utils/browser-jwt-decoder";
+import { extractClientTokenInfo } from "../utils/token-utils";
+import { isBrowser, getLocalStorage } from "../utils/data-client-utils";
 
 interface PermissionCacheData {
   permissions: string[];
@@ -52,6 +54,30 @@ export class BrowserPermissionService {
           decoded.id) as string | null
       );
     } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * Extract environment from client token stored in localStorage
+   * Returns null if not available (browser-only)
+   */
+  private getEnvironmentFromClientToken(): string | null {
+    if (!isBrowser()) {
+      return null;
+    }
+
+    try {
+      const clientToken = getLocalStorage("miso:client-token");
+      if (!clientToken) {
+        return null;
+      }
+
+      const tokenInfo = extractClientTokenInfo(clientToken);
+      return tokenInfo.environment || null;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn("Failed to extract environment from client token:", error);
       return null;
     }
   }
@@ -103,8 +129,23 @@ export class BrowserPermissionService {
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
       
+      // Extract environment from client token for query parameter
+      const environment = this.getEnvironmentFromClientToken();
+      
+      // Log warning if environment is missing (required by controller)
+      if (!environment) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[BrowserPermissionService] Environment not found in client token. " +
+          "Permissions API requires environment parameter. " +
+          "This may cause a 400 Bad Request error."
+        );
+      }
+      
+      const queryParams = environment ? { environment } : undefined;
+      
       const permissionResult = await this.apiClient.permissions.getPermissions(
-        undefined,
+        queryParams,
         authStrategyWithToken,
       );
 
@@ -203,8 +244,13 @@ export class BrowserPermissionService {
       const userId = userInfo.data.user.id;
       const cacheKey = `permissions:${userId}`;
 
+      // Extract environment from client token for query parameter
+      const environment = this.getEnvironmentFromClientToken();
+      const queryParams = environment ? { environment } : undefined;
+      
       // Fetch fresh permissions from controller using refresh endpoint via ApiClient
       const permissionResult = await this.apiClient.permissions.refreshPermissions(
+        queryParams,
         authStrategyWithToken,
       );
 

@@ -5,7 +5,7 @@
 import { AuthService } from "./services/auth.service";
 import { RoleService } from "./services/role.service";
 import { PermissionService } from "./services/permission.service";
-import { LoggerService } from "./services/logger.service";
+import { LoggerService } from "./services/logger";
 import { RedisService } from "./services/redis.service";
 import { CacheService } from "./services/cache.service";
 import { HttpClient } from "./utils/http-client";
@@ -561,7 +561,7 @@ export { RoleService } from "./services/role.service";
 export { PermissionService } from "./services/permission.service";
 export { BrowserPermissionService } from "./services/browser-permission.service";
 export { BrowserRoleService } from "./services/browser-role.service";
-export { LoggerService } from "./services/logger.service";
+export { LoggerService } from "./services/logger";
 export { RedisService } from "./services/redis.service";
 export { CacheService } from "./services/cache.service";
 export { HttpClient } from "./utils/http-client";

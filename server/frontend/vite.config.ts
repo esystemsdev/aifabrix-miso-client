@@ -88,7 +88,8 @@ function nodePolyfillsPlugin(): Plugin {
                                    cleanId.includes('logging-helpers') ||
                                    cleanId.includes('response-validator') ||
                                    cleanId.includes('error-extractor') ||
-                                   cleanId.includes('console-logger');
+                                   cleanId.includes('console-logger') ||
+                                   cleanId.includes('services/logger');
         
         if (isFromSDK || looksLikeSDKImport) {
           let importerDir: string;
@@ -340,7 +341,7 @@ export default defineConfig({
           return false;
         }
         // Don't externalize SDK internal imports even if they have query params
-        if (cleanId.includes('data-client-') || cleanId.includes('token-utils') || cleanId.includes('data-masker') || cleanId.includes('request-context') || cleanId.includes('logging-helpers') || cleanId.includes('response-validator') || cleanId.includes('error-extractor') || cleanId.includes('console-logger')) {
+        if (cleanId.includes('data-client-') || cleanId.includes('token-utils') || cleanId.includes('data-masker') || cleanId.includes('request-context') || cleanId.includes('logging-helpers') || cleanId.includes('response-validator') || cleanId.includes('error-extractor') || cleanId.includes('console-logger') || cleanId.includes('services/logger')) {
           return false;
         }
         return null; // Let Rollup decide for other imports
@@ -353,7 +354,7 @@ export default defineConfig({
           buildStart() {
             console.log('[rollup-plugin] replace-node-modules plugin started');
           },
-          resolveId(id, importer) {
+            resolveId(id, importer) {
             // Remove query parameters (like ?commonjs-external) from id
             const cleanId = id.split('?')[0];
             
@@ -368,6 +369,23 @@ export default defineConfig({
               const stubPath = path.resolve(__dirname, './src/stubs/dotenv.js');
               console.log(`[rollup-plugin] resolveId: ${id} -> dotenv stub`);
               return stubPath;
+            }
+            // Handle services/logger directory imports - check root workspace dist first
+            if (cleanId.includes('services/logger')) {
+              const rootDist = path.resolve(__dirname, '../../dist');
+              if (cleanId.startsWith('./services/logger') || cleanId === './services/logger') {
+                const loggerPath = path.join(rootDist, 'services', 'logger', 'index.js');
+                if (fs.existsSync(loggerPath)) {
+                  console.log(`[rollup-plugin] resolveId: ${id} -> ${loggerPath}`);
+                  return loggerPath;
+                }
+              } else if (cleanId.startsWith('../services/logger') || cleanId === '../services/logger') {
+                const loggerPath = path.join(rootDist, 'services', 'logger', 'index.js');
+                if (fs.existsSync(loggerPath)) {
+                  console.log(`[rollup-plugin] resolveId: ${id} -> ${loggerPath}`);
+                  return loggerPath;
+                }
+              }
             }
             // Handle relative imports from @aifabrix/miso-client package
             // These are internal module imports that need to be resolved properly
@@ -422,7 +440,8 @@ export default defineConfig({
                                          cleanId.includes('logging-helpers') ||
                                          cleanId.includes('response-validator') ||
                                          cleanId.includes('error-extractor') ||
-                                         cleanId.includes('console-logger');
+                                         cleanId.includes('console-logger') ||
+                                         cleanId.includes('services/logger');
               
               if (isFromSDK || looksLikeSDKImport || !importer || cleanImporter === cleanId || (cleanImporter && cleanImporter.includes('?commonjs-external'))) {
                 let importerDir: string;
@@ -438,7 +457,18 @@ export default defineConfig({
                   for (const rootWorkspaceDist of possibleRootDists) {
                     if (fs.existsSync(rootWorkspaceDist)) {
                       // For ./response-validator, resolve to dist/utils/response-validator
-                      if (cleanId.startsWith('./') && !cleanId.startsWith('./utils/') && !cleanId.startsWith('../')) {
+                      // For ./services/logger, resolve to dist/services/logger
+                      if (cleanId.startsWith('./services/')) {
+                        // ./services/logger -> dist/services/logger/index.js
+                        const servicePath = path.join(rootWorkspaceDist, cleanId.substring(2));
+                        const indexPath = path.join(servicePath, 'index.js');
+                        if (fs.existsSync(indexPath)) {
+                          console.log(`[rollup-plugin] Direct resolution: ${id} -> ${indexPath}`);
+                          return indexPath;
+                        }
+                        // Fallback: try as directory
+                        importerDir = rootWorkspaceDist;
+                      } else if (cleanId.startsWith('./') && !cleanId.startsWith('./utils/') && !cleanId.startsWith('../')) {
                         importerDir = path.join(rootWorkspaceDist, 'utils');
                       } else {
                         importerDir = rootWorkspaceDist;

@@ -305,6 +305,20 @@ describe("error-handler", () => {
       );
     });
 
+    it("should generate correlation ID when none is present", async () => {
+      const error = new Error("Test error");
+      mockReq.headers = {}; // No correlation ID headers
+
+      await handleRouteError(error, mockReq as Request, mockRes as Response);
+
+      expect(sendErrorResponse).toHaveBeenCalledWith(
+        mockRes,
+        expect.objectContaining({
+          correlationId: expect.stringMatching(/^express-\d+-[a-z0-9]+$/),
+        }),
+      );
+    });
+
     it("should include validation errors from AppError", async () => {
       const validationErrors = [
         { field: "email", message: "Invalid email" },

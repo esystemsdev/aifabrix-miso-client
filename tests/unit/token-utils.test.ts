@@ -202,7 +202,7 @@ describe("token-utils", () => {
       const result = extractClientTokenInfo("invalid-token");
       expect(result).toEqual({});
       expect(console.warn).toHaveBeenCalledWith(
-        "Failed to decode client token: Invalid token format",
+        "[extractClientTokenInfo] Failed to decode client token: Invalid token format",
       );
     });
 

@@ -71,7 +71,6 @@ export class LogsListApi {
       });
       logErrorWithContext(errorInfo, '[LogsListApi]');
       throw error;
-      throw error;
     }
   }
 
@@ -122,7 +121,6 @@ export class LogsListApi {
       });
       logErrorWithContext(errorInfo, '[LogsListApi]');
       throw error;
-      throw error;
     }
   }
 
@@ -168,7 +166,6 @@ export class LogsListApi {
         method: 'GET',
       });
       logErrorWithContext(errorInfo, '[LogsListApi]');
-      throw error;
       throw error;
     }
   }
@@ -220,7 +217,6 @@ export class LogsListApi {
       });
       logErrorWithContext(errorInfo, '[LogsListApi]');
       throw error;
-      throw error;
     }
   }
 
@@ -267,7 +263,6 @@ export class LogsListApi {
       });
       logErrorWithContext(errorInfo, '[LogsListApi]');
       throw error;
-      throw error;
     }
   }
 
@@ -310,7 +305,6 @@ export class LogsListApi {
         method: 'GET',
       });
       logErrorWithContext(errorInfo, '[LogsListApi]');
-      throw error;
       throw error;
     }
   }

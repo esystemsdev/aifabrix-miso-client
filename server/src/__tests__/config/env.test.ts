@@ -58,7 +58,8 @@ describe('loadEnvConfig', () => {
   });
 
   it('should parse allowed origins with spaces and trim them', () => {
-    process.env.MISO_ALLOWED_ORIGINS = ' http://localhost:3000 , http://localhost:3001 , http://localhost:3002 ';
+    process.env.MISO_ALLOWED_ORIGINS =
+      ' http://localhost:3000 , http://localhost:3001 , http://localhost:3002 ';
 
     const config = loadEnvConfig();
 

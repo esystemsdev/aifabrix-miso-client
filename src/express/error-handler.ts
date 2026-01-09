@@ -12,6 +12,7 @@ import {
 } from "./error-response";
 import { extractErrorInfo } from "../utils/error-extractor";
 import { logErrorWithContext } from "../utils/console-logger";
+import { extractRequestContext } from "../utils/request-context";
 
 /**
  * Error logger interface for dependency injection
@@ -109,6 +110,16 @@ function extractErrorMessage(error: unknown): string {
 }
 
 /**
+ * Generate a simple correlation ID when missing
+ * Used as fallback when no correlation ID is found in request
+ */
+function generateCorrelationId(): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `express-${timestamp}-${random}`;
+}
+
+/**
  * Create error response from error
  */
 function createErrorResponseFromError(
@@ -141,11 +152,15 @@ export async function handleRouteError(
   res: Response,
   operation?: string,
 ): Promise<void> {
-  // Get correlation ID from request property (set by requestLogger) or header
+  // Extract request context (includes correlation ID from headers)
+  const requestContext = extractRequestContext(req);
+  
+  // Get correlation ID from request property, context, or generate one
   const correlationId =
     (req as Request & { correlationId?: string }).correlationId ||
-    (req.headers["x-correlation-id"] as string) ||
-    undefined;
+    requestContext.correlationId ||
+    generateCorrelationId();
+  
   const statusCode = mapErrorToStatusCode(error);
   const errorMessage = extractErrorMessage(error);
 

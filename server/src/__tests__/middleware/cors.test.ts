@@ -46,10 +46,19 @@ describe('corsMiddleware', () => {
 
     await middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', 'http://localhost:3000');
+    expect(mockSetHeader).toHaveBeenCalledWith(
+      'Access-Control-Allow-Origin',
+      'http://localhost:3000'
+    );
     expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Credentials', 'true');
-    expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-client-token');
+    expect(mockSetHeader).toHaveBeenCalledWith(
+      'Access-Control-Allow-Methods',
+      'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+    );
+    expect(mockSetHeader).toHaveBeenCalledWith(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, x-client-token'
+    );
     expect(mockNext).toHaveBeenCalled();
   });
 
@@ -61,7 +70,10 @@ describe('corsMiddleware', () => {
 
     await middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', 'http://invalid-origin.com');
+    expect(mockSetHeader).toHaveBeenCalledWith(
+      'Access-Control-Allow-Origin',
+      'http://invalid-origin.com'
+    );
     expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Credentials', 'true');
     expect(mockNext).toHaveBeenCalled();
   });
@@ -116,7 +128,10 @@ describe('corsMiddleware', () => {
     expect(mockLoggerChain.addContext).toHaveBeenCalledWith('error', 'Validation failed');
     expect(mockLoggerChain.addContext).toHaveBeenCalledWith('level', 'warning');
     expect(mockLoggerChain.info).toHaveBeenCalledWith('Origin validation error (allowing anyway)');
-    expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', 'http://localhost:3000');
+    expect(mockSetHeader).toHaveBeenCalledWith(
+      'Access-Control-Allow-Origin',
+      'http://localhost:3000'
+    );
     expect(mockNext).toHaveBeenCalled();
   });
 
@@ -145,8 +160,14 @@ describe('corsMiddleware', () => {
 
     await middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(consoleWarnSpy).toHaveBeenCalledWith('Origin validation error (allowing anyway):', error);
-    expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', 'http://localhost:3000');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Origin validation error (allowing anyway):',
+      error
+    );
+    expect(mockSetHeader).toHaveBeenCalledWith(
+      'Access-Control-Allow-Origin',
+      'http://localhost:3000'
+    );
     expect(mockNext).toHaveBeenCalled();
 
     consoleWarnSpy.mockRestore();
@@ -166,8 +187,14 @@ describe('corsMiddleware', () => {
 
     await middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(consoleWarnSpy).toHaveBeenCalledWith('Origin validation error (allowing anyway):', error);
-    expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', 'http://localhost:3000');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Origin validation error (allowing anyway):',
+      error
+    );
+    expect(mockSetHeader).toHaveBeenCalledWith(
+      'Access-Control-Allow-Origin',
+      'http://localhost:3000'
+    );
     expect(mockNext).toHaveBeenCalled();
 
     consoleWarnSpy.mockRestore();
@@ -187,8 +214,14 @@ describe('corsMiddleware', () => {
 
     await middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(consoleWarnSpy).toHaveBeenCalledWith('Origin validation error (allowing anyway):', error);
-    expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', 'http://localhost:3000');
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Origin validation error (allowing anyway):',
+      error
+    );
+    expect(mockSetHeader).toHaveBeenCalledWith(
+      'Access-Control-Allow-Origin',
+      'http://localhost:3000'
+    );
     expect(mockNext).toHaveBeenCalled();
 
     consoleWarnSpy.mockRestore();

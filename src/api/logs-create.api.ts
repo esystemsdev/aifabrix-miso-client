@@ -13,6 +13,7 @@ import {
 } from './types/logs.types';
 import { extractErrorInfo } from '../utils/error-extractor';
 import { logErrorWithContext } from '../utils/console-logger';
+import { MisoClientError } from '../utils/errors';
 
 /**
  * Logs Create API class
@@ -60,12 +61,17 @@ export class LogsCreateApi {
         logEntry,
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
-        endpoint: LogsCreateApi.LOGS_ENDPOINT,
-        method: 'POST',
-      });
-      logErrorWithContext(errorInfo, '[LogsCreateApi]');
-      throw error;
+      // Suppress logging for 401 errors (token expired) - these are expected
+      // and will be automatically refreshed. Logging them creates noise.
+      const isAuthError = error instanceof MisoClientError && error.statusCode === 401;
+      
+      if (!isAuthError) {
+        const errorInfo = extractErrorInfo(error, {
+          endpoint: LogsCreateApi.LOGS_ENDPOINT,
+          method: 'POST',
+        });
+        logErrorWithContext(errorInfo, '[LogsCreateApi]');
+      }
       throw error;
     }
   }
@@ -105,12 +111,17 @@ export class LogsCreateApi {
         logs,
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
-        endpoint: LogsCreateApi.LOGS_BATCH_ENDPOINT,
-        method: 'POST',
-      });
-      logErrorWithContext(errorInfo, '[LogsCreateApi]');
-      throw error;
+      // Suppress logging for 401 errors (token expired) - these are expected
+      // and will be automatically refreshed. Logging them creates noise.
+      const isAuthError = error instanceof MisoClientError && error.statusCode === 401;
+      
+      if (!isAuthError) {
+        const errorInfo = extractErrorInfo(error, {
+          endpoint: LogsCreateApi.LOGS_BATCH_ENDPOINT,
+          method: 'POST',
+        });
+        logErrorWithContext(errorInfo, '[LogsCreateApi]');
+      }
       throw error;
     }
   }

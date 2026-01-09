@@ -80,7 +80,7 @@ describe('MisoClient Fallback Behavior', () => {
     it('should not call logger when MisoClient is null', async () => {
       // Simulate the pattern used in route handlers
       const handler = getUsers(null);
-      
+
       // Handler should work without logging when misoClient is null
       await handler(mockRequest as Request, mockResponse as Response, mockNext);
 
@@ -112,7 +112,7 @@ describe('MisoClient Fallback Behavior', () => {
     it('should handle errors gracefully when MisoClient is null', async () => {
       mockRequest.params = { id: '999' }; // Non-existent user
       const handler = getUserById(null);
-      
+
       // Should throw AppError which is caught by asyncHandler
       try {
         await handler(mockRequest as Request, mockResponse as Response, mockNext);
@@ -136,7 +136,7 @@ describe('MisoClient Fallback Behavior', () => {
 
       mockRequest.params = { id: '999' };
       const handler = getUserById(mockMisoClient);
-      
+
       try {
         await handler(mockRequest as Request, mockResponse as Response, mockNext);
       } catch (error) {
@@ -152,7 +152,7 @@ describe('MisoClient Fallback Behavior', () => {
     it('should accept null MisoClient in factory functions', () => {
       const handler1 = getUsers(null);
       const handler2 = getUsers(null);
-      
+
       expect(handler1).toBeDefined();
       expect(handler2).toBeDefined();
       // Each call creates a new handler instance
@@ -170,7 +170,7 @@ describe('MisoClient Fallback Behavior', () => {
 
       const handler1 = getUsers(mockMisoClient);
       const handler2 = getUsers(mockMisoClient);
-      
+
       expect(handler1).toBeDefined();
       expect(handler2).toBeDefined();
     });
@@ -200,10 +200,10 @@ describe('MisoClient Fallback Behavior', () => {
     it('should continue functioning when MisoClient initialization fails', async () => {
       // Simulate MisoClient that fails to initialize
       const handler = getUsers(null);
-      
+
       // Handler should still work
       await handler(mockRequest as Request, mockResponse as Response, mockNext);
-      
+
       expect(mockResponse.json).toHaveBeenCalled();
       const callArgs = (mockResponse.json as jest.Mock).mock.calls[0][0];
       expect(callArgs.users).toBeDefined();
@@ -212,9 +212,9 @@ describe('MisoClient Fallback Behavior', () => {
     it('should handle routes that require MisoClient gracefully', async () => {
       // Routes that check for MisoClient should handle null gracefully
       const handler = healthHandler(null);
-      
+
       await handler(mockRequest as Request, mockResponse as Response, mockNext);
-      
+
       // Health check should work without MisoClient
       expect(mockResponse.json).toHaveBeenCalled();
     });

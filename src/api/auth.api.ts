@@ -28,12 +28,6 @@ import {
   ClientTokenLegacyResponse,
   CallbackRequest,
   CallbackResponse,
-  GetRolesQueryParams,
-  GetRolesResponse,
-  RefreshRolesResponse,
-  GetPermissionsQueryParams,
-  GetPermissionsResponse,
-  RefreshPermissionsResponse,
   CacheStatsResponse,
   CachePerformanceResponse,
   CacheEfficiencyResponse,
@@ -42,21 +36,14 @@ import {
   InvalidateCacheResponse,
   DiagnosticsResponse,
 } from './types/auth.types';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
 
 /**
  * Auth API class
  * Centralizes all authentication-related endpoint URLs and provides typed methods
  * Delegates to specialized sub-modules to keep file size manageable
+ * Note: Roles and permissions endpoints are handled by RolesApi and PermissionsApi respectively
  */
 export class AuthApi {
-  // Centralize endpoint URLs as constants (for roles/permissions which are still here)
-  private static readonly ROLES_ENDPOINT = '/api/v1/auth/roles';
-  private static readonly ROLES_REFRESH_ENDPOINT = '/api/v1/auth/roles/refresh';
-  private static readonly PERMISSIONS_ENDPOINT = '/api/v1/auth/permissions';
-  private static readonly PERMISSIONS_REFRESH_ENDPOINT = '/api/v1/auth/permissions/refresh';
-
   // Sub-modules for different auth concerns
   private readonly loginApi: AuthLoginApi;
   private readonly tokenApi: AuthTokenApi;
@@ -180,141 +167,5 @@ export class AuthApi {
     authStrategy?: AuthStrategy,
   ): Promise<InvalidateCacheResponse> {
     return this.cacheApi.invalidateCache(params, authStrategy);
-  }
-
-  // Roles and Permissions methods - kept here for now (could be moved to separate modules)
-  async getRoles(
-    params?: GetRolesQueryParams,
-    authStrategy?: AuthStrategy,
-  ): Promise<GetRolesResponse> {
-    try {
-      if (authStrategy?.bearerToken) {
-        return await this.httpClient.authenticatedRequest<GetRolesResponse>(
-          'GET',
-          AuthApi.ROLES_ENDPOINT,
-          authStrategy.bearerToken,
-          undefined,
-          { params },
-          authStrategy,
-        );
-      }
-      if (authStrategy) {
-        return await this.httpClient.requestWithAuthStrategy<GetRolesResponse>(
-          'GET',
-          AuthApi.ROLES_ENDPOINT,
-          authStrategy,
-          undefined,
-          { params },
-        );
-      }
-      throw new Error('getRoles requires authentication - provide authStrategy with bearerToken');
-    } catch (error) {
-      const errorInfo = extractErrorInfo(error, {
-        endpoint: AuthApi.ROLES_ENDPOINT,
-        method: 'GET',
-      });
-      logErrorWithContext(errorInfo, '[AuthApi]');
-      throw error;
-    }
-  }
-
-  async refreshRoles(
-    authStrategy?: AuthStrategy,
-  ): Promise<RefreshRolesResponse> {
-    try {
-      if (authStrategy?.bearerToken) {
-        return await this.httpClient.authenticatedRequest<RefreshRolesResponse>(
-          'GET',
-          AuthApi.ROLES_REFRESH_ENDPOINT,
-          authStrategy.bearerToken,
-          undefined,
-          undefined,
-          authStrategy,
-        );
-      }
-      if (authStrategy) {
-        return await this.httpClient.requestWithAuthStrategy<RefreshRolesResponse>(
-          'GET',
-          AuthApi.ROLES_REFRESH_ENDPOINT,
-          authStrategy,
-        );
-      }
-      throw new Error('refreshRoles requires authentication - provide authStrategy with bearerToken');
-    } catch (error) {
-      const errorInfo = extractErrorInfo(error, {
-        endpoint: AuthApi.ROLES_REFRESH_ENDPOINT,
-        method: 'GET',
-      });
-      logErrorWithContext(errorInfo, '[AuthApi]');
-      throw error;
-    }
-  }
-
-  async getPermissions(
-    params?: GetPermissionsQueryParams,
-    authStrategy?: AuthStrategy,
-  ): Promise<GetPermissionsResponse> {
-    try {
-      if (authStrategy?.bearerToken) {
-        return await this.httpClient.authenticatedRequest<GetPermissionsResponse>(
-          'GET',
-          AuthApi.PERMISSIONS_ENDPOINT,
-          authStrategy.bearerToken,
-          undefined,
-          { params },
-          authStrategy,
-        );
-      }
-      if (authStrategy) {
-        return await this.httpClient.requestWithAuthStrategy<GetPermissionsResponse>(
-          'GET',
-          AuthApi.PERMISSIONS_ENDPOINT,
-          authStrategy,
-          undefined,
-          { params },
-        );
-      }
-      throw new Error('getPermissions requires authentication - provide authStrategy with bearerToken');
-    } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
-        endpoint: AuthApi.PERMISSIONS_ENDPOINT,
-        method: 'GET',
-      });
-      logErrorWithContext(errorInfo, '[AuthApi]');
-      throw error;
-      throw error;
-    }
-  }
-
-  async refreshPermissions(
-    authStrategy?: AuthStrategy,
-  ): Promise<RefreshPermissionsResponse> {
-    try {
-      if (authStrategy?.bearerToken) {
-        return await this.httpClient.authenticatedRequest<RefreshPermissionsResponse>(
-          'GET',
-          AuthApi.PERMISSIONS_REFRESH_ENDPOINT,
-          authStrategy.bearerToken,
-          undefined,
-          undefined,
-          authStrategy,
-        );
-      }
-      if (authStrategy) {
-        return await this.httpClient.requestWithAuthStrategy<RefreshPermissionsResponse>(
-          'GET',
-          AuthApi.PERMISSIONS_REFRESH_ENDPOINT,
-          authStrategy,
-        );
-      }
-      throw new Error('refreshPermissions requires authentication - provide authStrategy with bearerToken');
-    } catch (error) {
-      const errorInfo = extractErrorInfo(error, {
-        endpoint: AuthApi.PERMISSIONS_REFRESH_ENDPOINT,
-        method: 'GET',
-      });
-      logErrorWithContext(errorInfo, '[AuthApi]');
-      throw error;
-    }
   }
 }

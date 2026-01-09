@@ -60,6 +60,41 @@ jest.mock("jsonwebtoken", () => ({
   },
 }));
 
+// Mock data-client-utils to control isBrowser behavior conditionally
+jest.mock("../../src/utils/data-client-utils", () => {
+  const originalModule = jest.requireActual("../../src/utils/data-client-utils");
+  let useJwtDecode = false; // Flag to control behavior
+  
+  const isBrowserMock = jest.fn(() => {
+    // Check call stack to see if we're in decodeJWT
+    const stack = new Error().stack || "";
+    const isInDecodeJWT = stack.includes("decodeJWT") || stack.includes("token-utils");
+    
+    // If we're in decodeJWT and useJwtDecode is true, return false to use jwt.decode()
+    if (isInDecodeJWT && useJwtDecode) {
+      return false;
+    }
+    
+    // Otherwise, check actual browser environment
+    return (
+      typeof (globalThis as { window?: unknown }).window !== "undefined" &&
+      typeof (globalThis as { localStorage?: unknown }).localStorage !== "undefined" &&
+      typeof (globalThis as { fetch?: unknown }).fetch !== "undefined"
+    );
+  });
+  
+  return {
+    ...originalModule,
+    isBrowser: isBrowserMock,
+    __setUseJwtDecode: (value: boolean) => {
+      useJwtDecode = value;
+    },
+    __resetUseJwtDecode: () => {
+      useJwtDecode = false;
+    },
+  };
+});
+
 // Mock browser APIs
 let mockLocalStorage: Record<string, string> = {};
 const mockWindow = {
@@ -2089,7 +2124,12 @@ describe("DataClient", () => {
   describe("getClientTokenInfo", () => {
     beforeEach(() => {
       jest.clearAllMocks();
-      // Ensure browser environment is set up
+      // Enable useJwtDecode flag so decodeJWT uses jwt.decode() instead of manual base64 decode
+      // This allows us to use the jwt.decode mock while still allowing getClientTokenInfo to proceed
+      const dataClientUtils = require("../../src/utils/data-client-utils");
+      (dataClientUtils as any).__setUseJwtDecode(true);
+      
+      // Ensure browser environment is set up for localStorage access
       (global as any).window = mockWindow;
       (global as any).localStorage = {
         getItem: jest.fn((key: string) => mockLocalStorage[key] || null),
@@ -2102,6 +2142,12 @@ describe("DataClient", () => {
       };
       (globalThis as any).window = mockWindow;
       (globalThis as any).localStorage = (global as any).localStorage;
+    });
+
+    afterEach(() => {
+      // Reset useJwtDecode flag
+      const dataClientUtils = require("../../src/utils/data-client-utils");
+      (dataClientUtils as any).__resetUseJwtDecode();
     });
 
     it("should return null in non-browser environment", () => {

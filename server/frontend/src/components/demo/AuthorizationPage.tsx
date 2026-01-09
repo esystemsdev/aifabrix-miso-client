@@ -80,15 +80,8 @@ export function AuthorizationPage() {
                       getRoles()
                     </Button>
                     {roles.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        <Label>Current Roles:</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {roles.map((role, idx) => (
-                            <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                              {role}
-                            </span>
-                          ))}
-                        </div>
+                      <div className="mt-4">
+                        <Label>Current Roles: {roles.length}</Label>
                       </div>
                     )}
                   </CardContent>
@@ -199,15 +192,8 @@ export function AuthorizationPage() {
                       getPermissions()
                     </Button>
                     {permissions.length > 0 && (
-                      <div className="mt-4 space-y-2">
-                        <Label>Current Permissions:</Label>
-                        <div className="flex flex-wrap gap-2">
-                          {permissions.map((permission, idx) => (
-                            <span key={idx} className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
-                              {permission}
-                            </span>
-                          ))}
-                        </div>
+                      <div className="mt-4">
+                        <Label>Current Permissions: {permissions.length}</Label>
                       </div>
                     )}
                   </CardContent>

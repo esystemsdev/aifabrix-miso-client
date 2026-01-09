@@ -68,10 +68,12 @@ export class RolesApi {
 
   /**
    * Refresh user roles
+   * @param params - Optional query parameters (environment, application)
    * @param authStrategy - Optional authentication strategy override
    * @returns Refresh roles response with updated roles array
    */
   async refreshRoles(
+    params?: GetRolesQueryParams,
     authStrategy?: AuthStrategy,
   ): Promise<RefreshRolesResponse> {
     try {
@@ -81,7 +83,7 @@ export class RolesApi {
           RolesApi.ROLES_REFRESH_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
-          undefined,
+          { params },
           authStrategy,
         );
       }
@@ -90,6 +92,8 @@ export class RolesApi {
           'GET',
           RolesApi.ROLES_REFRESH_ENDPOINT,
           authStrategy,
+          undefined,
+          { params },
         );
       }
       throw new Error('refreshRoles requires authentication - provide authStrategy with bearerToken');
@@ -99,7 +103,6 @@ export class RolesApi {
         method: 'GET',
       });
       logErrorWithContext(errorInfo, '[RolesApi]');
-      throw error;
       throw error;
     }
   }

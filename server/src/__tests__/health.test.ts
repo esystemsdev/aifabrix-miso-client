@@ -43,7 +43,7 @@ describe('Health Handler', () => {
 
   it('should return health status', async () => {
     const handler = healthHandler(mockMisoClient as MisoClient | null);
-      await handler(mockRequest as Request, mockResponse as Response, mockNext);
+    await handler(mockRequest as Request, mockResponse as Response, mockNext);
 
     expect(responseJson).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -56,7 +56,7 @@ describe('Health Handler', () => {
 
   it('should include timestamp', async () => {
     const handler = healthHandler(mockMisoClient as MisoClient | null);
-      await handler(mockRequest as Request, mockResponse as Response, mockNext);
+    await handler(mockRequest as Request, mockResponse as Response, mockNext);
 
     const callArgs = responseJson.mock.calls[0][0];
     expect(callArgs.timestamp).toBeDefined();
@@ -65,7 +65,7 @@ describe('Health Handler', () => {
 
   it('should include uptime', async () => {
     const handler = healthHandler(mockMisoClient as MisoClient | null);
-      await handler(mockRequest as Request, mockResponse as Response, mockNext);
+    await handler(mockRequest as Request, mockResponse as Response, mockNext);
 
     const callArgs = responseJson.mock.calls[0][0];
     expect(callArgs.uptime).toBeDefined();

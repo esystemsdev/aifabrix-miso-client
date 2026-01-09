@@ -18,6 +18,7 @@
     "test:coverage": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --coverage",
     "test:no-coverage": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --no-coverage",
     "test:integration": "ts-node test_integration.ts",
+    "test:integration:api": "node --unhandled-rejections=warn node_modules/jest/bin/jest.js tests/integration/api-endpoints.integration.test.ts --maxWorkers=1",
     "lint": "eslint 'src/**/*.ts' --max-warnings 0 --ignore-pattern '**/*.d.ts'",
     "lint:fix": "eslint 'src/**/*.ts' --fix --ignore-pattern '**/*.d.ts'",
     "prepublishOnly": "npm run build"

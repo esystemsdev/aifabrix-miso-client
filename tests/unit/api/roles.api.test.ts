@@ -134,14 +134,14 @@ describe('RolesApi', () => {
 
       mockHttpClient.authenticatedRequest.mockResolvedValue(mockResponse);
 
-      const result = await rolesApi.refreshRoles(authStrategy);
+      const result = await rolesApi.refreshRoles(undefined, authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
         'GET',
         '/api/v1/auth/roles/refresh',
         authStrategy.bearerToken,
         undefined,
-        undefined,
+        { params: undefined },
         authStrategy,
       );
       expect(result).toEqual(mockResponse);

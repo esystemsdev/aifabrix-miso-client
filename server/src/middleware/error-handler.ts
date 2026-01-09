@@ -1,7 +1,7 @@
 /**
  * Error handling middleware
  * Provides centralized error handling and response formatting
- * 
+ *
  * NOTE: This middleware is replaced by handleRouteError from @aifabrix/miso-client
  * This file is kept for backward compatibility but should use handleRouteError in server.ts
  */
@@ -12,7 +12,7 @@ import { handleRouteError, asyncHandler, AppError } from '@aifabrix/miso-client'
 /**
  * Error handling middleware
  * Catches errors and formats error responses
- * 
+ *
  * @deprecated Use handleRouteError from @aifabrix/miso-client instead
  * This function is kept for backward compatibility
  */

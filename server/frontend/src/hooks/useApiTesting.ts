@@ -28,6 +28,7 @@ export interface UseApiTestingReturn {
     testIsAuthenticated: () => Promise<void>;
     testGetToken: () => Promise<void>;
     testGetClientTokenInfo: () => Promise<void>;
+    testGetUser: () => Promise<void>;
     testLogout: () => Promise<void>;
     testRedirectToLogin: () => Promise<void>;
   };
@@ -267,6 +268,60 @@ export function useApiTesting(
   };
 
   /**
+   * Test retrieving user information
+   * 
+   * @returns Promise that resolves when user info retrieval completes
+   */
+  const testGetUser = async (): Promise<void> => {
+    if (!dataClient) {
+      toast.error('DataClient not initialized');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Use DataClient's getUser without token parameter - it will auto-retrieve from localStorage
+      // This matches how the SDK is designed to work
+      const userInfo = await dataClient.getUser();
+      
+      if (!userInfo) {
+        toast.error('No user info available. Please login first.');
+        setResult({
+          error: 'No user info available. User may not be authenticated. Please login first.',
+          timestamp: new Date().toISOString(),
+        });
+        return;
+      }
+
+      setResult({
+        userInfo: userInfo,
+        timestamp: new Date().toISOString(),
+      });
+      toast.success('User info retrieved successfully');
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
+      const errorStatus = getErrorStatus(error);
+      
+      // Provide helpful error message based on status code
+      if (errorStatus === 401) {
+        toast.error('Authentication failed', { 
+          description: 'Token is invalid or expired. Please login again.' 
+        });
+      } else {
+        toast.error('Failed to get user info', { description: errorMessage });
+      }
+      
+      setResult({
+        error: errorMessage,
+        status: errorStatus,
+        timestamp: new Date().toISOString(),
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
    * Test user logout
    * 
    * @returns Promise that resolves when logout completes
@@ -444,6 +499,7 @@ export function useApiTesting(
       testIsAuthenticated,
       testGetToken,
       testGetClientTokenInfo,
+      testGetUser,
       testLogout,
       testRedirectToLogin,
     },

@@ -337,6 +337,7 @@ describe("PermissionService", () => {
         }),
       );
       expect(mockApiClient.permissions.refreshPermissions).toHaveBeenCalledWith(
+        undefined,
         expect.objectContaining({
           methods: ['bearer'],
           bearerToken: 'token',
@@ -722,6 +723,7 @@ describe("PermissionService", () => {
         }),
       );
       expect(mockApiClient.permissions.refreshPermissions).toHaveBeenCalledWith(
+        undefined,
         expect.objectContaining({
           methods: ['bearer'],
           bearerToken: 'token',

@@ -4,6 +4,7 @@
  */
 
 import jwt from "jsonwebtoken";
+import { isBrowser } from "./data-client-utils";
 
 /**
  * Client token information extracted from JWT
@@ -13,6 +14,45 @@ export interface ClientTokenInfo {
   environment?: string;
   applicationId?: string;
   clientId?: string;
+}
+
+/**
+ * Decode JWT token payload (browser-safe)
+ * Uses manual base64 decoding in browser, jwt.decode() in Node.js
+ */
+function decodeJWT(token: string): Record<string, unknown> | null {
+  if (isBrowser()) {
+    // Browser: use manual base64 decoding
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        return null;
+      }
+      
+      // Decode payload (handle base64url encoding)
+      let payloadStr = parts[1];
+      // Add padding if needed
+      while (payloadStr.length % 4) {
+        payloadStr += '=';
+      }
+      // Replace URL-safe characters
+      payloadStr = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+      
+      const decoded = JSON.parse(atob(payloadStr));
+      return decoded as Record<string, unknown>;
+    } catch (error) {
+      console.warn("[decodeJWT] Browser decode failed:", error);
+      return null;
+    }
+  } else {
+    // Node.js: use jsonwebtoken library
+    try {
+      return jwt.decode(token) as Record<string, unknown> | null;
+    } catch (error) {
+      console.warn("[decodeJWT] Node.js decode failed:", error);
+      return null;
+    }
+  }
 }
 
 /**
@@ -28,10 +68,10 @@ export function extractClientTokenInfo(
 ): ClientTokenInfo {
   try {
     // Decode token without verification (we don't have the secret)
-    const decoded = jwt.decode(clientToken) as Record<string, unknown> | null;
+    const decoded = decodeJWT(clientToken);
 
     if (!decoded || typeof decoded !== "object") {
-      console.warn("Failed to decode client token: Invalid token format");
+      console.warn("[extractClientTokenInfo] Failed to decode client token: Invalid token format");
       return {};
     }
 
@@ -45,11 +85,13 @@ export function extractClientTokenInfo(
       info.application = decoded.app;
     }
 
-    // environment or env
+    // environment or env or environmentKey (controller uses environmentKey)
     if (decoded.environment && typeof decoded.environment === "string") {
       info.environment = decoded.environment;
     } else if (decoded.env && typeof decoded.env === "string") {
       info.environment = decoded.env;
+    } else if (decoded.environmentKey && typeof decoded.environmentKey === "string") {
+      info.environment = decoded.environmentKey;
     }
 
     // applicationId or app_id
@@ -66,9 +108,38 @@ export function extractClientTokenInfo(
       info.clientId = decoded.client_id;
     }
 
+    // Always log available fields for debugging (even if we found some)
+    if (Object.keys(info).length === 0) {
+      console.log("[extractClientTokenInfo] No standard fields found in token payload");
+      console.log("[extractClientTokenInfo] Available fields:", Object.keys(decoded));
+      console.log("[extractClientTokenInfo] Full payload:", JSON.stringify(decoded, null, 2));
+      
+      // Try to extract any useful information from common JWT fields
+      // This helps with debugging even if standard fields aren't present
+      if (decoded.iss) {
+        console.log("[extractClientTokenInfo] Token issuer (iss):", decoded.iss);
+      }
+      if (decoded.sub) {
+        console.log("[extractClientTokenInfo] Token subject (sub):", decoded.sub);
+      }
+      if (decoded.aud) {
+        console.log("[extractClientTokenInfo] Token audience (aud):", decoded.aud);
+      }
+    } else {
+      console.log("[extractClientTokenInfo] Successfully extracted token info:", info);
+      // Still log all available fields to help debug missing environment
+      if (!info.environment) {
+        console.log("[extractClientTokenInfo] Environment not found. Available payload fields:", Object.keys(decoded));
+        console.log("[extractClientTokenInfo] Full payload:", JSON.stringify(decoded, null, 2));
+      }
+    }
+
     return info;
   } catch (error) {
-    console.warn("Failed to decode client token:", error);
+    console.warn("[extractClientTokenInfo] Failed to decode client token:", error);
+    if (error instanceof Error) {
+      console.warn("[extractClientTokenInfo] Error details:", error.message, error.stack);
+    }
     return {};
   }
 }

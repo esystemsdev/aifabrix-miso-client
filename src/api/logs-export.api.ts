@@ -68,7 +68,6 @@ export class LogsExportApi {
       });
       logErrorWithContext(errorInfo, '[LogsExportApi]');
       throw error;
-      throw error;
     }
   }
 }

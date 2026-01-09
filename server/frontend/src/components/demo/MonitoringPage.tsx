@@ -148,7 +148,7 @@ export function MonitoringPage() {
     setLoading(true);
     try {
       const startTime = Date.now();
-      await dataClient.put('/api/users/1', { name: 'Updated User' }).catch(() => null);
+      await dataClient.put('/api/users/1', { name: 'Updated User', email: 'updated@example.com' }).catch(() => null);
       const duration = Date.now() - startTime;
       
       const newLog = {

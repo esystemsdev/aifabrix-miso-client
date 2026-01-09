@@ -316,6 +316,7 @@ describe("BrowserRoleService", () => {
 
       expect(result).toEqual(["admin", "user"]);
       expect(mockApiClient.roles.refreshRoles).toHaveBeenCalledWith(
+        undefined,
         expect.objectContaining({
           methods: ['bearer'],
           bearerToken: 'token',

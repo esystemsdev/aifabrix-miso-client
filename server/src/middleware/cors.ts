@@ -35,7 +35,11 @@ export function corsMiddleware(allowedOrigins: string[], misoClient?: MisoClient
         // Log warning using MisoClient logger if available
         if (misoClient) {
           try {
-            await misoClient.log.forRequest(req).addContext('error', error instanceof Error ? error.message : String(error)).addContext('level', 'warning').info('Origin validation error (allowing anyway)');
+            await misoClient.log
+              .forRequest(req)
+              .addContext('error', error instanceof Error ? error.message : String(error))
+              .addContext('level', 'warning')
+              .info('Origin validation error (allowing anyway)');
           } catch {
             // Fallback to console if logger fails
             console.warn('Origin validation error (allowing anyway):', error);

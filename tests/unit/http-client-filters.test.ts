@@ -4,13 +4,13 @@
 
 import { HttpClient } from "../../src/utils/http-client";
 import { InternalHttpClient } from "../../src/utils/internal-http-client";
-import { LoggerService } from "../../src/services/logger.service";
+import { LoggerService } from "../../src/services/logger";
 import { MisoClientConfig } from "../../src/types/config.types";
 import { FilterBuilder } from "../../src/utils/filter.utils";
 
 // Mock dependencies
 jest.mock("../../src/utils/internal-http-client");
-jest.mock("../../src/services/logger.service");
+jest.mock("../../src/services/logger");
 jest.mock("jsonwebtoken");
 
 describe("HttpClient filter and pagination helpers", () => {

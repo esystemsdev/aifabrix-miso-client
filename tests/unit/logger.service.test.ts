@@ -2,7 +2,7 @@
  * Unit tests for LoggerService
  */
 
-import { LoggerService } from "../../src/services/logger.service";
+import { LoggerService } from "../../src/services/logger";
 import { HttpClient } from "../../src/utils/http-client";
 import { RedisService } from "../../src/services/redis.service";
 import { MisoClientConfig } from "../../src/types/config.types";

@@ -12,6 +12,7 @@ interface AuthenticationTabProps {
     testIsAuthenticated: () => Promise<void>;
     testGetToken: () => Promise<void>;
     testGetClientTokenInfo: () => Promise<void>;
+    testGetUser: () => Promise<void>;
     testLogout: () => Promise<void>;
     testRedirectToLogin: () => Promise<void>;
   };
@@ -65,6 +66,22 @@ export function AuthenticationTab({ isDisabled, auth }: AuthenticationTabProps) 
         <CardContent>
           <Button onClick={auth.testGetClientTokenInfo} disabled={isDisabled} className="w-full">
             getClientTokenInfo()
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Get User</CardTitle>
+          <CardDescription>Get current user information</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            onClick={auth.testGetUser} 
+            disabled={isDisabled} 
+            className="w-full !bg-purple-600 hover:!bg-purple-700 !text-white"
+          >
+            getUser()
           </Button>
         </CardContent>
       </Card>

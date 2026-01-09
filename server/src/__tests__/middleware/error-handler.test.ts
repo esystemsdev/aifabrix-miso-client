@@ -11,7 +11,10 @@ jest.mock('@aifabrix/miso-client', () => ({
   handleRouteError: jest.fn().mockResolvedValue(undefined),
   asyncHandler: jest.fn((fn) => fn),
   AppError: class AppError extends Error {
-    constructor(message: string, public statusCode: number) {
+    constructor(
+      message: string,
+      public statusCode: number
+    ) {
       super(message);
       this.name = 'AppError';
     }
