@@ -49,8 +49,6 @@ Based on plan 33, the following structures are expected:
 }
 ```
 
-
-
 ### Paginated Response
 
 ```typescript
@@ -71,8 +69,6 @@ Based on plan 33, the following structures are expected:
 }
 ```
 
-
-
 ### Error Response (RFC 7807)
 
 ```typescript
@@ -85,8 +81,6 @@ Based on plan 33, the following structures are expected:
   correlationId?: string;
 }
 ```
-
-
 
 ## Current State Analysis
 
@@ -199,8 +193,6 @@ export interface MisoClientConfig {
   validateResponses?: boolean; // Default: true in development, false in production
 }
 ```
-
-
 
 ## Validation Strategy
 

@@ -4,6 +4,7 @@
  */
 
 import { Request, Response } from 'express';
+import { MisoClient, asyncHandler, AppError } from '@aifabrix/miso-client';
 
 // Mock data store (in-memory)
 const users: Array<{ id: string; name: string; email: string; createdAt: string }> = [
@@ -15,50 +16,64 @@ const users: Array<{ id: string; name: string; email: string; createdAt: string 
  * GET /api/users - List all users
  * Demonstrates GET with caching
  */
-export function getUsers(req: Request, res: Response): void {
-  try {
+export function getUsers(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
     // Simulate delay for caching demonstration
-    setTimeout(() => {
-      res.json({
-        users,
-        count: users.length,
-      });
-    }, 100);
-  } catch (_error) {
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
+    await new Promise(resolve => {
+      const timeout = setTimeout(resolve, 100);
+      // Unref timeout so it doesn't keep the process alive in tests
+      if (timeout.unref) {
+        timeout.unref();
+      }
+    });
+    
+    if (misoClient) {
+      await misoClient.log.forRequest(req).info('Fetching users list');
+    }
+    
+    res.json({
+      users,
+      count: users.length,
+    });
+  }, 'getUsers');
 }
 
 /**
  * GET /api/users/:id - Get user by ID
  */
-export function getUserById(req: Request, res: Response): void {
-  try {
+export function getUserById(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const user = users.find((u) => u.id === id);
 
     if (!user) {
-      res.status(404).json({ error: 'User not found' });
-      return;
+    if (misoClient) {
+      await misoClient.log.forRequest(req).addContext('level', 'warning').info(`User not found: ${id}`);
+    }
+      throw new AppError('User not found', 404);
+    }
+
+    if (misoClient) {
+      await misoClient.log.forRequest(req).info(`Fetching user: ${id}`);
     }
 
     res.json({ user });
-  } catch (_error) {
-    res.status(500).json({ error: 'Failed to fetch user' });
-  }
+  }, 'getUserById');
 }
 
 /**
  * POST /api/users - Create user
  * Demonstrates POST with data
  */
-export function createUser(req: Request, res: Response): void {
-  try {
+export function createUser(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { name, email } = req.body;
 
     if (!name || !email) {
-      res.status(400).json({ error: 'Name and email are required' });
-      return;
+      if (misoClient) {
+        await misoClient.log.forRequest(req).info('Create user failed: Name and email are required');
+      }
+      throw new AppError('Name and email are required', 400);
     }
 
     const newUser = {
@@ -70,31 +85,37 @@ export function createUser(req: Request, res: Response): void {
 
     users.push(newUser);
 
+    if (misoClient) {
+      await misoClient.log.forRequest(req).info(`User created: ${newUser.id}`);
+    }
+
     res.status(201).json({ user: newUser });
-  } catch (_error) {
-    res.status(500).json({ error: 'Failed to create user' });
-  }
+  }, 'createUser');
 }
 
 /**
  * PUT /api/users/:id - Update user (full update)
  * Demonstrates PUT
  */
-export function updateUser(req: Request, res: Response): void {
-  try {
+export function updateUser(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const { name, email } = req.body;
 
     const userIndex = users.findIndex((u) => u.id === id);
 
     if (userIndex === -1) {
-      res.status(404).json({ error: 'User not found' });
-      return;
+      if (misoClient) {
+        await misoClient.log.forRequest(req).info(`Update user failed: User not found: ${id}`);
+      }
+      throw new AppError('User not found', 404);
     }
 
     if (!name || !email) {
-      res.status(400).json({ error: 'Name and email are required' });
-      return;
+      if (misoClient) {
+        await misoClient.log.forRequest(req).info(`Update user failed: Name and email are required: ${id}`);
+      }
+      throw new AppError('Name and email are required', 400);
     }
 
     users[userIndex] = {
@@ -103,29 +124,34 @@ export function updateUser(req: Request, res: Response): void {
       email,
     };
 
+    if (misoClient) {
+      await misoClient.log.forRequest(req).info(`User updated: ${id}`);
+    }
+
     res.json({ user: users[userIndex] });
-  } catch (_error) {
-    res.status(500).json({ error: 'Failed to update user' });
-  }
+  }, 'updateUser');
 }
 
 /**
  * PATCH /api/users/:id - Partial update user
  * Demonstrates PATCH
  */
-export function patchUser(req: Request, res: Response): void {
-  try {
+export function patchUser(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const updates = req.body;
 
-    console.log(`[PATCH /api/users/${id}] Request received:`, { id, updates });
+    if (misoClient) {
+      await misoClient.log.forRequest(req).addContext('id', id).addContext('updates', updates).info(`PATCH /api/users/${id} request received`);
+    }
 
     const userIndex = users.findIndex((u) => u.id === id);
 
     if (userIndex === -1) {
-      console.log(`[PATCH /api/users/${id}] User not found`);
-      res.status(404).json({ error: 'User not found' });
-      return;
+      if (misoClient) {
+        await misoClient.log.forRequest(req).info(`PATCH /api/users/${id} failed: User not found`);
+      }
+      throw new AppError('User not found', 404);
     }
 
     users[userIndex] = {
@@ -133,42 +159,50 @@ export function patchUser(req: Request, res: Response): void {
       ...updates,
     };
 
-    console.log(`[PATCH /api/users/${id}] User updated:`, users[userIndex]);
+    if (misoClient) {
+      await misoClient.log.forRequest(req).addContext('user', users[userIndex]).info(`PATCH /api/users/${id} user updated`);
+    }
+
     res.json({ user: users[userIndex] });
-  } catch (error) {
-    console.error(`[PATCH /api/users/:id] Error:`, error);
-    res.status(500).json({ error: 'Failed to update user' });
-  }
+  }, 'patchUser');
 }
 
 /**
  * DELETE /api/users/:id - Delete user
  * Demonstrates DELETE
  */
-export function deleteUser(req: Request, res: Response): void {
-  try {
+export function deleteUser(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const userIndex = users.findIndex((u) => u.id === id);
 
     if (userIndex === -1) {
-      res.status(404).json({ error: 'User not found' });
-      return;
+      if (misoClient) {
+        await misoClient.log.forRequest(req).info(`Delete user failed: User not found: ${id}`);
+      }
+      throw new AppError('User not found', 404);
     }
 
     users.splice(userIndex, 1);
 
+    if (misoClient) {
+      await misoClient.log.forRequest(req).info(`User deleted: ${id}`);
+    }
+
     res.status(204).send();
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to delete user' });
-  }
+  }, 'deleteUser');
 }
 
 /**
  * GET /api/metrics - Return mock metrics
  * Demonstrates metrics endpoint
  */
-export function getMetrics(req: Request, res: Response): void {
-  try {
+export function getMetrics(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    if (misoClient) {
+      await misoClient.log.forRequest(req).info('Fetching metrics');
+    }
+
     res.json({
       totalRequests: 100,
       totalFailures: 5,
@@ -182,43 +216,58 @@ export function getMetrics(req: Request, res: Response): void {
         '>500ms': 5,
       },
     });
-  } catch (_error) {
-    res.status(500).json({ error: 'Failed to fetch metrics' });
-  }
+  }, 'getMetrics');
 }
 
 /**
  * GET /api/slow - Slow endpoint for timeout/retry testing
  * Demonstrates timeout scenarios
  */
-export function slowEndpoint(req: Request, res: Response): void {
-  const delay = parseInt(req.query.delay as string) || 5000;
+export function slowEndpoint(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const delay = parseInt(req.query.delay as string) || 5000;
 
-  const timeout = setTimeout(() => {
+    if (misoClient) {
+      await misoClient.log.forRequest(req).info(`Slow endpoint called with delay: ${delay}ms`);
+    }
+
+    await new Promise(resolve => {
+      const timeout = setTimeout(resolve, delay);
+      // Unref timeout so it doesn't keep the process alive in tests
+      // This allows Jest to exit gracefully after tests complete
+      if (timeout.unref) {
+        timeout.unref();
+      }
+    });
+
     res.json({
       message: 'Slow response',
       delay,
       timestamp: new Date().toISOString(),
     });
-  }, delay);
-
-  // Unref timeout so it doesn't keep the process alive in tests
-  // This allows Jest to exit gracefully after tests complete
-  if (timeout.unref) {
-    timeout.unref();
-  }
+  }, 'slowEndpoint');
 }
 
 /**
  * POST /api/v1/logs - Logging endpoint for MisoClient logger
  * Accepts audit logs and application logs from the SDK
  */
-export function logEndpoint(req: Request, res: Response): void {
-  try {
+export function logEndpoint(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const logEntry = req.body;
 
-    // Log to console for debugging (in production, this would go to a logging service)
-    console.log('[LOG]', JSON.stringify(logEntry, null, 2));
+    // Log using MisoClient logger if available, otherwise console (for demo/testing)
+    if (misoClient) {
+      // Add log entry as context - iterate over keys
+      let chain = misoClient.log.forRequest(req);
+      for (const [key, value] of Object.entries(logEntry)) {
+        chain = chain.addContext(key, value);
+      }
+      await chain.info('Log entry received');
+    } else {
+      // Fallback for when MisoClient is not initialized (shouldn't happen in production)
+      console.log('[LOG]', JSON.stringify(logEntry, null, 2));
+    }
 
     // Return success response
     res.status(200).json({
@@ -226,35 +275,34 @@ export function logEndpoint(req: Request, res: Response): void {
       message: 'Log received',
       timestamp: new Date().toISOString(),
     });
-  } catch (error) {
-    console.error('[LOG ERROR]', error);
-    res.status(500).json({
-      error: 'Failed to process log',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
+  }, 'logEndpoint');
 }
 
 /**
  * GET /api/error/:code - Error endpoint for error handling testing
  * Demonstrates various error scenarios
  */
-export function errorEndpoint(req: Request, res: Response): void {
-  const { code } = req.params;
-  const statusCode = parseInt(code, 10) || 500;
+export function errorEndpoint(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, _res: Response): Promise<void> => {
+    const { code } = req.params;
+    const statusCode = parseInt(code, 10) || 500;
 
-  const errorMessages: Record<number, string> = {
-    400: 'Bad Request',
-    401: 'Unauthorized',
-    403: 'Forbidden',
-    404: 'Not Found',
-    500: 'Internal Server Error',
-    503: 'Service Unavailable',
-  };
+    const errorMessages: Record<number, string> = {
+      400: 'Bad Request',
+      401: 'Unauthorized',
+      403: 'Forbidden',
+      404: 'Not Found',
+      500: 'Internal Server Error',
+      503: 'Service Unavailable',
+    };
 
-  res.status(statusCode).json({
-    error: errorMessages[statusCode] || 'Unknown Error',
-    statusCode,
-    message: `Simulated ${statusCode} error for testing`,
-  });
+    const message = errorMessages[statusCode] || 'Unknown Error';
+
+    if (misoClient) {
+      await misoClient.log.forRequest(req).addContext('level', 'warning').addContext('statusCode', statusCode).addContext('message', message).info(`Simulated error endpoint called: ${statusCode} ${message}`);
+    }
+
+    // Throw AppError to test error handling
+    throw new AppError(`Simulated ${statusCode} error for testing`, statusCode);
+  }, 'errorEndpoint');
 }

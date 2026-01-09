@@ -184,7 +184,10 @@ describe('LogsStatsApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsStatsApi.getLogStatsSummary()).rejects.toThrow('Get log stats summary failed');
-      expect(console.error).toHaveBeenCalledWith('Get log stats summary API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsStatsApi]'),
+        expect.stringContaining('Get log stats summary'),
+      );
     });
   });
 
@@ -313,7 +316,10 @@ describe('LogsStatsApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsStatsApi.getErrorStats()).rejects.toThrow('Get error stats failed');
-      expect(console.error).toHaveBeenCalledWith('Get error stats API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsStatsApi]'),
+        expect.stringContaining('Get error stats'),
+      );
     });
   });
 
@@ -452,7 +458,10 @@ describe('LogsStatsApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsStatsApi.getUserActivityStats()).rejects.toThrow('Get user activity stats failed');
-      expect(console.error).toHaveBeenCalledWith('Get user activity stats API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsStatsApi]'),
+        expect.stringContaining('Get user activity stats'),
+      );
     });
   });
 
@@ -581,7 +590,10 @@ describe('LogsStatsApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsStatsApi.getApplicationStats()).rejects.toThrow('Get application stats failed');
-      expect(console.error).toHaveBeenCalledWith('Get application stats API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsStatsApi]'),
+        expect.stringContaining('Get application stats'),
+      );
     });
   });
 });

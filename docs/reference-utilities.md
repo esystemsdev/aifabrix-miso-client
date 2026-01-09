@@ -619,7 +619,9 @@ type FilterOperator =
   | 'gte'       // Greater than or equal
   | 'lte'       // Less than or equal
   | 'contains'  // String contains
-  | 'like';     // Pattern match
+  | 'like'      // Pattern match
+  | 'isNull'    // Field is null
+  | 'isNotNull'; // Field is not null
 ```
 
 ### FilterOption Interface
@@ -632,8 +634,8 @@ interface FilterOption {
   field: string;
   /** Filter operator. */
   op: FilterOperator;
-  /** Filter value (supports arrays for `in` and `nin` operators). */
-  value: string | number | boolean | Array<string | number>;
+  /** Filter value (supports arrays for `in` and `nin` operators, null for `isNull` and `isNotNull`). */
+  value: string | number | boolean | Array<string | number> | null;
 }
 ```
 
@@ -685,8 +687,8 @@ class FilterBuilder {
   build(): FilterOption[];
 
   /**
-   * Convert filters to query string format.
-   * @returns Query string with filter parameters (e.g., `?filter=field:op:value&filter=...`)
+   * Convert filters to query string format using JSON format.
+   * @returns Query string with URL-encoded JSON filter format
    */
   toQueryString(): string;
 }
@@ -711,14 +713,21 @@ const filters = filterBuilder.build();
 //   { field: 'created_at', op: 'gte', value: '2024-01-01' }
 // ]
 
-// Convert to query string
+// Convert to query string (JSON format, URL-encoded)
 const queryString = filterBuilder.toQueryString();
-// Returns: "filter=status:eq:active&filter=region:in:eu,us&filter=created_at:gte:2024-01-01"
+// Returns: "filter=%7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%2C%22region%22%3A%7B%22in%22%3A%5B%22eu%22%2C%22us%22%5D%7D%2C%22created_at%22%3A%7B%22gte%22%3A%222024-01-01%22%7D%7D"
+// Decoded: {"status":{"eq":"active"},"region":{"in":["eu","us"]},"created_at":{"gte":"2024-01-01"}}
 ```
 
 ### `parseFilterParams(query: Record<string, unknown>): FilterOption[]`
 
-Parses filter query parameters into structured FilterOption array. Supports format: `?filter=field:op:value` or `?filter[]=field:op:value&filter[]=...`
+Parses filter query parameters into structured FilterOption array. Supports JSON format: object, JSON string, or URL-encoded JSON string.
+
+**Supported Formats:**
+- Direct object: `{"status": {"eq": "active"}}`
+- JSON string: `'{"status": {"eq": "active"}}'`
+- URL-encoded JSON: `'%7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%7D'` (for query strings)
+- Array of filters: `[{"status": {"eq": "active"}}, {"region": {"in": ["eu", "us"]}}]`
 
 **Parameters:**
 
@@ -731,25 +740,43 @@ Parses filter query parameters into structured FilterOption array. Supports form
 ```typescript
 import { parseFilterParams } from '@aifabrix/miso-client';
 
-// From URL query: ?filter=status:eq:active&filter=region:in:eu,us
+// From URL query with URL-encoded JSON: ?filter=%7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%7D
 const filters = parseFilterParams({
-  filter: ['status:eq:active', 'region:in:eu,us']
+  filter: '{"status": {"eq": "active"}, "region": {"in": ["eu", "us"]}}'
 });
 // Returns: [
 //   { field: 'status', op: 'eq', value: 'active' },
 //   { field: 'region', op: 'in', value: ['eu', 'us'] }
 // ]
+
+// Direct object format
+const filters2 = parseFilterParams({
+  filter: { status: { eq: 'active' }, age: { gte: 18 } }
+});
+// Returns: [
+//   { field: 'status', op: 'eq', value: 'active' },
+//   { field: 'age', op: 'gte', value: 18 }
+// ]
+
+// Null checks
+const filters3 = parseFilterParams({
+  filter: { deletedAt: { isNull: null }, email: { isNotNull: null } }
+});
+// Returns: [
+//   { field: 'deletedAt', op: 'isNull', value: null },
+//   { field: 'email', op: 'isNotNull', value: null }
+// ]
 ```
 
 ### `buildQueryString(options: FilterQuery): string`
 
-Builds query string from FilterQuery object.
+Builds query string from FilterQuery object using JSON format for filters.
 
 **Parameters:**
 
 - `options` - FilterQuery object with filters, sort, pagination, and field selection
 
-**Returns:** Query string (e.g., `?filter=status:eq:active&sort=-updated_at&page=1&page_size=25`)
+**Returns:** Query string with URL-encoded JSON filter format (e.g., `?filter=%7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%7D&sort=-updated_at&page=1&page_size=25`)
 
 **Example:**
 
@@ -757,7 +784,8 @@ Builds query string from FilterQuery object.
 import { buildQueryString, FilterBuilder } from '@aifabrix/miso-client';
 
 const filterBuilder = new FilterBuilder()
-  .add('status', 'eq', 'active');
+  .add('status', 'eq', 'active')
+  .add('age', 'gte', 18);
 
 const queryString = buildQueryString({
   filters: filterBuilder.build(),
@@ -765,7 +793,8 @@ const queryString = buildQueryString({
   page: 1,
   pageSize: 25
 });
-// Returns: "filter=status:eq:active&sort=-updated_at&page=1&page_size=25"
+// Returns: "filter=%7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%2C%22age%22%3A%7B%22gte%22%3A18%7D%7D&sort=-updated_at&page=1&page_size=25"
+// Decoded filter: {"status":{"eq":"active"},"age":{"gte":18}}
 ```
 
 ### `applyFilters<T extends Record<string, unknown>>(data: T[], filters: FilterOption[]): T[]`
@@ -800,6 +829,86 @@ const filtered = applyFilters(items, filters);
 //   { id: 1, status: 'active', region: 'eu' },
 //   { id: 3, status: 'active', region: 'eu' }
 // ]
+```
+
+### `validateJsonFilter(filter: unknown): void`
+
+Validates JSON filter structure. Throws error if filter format is invalid.
+
+**Parameters:**
+
+- `filter` - Filter object to validate
+
+**Throws:** Error if filter structure is invalid
+
+**Example:**
+
+```typescript
+import { validateJsonFilter } from '@aifabrix/miso-client';
+
+// Valid filter
+validateJsonFilter({ status: { eq: 'active' } }); // OK
+
+// Invalid filter - throws error
+try {
+  validateJsonFilter({ status: 'active' }); // Error: Field 'status' must have operator dictionary
+} catch (error) {
+  console.error(error.message);
+}
+```
+
+### `filterQueryToJson(filterQuery: FilterQuery): Record<string, Record<string, unknown>>`
+
+Converts FilterQuery to JSON filter format. Useful for serialization and debugging.
+
+**Parameters:**
+
+- `filterQuery` - FilterQuery object to convert
+
+**Returns:** JSON filter object (e.g., `{"status": {"eq": "active"}}`)
+
+**Example:**
+
+```typescript
+import { filterQueryToJson, FilterBuilder } from '@aifabrix/miso-client';
+
+const filterBuilder = new FilterBuilder()
+  .add('status', 'eq', 'active')
+  .add('age', 'gte', 18);
+
+const jsonFilter = filterQueryToJson({
+  filters: filterBuilder.build()
+});
+// Returns: { status: { eq: 'active' }, age: { gte: 18 } }
+```
+
+### `jsonToFilterQuery(jsonFilter: Record<string, Record<string, unknown>>): FilterQuery`
+
+Converts JSON filter format to FilterQuery. Convenience wrapper around `parseFilterParams()`.
+
+**Parameters:**
+
+- `jsonFilter` - JSON filter object (e.g., `{"status": {"eq": "active"}}`)
+
+**Returns:** FilterQuery object
+
+**Example:**
+
+```typescript
+import { jsonToFilterQuery } from '@aifabrix/miso-client';
+
+const filterQuery = jsonToFilterQuery({
+  status: { eq: 'active' },
+  age: { gte: 18 },
+  region: { in: ['eu', 'us'] }
+});
+// Returns: {
+//   filters: [
+//     { field: 'status', op: 'eq', value: 'active' },
+//     { field: 'age', op: 'gte', value: 18 },
+//     { field: 'region', op: 'in', value: ['eu', 'us'] }
+//   ]
+// }
 ```
 
 ## Sort Utilities
@@ -931,8 +1040,14 @@ import express from 'express';
 const app = express();
 
 app.get('/api/applications', (req, res) => {
-  // Parse filters from query string: ?filter=status:eq:active&filter=region:in:eu,us
+  // Parse filters from query string with URL-encoded JSON format
+  // URL: ?filter=%7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%2C%22region%22%3A%7B%22in%22%3A%5B%22eu%22%2C%22us%22%5D%7D%7D
+  // Decoded: {"status":{"eq":"active"},"region":{"in":["eu","us"]}}
   const filters = parseFilterParams(req.query);
+  // Returns: [
+  //   { field: 'status', op: 'eq', value: 'active' },
+  //   { field: 'region', op: 'in', value: ['eu', 'us'] }
+  // ]
   
   // Build complete query with filters, sort, pagination
   const filterBuilder = new FilterBuilder();
@@ -946,6 +1061,7 @@ app.get('/api/applications', (req, res) => {
     page: 1,
     pageSize: 25
   });
+  // Returns: "filter=%7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%2C%22region%22%3A%7B%22in%22%3A%5B%22eu%22%2C%22us%22%5D%7D%7D&sort=-updated_at&page=1&page_size=25"
   
   // Use queryString in API call
   const url = `/api/applications?${queryString}`;

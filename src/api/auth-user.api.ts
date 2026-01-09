@@ -6,11 +6,14 @@
 import { HttpClient } from '../utils/http-client';
 import { AuthStrategy } from '../types/config.types';
 import {
+
   GetUserResponse,
   LogoutResponse,
   CallbackRequest,
   CallbackResponse,
 } from './types/auth.types';
+import { extractErrorInfo } from '../utils/error-extractor';
+import { logErrorWithContext } from '../utils/console-logger';
 
 /**
  * Auth User API class
@@ -50,7 +53,11 @@ export class AuthUserApi {
       }
       throw new Error('getUser requires authentication - provide authStrategy with bearerToken');
     } catch (error) {
-      console.error('Get user API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthUserApi.USER_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthUserApi]');
       throw error;
     }
   }
@@ -66,7 +73,11 @@ export class AuthUserApi {
         AuthUserApi.LOGOUT_ENDPOINT,
       );
     } catch (error) {
-      console.error('Logout API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthUserApi.LOGOUT_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthUserApi]');
       throw error;
     }
   }
@@ -84,7 +95,11 @@ export class AuthUserApi {
         { token },
       );
     } catch (error) {
-      console.error('Logout with token API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthUserApi.LOGOUT_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthUserApi]');
       throw error;
     }
   }
@@ -116,7 +131,11 @@ export class AuthUserApi {
         { params },
       );
     } catch (error) {
-      console.error('Handle callback API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthUserApi.CALLBACK_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthUserApi]');
       throw error;
     }
   }

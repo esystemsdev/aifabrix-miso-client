@@ -224,8 +224,8 @@ server/
 ├── src/
 │   ├── server.ts              # Main Express server
 │   ├── routes/
-│   │   ├── api.ts            # API endpoints
-│   │   └── health.ts         # Health check endpoint
+│   │   ├── api.ts            # API endpoints (factory function pattern)
+│   │   └── health.ts         # Health check endpoint (factory function pattern)
 │   ├── middleware/
 │   │   ├── cors.ts           # CORS middleware
 │   │   └── error-handler.ts  # Error handling middleware
@@ -240,6 +240,267 @@ server/
 ├── package.json              # Dependencies
 ├── tsconfig.json             # TypeScript configuration
 └── README.md                 # This file
+```
+
+## Route Handler Pattern
+
+This server uses a **factory function pattern** for route handlers that allows dependency injection of MisoClient while maintaining clean route definitions.
+
+### Pattern Overview
+
+Route handlers are factory functions that:
+1. Accept `misoClient: MisoClient | null` as a parameter
+2. Return an `asyncHandler()`-wrapped route handler
+3. Use MisoClient for logging and error handling
+
+### Example
+
+```typescript
+import { Request, Response } from 'express';
+import { MisoClient, asyncHandler, AppError } from '@aifabrix/miso-client';
+
+// Factory function: Accept misoClient, return route handler
+export function getUsers(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    // Log using MisoClient logger if available
+    if (misoClient) {
+      await misoClient.log.forRequest(req).info('Fetching users list');
+    }
+    
+    const users = await fetchUsers();
+    res.json({ users, count: users.length });
+  }, 'getUsers'); // Operation name for error tracking
+}
+
+// Register route with factory function
+app.get('/api/users', getUsers(misoClient));
+```
+
+### Benefits
+
+- **Dependency Injection**: MisoClient injected at route registration, not hardcoded
+- **Automatic Error Handling**: `asyncHandler()` wraps handlers for RFC 7807 error formatting
+- **Automatic Logging**: Request context (IP, method, path, correlationId, userId) auto-extracted
+- **No Try-Catch Boilerplate**: `asyncHandler()` eliminates manual error handling
+- **Operation Tracking**: Operation names help track errors in logs
+
+### Error Handling
+
+All route handlers use `asyncHandler()` which:
+- Automatically catches errors
+- Formats errors as RFC 7807 Problem Details
+- Logs errors with full context via configured error logger
+- Extracts correlation IDs automatically
+
+Business logic errors should throw `AppError`:
+
+```typescript
+if (!user) {
+  if (misoClient) {
+    await misoClient.log
+      .forRequest(req)
+      .addContext('level', 'warning')
+      .info(`User not found: ${id}`);
+  }
+  throw new AppError('User not found', 404);
+}
+```
+
+### Logging
+
+Use `misoClient.log.forRequest(req)` for automatic context extraction:
+
+```typescript
+// Automatic context: IP, method, path, userAgent, correlationId, userId
+if (misoClient) {
+  await misoClient.log.forRequest(req).info('Operation message');
+}
+
+// Add additional context
+if (misoClient) {
+  await misoClient.log
+    .forRequest(req)
+    .addContext('userId', userId)
+    .addContext('action', 'update')
+    .info('User updated');
+}
+```
+
+**See Also:**
+
+- [Express Examples](../../docs/examples.md#factory-function-pattern-for-route-handlers) - Complete factory function pattern guide
+- [Error Handling Reference](../../docs/reference-errors.md) - Error handling best practices
+
+### Error Logger Configuration
+
+The server configures error logging after MisoClient initialization to use MisoClient logger with automatic request context extraction.
+
+**Configuration Pattern:**
+
+```typescript
+misoClient.initialize()
+  .then(async () => {
+    // Configure error logger to use MisoClient logger with forRequest()
+    setErrorLogger({
+      async logError(message, options) {
+        const req = (options as { req?: Request })?.req;
+        if (req && misoClient) {
+          // Use forRequest() for automatic context extraction
+          await misoClient.log
+            .forRequest(req)
+            .error(message, (options as { stack?: string })?.stack);
+        } else if (misoClient) {
+          // Fallback for non-Express contexts
+          await misoClient.log.error(message, options as Record<string, unknown>);
+        } else {
+          // Final fallback to console if MisoClient not available
+          console.error('[ERROR]', message);
+          if ((options as { stack?: string })?.stack) {
+            console.error('[ERROR] Stack:', (options as { stack?: string }).stack);
+          }
+        }
+      }
+    });
+  });
+```
+
+**Benefits:**
+
+- Automatic request context extraction (IP, method, path, correlationId, userId)
+- RFC 7807 compliant error logging
+- Graceful fallback when MisoClient unavailable
+- ISO 27001 compliant audit logging
+
+### MisoClient Fallback Behavior
+
+The server gracefully handles scenarios where MisoClient is not initialized or unavailable:
+
+**Fallback Patterns:**
+
+1. **Route Handlers**: All route handlers accept `misoClient: MisoClient | null` and check before logging
+2. **Logging**: Logging calls are conditional (`if (misoClient) { ... }`)
+3. **Error Logger**: Error logger has multiple fallback levels (MisoClient → console)
+4. **Startup**: Server starts immediately, MisoClient initializes asynchronously
+
+**Example Fallback in Route Handler:**
+
+```typescript
+export function getUsers(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    // Conditional logging - works with or without MisoClient
+    if (misoClient) {
+      await misoClient.log.forRequest(req).info('Fetching users list');
+    }
+    
+    // Business logic continues regardless of MisoClient availability
+    const users = await fetchUsers();
+    res.json({ users, count: users.length });
+  }, 'getUsers');
+}
+```
+
+**Benefits:**
+
+- Server starts even if MisoClient initialization fails
+- Routes continue to function without MisoClient
+- Logging is optional, not required
+- Graceful degradation for development/testing
+
+## Testing
+
+### Test Structure
+
+Tests are located in `src/__tests__/` and mirror the source structure:
+
+- `api.test.ts` - API route handler tests
+- `health.test.ts` - Health check tests
+- `middleware/error-handler.test.ts` - Error middleware tests
+- `middleware/cors.test.ts` - CORS middleware tests
+- `error-logger.test.ts` - Error logger configuration tests
+- `miso-client-fallback.test.ts` - MisoClient fallback behavior tests
+- `server.integration.test.ts` - Integration tests
+- `server.logging.test.ts` - Logging endpoint tests
+
+### Test Patterns
+
+**Testing Route Handlers:**
+
+```typescript
+import { getUsers } from '../routes/api';
+import { MisoClient } from '@aifabrix/miso-client';
+
+describe('getUsers', () => {
+  it('should work with null MisoClient', async () => {
+    const handler = getUsers(null);
+    await handler(mockRequest, mockResponse, mockNext);
+    
+    expect(mockResponse.json).toHaveBeenCalled();
+  });
+
+  it('should log when MisoClient is available', async () => {
+    const mockMisoClient = {
+      log: {
+        forRequest: jest.fn().mockReturnValue({
+          info: jest.fn().mockResolvedValue(undefined),
+        }),
+      },
+    } as unknown as MisoClient;
+
+    const handler = getUsers(mockMisoClient);
+    await handler(mockRequest, mockResponse, mockNext);
+
+    expect(mockMisoClient.log.forRequest).toHaveBeenCalled();
+  });
+});
+```
+
+**Testing Error Logger Configuration:**
+
+```typescript
+import { setErrorLogger } from '@aifabrix/miso-client';
+
+describe('Error Logger', () => {
+  it('should use forRequest() when request is available', async () => {
+    const errorLogger = {
+      async logError(message, options) {
+        const req = (options as { req?: Request })?.req;
+        if (req && misoClient) {
+          await misoClient.log.forRequest(req).error(message, options.stack);
+        }
+      },
+    };
+
+    setErrorLogger(errorLogger);
+    // Test error logging...
+  });
+});
+```
+
+**Testing Fallback Behavior:**
+
+```typescript
+describe('MisoClient Fallback', () => {
+  it('should handle null MisoClient gracefully', async () => {
+    const handler = getUsers(null);
+    await handler(mockRequest, mockResponse, mockNext);
+    
+    // Should complete successfully without logging
+    expect(mockResponse.json).toHaveBeenCalled();
+  });
+});
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test file
+npm test -- error-logger.test.ts
+
+# Run tests in watch mode
+npm test -- --watch
 ```
 
 ## Development

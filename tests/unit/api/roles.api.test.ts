@@ -112,7 +112,10 @@ describe('RolesApi', () => {
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
       await expect(rolesApi.getRoles(undefined, authStrategy)).rejects.toThrow('Network error');
-      expect(console.error).toHaveBeenCalledWith('Get roles API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[RolesApi]'),
+        expect.stringContaining('Network error'),
+      );
     });
   });
 

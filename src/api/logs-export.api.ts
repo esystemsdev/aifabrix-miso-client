@@ -6,9 +6,12 @@
 import { HttpClient } from '../utils/http-client';
 import { AuthStrategy } from '../types/config.types';
 import {
+
   ExportLogsQueryParams,
   ExportLogsResponse,
 } from './types/logs.types';
+import { extractErrorInfo } from '../utils/error-extractor';
+import { logErrorWithContext } from '../utils/console-logger';
 
 /**
  * Logs Export API class
@@ -59,7 +62,12 @@ export class LogsExportApi {
         { params },
       );
     } catch (error) {
-      console.error('Export logs API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: undefined,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsExportApi]');
+      throw error;
       throw error;
     }
   }

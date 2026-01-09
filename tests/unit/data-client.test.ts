@@ -2056,7 +2056,9 @@ describe("DataClient", () => {
             statusCode: 0,
             cached: false,
           }),
-          {},
+          expect.objectContaining({
+            errorCategory: "authentication",
+          }),
         );
       }
     });
@@ -2596,11 +2598,12 @@ describe("DataClient", () => {
     });
 
     it("should handle refresh callback timing out", async () => {
+      let timeoutId: NodeJS.Timeout | null = null;
       const onTokenRefresh = jest.fn().mockImplementation(
         () =>
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Timeout")), 100),
-          ),
+          new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error("Timeout")), 100);
+          }),
       );
 
       const customClient = new DataClient({
@@ -2624,6 +2627,14 @@ describe("DataClient", () => {
       await expect(customClient.get("/api/test")).rejects.toThrow();
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      
+      // Clear the timeout to prevent open handles
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+      
+      // Wait a bit to ensure any pending timers complete
+      await new Promise((resolve) => setTimeout(resolve, 10));
     });
 
     it("should handle refresh when callback returns token without expiresIn", async () => {

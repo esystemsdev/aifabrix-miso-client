@@ -180,7 +180,8 @@ async function fetchConfig(
 
     clearTimeout(timeoutId);
 
-    // If POST fails with 405, try GET
+    // If POST fails with 405 (Method Not Allowed), try GET as fallback
+    // This provides backward compatibility for servers that only support GET
     if (response.status === 405) {
       const getController = new AbortController();
       const getTimeoutId = setTimeout(() => getController.abort(), timeout);
@@ -207,10 +208,61 @@ async function fetchConfig(
     }
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => "Unable to read error response");
-      throw new Error(
-        `Failed to fetch config: ${response.status} ${response.statusText}. ${errorText}`,
-      );
+      // Try to parse JSON error response first
+      let errorMessage = `Failed to fetch config: ${response.status} ${response.statusText}`;
+      let errorDetails: string | undefined;
+      
+      try {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await response.json().catch(() => null) as Record<string, unknown> | null;
+          if (errorData) {
+            // Extract error message from structured error response
+            if (typeof errorData.message === "string") {
+              errorMessage = errorData.message;
+            } else if (typeof errorData.error === "string") {
+              errorMessage = errorData.error;
+            }
+            
+            // Extract details if available
+            if (errorData.details) {
+              if (typeof errorData.details === "string") {
+                errorDetails = errorData.details;
+              } else if (typeof errorData.details === "object" && errorData.details !== null) {
+                const details = errorData.details as Record<string, unknown>;
+                if (typeof details.suggestion === "string") {
+                  errorDetails = details.suggestion;
+                } else if (typeof details.controllerUrl === "string") {
+                  errorDetails = `Controller URL: ${details.controllerUrl}`;
+                }
+              }
+            }
+          }
+        } else {
+          // Try to read as text if not JSON
+          const errorText = await response.text().catch(() => "Unable to read error response");
+          if (errorText && errorText !== "Unable to read error response") {
+            errorMessage = `${errorMessage}. ${errorText}`;
+          }
+        }
+      } catch (parseError) {
+        // If JSON parsing fails, try to read as text
+        try {
+          const errorText = await response.text().catch(() => "");
+          if (errorText) {
+            errorMessage = `${errorMessage}. ${errorText}`;
+          }
+        } catch {
+          // Ignore errors reading response
+        }
+      }
+      
+      // Build final error message
+      const finalMessage = errorDetails 
+        ? `${errorMessage}. ${errorDetails}`
+        : errorMessage;
+      
+      throw new Error(finalMessage);
     }
 
     const data = (await response.json()) as ClientTokenResponse;

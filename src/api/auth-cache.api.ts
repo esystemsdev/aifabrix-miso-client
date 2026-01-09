@@ -13,6 +13,8 @@ import {
   InvalidateCacheRequest,
   InvalidateCacheResponse,
 } from './types/auth.types';
+import { extractErrorInfo } from '../utils/error-extractor';
+import { logErrorWithContext } from '../utils/console-logger';
 
 /**
  * Auth Cache API class
@@ -59,7 +61,11 @@ export class AuthCacheApi {
         AuthCacheApi.CACHE_STATS_ENDPOINT,
       );
     } catch (error) {
-      console.error('Get cache stats API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthCacheApi.CACHE_STATS_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthCacheApi]');
       throw error;
     }
   }
@@ -95,7 +101,11 @@ export class AuthCacheApi {
         AuthCacheApi.CACHE_PERFORMANCE_ENDPOINT,
       );
     } catch (error) {
-      console.error('Get cache performance API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthCacheApi.CACHE_PERFORMANCE_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthCacheApi]');
       throw error;
     }
   }
@@ -131,7 +141,11 @@ export class AuthCacheApi {
         AuthCacheApi.CACHE_EFFICIENCY_ENDPOINT,
       );
     } catch (error) {
-      console.error('Get cache efficiency API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthCacheApi.CACHE_EFFICIENCY_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthCacheApi]');
       throw error;
     }
   }
@@ -167,7 +181,11 @@ export class AuthCacheApi {
         AuthCacheApi.CACHE_CLEAR_ENDPOINT,
       );
     } catch (error) {
-      console.error('Clear cache API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthCacheApi.CACHE_CLEAR_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthCacheApi]');
       throw error;
     }
   }
@@ -207,7 +225,11 @@ export class AuthCacheApi {
         params,
       );
     } catch (error) {
-      console.error('Invalidate cache API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthCacheApi.CACHE_INVALIDATE_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthCacheApi]');
       throw error;
     }
   }

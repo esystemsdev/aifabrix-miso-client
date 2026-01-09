@@ -21,10 +21,10 @@ npm install -g @aifabrix/builder
 aifabrix doctor
 
 # Login to controller
-aifabrix login --method device --environment dev --controller http://localhost:3100 --offline
+aifabrix login --method device --environment miso --controller http://localhost:3110 --offline
 
 # Register your application (gets you credentials automatically)
-aifabrix app register miso-test --environment dev
+aifabrix app register miso-test --environment miso
 ```
 
 ### 3. Build & Run Locally
@@ -65,7 +65,7 @@ aifabrix build miso-test --tag v1.0.0
 aifabrix push miso-test --registry myacr.azurecr.io --tag "v1.0.0,latest"
 
 # Deploy to miso-controller
-aifabrix deploy miso-test --controller https://controller.aifabrix.ai --environment dev
+aifabrix deploy miso-test --controller http://localhost:3110 --environment miso
 ```
 
 ---
@@ -79,7 +79,7 @@ After registering your app, you automatically get credentials in your secret fil
 **Rotate credentials if needed:**
 
 ```bash
-aifabrix app rotate-secret miso-test --environment dev
+aifabrix app rotate-secret miso-test --environment miso
 ```
 
 ---

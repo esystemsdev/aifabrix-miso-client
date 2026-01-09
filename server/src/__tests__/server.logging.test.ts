@@ -19,10 +19,10 @@ function createTestApp(): express.Application {
 
   // Middleware
   app.use(express.json());
-  app.use(corsMiddleware(envConfig.misoAllowedOrigins));
+  app.use(corsMiddleware(envConfig.misoAllowedOrigins, null));
 
-  // MisoClient logging endpoint
-  app.post('/api/v1/logs', logEndpoint);
+  // MisoClient logging endpoint - pass null for misoClient
+  app.post('/api/v1/logs', logEndpoint(null));
 
   // Error handlers
   app.use(notFoundHandler);

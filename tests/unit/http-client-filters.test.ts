@@ -75,11 +75,16 @@ describe("HttpClient filter and pagination helpers", () => {
         filterBuilder,
       );
 
-      // URLSearchParams URL-encodes values
-      expect(mockInternalClient.get).toHaveBeenCalledWith(
-        "/api/applications?filter=status%3Aeq%3Aactive&filter=region%3Ain%3Aeu%2Cus",
-        undefined,
-      );
+      // FilterBuilder now uses JSON format, URL-encoded
+      // Expected: {"status":{"eq":"active"},"region":{"in":["eu","us"]}}
+      // URL-encoded: %7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%2C%22region%22%3A%7B%22in%22%3A%5B%22eu%22%2C%22us%22%5D%7D%7D
+      const calledUrl = (mockInternalClient.get as jest.Mock).mock.calls[0][0];
+      expect(calledUrl).toContain("/api/applications?filter=");
+      expect(calledUrl).toContain("%22status%22"); // "status"
+      expect(calledUrl).toContain("%22eq%22"); // "eq"
+      expect(calledUrl).toContain("%22active%22"); // "active"
+      expect(calledUrl).toContain("%22region%22"); // "region"
+      expect(calledUrl).toContain("%22in%22"); // "in"
       expect(result).toEqual(mockResponse);
     });
 
@@ -114,9 +119,16 @@ describe("HttpClient filter and pagination helpers", () => {
         requestConfig,
       );
 
-      // URLSearchParams URL-encodes values
+      // FilterBuilder now uses JSON format, URL-encoded
+      // Expected: {"status":{"eq":"active"}}
+      // URL-encoded: %7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%7D
+      const calledUrl = (mockInternalClient.get as jest.Mock).mock.calls[0][0];
+      expect(calledUrl).toContain("/api/applications?filter=");
+      expect(calledUrl).toContain("%22status%22"); // "status"
+      expect(calledUrl).toContain("%22eq%22"); // "eq"
+      expect(calledUrl).toContain("%22active%22"); // "active"
       expect(mockInternalClient.get).toHaveBeenCalledWith(
-        "/api/applications?filter=status%3Aeq%3Aactive",
+        expect.stringContaining("/api/applications?filter="),
         requestConfig,
       );
     });
@@ -133,10 +145,17 @@ describe("HttpClient filter and pagination helpers", () => {
       await httpClient.getWithFilters("/api/users", filterBuilder);
 
       const calledUrl = (mockInternalClient.get as jest.Mock).mock.calls[0][0];
-      // URLSearchParams URL-encodes values, so we check for encoded version
-      expect(calledUrl).toContain("filter=status%3Aeq%3Aactive");
-      expect(calledUrl).toContain("filter=age%3Agte%3A18");
-      expect(calledUrl).toContain("filter=region%3Ain%3Aeu%2Cus%2Cuk");
+      // FilterBuilder now uses JSON format, URL-encoded
+      // Expected: {"status":{"eq":"active"},"age":{"gte":18},"region":{"in":["eu","us","uk"]}}
+      expect(calledUrl).toContain("/api/users?filter=");
+      expect(calledUrl).toContain("%22status%22"); // "status"
+      expect(calledUrl).toContain("%22eq%22"); // "eq"
+      expect(calledUrl).toContain("%22active%22"); // "active"
+      expect(calledUrl).toContain("%22age%22"); // "age"
+      expect(calledUrl).toContain("%22gte%22"); // "gte"
+      expect(calledUrl).toContain("18"); // 18 (number, not string)
+      expect(calledUrl).toContain("%22region%22"); // "region"
+      expect(calledUrl).toContain("%22in%22"); // "in"
     });
 
     it("should handle errors from InternalHttpClient", async () => {

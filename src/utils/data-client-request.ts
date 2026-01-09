@@ -21,6 +21,8 @@ import {
 import { setCacheEntry } from "./data-client-cache";
 import { logDataClientAudit, HasAnyTokenFn, GetTokenFn } from "./data-client-audit";
 import { MisoClient } from "../index";
+import { extractErrorInfo } from "./error-extractor";
+import { logErrorWithContext } from "./console-logger";
 
 /**
  * Token refresh callback function type
@@ -248,6 +250,20 @@ async function processSuccessfulResponse<T>(
 }
 
 /**
+ * Generate correlation ID helper
+ * Uses LoggerService's correlation ID generation if available, otherwise falls back to simple generation
+ */
+function generateCorrelationId(misoClient: MisoClient | null): string {
+  if (misoClient?.log && typeof misoClient.log.generateCorrelationId === "function") {
+    return misoClient.log.generateCorrelationId();
+  }
+  // Fallback to simple generation
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  return `${timestamp}-${random}`;
+}
+
+/**
  * Handle non-retryable error (audit log and throw)
  */
 async function handleNonRetryableError(
@@ -268,8 +284,27 @@ async function handleNonRetryableError(
   const duration = Date.now() - startTime;
   metrics.totalFailures++;
 
-  // Audit log error
-  if (!options?.skipAudit) {
+  // Extract structured error info with endpoint/method context
+  const errorInfo = extractErrorInfo(error, {
+    endpoint,
+    method,
+    correlationId: generateCorrelationId(misoClient),
+  });
+
+  // Log error with context before throwing
+  logErrorWithContext(errorInfo, "[DataClient]");
+
+  // Audit log error with enhanced structured error info
+  if (!options?.skipAudit && misoClient?.log) {
+    const httpStatusCategory =
+      statusCode || responseStatus
+        ? statusCode && statusCode >= 500
+          ? "server-error"
+          : statusCode && statusCode >= 400
+            ? "client-error"
+            : "success"
+        : "unknown";
+
     await logDataClientAudit(
       method,
       endpoint,
@@ -287,6 +322,29 @@ async function handleNonRetryableError(
       options?.body,
       undefined,
     );
+
+    // Enhance audit log with structured error info
+    try {
+      await misoClient.log.error(
+        `Request failed: ${errorInfo.message}`,
+        {
+          errorType: errorInfo.errorType,
+          errorName: errorInfo.errorName,
+          statusCode: errorInfo.statusCode,
+          endpoint: errorInfo.endpoint,
+          method: errorInfo.method,
+          responseBody: errorInfo.responseBody,
+        },
+        errorInfo.stackTrace,
+        {
+          errorCategory: errorInfo.errorType.toLowerCase().replace("error", ""),
+          httpStatusCategory,
+          correlationId: errorInfo.correlationId,
+        },
+      );
+    } catch (logError) {
+      // Ignore logging errors to prevent infinite loops
+    }
   }
 
   throw error;
@@ -318,6 +376,16 @@ function handleAuthErrorCleanup(
   // Update metrics
   metrics.totalFailures++;
   
+  // Extract structured error info
+  const errorInfo = extractErrorInfo(error, {
+    endpoint,
+    method,
+    correlationId: generateCorrelationId(misoClient),
+  });
+
+  // Log authentication-specific context with [DataClient] [AUTH] prefix
+  logErrorWithContext(errorInfo, "[DataClient] [AUTH]");
+  
   // Handle audit logging (fire and forget - don't await)
   if (!options?.skipAudit) {
     const duration = Date.now() - startTime;
@@ -340,6 +408,32 @@ function handleAuthErrorCleanup(
     ).catch(() => {
       // Ignore audit logging errors
     });
+
+    // Enhance error logging with structured info (fire and forget)
+    if (misoClient?.log) {
+      misoClient.log
+        .error(
+          `Authentication error: ${errorInfo.message}`,
+          {
+            authFlow: "token_validation_failed",
+            errorType: errorInfo.errorType,
+            errorName: errorInfo.errorName,
+            statusCode: errorInfo.statusCode,
+            endpoint: errorInfo.endpoint,
+            method: errorInfo.method,
+            responseBody: errorInfo.responseBody,
+          },
+          errorInfo.stackTrace,
+          {
+            errorCategory: "authentication",
+            httpStatusCategory: "client-error",
+            correlationId: errorInfo.correlationId,
+          },
+        )
+        .catch(() => {
+          // Ignore logging errors
+        });
+    }
   }
 }
 

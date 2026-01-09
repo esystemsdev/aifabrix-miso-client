@@ -5,6 +5,8 @@
 
 import { HttpClient } from '../utils/http-client';
 import { AuthStrategy } from '../types/config.types';
+import { logErrorWithContext } from '../utils/console-logger';
+import { extractErrorInfo } from '../utils/error-extractor';
 import {
   LoginRequest,
   LoginResponse,
@@ -56,7 +58,11 @@ export class AuthLoginApi {
         { params },
       );
     } catch (error) {
-      console.error('Login API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthLoginApi.LOGIN_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthLoginApi]');
       throw error;
     }
   }
@@ -86,7 +92,11 @@ export class AuthLoginApi {
         params,
       );
     } catch (error) {
-      console.error('Initiate device code API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthLoginApi.LOGIN_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthLoginApi]');
       throw error;
     }
   }
@@ -106,7 +116,11 @@ export class AuthLoginApi {
         params,
       );
     } catch (error) {
-      console.error('Poll device code token API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthLoginApi.DEVICE_CODE_TOKEN_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthLoginApi]');
       throw error;
     }
   }
@@ -126,7 +140,11 @@ export class AuthLoginApi {
         params,
       );
     } catch (error) {
-      console.error('Refresh device code token API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthLoginApi.DEVICE_CODE_REFRESH_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthLoginApi]');
       throw error;
     }
   }
@@ -148,7 +166,11 @@ export class AuthLoginApi {
         { params },
       );
     } catch (error) {
-      console.error('Get login diagnostics API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthLoginApi.LOGIN_DIAGNOSTICS_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthLoginApi]');
       throw error;
     }
   }

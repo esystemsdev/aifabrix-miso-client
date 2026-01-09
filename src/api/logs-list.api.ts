@@ -6,12 +6,15 @@
 import { HttpClient } from '../utils/http-client';
 import { AuthStrategy } from '../types/config.types';
 import {
+
   ListLogsQueryParams,
   PaginatedLogsResponse,
   GeneralLogEntry,
   AuditLogEntry,
   JobLogEntry,
 } from './types/logs.types';
+import { extractErrorInfo } from '../utils/error-extractor';
+import { logErrorWithContext } from '../utils/console-logger';
 
 /**
  * Logs List API class
@@ -62,7 +65,12 @@ export class LogsListApi {
         { params },
       );
     } catch (error) {
-      console.error('List general logs API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: LogsListApi.LOGS_GENERAL_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsListApi]');
+      throw error;
       throw error;
     }
   }
@@ -108,7 +116,12 @@ export class LogsListApi {
         { params },
       );
     } catch (error) {
-      console.error('Get general log API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: LogsListApi.LOGS_GENERAL_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsListApi]');
+      throw error;
       throw error;
     }
   }
@@ -150,7 +163,12 @@ export class LogsListApi {
         { params },
       );
     } catch (error) {
-      console.error('List audit logs API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: LogsListApi.LOGS_AUDIT_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsListApi]');
+      throw error;
       throw error;
     }
   }
@@ -196,7 +214,12 @@ export class LogsListApi {
         { params },
       );
     } catch (error) {
-      console.error('Get audit log API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: LogsListApi.LOGS_AUDIT_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsListApi]');
+      throw error;
       throw error;
     }
   }
@@ -238,7 +261,12 @@ export class LogsListApi {
         { params },
       );
     } catch (error) {
-      console.error('List job logs API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: undefined,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsListApi]');
+      throw error;
       throw error;
     }
   }
@@ -277,7 +305,12 @@ export class LogsListApi {
         url,
       );
     } catch (error) {
-      console.error('Get job log API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: undefined,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsListApi]');
+      throw error;
       throw error;
     }
   }

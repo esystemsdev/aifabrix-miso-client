@@ -42,6 +42,8 @@ import {
   InvalidateCacheResponse,
   DiagnosticsResponse,
 } from './types/auth.types';
+import { extractErrorInfo } from '../utils/error-extractor';
+import { logErrorWithContext } from '../utils/console-logger';
 
 /**
  * Auth API class
@@ -207,7 +209,11 @@ export class AuthApi {
       }
       throw new Error('getRoles requires authentication - provide authStrategy with bearerToken');
     } catch (error) {
-      console.error('Get roles API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthApi.ROLES_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthApi]');
       throw error;
     }
   }
@@ -235,7 +241,11 @@ export class AuthApi {
       }
       throw new Error('refreshRoles requires authentication - provide authStrategy with bearerToken');
     } catch (error) {
-      console.error('Refresh roles API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthApi.ROLES_REFRESH_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthApi]');
       throw error;
     }
   }
@@ -266,7 +276,12 @@ export class AuthApi {
       }
       throw new Error('getPermissions requires authentication - provide authStrategy with bearerToken');
     } catch (error) {
-      console.error('Get permissions API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthApi.PERMISSIONS_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthApi]');
+      throw error;
       throw error;
     }
   }
@@ -294,7 +309,11 @@ export class AuthApi {
       }
       throw new Error('refreshPermissions requires authentication - provide authStrategy with bearerToken');
     } catch (error) {
-      console.error('Refresh permissions API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthApi.PERMISSIONS_REFRESH_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[AuthApi]');
       throw error;
     }
   }

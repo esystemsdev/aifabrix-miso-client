@@ -111,7 +111,10 @@ describe('AuthApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authApi.login(params)).rejects.toThrow('Network error');
-      expect(console.error).toHaveBeenCalledWith('Login API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthLoginApi]'),
+        expect.stringContaining('Network error'),
+      );
     });
   });
 
@@ -157,7 +160,10 @@ describe('AuthApi', () => {
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
       await expect(authApi.validateToken(params)).rejects.toThrow('Invalid token');
-      expect(console.error).toHaveBeenCalledWith('Token validation API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthTokenApi]'),
+        expect.stringContaining('Invalid token'),
+      );
     });
   });
 
@@ -274,7 +280,10 @@ describe('AuthApi', () => {
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
       await expect(authApi.getRoles(undefined, authStrategy)).rejects.toThrow('Get roles failed');
-      expect(console.error).toHaveBeenCalledWith('Get roles API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthApi]'),
+        expect.stringContaining('Get roles failed'),
+      );
     });
   });
 
@@ -345,7 +354,10 @@ describe('AuthApi', () => {
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
       await expect(authApi.refreshRoles(authStrategy)).rejects.toThrow('Refresh roles failed');
-      expect(console.error).toHaveBeenCalledWith('Refresh roles API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthApi]'),
+        expect.stringContaining('Refresh roles failed'),
+      );
     });
   });
 
@@ -422,7 +434,10 @@ describe('AuthApi', () => {
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
       await expect(authApi.getPermissions(undefined, authStrategy)).rejects.toThrow('Get permissions failed');
-      expect(console.error).toHaveBeenCalledWith('Get permissions API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthApi]'),
+        expect.stringContaining('Get permissions failed'),
+      );
     });
   });
 
@@ -493,7 +508,10 @@ describe('AuthApi', () => {
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
       await expect(authApi.refreshPermissions(authStrategy)).rejects.toThrow('Refresh permissions failed');
-      expect(console.error).toHaveBeenCalledWith('Refresh permissions API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthApi]'),
+        expect.stringContaining('Refresh permissions failed'),
+      );
     });
   });
 });

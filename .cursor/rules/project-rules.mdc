@@ -185,6 +185,10 @@ All controller endpoints use `/api` prefix:
 
 ### Error Handling
 
+**CRITICAL: All error handling MUST follow RFC 7807 Problem Details for HTTP APIs standard.**
+
+#### Service Layer Error Handling
+
 - Services should return empty arrays `[]` on errors (for get methods)
 - Use try-catch for all async operations
 - Log errors with `console.error` or `console.warn`
@@ -199,6 +203,226 @@ All controller endpoints use `/api` prefix:
     return []; // or appropriate default
   }
   ```
+
+#### Express Route Error Handling (MANDATORY)
+
+**✅ MANDATORY: All Express route handlers MUST use `asyncHandler()` wrapper.**
+
+```typescript
+import { Request, Response, Router } from 'express';
+import { asyncHandler, AppError, handleRouteError } from '@aifabrix/miso-client';
+import { MisoClient, MisoClientError } from '@aifabrix/miso-client';
+
+const router = Router();
+
+// Route handler with automatic error handling
+router.get(
+  '/api/user',
+  asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const client = new MisoClient(loadConfig());
+    await client.initialize();
+    
+    const user = await client.getUser(token);
+    res.success(user);
+  }, 'getUser')
+);
+
+// Error middleware (register last)
+router.use(async (error: Error, req: Request, res: Response, next: Function) => {
+  await handleRouteError(error, req, res);
+});
+
+export default router;
+```
+
+**Benefits:**
+
+- Automatic RFC 7807 error formatting
+- Automatic error logging with full context
+- Automatic correlation ID extraction
+- Consistent error responses across all routes
+- No try-catch boilerplate needed
+- Sets `Content-Type: application/problem+json` header automatically
+
+#### Using AppError for Business Logic Errors
+
+**✅ DO: Use `AppError` for business logic errors**
+
+```typescript
+import { AppError } from '@aifabrix/miso-client';
+
+// Simple error
+if (!resource) {
+  throw new AppError('Resource not found', 404);
+}
+
+// With validation errors
+const errors = validateInput(data);
+if (errors.length > 0) {
+  throw new AppError('Validation failed', 422, true, errors);
+}
+```
+
+#### Handling External API Errors (MisoClientError)
+
+```typescript
+import { MisoClientError, AppError } from '@aifabrix/miso-client';
+
+try {
+  const user = await client.getUser(token);
+} catch (error) {
+  if (error instanceof MisoClientError) {
+    // Use structured error response if available
+    if (error.errorResponse) {
+      throw new AppError(
+        error.errorResponse.title,
+        error.errorResponse.statusCode,
+        true,
+        undefined,
+        error.errorResponse.type,
+        error.errorResponse.instance,
+        error.errorResponse.correlationId
+      );
+    }
+    // Fallback for non-structured errors
+    throw new AppError(error.message, error.statusCode || 500);
+  }
+  throw error; // Re-throw to be handled by error middleware
+}
+```
+
+#### Manual Error Logging (Non-Express)
+
+When Express Request object is not available, include context manually:
+
+```typescript
+try {
+  const result = await client.getUser(token);
+} catch (error) {
+  // Include all important context manually
+  await client.log.error('User fetch failed', {
+    // Request context
+    ipAddress: '192.168.1.1',
+    method: 'GET',
+    path: '/api/user',
+    userAgent: 'Mozilla/5.0...',
+    correlationId: 'req-123',
+    
+    // User context
+    userId: extractUserIdFromToken(token),
+    
+    // Error details
+    statusCode: error instanceof MisoClientError ? error.statusCode : 500,
+    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+    errorType: error instanceof MisoClientError ? error.errorResponse?.type : undefined,
+    stack: error instanceof Error ? error.stack : undefined,
+  });
+}
+```
+
+#### MisoClientError Structure
+
+All HTTP errors from the SDK are thrown as `MisoClientError`:
+
+```typescript
+class MisoClientError extends Error {
+  readonly errorResponse?: ErrorResponse;        // Structured error (RFC 7807)
+  readonly errorBody?: Record<string, unknown>;  // Raw error body (backward compatibility)
+  readonly statusCode?: number;                  // HTTP status code
+}
+```
+
+**Accessing error details:**
+
+```typescript
+try {
+  await client.validateToken(token);
+} catch (error) {
+  if (error instanceof MisoClientError) {
+    // Structured error response (RFC 7807)
+    if (error.errorResponse) {
+      console.error('Type:', error.errorResponse.type);
+      console.error('Title:', error.errorResponse.title);
+      console.error('Detail:', error.errorResponse.detail);
+      console.error('Errors:', error.errorResponse.errors);
+      console.error('Status:', error.errorResponse.statusCode);
+      console.error('Correlation ID:', error.errorResponse.correlationId);
+    }
+    // Fallback for non-structured errors
+    else if (error.errorBody) {
+      console.error('Error body:', error.errorBody);
+      console.error('Status:', error.statusCode);
+    }
+  }
+}
+```
+
+#### RFC 7807 Compliance Requirements
+
+**MANDATORY: All error responses MUST:**
+
+- Use RFC 7807 Problem Details format
+- Include `type` (URI reference, e.g., `/Errors/BadRequest`)
+- Include `title` (human-readable summary)
+- Include `statusCode` (HTTP status code)
+- Include `detail` (human-readable explanation)
+- Set `Content-Type: application/problem+json` header
+- Include `correlationId` for request tracing
+- Never expose stack traces or internal error details to clients
+
+**Standard Error Type URIs:**
+
+- `/Errors/BadRequest` - 400
+- `/Errors/Unauthorized` - 401
+- `/Errors/Forbidden` - 403
+- `/Errors/NotFound` - 404
+- `/Errors/MethodNotAllowed` - 405
+- `/Errors/Conflict` - 409
+- `/Errors/UnprocessableEntity` - 422
+- `/Errors/TooManyRequests` - 429
+- `/Errors/InternalServerError` - 500
+- `/Errors/ServiceUnavailable` - 503
+
+#### Error Logging Best Practices
+
+**✅ Good: Comprehensive error logging with context**
+
+The `handleRouteError()` utility automatically logs errors with full context. For manual logging:
+
+```typescript
+// Express route - use withRequest() for automatic context extraction
+await client.log
+  .withRequest(req)  // Auto-extracts: IP, method, path, userAgent, correlationId, userId
+  .error('Operation failed', error instanceof Error ? error.stack : undefined);
+```
+
+**What `withRequest(req)` automatically extracts:**
+
+- `ipAddress` - Client IP (handles proxy headers)
+- `method` - HTTP method (GET, POST, etc.)
+- `path` - Request path
+- `userAgent` - Browser/client user agent
+- `correlationId` - From `x-correlation-id` header
+- `userId` - Extracted from JWT token
+- `sessionId` - Extracted from JWT token
+
+**❌ Bad: Minimal logging without context**
+
+```typescript
+// Don't do this - missing IP, endpoint, user, etc.
+await client.log.error('Failed');  // ❌ No context!
+```
+
+**Required context for error logs:**
+
+- IP address
+- HTTP method and endpoint/path
+- User ID (if available)
+- Status code
+- Error message and stack trace
+- Correlation ID (if available)
+- User agent (if available)
 
 ### Async/Await
 
@@ -535,6 +759,16 @@ export class AuthApi {
 - ✅ Centralize endpoint URLs as constants in API classes (e.g., `AUTH_LOGIN_ENDPOINT`)
 - ✅ Use interfaces (not types) for API request/response types
 - ✅ Add JSDoc comments for all public API methods with parameter types and return types
+- ✅ **MANDATORY: All Express route handlers MUST use `asyncHandler()` wrapper**
+- ✅ **MANDATORY: All error responses MUST follow RFC 7807 Problem Details format**
+- ✅ **MANDATORY: All error responses MUST set `Content-Type: application/problem+json` header**
+- ✅ **MANDATORY: Use `handleRouteError()` for Express error middleware**
+- ✅ **MANDATORY: Use `AppError` for business logic errors**
+- ✅ Always log errors with comprehensive context (IP, endpoint, user, status code, stack trace)
+- ✅ Use `withRequest(req)` in Express routes for automatic context extraction
+- ✅ Handle `MisoClientError` with structured error responses (check `errorResponse` property)
+- ✅ Include correlation IDs in error responses (automatic via `handleRouteError`)
+- ✅ Use standard error type URIs (`/Errors/{ErrorType}`)
 
 ### Must Not Do (❌)
 
@@ -548,6 +782,13 @@ export class AuthApi {
 - ❌ Don't log sensitive data without masking
 - ❌ Don't hardcode endpoint URLs in API methods (use constants)
 - ❌ Don't use types instead of interfaces for public API definitions
+- ❌ **NEVER use try-catch in Express route handlers (use `asyncHandler` instead)**
+- ❌ **NEVER expose stack traces or internal error details to clients**
+- ❌ **NEVER use old error formats (must use RFC 7807 format)**
+- ❌ **NEVER skip error middleware registration (must use `handleRouteError`)**
+- ❌ Don't log errors without context (always include IP, endpoint, user, status code)
+- ❌ Don't ignore `MisoClientError.errorResponse` - always check for structured errors first
+- ❌ Don't skip correlation IDs in error responses
 
 ---
 

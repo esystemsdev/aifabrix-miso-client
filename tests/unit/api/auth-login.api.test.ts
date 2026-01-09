@@ -133,7 +133,10 @@ describe('AuthLoginApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authLoginApi.login(params)).rejects.toThrow('Login failed');
-      expect(console.error).toHaveBeenCalledWith('Login API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthLoginApi]'),
+        expect.stringContaining('Login failed'),
+      );
     });
   });
 
@@ -235,7 +238,10 @@ describe('AuthLoginApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authLoginApi.initiateDeviceCode(params)).rejects.toThrow('Device code initiation failed');
-      expect(console.error).toHaveBeenCalledWith('Initiate device code API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthLoginApi]'),
+        expect.stringContaining('Device code initiation failed'),
+      );
     });
   });
 
@@ -300,7 +306,10 @@ describe('AuthLoginApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authLoginApi.pollDeviceCodeToken(params)).rejects.toThrow('Token polling failed');
-      expect(console.error).toHaveBeenCalledWith('Poll device code token API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthLoginApi]'),
+        expect.stringContaining('Token polling failed'),
+      );
     });
   });
 
@@ -340,7 +349,10 @@ describe('AuthLoginApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authLoginApi.refreshDeviceCodeToken(params)).rejects.toThrow('Token refresh failed');
-      expect(console.error).toHaveBeenCalledWith('Refresh device code token API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthLoginApi]'),
+        expect.stringContaining('Token refresh failed'),
+      );
     });
   });
 
@@ -424,7 +436,10 @@ describe('AuthLoginApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authLoginApi.getLoginDiagnostics()).rejects.toThrow('Diagnostics fetch failed');
-      expect(console.error).toHaveBeenCalledWith('Get login diagnostics API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthLoginApi]'),
+        expect.stringContaining('Diagnostics fetch failed'),
+      );
     });
   });
 });

@@ -6,6 +6,7 @@
 import { HttpClient } from '../utils/http-client';
 import { AuthStrategy } from '../types/config.types';
 import {
+
   GetLogStatsQueryParams,
   LogStatsSummaryResponse,
   ErrorStatsQueryParams,
@@ -14,6 +15,8 @@ import {
   UserActivityStatsResponse,
   ApplicationStatsResponse,
 } from './types/logs.types';
+import { extractErrorInfo } from '../utils/error-extractor';
+import { logErrorWithContext } from '../utils/console-logger';
 
 /**
  * Logs Stats API class
@@ -65,7 +68,12 @@ export class LogsStatsApi {
         { params },
       );
     } catch (error) {
-      console.error('Get log stats summary API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: undefined,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsStatsApi]');
+      throw error;
       throw error;
     }
   }
@@ -107,7 +115,12 @@ export class LogsStatsApi {
         { params },
       );
     } catch (error) {
-      console.error('Get error stats API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: undefined,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsStatsApi]');
+      throw error;
       throw error;
     }
   }
@@ -149,7 +162,12 @@ export class LogsStatsApi {
         { params },
       );
     } catch (error) {
-      console.error('Get user activity stats API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: undefined,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsStatsApi]');
+      throw error;
       throw error;
     }
   }
@@ -191,7 +209,12 @@ export class LogsStatsApi {
         { params },
       );
     } catch (error) {
-      console.error('Get application stats API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: undefined,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[LogsStatsApi]');
+      throw error;
       throw error;
     }
   }

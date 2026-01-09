@@ -5,6 +5,8 @@
 
 import { HttpClient } from '../utils/http-client';
 import { AuthStrategy } from '../types/config.types';
+import { extractErrorInfo } from '../utils/error-extractor';
+import { logErrorWithContext } from '../utils/console-logger';
 import {
   GetPermissionsQueryParams,
   GetPermissionsResponse,
@@ -54,7 +56,11 @@ export class PermissionsApi {
       }
       throw new Error('getPermissions requires authentication - provide authStrategy with bearerToken');
     } catch (error) {
-      console.error('Get permissions API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: PermissionsApi.PERMISSIONS_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[PermissionsApi]');
       throw error;
     }
   }
@@ -87,7 +93,12 @@ export class PermissionsApi {
       }
       throw new Error('refreshPermissions requires authentication - provide authStrategy with bearerToken');
     } catch (error) {
-      console.error('Refresh permissions API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: PermissionsApi.PERMISSIONS_REFRESH_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[PermissionsApi]');
+      throw error;
       throw error;
     }
   }

@@ -6,6 +6,7 @@
 import { HttpClient } from '../utils/http-client';
 import { AuthStrategy } from '../types/config.types';
 import {
+
   ValidateTokenRequest,
   ValidateTokenResponse,
   RefreshTokenRequest,
@@ -13,6 +14,8 @@ import {
   ClientTokenResponse,
   ClientTokenLegacyResponse,
 } from './types/auth.types';
+import { extractErrorInfo } from '../utils/error-extractor';
+import { logErrorWithContext } from '../utils/console-logger';
 
 /**
  * Auth Token API class
@@ -38,17 +41,21 @@ export class AuthTokenApi {
     try {
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<ClientTokenResponse>(
-          'GET',
+          'POST',
           AuthTokenApi.CLIENT_TOKEN_ENDPOINT,
           authStrategy,
         );
       }
       return await this.httpClient.request<ClientTokenResponse>(
-        'GET',
+        'POST',
         AuthTokenApi.CLIENT_TOKEN_ENDPOINT,
       );
     } catch (error) {
-      console.error('Get client token API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthTokenApi.CLIENT_TOKEN_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthTokenApi]');
       throw error;
     }
   }
@@ -74,7 +81,11 @@ export class AuthTokenApi {
         AuthTokenApi.CLIENT_TOKEN_LEGACY_ENDPOINT,
       );
     } catch (error) {
-      console.error('Generate client token API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthTokenApi.CLIENT_TOKEN_LEGACY_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthTokenApi]');
       throw error;
     }
   }
@@ -99,7 +110,11 @@ export class AuthTokenApi {
         authStrategy,
       );
     } catch (error) {
-      console.error('Token validation API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthTokenApi.VALIDATE_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthTokenApi]');
       throw error;
     }
   }
@@ -129,7 +144,11 @@ export class AuthTokenApi {
         params,
       );
     } catch (error) {
-      console.error('Refresh token API call failed:', error);
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthTokenApi.REFRESH_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthTokenApi]');
       throw error;
     }
   }

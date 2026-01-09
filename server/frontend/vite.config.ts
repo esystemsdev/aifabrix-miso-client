@@ -1,10 +1,39 @@
+/**
+ * Vite configuration for frontend React application
+ * 
+ * This configuration handles:
+ * - React/TypeScript compilation with SWC
+ * - Node.js polyfills for browser compatibility
+ * - SDK internal module resolution (@aifabrix/miso-client)
+ * - CommonJS to ESM transformation
+ * - Development server with API proxy
+ * 
+ * Key features:
+ * - Intercepts Node.js built-in modules and provides browser-compatible stubs
+ * - Resolves SDK internal relative imports (error-extractor, console-logger, etc.)
+ * - Handles @ioredis/commands package stubbing (Redis is server-side only)
+ * - Transforms CommonJS modules from SDK to ESM for browser
+ */
 
 import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 import fs from 'fs';
 
-// Plugin to intercept Node.js built-in module imports
+/**
+ * Plugin to intercept Node.js built-in module imports and SDK internal imports
+ * 
+ * This plugin runs BEFORE other Vite plugins (enforce: 'pre') to intercept:
+ * 1. Node.js built-in modules (stream, fs, crypto, etc.) -> browser stubs
+ * 2. @ioredis/* packages -> ioredis-commands stub (Redis is server-side only)
+ * 3. dotenv -> dotenv stub (uses process.argv, not available in browser)
+ * 4. SDK internal relative imports (./error-extractor, ./console-logger, etc.)
+ * 
+ * The plugin resolves these imports to appropriate stub files in src/stubs/
+ * to prevent build errors when bundling for the browser.
+ * 
+ * @returns Vite plugin configuration
+ */
 function nodePolyfillsPlugin(): Plugin {
   // Comprehensive list of Node.js built-in modules
   const nodeModules = [
@@ -57,7 +86,9 @@ function nodePolyfillsPlugin(): Plugin {
                                    cleanId.includes('data-masker') ||
                                    cleanId.includes('request-context') ||
                                    cleanId.includes('logging-helpers') ||
-                                   cleanId.includes('response-validator');
+                                   cleanId.includes('response-validator') ||
+                                   cleanId.includes('error-extractor') ||
+                                   cleanId.includes('console-logger');
         
         if (isFromSDK || looksLikeSDKImport) {
           let importerDir: string;
@@ -218,8 +249,28 @@ function nodePolyfillsPlugin(): Plugin {
   };
 }
 
+/**
+ * Main Vite configuration
+ * 
+ * Configures:
+ * - React plugin with SWC for fast compilation
+ * - Node polyfills plugin for browser compatibility
+ * - Path aliases (@/ -> src/)
+ * - Module resolution for SDK and Node.js stubs
+ * - Build optimization settings
+ * - Development server with API proxy
+ */
 export default defineConfig({
   plugins: [react(), nodePolyfillsPlugin()],
+  /**
+   * Module resolution configuration
+   * 
+   * Handles:
+   * - File extensions (.js, .jsx, .ts, .tsx, .json)
+   * - Path aliases (@/ -> src/)
+   * - Node.js built-in module stubs
+   * - React/React-DOM deduplication
+   */
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
     alias: {
@@ -289,7 +340,7 @@ export default defineConfig({
           return false;
         }
         // Don't externalize SDK internal imports even if they have query params
-        if (cleanId.includes('data-client-') || cleanId.includes('token-utils') || cleanId.includes('data-masker') || cleanId.includes('request-context') || cleanId.includes('logging-helpers') || cleanId.includes('response-validator')) {
+        if (cleanId.includes('data-client-') || cleanId.includes('token-utils') || cleanId.includes('data-masker') || cleanId.includes('request-context') || cleanId.includes('logging-helpers') || cleanId.includes('response-validator') || cleanId.includes('error-extractor') || cleanId.includes('console-logger')) {
           return false;
         }
         return null; // Let Rollup decide for other imports
@@ -328,7 +379,9 @@ export default defineConfig({
                                   cleanId.includes('token-utils') ||
                                   cleanId.includes('data-masker') ||
                                   cleanId.includes('request-context') ||
-                                  cleanId.includes('logging-helpers');
+                                  cleanId.includes('logging-helpers') ||
+                                  cleanId.includes('error-extractor') ||
+                                  cleanId.includes('console-logger');
               
               // Always resolve SDK imports from root workspace dist first (before checking importer directory)
               // This ensures we find the file even if it doesn't exist in pnpm directory
@@ -367,7 +420,9 @@ export default defineConfig({
                                          cleanId.includes('data-masker') ||
                                          cleanId.includes('request-context') ||
                                          cleanId.includes('logging-helpers') ||
-                                         cleanId.includes('response-validator');
+                                         cleanId.includes('response-validator') ||
+                                         cleanId.includes('error-extractor') ||
+                                         cleanId.includes('console-logger');
               
               if (isFromSDK || looksLikeSDKImport || !importer || cleanImporter === cleanId || (cleanImporter && cleanImporter.includes('?commonjs-external'))) {
                 let importerDir: string;
@@ -614,12 +669,27 @@ export default defineConfig({
       ],
     },
   },
+  /**
+   * Development server configuration
+   * 
+   * Configures:
+   * - Server port (3000)
+   * - Auto-open browser on start
+   * - API proxy to backend server (port 3183)
+   * - File watching (including stubs directory)
+   */
   server: {
     port: 3000,
     open: true,
+    /**
+     * Proxy configuration for API requests
+     * 
+     * Proxies all /api/* requests to the backend server.
+     * Backend runs on port 3183 in dev mode (see server/scripts/start-dev.sh).
+     * 
+     * Can be overridden via VITE_API_PROXY_TARGET environment variable.
+     */
     proxy: {
-      // Proxy API requests to backend server
-      // Backend runs on port 3183 in dev mode (see server/scripts/start-dev.sh)
       '/api': {
         target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:3183',
         changeOrigin: true,
@@ -628,6 +698,12 @@ export default defineConfig({
         ws: true,
       },
     },
+    /**
+     * File watching configuration
+     * 
+     * Watches for changes in stubs directory to support hot reloading
+     * of stub files during development.
+     */
     watch: {
       // Watch for changes in stubs directory
       ignored: ['!**/src/stubs/**'],

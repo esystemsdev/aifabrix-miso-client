@@ -5,6 +5,7 @@ import { ArrowRight, Zap, CheckCircle2, AlertCircle, FileText } from 'lucide-rea
 import { toast } from 'sonner';
 import { useDataClient } from '../../hooks/useDataClient';
 import { getCachedDataClientConfig } from '@aifabrix/miso-client';
+import { parseError, getErrorMessage } from '../../utils/error-handler';
 
 /**
  * Configuration page component for DataClient initialization and testing
@@ -24,118 +25,14 @@ export function ConfigurationPage() {
     clientTokenUri?: string;
   } | null>(null);
 
-  /**
-   * Parse error and extract human-readable title and detail
-   * Returns object with title and detail, or null if error can't be parsed
-   */
-  const parseHumanReadableError = (error: Error | null): { title: string; detail: string } | null => {
-    if (!error) return null;
-
-    const message = error.message || String(error);
-
-    // Try to extract RFC 7807 Problem Details format from error response FIRST
-    // This provides the most specific and accurate error messages
-    // Check if error has response property (e.g., ApiError with response)
-    try {
-      const errorWithResponse = error as Error & { response?: { data?: unknown; json?: () => Promise<unknown> } };
-      if (errorWithResponse.response?.data) {
-        const responseData = errorWithResponse.response.data;
-        if (typeof responseData === 'object' && responseData !== null) {
-          const data = responseData as Record<string, unknown>;
-          // RFC 7807 Problem Details format: extract both title and detail
-          const title = (data.title && typeof data.title === 'string') ? data.title : 'Error';
-          const detail = (data.detail && typeof data.detail === 'string') ? data.detail : title;
-          if (data.title || data.detail) {
-            return { title, detail };
-          }
-        }
-      }
-    } catch {
-      // Ignore errors accessing response property
-    }
-
-    // Try to extract meaningful message from JSON error responses in message string
-    // This handles cases where the error payload is embedded in the error message
-    // Look for RFC 7807 Problem Details format: {"type":"...","title":"...","detail":"..."}
-    try {
-      // Try to find JSON object in the message - look for opening brace
-      const braceStart = message.indexOf('{');
-      if (braceStart !== -1) {
-        // Try to extract complete JSON object by finding matching closing brace
-        let braceCount = 0;
-        let braceEnd = -1;
-        for (let i = braceStart; i < message.length; i++) {
-          if (message[i] === '{') braceCount++;
-          if (message[i] === '}') {
-            braceCount--;
-            if (braceCount === 0) {
-              braceEnd = i;
-              break;
-            }
-          }
-        }
-        
-        if (braceEnd !== -1) {
-          const jsonStr = message.substring(braceStart, braceEnd + 1);
-          const parsed = JSON.parse(jsonStr);
-          // RFC 7807 Problem Details format: extract both title and detail
-          if (parsed.title || parsed.detail) {
-            const title = (parsed.title && typeof parsed.title === 'string') ? parsed.title : 'Error';
-            const detail = (parsed.detail && typeof parsed.detail === 'string') ? parsed.detail : title;
-            return { title, detail };
-          }
-          // Fallback to other common error fields
-          if (parsed.message && typeof parsed.message === 'string') {
-            return { title: 'Error', detail: parsed.message };
-          }
-          if (parsed.error && typeof parsed.error === 'string') {
-            return { title: 'Error', detail: parsed.error };
-          }
-        }
-      }
-    } catch {
-      // Ignore JSON parsing errors
-    }
-
-    // Fallback: Pattern matching for network/connection errors that don't have structured payloads
-    // These errors typically don't come from API responses, so they won't have RFC 7807 format
-    
-    // Empty response errors (server closed connection without response)
-    if (message.includes('ERR_EMPTY_RESPONSE') || message.includes('empty response') || message.includes('Connection error')) {
-      return { title: 'Connection Error', detail: 'The server closed the connection without sending a response. Please check if the server is running and accessible.' };
-    }
-
-    // Timeout errors (network-level timeouts) - check before general network errors
-    if (message.includes('timeout') || message.includes('Timeout') || message.includes('did not respond within')) {
-      return { title: 'Timeout Error', detail: 'Request timed out. Please check your network connection and ensure the server is running.' };
-    }
-
-    // Network errors (connection failures, fetch errors)
-    if (message.includes('Network') || message.includes('Failed to fetch') || message.includes('network')) {
-      return { title: 'Network Error', detail: 'Unable to connect to server. Please check if the server is running and accessible.' };
-    }
-
-    // CORS errors (browser-level, not API responses)
-    if (message.includes('CORS') || message.includes('cross-origin') || message.includes('CORS policy')) {
-      return { title: 'CORS Error', detail: 'Cross-origin request blocked. Please check CORS configuration on the server.' };
-    }
-
-    // Connection errors (system-level, not API responses)
-    if (message.includes('ECONNREFUSED') || message.includes('connection refused')) {
-      return { title: 'Connection Error', detail: 'Connection refused. Please check if the server is running and accessible.' };
-    }
-
-    if (message.includes('ENOTFOUND') || message.includes('getaddrinfo')) {
-      return { title: 'Connection Error', detail: 'Unable to resolve server address. Please check the server URL configuration.' };
-    }
-
-    // If we can't parse it, return null to use original message
-    return null;
-  };
 
   /**
    * Read cached config using SDK utility
-   * Uses getCachedDataClientConfig() from miso-client SDK
+   * 
+   * Uses getCachedDataClientConfig() from miso-client SDK to retrieve
+   * configuration that was cached during DataClient initialization.
+   * 
+   * @returns Configuration object with baseUrl, controllerUrl, clientId, and optional clientTokenUri, or null if not cached
    */
   const readCachedConfig = (): {
     baseUrl: string;
@@ -177,8 +74,13 @@ export function ConfigurationPage() {
 
   /**
    * Handle zero-config initialization using context
+   * 
+   * Automatically fetches configuration from server endpoint and initializes
+   * DataClient. Displays success/error toast notifications based on result.
+   * 
+   * @throws Will display error toast if initialization fails
    */
-  const handleZeroConfigInit = async () => {
+  const handleZeroConfigInit = async (): Promise<void> => {
     setLoading(true);
     try {
       await reinitialize();
@@ -191,8 +93,8 @@ export function ConfigurationPage() {
         description: 'Configuration fetched from server endpoint',
       });
     } catch (err: unknown) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      const parsed = parseHumanReadableError(error);
+      const error = err instanceof Error ? err : new Error(getErrorMessage(err));
+      const parsed = parseError(error);
       
       const errorTitle = parsed?.title || 'Failed to initialize DataClient';
       const errorDetail = parsed?.detail || error.message || 'Unknown error occurred';
@@ -213,7 +115,7 @@ export function ConfigurationPage() {
   const currentClientId = configInfo?.clientId || 'Not set';
   
   // Parse error message for display
-  const parsedError = error ? parseHumanReadableError(error) : null;
+  const parsedError = error ? parseError(error) : null;
   const errorTitle = parsedError?.title || (error ? 'Error' : null);
   const errorDetail = parsedError?.detail || (error ? error.message : null);
   const isErrorParsed = parsedError !== null;

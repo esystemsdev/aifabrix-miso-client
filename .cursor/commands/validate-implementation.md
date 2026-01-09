@@ -132,6 +132,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 - Adds a new `## Validation` section at the end of the plan file
 - If a validation section already exists, it replaces it with updated results
 - Contains:
+  - **Date**: Current date in yyyy-mm-dd format (dynamically generated, e.g., `2025-01-27`)
   - Executive summary (overall status)
   - File existence validation results
   - Test coverage analysis
@@ -141,6 +142,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
   - Issues and recommendations
   - Final validation checklist
 - **Note**: The plan file is modified to include validation results - previous validation sections are replaced
+- **Date Format**: The date is automatically generated using the current date in ISO format (yyyy-mm-dd), not hardcoded
 
 ## Output
 
@@ -148,7 +150,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 
 ## Validation
 
-**Date**: [Generated date]
+**Date**: yyyy-mm-dd (current date, dynamically generated, e.g., `2025-01-27`)
 **Status**: ✅ COMPLETE / ⚠️ INCOMPLETE / ❌ FAILED
 
 ### Executive Summary

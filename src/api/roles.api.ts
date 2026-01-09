@@ -5,7 +5,10 @@
 
 import { HttpClient } from '../utils/http-client';
 import { AuthStrategy } from '../types/config.types';
+import { extractErrorInfo } from '../utils/error-extractor';
+import { logErrorWithContext } from '../utils/console-logger';
 import {
+
   GetRolesQueryParams,
   GetRolesResponse,
   RefreshRolesResponse,
@@ -54,7 +57,11 @@ export class RolesApi {
       }
       throw new Error('getRoles requires authentication - provide authStrategy with bearerToken');
     } catch (error) {
-      console.error('Get roles API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: RolesApi.ROLES_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[RolesApi]');
       throw error;
     }
   }
@@ -87,7 +94,12 @@ export class RolesApi {
       }
       throw new Error('refreshRoles requires authentication - provide authStrategy with bearerToken');
     } catch (error) {
-      console.error('Refresh roles API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: RolesApi.ROLES_REFRESH_ENDPOINT,
+        method: 'GET',
+      });
+      logErrorWithContext(errorInfo, '[RolesApi]');
+      throw error;
       throw error;
     }
   }

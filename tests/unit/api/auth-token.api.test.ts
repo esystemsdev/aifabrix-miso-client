@@ -57,7 +57,7 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.getClientToken();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
+        'POST',
         '/api/v1/auth/client-token',
       );
       expect(result).toEqual(mockResponse);
@@ -82,7 +82,7 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.getClientToken(authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
+        'POST',
         '/api/v1/auth/client-token',
         authStrategy,
       );
@@ -95,7 +95,10 @@ describe('AuthTokenApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authTokenApi.getClientToken()).rejects.toThrow('Get client token failed');
-      expect(console.error).toHaveBeenCalledWith('Get client token API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthTokenApi]'),
+        expect.stringContaining('Get client token failed'),
+      );
     });
   });
 
@@ -150,7 +153,10 @@ describe('AuthTokenApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authTokenApi.generateClientToken()).rejects.toThrow('Generate client token failed');
-      expect(console.error).toHaveBeenCalledWith('Generate client token API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthTokenApi]'),
+        expect.stringContaining('Generate client token failed'),
+      );
     });
   });
 
@@ -261,7 +267,10 @@ describe('AuthTokenApi', () => {
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
       await expect(authTokenApi.validateToken(params)).rejects.toThrow('Token validation failed');
-      expect(console.error).toHaveBeenCalledWith('Token validation API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthTokenApi]'),
+        expect.stringContaining('Token validation failed'),
+      );
     });
   });
 
@@ -332,7 +341,10 @@ describe('AuthTokenApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authTokenApi.refreshToken(params)).rejects.toThrow('Refresh token failed');
-      expect(console.error).toHaveBeenCalledWith('Refresh token API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthTokenApi]'),
+        expect.stringContaining('Refresh token failed'),
+      );
     });
   });
 });

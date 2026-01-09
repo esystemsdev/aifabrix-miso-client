@@ -5,6 +5,173 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.1] - 2026-01-09
+
+### Added
+
+- **Enhanced Error Logging with Correlation IDs** - Comprehensive error logging system with structured error extraction
+  - New `extractErrorInfo()` utility in `src/utils/error-extractor.ts` for structured error information extraction
+  - New `logErrorWithContext()` utility in `src/utils/console-logger.ts` for enhanced console logging with correlation ID prefixes
+  - Supports all error types: `MisoClientError`, `ApiError`, `AuthenticationError`, `NetworkError`, `TimeoutError`, and generic `Error`
+  - Automatic correlation ID extraction from error responses or auto-generation when missing
+  - Enhanced error context includes endpoint, method, status codes, response bodies, and stack traces
+  - All API files updated with structured error logging (11 API files enhanced)
+  - DataClient and Express error handlers updated with enhanced logging
+
+- **Logger Service Getter Methods** - Public methods for external logger integration
+  - New `getLogWithRequest()` method - Extracts IP, method, path, userAgent, correlationId, userId from Express Request
+  - New `getWithContext()` method - Returns LogEntry with provided context and auto-generated correlation ID
+  - New `getWithToken()` method - Extracts userId, sessionId, applicationId from JWT token
+  - New `getForRequest()` method - Alias for `getLogWithRequest()` for consistency
+  - All methods return complete `LogEntry` objects for integration with external logger tables
+  - `generateCorrelationId()` method made public for consistent correlation ID generation
+
+- **Unified JSON Filter Model** - Standardized JSON format for all filter representations
+  - New filter operators: `isNull` and `isNotNull` for null/undefined checks
+  - JSON format parser supports multiple input formats: direct object, JSON string, URL-encoded JSON, array of filters
+  - Operator normalization (e.g., `equals` → `eq`, `>` → `gt`)
+  - Comprehensive validation with clear error messages and examples
+  - Filter conversion utilities: `filterQueryToJson()` and `jsonToFilterQuery()`
+  - Query string builder outputs URL-encoded JSON format
+  - Local filtering supports null checks with `isNull` and `isNotNull` operators
+
+- **Server Code Improvements** - Enhanced Express server error handling and logging
+  - Replaced all `console.log/error/warn` with MisoClient logger service
+  - All route handlers wrapped with `asyncHandler()` wrapper for automatic error handling
+  - Error middleware uses `handleRouteError()` from SDK for RFC 7807 compliance
+  - Error logger configured with MisoClient logger via `setErrorLogger()`
+  - All business logic errors use `AppError` for consistent error formatting
+  - Automatic correlation ID extraction and error logging with full context
+
+- **Frontend Code Improvements** - Enhanced React application error handling and code quality
+  - Centralized error handling utilities (`src/utils/error-handler.ts`)
+  - Centralized type definitions (`src/types/errors.ts`, `src/types/api.ts`)
+  - Input validation utilities (`src/utils/validation.ts`) for role names, permission names, endpoints
+  - Component refactoring: ApiTestingPage reduced from 589 to 79 lines (87% reduction)
+  - New custom hooks: `useApiTesting` for API testing logic, `useLoadingState` for loading state management
+  - Improved DataClientContext with retry logic and exponential backoff
+  - Simplified ErrorDetailsDialog component (115 lines, reduced from 193)
+
+- **Comprehensive Integration Tests** - Real integration tests for all auth and logs endpoints
+  - New `tests/integration/api-endpoints.integration.test.ts` with comprehensive endpoint coverage
+  - Tests all 24 auth endpoints against real controller using credentials from `.env`
+  - Tests all 15 logs endpoints with proper request/response validation
+  - Validates endpoint paths, HTTP methods, request bodies, and response structures against OpenAPI specs
+  - Tests error cases (invalid tokens, missing params, etc.) with proper status code verification
+  - Gracefully skips tests if controller is unavailable (CI/CD friendly)
+  - New npm script `test:integration:api` for running integration tests
+
+- **Logger Service Refactoring** - Improved code organization and maintainability
+  - Split `LoggerService` into modular structure following API layer pattern
+  - New `src/services/logger/logger-chain.ts` - LoggerChain class for method chaining
+  - New `src/services/logger/logger-context.ts` - Context extraction utilities (JWT, metadata, request)
+  - New `src/services/logger/index.ts` - Barrel export for logger modules
+  - Reduced main `logger.service.ts` from 866 lines to under 500 lines (code size compliance)
+  - Maintains backward compatibility (no breaking changes to public API)
+
+### Changed
+
+- **Error Logging** - Enhanced error logging across all API layer files
+  - All API files now use `extractErrorInfo()` and `logErrorWithContext()` for structured error logging
+  - Error logs include correlation ID prefixes: `[MisoClient] [correlation-id] Error details`
+  - Authentication errors have special handling with detailed context (authFlow: 'token_validation_failed')
+  - Enhanced audit logs include structured error info (errorType, errorCategory, httpStatusCategory)
+
+- **Filter Parsing** - Unified JSON format replaces colon-separated format
+  - Filter parser now accepts JSON format only: `{"field": {"op": value}}`
+  - Supports 12 operators: `eq`, `neq`, `in`, `nin`, `gt`, `lt`, `gte`, `lte`, `contains`, `like`, `isNull`, `isNotNull`
+  - FilterBuilder outputs JSON format (URL-encoded) in query strings
+  - Comprehensive validation with helpful error messages including examples
+
+- **Server Error Handling** - Standardized error handling patterns
+  - All route handlers use `asyncHandler()` wrapper (no manual try-catch needed)
+  - All errors automatically formatted as RFC 7807 Problem Details
+  - Error logger uses MisoClient logger with `forRequest()` for automatic context extraction
+  - Consistent error responses across all routes with correlation IDs
+
+- **Frontend Error Handling** - Centralized error handling patterns
+  - All components use shared error handling utilities
+  - RFC 7807 compliant error parsing with `parseError()` utility
+  - Consistent error message extraction with `getErrorMessage()` and `getErrorStatus()`
+  - Input validation integrated into authorization testing hooks
+
+- **API Layer Cleanup** - Removed duplicate code and improved code quality
+  - Removed duplicate roles/permissions methods from `AuthApi` class
+  - Removed `getRoles()`, `refreshRoles()`, `getPermissions()`, `refreshPermissions()` from `AuthApi`
+  - Services now use dedicated `RolesApi` and `PermissionsApi` classes (DRY principle)
+  - Removed unused endpoint constants and type imports from `AuthApi`
+  - Updated class JSDoc to reflect removed methods
+
+- **Error Handling Improvements** - Fixed duplicate throw statements across API layer
+  - Removed duplicate `throw error;` statements from `auth.api.ts`, `roles.api.ts`, `permissions.api.ts`
+  - Fixed duplicate throws in `logs-create.api.ts` and `logs-list.api.ts`
+  - Improved error handling consistency across all API files
+
+### Fixed
+
+- **Server Error Handling** - Fixed logic bug in server.ts (dead code removed)
+- **Server Logging** - Fixed inconsistent logging format (now uses MisoClient logger)
+- **Server Error Responses** - Fixed non-RFC 7807 error responses (now uses `handleRouteError()`)
+- **Frontend Component Size** - Fixed large component files exceeding 500-line limit
+  - ApiTestingPage: 589 → 79 lines (87% reduction)
+  - ConfigurationPage: 382 → 283 lines (26% reduction)
+- **Frontend Error Handling** - Fixed duplicate error handling logic across components
+- **Frontend Type Safety** - Fixed loose error typing with centralized type definitions
+- **Code Size Compliance** - Fixed logger service file size violation
+  - Refactored `LoggerService` from 866 lines to under 500 lines
+  - Split into focused modules: logger-chain.ts, logger-context.ts, index.ts
+  - Maintains all functionality while improving maintainability
+- **API Endpoint Validation** - Validated all endpoints against OpenAPI specifications
+  - Verified all 24 auth endpoints match OpenAPI spec paths and HTTP methods
+  - Verified all 15 logs endpoints match OpenAPI spec with proper request/response structures
+  - Confirmed audit logs include required fields (entityType, entityId, action) in data object
+  - Validated client token endpoints use correct paths (`/api/v1/auth/token` for legacy, `/api/v1/auth/client-token` for frontend)
+
+### Technical
+
+- **New utility files**:
+  - `src/utils/error-extractor.ts` - Error extraction utility (172 lines)
+  - `src/utils/console-logger.ts` - Enhanced console logger (72 lines)
+  - `src/utils/error-handler.ts` - Frontend error handling utilities (175 lines)
+  - `src/utils/validation.ts` - Frontend input validation utilities (139 lines)
+  - `src/types/errors.ts` - Frontend error type definitions (25 lines)
+  - `src/types/api.ts` - Frontend API type definitions (63 lines)
+
+- **Test coverage**:
+  - Error extraction utility: 18 tests (`tests/unit/utils/error-extractor.test.ts`)
+  - Console logger utility: 12 tests (`tests/unit/utils/console-logger.test.ts`)
+  - Logger getter methods: 31 tests (`tests/unit/services/logger-getter-methods.test.ts`)
+  - Filter utilities: 68 tests (`tests/unit/filter.utils.test.ts`)
+  - Frontend error handler: 21 tests (`server/frontend/src/utils/__tests__/error-handler.test.ts`)
+  - Frontend validation: 43 tests (`server/frontend/src/utils/__tests__/validation.test.ts`)
+  - Integration tests: Comprehensive tests for all 39 endpoints (`tests/integration/api-endpoints.integration.test.ts`)
+  - Total: 193+ new tests added, all passing
+
+- **New logger module structure**:
+  - `src/services/logger/logger-chain.ts` - LoggerChain class (method chaining support)
+  - `src/services/logger/logger-context.ts` - Context extraction utilities
+  - `src/services/logger/index.ts` - Barrel export
+  - `src/services/logger.service.ts` - Core LoggerService class (reduced to <500 lines)
+
+- **Code quality**:
+  - All new utilities follow camelCase naming convention
+  - All public methods have JSDoc comments with parameter types, return types, and examples
+  - File sizes within limits (all files ≤500 lines)
+  - Method sizes within limits (all methods ≤30 lines)
+  - Zero linting errors or warnings
+  - Proper error handling with try-catch for all async operations
+  - Removed duplicate code (roles/permissions methods from AuthApi)
+  - Fixed duplicate throw statements across API layer
+  - All endpoints validated against OpenAPI specs
+
+- **Documentation**:
+  - Updated `docs/reference-services.md` with logger getter methods documentation
+  - Updated `docs/reference-utilities.md` with filter JSON format examples
+  - Updated `server/README.md` with factory function pattern and error logger configuration
+  - Updated `docs/examples/express-middleware.md` with error logger configuration examples
+  - Updated `AuthApi` class JSDoc to remove references to removed methods
+  - Added integration test documentation explaining test structure and requirements
+
 ## [3.6.0] - 2024-12-31
 
 ### Added

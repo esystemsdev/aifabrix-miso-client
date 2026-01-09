@@ -124,7 +124,10 @@ describe('AuthCacheApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authCacheApi.getCacheStats()).rejects.toThrow('Network error');
-      expect(console.error).toHaveBeenCalledWith('Get cache stats API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthCacheApi]'),
+        expect.stringContaining('Network error'),
+      );
     });
   });
 
@@ -209,7 +212,10 @@ describe('AuthCacheApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authCacheApi.getCachePerformance()).rejects.toThrow('Performance fetch failed');
-      expect(console.error).toHaveBeenCalledWith('Get cache performance API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthCacheApi]'),
+        expect.stringContaining('Performance fetch failed'),
+      );
     });
   });
 
@@ -291,7 +297,10 @@ describe('AuthCacheApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authCacheApi.getCacheEfficiency()).rejects.toThrow('Efficiency calculation failed');
-      expect(console.error).toHaveBeenCalledWith('Get cache efficiency API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthCacheApi]'),
+        expect.stringContaining('Efficiency calculation failed'),
+      );
     });
   });
 
@@ -367,7 +376,10 @@ describe('AuthCacheApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authCacheApi.clearCache()).rejects.toThrow('Clear cache failed');
-      expect(console.error).toHaveBeenCalledWith('Clear cache API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthCacheApi]'),
+        expect.stringContaining('Clear cache failed'),
+      );
     });
   });
 
@@ -481,7 +493,10 @@ describe('AuthCacheApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authCacheApi.invalidateCache(params)).rejects.toThrow('Invalidate cache failed');
-      expect(console.error).toHaveBeenCalledWith('Invalidate cache API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthCacheApi]'),
+        expect.stringContaining('Invalidate cache failed'),
+      );
     });
   });
 });

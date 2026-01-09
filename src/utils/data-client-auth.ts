@@ -14,6 +14,8 @@ import {
 import { extractClientTokenInfo, ClientTokenInfo } from "./token-utils";
 import jwt from "jsonwebtoken";
 import { shouldSkipAudit } from "./data-client-audit";
+import { extractErrorInfo } from "./error-extractor";
+import { logErrorWithContext } from "./console-logger";
 
 /**
  * Get authentication token from localStorage
@@ -222,6 +224,19 @@ export function handleOAuthCallback(config: DataClientConfig): string | null {
 
     return token;
   } catch (e) {
+    const error = e instanceof Error ? e : new Error(String(e));
+    const win = globalThis as unknown as {
+      window?: { location?: { pathname?: string; search?: string; hash?: string; protocol?: string; hostname?: string } };
+    };
+    const pathname = win.window?.location?.pathname || "/";
+    const errorInfo = extractErrorInfo(error, {
+      endpoint: pathname,
+      method: "GET",
+    });
+    
+    // Log OAuth callback error with [DataClient] [AUTH] [OAuthCallback] prefix
+    logErrorWithContext(errorInfo, "[DataClient] [AUTH] [OAuthCallback]");
+    
     console.error("[handleOAuthCallback] Failed to store token:", e);
     return null;
   }
@@ -558,6 +573,18 @@ export async function getEnvironmentToken(
 
     return token;
   } catch (error) {
+    // Extract structured error info
+    const errorInfo = extractErrorInfo(error, {
+      endpoint: clientTokenUri,
+      method: "POST",
+      correlationId: misoClient?.log?.generateCorrelationId
+        ? misoClient.log.generateCorrelationId()
+        : undefined,
+    });
+
+    // Log error with context using [DataClient] [AUTH] [ClientToken] prefix
+    logErrorWithContext(errorInfo, "[DataClient] [AUTH] [ClientToken]");
+
     // Log audit event for error if misoClient available
     if (misoClient && !shouldSkipAudit(clientTokenUri, config.audit)) {
       try {
@@ -569,11 +596,22 @@ export async function getEnvironmentToken(
           {
             method: "POST",
             url: clientTokenUri,
-            statusCode: 0,
+            statusCode: errorInfo.statusCode || 0,
             error: errorMessage,
             cached: false,
+            errorType: errorInfo.errorType,
+            errorName: errorInfo.errorName,
+            responseBody: errorInfo.responseBody,
           },
-          {},
+          {
+            errorCategory: "authentication",
+            httpStatusCategory: errorInfo.statusCode && errorInfo.statusCode >= 500
+              ? "server-error"
+              : errorInfo.statusCode && errorInfo.statusCode >= 400
+                ? "client-error"
+                : "unknown",
+            correlationId: errorInfo.correlationId,
+          },
         );
       } catch (auditError) {
         // Silently fail audit logging to avoid breaking requests

@@ -10,6 +10,8 @@ import {
   sendErrorResponse,
   ErrorResponse,
 } from "./error-response";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /**
  * Error logger interface for dependency injection
@@ -147,21 +149,33 @@ export async function handleRouteError(
   const statusCode = mapErrorToStatusCode(error);
   const errorMessage = extractErrorMessage(error);
 
+  // Extract structured error info with endpoint and method context
+  const errorInfo = extractErrorInfo(error, {
+    endpoint: req.originalUrl || req.path,
+    method: req.method,
+    correlationId,
+  });
+
   // Log error using custom logger or stderr
   const operationName = operation || "unknown operation";
   const logMessage = `${operationName} failed: ${errorMessage}`;
 
+  // Enhance console logging with structured format
+  logErrorWithContext(errorInfo, "[Express]");
+
   if (customErrorLogger) {
     try {
       await customErrorLogger.logError(logMessage, {
-        correlationId,
+        req, // Include request object so logger can use withRequest()
+        correlationId: errorInfo.correlationId || correlationId,
         operation: operationName,
-        statusCode,
+        statusCode: errorInfo.statusCode || statusCode,
         url: req.originalUrl,
         method: req.method,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        errorName: error instanceof Error ? error.name : "UnknownError",
-        stack: error instanceof Error ? error.stack : undefined,
+        errorMessage: errorInfo.message,
+        errorName: errorInfo.errorName,
+        errorType: errorInfo.errorType,
+        stack: errorInfo.stackTrace,
       });
     } catch (logError) {
       // If logging itself fails, fall back to stderr

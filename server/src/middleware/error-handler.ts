@@ -1,74 +1,35 @@
 /**
  * Error handling middleware
  * Provides centralized error handling and response formatting
+ * 
+ * NOTE: This middleware is replaced by handleRouteError from @aifabrix/miso-client
+ * This file is kept for backward compatibility but should use handleRouteError in server.ts
  */
 
 import { Request, Response, NextFunction } from 'express';
-
-/**
- * Error response interface
- */
-interface ErrorResponse {
-  error: string;
-  message?: string;
-  statusCode: number;
-}
+import { handleRouteError, asyncHandler, AppError } from '@aifabrix/miso-client';
 
 /**
  * Error handling middleware
  * Catches errors and formats error responses
+ * 
+ * @deprecated Use handleRouteError from @aifabrix/miso-client instead
+ * This function is kept for backward compatibility
  */
-export function errorHandler(
+export async function errorHandler(
   err: Error | unknown,
   req: Request,
-  res: Response,
+  _res: Response,
   _next: NextFunction
-): void {
-  // Log error
-  console.error('Error:', err);
-
-  // Determine status code
-  let statusCode = 500;
-  let error = 'Internal Server Error';
-  let message: string | undefined;
-
-  if (err instanceof Error) {
-    message = err.message;
-    // Check for common error patterns
-    if (err.message.includes('validation')) {
-      statusCode = 400;
-      error = 'Validation Error';
-    } else if (err.message.includes('not found')) {
-      statusCode = 404;
-      error = 'Not Found';
-    } else if (err.message.includes('unauthorized') || err.message.includes('authentication')) {
-      statusCode = 401;
-      error = 'Unauthorized';
-    } else if (err.message.includes('forbidden') || err.message.includes('permission')) {
-      statusCode = 403;
-      error = 'Forbidden';
-    }
-  }
-
-  const errorResponse: ErrorResponse = {
-    error,
-    statusCode,
-  };
-
-  if (message) {
-    errorResponse.message = message;
-  }
-
-  res.status(statusCode).json(errorResponse);
+): Promise<void> {
+  // Use handleRouteError from SDK for RFC 7807 compliant error handling
+  await handleRouteError(err, req, _res);
 }
 
 /**
  * 404 Not Found handler
+ * Uses AppError for consistent error formatting
  */
-export function notFoundHandler(req: Request, res: Response): void {
-  res.status(404).json({
-    error: 'Not Found',
-    message: `Route ${req.method} ${req.path} not found`,
-    statusCode: 404,
-  });
-}
+export const notFoundHandler = asyncHandler(async (req: Request, _res: Response): Promise<void> => {
+  throw new AppError(`Route ${req.method} ${req.path} not found`, 404);
+}, 'notFound');

@@ -89,6 +89,12 @@ export function resolveControllerUrl(config: MisoClientConfig): string {
     );
   }
 
+  // Resolve localhost to 127.0.0.1 to force IPv4 and avoid IPv6 connection issues
+  // This prevents axios from hanging on IPv6 (::1) connections
+  if (resolvedUrl.includes('localhost')) {
+    resolvedUrl = resolvedUrl.replace(/localhost/g, '127.0.0.1');
+  }
+
   return resolvedUrl;
 }
 

@@ -234,10 +234,12 @@ This command ensures that:
 
 **Report Structure**:
 
+**Date Format**: The date must be dynamically generated as today's date in `YYYY-MM-DD` format (ISO 8601 date format). Use the current date when generating the report, not a placeholder or hardcoded value.
+
 ```markdown
 ## Plan Validation Report
 
-**Date**: [YYYY-MM-DD]
+**Date**: YYYY-MM-DD (use today's date, e.g., 2024-01-15)
 **Plan**: [plan-file-path]
 **Status**: ✅ VALIDATED / ⚠️ NEEDS UPDATES / ❌ INCOMPLETE
 

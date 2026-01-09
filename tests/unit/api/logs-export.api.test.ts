@@ -183,7 +183,10 @@ describe('LogsExportApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsExportApi.exportLogs(params)).rejects.toThrow('Export logs failed');
-      expect(console.error).toHaveBeenCalledWith('Export logs API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsExportApi]'),
+        expect.stringContaining('Export logs'),
+      );
     });
   });
 });

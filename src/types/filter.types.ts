@@ -16,7 +16,9 @@ export type FilterOperator =
   | "gte"
   | "lte"
   | "contains"
-  | "like";
+  | "like"
+  | "isNull"
+  | "isNotNull";
 
 /**
  * Single filter option with field, operator, and value.
@@ -28,8 +30,8 @@ export interface FilterOption {
   /** Filter operator. */
   op: FilterOperator;
 
-  /** Filter value (supports arrays for `in` and `nin` operators). */
-  value: string | number | boolean | Array<string | number>;
+  /** Filter value (supports arrays for `in` and `nin` operators, null for `isNull` and `isNotNull`). */
+  value: string | number | boolean | Array<string | number> | null;
 }
 
 /**
@@ -69,7 +71,7 @@ export class FilterBuilder {
   add(
     field: string,
     op: FilterOperator,
-    value: string | number | boolean | Array<string | number>,
+    value: string | number | boolean | Array<string | number> | null,
   ): FilterBuilder {
     this.filters.push({ field, op, value });
     return this;
@@ -94,15 +96,26 @@ export class FilterBuilder {
   }
 
   /**
-   * Convert filters to query string format.
-   * @returns Query string with filter parameters (e.g., `?filter=field:op:value&filter=...`)
+   * Convert filters to query string format using JSON format.
+   * @returns Query string with URL-encoded JSON filter format
    */
   toQueryString(): string {
-    const params = new URLSearchParams();
+    if (this.filters.length === 0) {
+      return "";
+    }
+
+    const jsonFilter: Record<string, Record<string, unknown>> = {};
     this.filters.forEach((f) => {
-      const val = Array.isArray(f.value) ? f.value.join(",") : String(f.value);
-      params.append("filter", `${f.field}:${f.op}:${val}`);
+      if (!jsonFilter[f.field]) {
+        jsonFilter[f.field] = {};
+      }
+      jsonFilter[f.field][f.op] = f.value === null ? null : f.value;
     });
+
+    const jsonString = JSON.stringify(jsonFilter);
+    const params = new URLSearchParams();
+    // URLSearchParams.append() automatically URL-encodes, so don't double-encode
+    params.append("filter", jsonString);
     return params.toString();
   }
 }

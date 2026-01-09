@@ -104,8 +104,16 @@ export class LoggerService extends EventEmitter {
 
   /**
    * Generate unique correlation ID for request tracking
+   * Public method to allow other modules to generate consistent correlation IDs
+   *
+   * @returns Unique correlation ID string
+   *
+   * @example
+   * ```typescript
+   * const correlationId = loggerService.generateCorrelationId();
+   * ```
    */
-  private generateCorrelationId(): string {
+  public generateCorrelationId(): string {
     this.correlationCounter = (this.correlationCounter + 1) % 10000;
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
@@ -384,15 +392,61 @@ export class LoggerService extends EventEmitter {
           enrichedContext.stackTrace = logEntry.stackTrace;
         }
         
-        await this.apiClient.logs.createLog({
-          type: logType,
-          data: {
-            level: logLevel,
-            message: logEntry.message,
-            context: enrichedContext,
-            correlationId: logEntry.correlationId,
-          },
-        });
+        // For audit logs, extract required fields from context
+        if (level === 'audit') {
+          // Extract action and resource from context (set by audit() method)
+          const auditAction = enrichedContext.action as string | undefined;
+          const auditResource = enrichedContext.resource as string | undefined;
+          
+          // Extract entityType and entityId if already provided in context
+          const providedEntityType = enrichedContext.entityType as string | undefined;
+          const providedEntityId = enrichedContext.entityId as string | undefined;
+          const providedOldValues = enrichedContext.oldValues as Record<string, unknown> | undefined;
+          const providedNewValues = enrichedContext.newValues as Record<string, unknown> | undefined;
+          
+          // Remove fields that will be moved to data object (not in context)
+          delete enrichedContext.action;
+          delete enrichedContext.resource;
+          delete enrichedContext.entityType;
+          delete enrichedContext.entityId;
+          delete enrichedContext.oldValues;
+          delete enrichedContext.newValues;
+          
+          // Map to required audit log fields
+          // entityType: Type of entity (use provided, or default to "HTTP Request" for HTTP requests, or "API Endpoint" for API paths)
+          // entityId: The resource/URL being acted upon (use provided, or fallback to resource/URL)
+          // action: The action being performed (use provided action from audit() call)
+          const entityType = providedEntityType || 
+                            (auditResource && auditResource.startsWith('/api/') ? 'API Endpoint' : 'HTTP Request');
+          const entityId = providedEntityId || auditResource || 'unknown';
+          const action = auditAction || 'unknown';
+          
+          await this.apiClient.logs.createLog({
+            type: logType,
+            data: {
+              level: logLevel,
+              message: logEntry.message,
+              context: enrichedContext,
+              correlationId: logEntry.correlationId,
+              entityType,
+              entityId,
+              action,
+              // Include oldValues and newValues if present
+              oldValues: providedOldValues,
+              newValues: providedNewValues,
+            },
+          });
+        } else {
+          await this.apiClient.logs.createLog({
+            type: logType,
+            data: {
+              level: logLevel,
+              message: logEntry.message,
+              context: enrichedContext,
+              correlationId: logEntry.correlationId,
+            },
+          });
+        }
       } else {
         // Fallback to HttpClient (shouldn't happen after initialization)
         // Backend extracts environment and application from client credentials
@@ -433,6 +487,179 @@ export class LoggerService extends EventEmitter {
 
   withoutMasking(): LoggerChain {
     return new LoggerChain(this, {}, { maskSensitiveData: false });
+  }
+
+  /**
+   * Get LogEntry object with request context extracted
+   * Extracts IP, method, path, userAgent, correlationId, userId from Express Request
+   * Returns structured LogEntry object ready for external logger tables
+   *
+   * @param req - Express Request object
+   * @param message - Log message
+   * @param level - Optional log level (defaults to 'info')
+   * @param context - Optional additional context
+   * @returns Complete LogEntry object with all request context extracted
+   *
+   * @example
+   * ```typescript
+   * const logEntry = client.log.getLogWithRequest(req, 'User action', 'info', { action: 'login' });
+   * await myCustomLogger.save(logEntry); // Save to own logger table
+   * ```
+   */
+  getLogWithRequest(
+    req: Request,
+    message: string,
+    level: LogEntry["level"] = "info",
+    context?: Record<string, unknown>,
+  ): LogEntry {
+    const requestContext = extractRequestContext(req);
+    const jwtContext = this.extractJWTContext(
+      req.headers.authorization?.replace("Bearer ", ""),
+    );
+    const metadata = this.extractMetadata();
+
+    const correlationId =
+      requestContext.correlationId || this.generateCorrelationId();
+
+    // Mask sensitive data in context if enabled
+    const maskSensitive = this.maskSensitiveData;
+    const maskedContext =
+      maskSensitive && context
+        ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
+        : context;
+
+    return {
+      timestamp: new Date().toISOString(),
+      level,
+      environment: "unknown", // Backend extracts from client credentials
+      application: this.config.clientId,
+      applicationId: jwtContext.applicationId || "",
+      message,
+      context: maskedContext,
+      correlationId,
+      userId: requestContext.userId || jwtContext.userId,
+      sessionId: requestContext.sessionId || jwtContext.sessionId,
+      requestId: requestContext.requestId,
+      ipAddress: requestContext.ipAddress || metadata.ipAddress,
+      userAgent: requestContext.userAgent || metadata.userAgent,
+      ...metadata,
+    };
+  }
+
+  /**
+   * Get LogEntry object with provided context
+   * Generates correlation ID automatically and extracts metadata from environment
+   *
+   * @param context - Context object to include in logs
+   * @param message - Log message
+   * @param level - Optional log level (defaults to 'info')
+   * @returns Complete LogEntry object
+   *
+   * @example
+   * ```typescript
+   * const logEntry = client.log.getWithContext({ operation: 'sync' }, 'Sync started');
+   * await myCustomLogger.save(logEntry);
+   * ```
+   */
+  getWithContext(
+    context: Record<string, unknown>,
+    message: string,
+    level: LogEntry["level"] = "info",
+  ): LogEntry {
+    const metadata = this.extractMetadata();
+    const correlationId = this.generateCorrelationId();
+
+    // Mask sensitive data in context if enabled
+    const maskSensitive = this.maskSensitiveData;
+    const maskedContext = maskSensitive
+      ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
+      : context;
+
+    return {
+      timestamp: new Date().toISOString(),
+      level,
+      environment: "unknown", // Backend extracts from client credentials
+      application: this.config.clientId,
+      applicationId: "",
+      message,
+      context: maskedContext,
+      correlationId,
+      ...metadata,
+    };
+  }
+
+  /**
+   * Get LogEntry object with token context extracted
+   * Extracts userId, sessionId, applicationId from JWT token
+   * Generates correlation ID automatically
+   *
+   * @param token - JWT token to extract user context from
+   * @param message - Log message
+   * @param level - Optional log level (defaults to 'info')
+   * @param context - Optional additional context
+   * @returns Complete LogEntry object with user context
+   *
+   * @example
+   * ```typescript
+   * const logEntry = client.log.getWithToken(token, 'Token validated', 'audit');
+   * await myCustomLogger.save(logEntry);
+   * ```
+   */
+  getWithToken(
+    token: string,
+    message: string,
+    level: LogEntry["level"] = "info",
+    context?: Record<string, unknown>,
+  ): LogEntry {
+    const jwtContext = this.extractJWTContext(token);
+    const metadata = this.extractMetadata();
+    const correlationId = this.generateCorrelationId();
+
+    // Mask sensitive data in context if enabled
+    const maskSensitive = this.maskSensitiveData;
+    const maskedContext =
+      maskSensitive && context
+        ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
+        : context;
+
+    return {
+      timestamp: new Date().toISOString(),
+      level,
+      environment: "unknown", // Backend extracts from client credentials
+      application: this.config.clientId,
+      applicationId: jwtContext.applicationId || "",
+      message,
+      context: maskedContext,
+      correlationId,
+      userId: jwtContext.userId,
+      sessionId: jwtContext.sessionId,
+      ...metadata,
+    };
+  }
+
+  /**
+   * Get LogEntry object with request context extracted (alias for getLogWithRequest)
+   * Alias for getLogWithRequest() for consistency with existing forRequest() pattern
+   *
+   * @param req - Express Request object
+   * @param message - Log message
+   * @param level - Optional log level (defaults to 'info')
+   * @param context - Optional additional context
+   * @returns Complete LogEntry object
+   *
+   * @example
+   * ```typescript
+   * const logEntry = client.log.getForRequest(req, 'User action', 'info', { action: 'login' });
+   * await myCustomLogger.save(logEntry);
+   * ```
+   */
+  getForRequest(
+    req: Request,
+    message: string,
+    level: LogEntry["level"] = "info",
+    context?: Record<string, unknown>,
+  ): LogEntry {
+    return this.getLogWithRequest(req, message, level, context);
   }
 
   /**

@@ -29,9 +29,18 @@ if (existsSync(rootEnvPath)) {
 
 import express from 'express';
 import { readFileSync } from 'fs';
-import { MisoClient, loadConfig, createClientTokenEndpoint } from '@aifabrix/miso-client';
+import { 
+  MisoClient, 
+  loadConfig, 
+  createClientTokenEndpoint,
+  setErrorLogger,
+  handleRouteError,
+  asyncHandler,
+  AppError,
+} from '@aifabrix/miso-client';
+import { Request, Response, NextFunction } from 'express';
 import { loadEnvConfig } from './config/env';
-import { errorHandler, notFoundHandler } from './middleware/error-handler';
+import { notFoundHandler } from './middleware/error-handler';
 import {
   getUsers,
   getUserById,
@@ -44,6 +53,7 @@ import {
   errorEndpoint,
   logEndpoint,
 } from './routes/api';
+import { healthHandler } from './routes/health';
 
 const app = express();
 const envConfig = loadEnvConfig();
@@ -56,20 +66,90 @@ let misoClient: MisoClient | null = null;
 setImmediate(() => {
   try {
     const config = loadConfig();
+    const controllerUrl = config.controllerPrivateUrl || config.controllerUrl || 'NOT CONFIGURED';
+    const clientId = config.clientId || 'NOT CONFIGURED';
+    
+    console.log('[MisoClient] Creating MisoClient instance...');
+    console.log(`[MisoClient] Controller URL: ${controllerUrl}`);
+    console.log(`[MisoClient] Client ID: ${clientId ? clientId.substring(0, 20) + '...' : 'NOT CONFIGURED'}`);
+    
     misoClient = new MisoClient(config);
     // Initialize asynchronously
-    misoClient.initialize().catch((error) => {
-      console.warn(
-        '⚠️  MisoClient initialization failed:',
-        error instanceof Error ? error.message : error
-      );
-    });
+    misoClient.initialize()
+      .then(async () => {
+        // Configure error logger to use MisoClient logger with withRequest()
+        setErrorLogger({
+          async logError(message, options) {
+            const req = (options as { req?: Request })?.req;
+            if (req && misoClient) {
+              // Use withRequest() for automatic context extraction
+              await misoClient.log
+                .forRequest(req)
+                .error(message, (options as { stack?: string })?.stack);
+            } else if (misoClient) {
+              // Fallback for non-Express contexts
+              await misoClient.log.error(message, options as Record<string, unknown>);
+            } else {
+              // Final fallback to console if MisoClient not available
+              console.error('[ERROR]', message);
+              if ((options as { stack?: string })?.stack) {
+                console.error('[ERROR] Stack:', (options as { stack?: string }).stack);
+              }
+            }
+          }
+        });
+        // Use logger for success message (but fallback to console if logger not ready)
+        try {
+          if (misoClient) {
+            await misoClient.log.info('MisoClient initialized successfully');
+          } else {
+            console.log('✅ MisoClient initialized successfully');
+          }
+        } catch {
+          console.log('✅ MisoClient initialized successfully');
+        }
+      })
+      .catch(async (error) => {
+        // Log error using logger if available, otherwise console
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorStack = error instanceof Error ? error.stack : undefined;
+        
+        if (misoClient) {
+          try {
+            await misoClient.log.error('MisoClient initialization failed', {
+              errorMessage,
+              stack: errorStack,
+              controllerUrl,
+              clientId: clientId ? clientId.substring(0, 20) + '...' : 'NOT CONFIGURED',
+              suggestion: 'Check if controller is running and MISO_CONTROLLER_URL is correct',
+            });
+          } catch {
+            // Fallback to console if logger fails
+            console.error('❌ MisoClient initialization failed:');
+            console.error('   Error:', errorMessage);
+            if (errorStack) {
+              console.error('   Stack:', errorStack);
+            }
+            console.error('   Controller URL:', controllerUrl);
+            console.error('   Client ID:', clientId ? clientId.substring(0, 20) + '...' : 'NOT CONFIGURED');
+            console.error('   Suggestion: Check if controller is running and MISO_CONTROLLER_URL is correct');
+          }
+        } else {
+          console.error('❌ MisoClient initialization failed:');
+          console.error('   Error:', errorMessage);
+          if (errorStack) {
+            console.error('   Stack:', errorStack);
+          }
+          console.error('   Controller URL:', controllerUrl);
+          console.error('   Client ID:', clientId ? clientId.substring(0, 20) + '...' : 'NOT CONFIGURED');
+          console.error('   Suggestion: Check if controller is running and MISO_CONTROLLER_URL is correct');
+        }
+      });
   } catch (error) {
-    console.warn(
-      '⚠️  MisoClient creation failed (server will continue without it):',
-      error instanceof Error ? error.message : error
-    );
-    console.warn('   Some endpoints may not work without MisoClient configured.');
+    console.error('❌ MisoClient creation failed (server will continue without it):');
+    console.error('   Error:', error instanceof Error ? error.message : error);
+    console.error('   Some endpoints may not work without MisoClient configured.');
+    console.error('   Please check MISO_CLIENTID and MISO_CLIENTSECRET environment variables.');
   }
 });
 
@@ -309,56 +389,111 @@ window.DataClientLoaded = true;
 
 // Routes
 // Add a simple test route first to verify routing works
-app.get('/test', (req, res) => {
-  console.log(`[${new Date().toISOString()}] /test route hit`);
+app.get('/test', asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  if (misoClient) {
+      await misoClient.log.forRequest(req).info('Test route accessed');
+  }
   res.json({ message: 'Server is working!', timestamp: new Date().toISOString() });
-});
+}, 'testRoute'));
 
-// Health check - direct response (no function call)
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
-});
+// Health check - use health handler
+app.get('/health', healthHandler(misoClient));
+
+// Diagnostic endpoint - check MisoClient status
+app.get('/api/diagnostics', asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  const diagnostics: {
+    misoClientExists: boolean;
+    misoClientInitialized: boolean;
+    config?: {
+      controllerUrl?: string;
+      controllerPrivateUrl?: string;
+      controllerPublicUrl?: string;
+      clientId?: string;
+      hasClientSecret: boolean;
+    };
+    error?: string;
+  } = {
+    misoClientExists: !!misoClient,
+    misoClientInitialized: misoClient ? misoClient.isInitialized() : false,
+  };
+
+  if (misoClient) {
+    try {
+      const config = misoClient.getConfig();
+      diagnostics.config = {
+        controllerUrl: config.controllerUrl,
+        controllerPrivateUrl: config.controllerPrivateUrl,
+        controllerPublicUrl: config.controllerPublicUrl,
+        clientId: config.clientId,
+        hasClientSecret: !!config.clientSecret,
+      };
+    } catch (error) {
+      diagnostics.error = error instanceof Error ? error.message : 'Unknown error';
+    }
+  }
+
+  res.json(diagnostics);
+}, 'getDiagnostics'));
 
 // Client token endpoint with zero-config setup
 // Automatically includes DataClient configuration in response
 // createClientTokenEndpoint handles misoClient initialization check internally
-app.post('/api/v1/auth/client-token', async (req, res) => {
+// Support both POST (standard) and GET (fallback compatibility)
+const clientTokenHandler = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  // Check if MisoClient exists
   if (!misoClient) {
-    res.status(503).json({
-      error:
-        'MisoClient is not initialized. Please configure MISO_CLIENTID and MISO_CLIENTSECRET environment variables.',
-    });
-    return;
+    throw new AppError(
+      'MisoClient is not initialized. Please configure MISO_CLIENTID and MISO_CLIENTSECRET environment variables.',
+      503
+    );
+  }
+
+  // Check if MisoClient is initialized (async initialization might not be complete)
+  if (!misoClient.isInitialized()) {
+    const config = misoClient.getConfig();
+    const controllerUrl = config.controllerPrivateUrl || config.controllerUrl || 'NOT CONFIGURED';
+    if (misoClient) {
+      await misoClient.log.forRequest(req).addContext('level', 'warning').info('MisoClient exists but not initialized yet. Initialization may still be in progress.');
+    }
+    const suggestion = controllerUrl === 'NOT CONFIGURED' 
+      ? 'Controller URL is not configured. Please set MISO_CONTROLLER_URL environment variable.'
+      : `Controller at ${controllerUrl} may not be reachable. Please check if the controller is running.`;
+    
+    throw new AppError(
+      `MisoClient is not initialized yet. Please wait a moment and try again. ${suggestion}`,
+      503,
+      false
+    );
   }
 
   // Use zero-config helper - automatically enriches response with DataClient config
   const handler = createClientTokenEndpoint(misoClient);
   await handler(req, res);
-});
+}, 'getClientToken');
 
-// API routes
-app.get('/api/users', getUsers);
-app.get('/api/users/:id', getUserById);
-app.post('/api/users', createUser);
-app.put('/api/users/:id', updateUser);
-app.patch('/api/users/:id', patchUser);
-app.delete('/api/users/:id', deleteUser);
-app.get('/api/metrics', getMetrics);
-app.get('/api/slow', slowEndpoint);
-app.get('/api/slow-endpoint', slowEndpoint); // Alias for frontend compatibility
-app.get('/api/error/:code', errorEndpoint);
+// Register both POST and GET handlers for compatibility
+app.post('/api/v1/auth/client-token', clientTokenHandler);
+app.get('/api/v1/auth/client-token', clientTokenHandler);
+
+// API routes - pass misoClient to route handlers
+app.get('/api/users', getUsers(misoClient));
+app.get('/api/users/:id', getUserById(misoClient));
+app.post('/api/users', createUser(misoClient));
+app.put('/api/users/:id', updateUser(misoClient));
+app.patch('/api/users/:id', patchUser(misoClient));
+app.delete('/api/users/:id', deleteUser(misoClient));
+app.get('/api/metrics', getMetrics(misoClient));
+app.get('/api/slow', slowEndpoint(misoClient));
+app.get('/api/slow-endpoint', slowEndpoint(misoClient)); // Alias for frontend compatibility
+app.get('/api/error/:code', errorEndpoint(misoClient));
 
 // MisoClient logging endpoint (for testing logger functionality)
-app.post('/api/v1/logs', logEndpoint);
+app.post('/api/v1/logs', logEndpoint(misoClient));
 
 // SPA catch-all route: serve index.html for all non-API routes
 // This allows client-side routing to work properly
 // API routes and static files are handled by middleware above
-app.get('*', (req, res, next) => {
+app.get('*', asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Skip if this is an API route or static file request
   if (
     req.path.startsWith('/api/') ||
@@ -366,34 +501,28 @@ app.get('*', (req, res, next) => {
     req.path.startsWith('/health') ||
     req.path.startsWith('/test')
   ) {
-    return next();
+    next();
+    return;
   }
 
   // Serve index.html for SPA routing
-  try {
-    const indexPath = join(process.cwd(), 'public', 'index.html');
-    if (existsSync(indexPath)) {
-      const html = readFileSync(indexPath, 'utf-8');
-      res.setHeader('Content-Type', 'text/html');
-      res.send(html);
-    } else {
-      res.status(404).send('<h1>404</h1><p>Index page not found</p>');
-    }
-  } catch (error) {
-    console.error(`Error serving SPA route:`, error);
-    res
-      .status(500)
-      .send(
-        `<h1>Error</h1><p>Failed to load index page: ${error instanceof Error ? error.message : 'Unknown error'}</p>`
-      );
+  const indexPath = join(process.cwd(), 'public', 'index.html');
+  if (existsSync(indexPath)) {
+    const html = readFileSync(indexPath, 'utf-8');
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } else {
+    throw new AppError('Index page not found', 404);
   }
-});
+}, 'serveSPA'));
 
 // 404 handler
 app.use(notFoundHandler);
 
-// Error handler (must be last)
-app.use(errorHandler);
+// Error handler (must be last) - use handleRouteError from SDK
+app.use(async (error: Error | unknown, req: Request, res: Response, _next: NextFunction): Promise<void> => {
+  await handleRouteError(error, req, res);
+});
 
 // Start server
 const PORT = envConfig.port;

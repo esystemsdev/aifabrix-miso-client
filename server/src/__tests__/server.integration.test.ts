@@ -31,10 +31,10 @@ function createTestApp(): express.Application {
 
   // Middleware
   app.use(express.json());
-  app.use(corsMiddleware(envConfig.misoAllowedOrigins));
+  app.use(corsMiddleware(envConfig.misoAllowedOrigins, null));
 
-  // Health check
-  app.get('/health', healthHandler);
+  // Health check - pass null for misoClient (not needed for health check)
+  app.get('/health', healthHandler(null));
 
   // Client token endpoint (mock - doesn't require real MisoClient)
   app.post('/api/v1/auth/client-token', (req, res) => {
@@ -50,20 +50,20 @@ function createTestApp(): express.Application {
     });
   });
 
-  // MisoClient logging endpoint
-  app.post('/api/v1/logs', logEndpoint);
+  // MisoClient logging endpoint - pass null for misoClient
+  app.post('/api/v1/logs', logEndpoint(null));
 
-  // API routes
-  app.get('/api/users', getUsers);
-  app.get('/api/users/:id', getUserById);
-  app.post('/api/users', createUser);
-  app.put('/api/users/:id', updateUser);
-  app.patch('/api/users/:id', patchUser);
-  app.delete('/api/users/:id', deleteUser);
-  app.get('/api/metrics', getMetrics);
-  app.get('/api/slow', slowEndpoint);
-  app.get('/api/slow-endpoint', slowEndpoint); // Alias for frontend compatibility
-  app.get('/api/error/:code', errorEndpoint);
+  // API routes - pass null for misoClient (not needed for these tests)
+  app.get('/api/users', getUsers(null));
+  app.get('/api/users/:id', getUserById(null));
+  app.post('/api/users', createUser(null));
+  app.put('/api/users/:id', updateUser(null));
+  app.patch('/api/users/:id', patchUser(null));
+  app.delete('/api/users/:id', deleteUser(null));
+  app.get('/api/metrics', getMetrics(null));
+  app.get('/api/slow', slowEndpoint(null));
+  app.get('/api/slow-endpoint', slowEndpoint(null)); // Alias for frontend compatibility
+  app.get('/api/error/:code', errorEndpoint(null));
 
   // Error handlers
   app.use(notFoundHandler);
@@ -143,7 +143,10 @@ describe('Server Integration Tests', () => {
 
       expect(response.status).toBe(404);
       expect(response.body).toMatchObject({
-        error: 'User not found',
+        type: '/Errors/NotFound',
+        title: 'Not Found',
+        status: 404,
+        detail: 'User not found',
       });
     });
 
@@ -171,7 +174,10 @@ describe('Server Integration Tests', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toMatchObject({
-        error: expect.any(String),
+        type: expect.stringContaining('BadRequest'),
+        title: expect.any(String),
+        status: 400,
+        detail: expect.any(String),
       });
     });
 
@@ -308,9 +314,10 @@ describe('Server Integration Tests', () => {
 
       expect(response.status).toBe(404);
       expect(response.body).toMatchObject({
-        error: 'Not Found',
-        statusCode: 404,
-        message: expect.stringContaining('404'),
+        type: '/Errors/NotFound',
+        title: 'Not Found',
+        status: 404,
+        detail: expect.stringContaining('404'),
       });
     });
 
@@ -319,7 +326,9 @@ describe('Server Integration Tests', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toMatchObject({
-        statusCode: 500,
+        type: '/Errors/InternalServerError',
+        title: 'Internal Server Error',
+        status: 500,
       });
     });
 
@@ -330,7 +339,7 @@ describe('Server Integration Tests', () => {
         const response = await request(app).get(`/api/error/${code}`);
 
         expect(response.status).toBe(code);
-        expect(response.body.statusCode).toBe(code);
+        expect(response.body.status).toBe(code);
       }
     });
   });

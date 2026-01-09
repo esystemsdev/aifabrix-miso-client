@@ -11,6 +11,8 @@ import {
   BatchLogRequest,
   BatchLogResponse,
 } from './types/logs.types';
+import { extractErrorInfo } from '../utils/error-extractor';
+import { logErrorWithContext } from '../utils/console-logger';
 
 /**
  * Logs Create API class
@@ -58,7 +60,12 @@ export class LogsCreateApi {
         logEntry,
       );
     } catch (error) {
-      console.error('Create log API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: LogsCreateApi.LOGS_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[LogsCreateApi]');
+      throw error;
       throw error;
     }
   }
@@ -98,7 +105,12 @@ export class LogsCreateApi {
         logs,
       );
     } catch (error) {
-      console.error('Create batch logs API call failed:', error);
+            const errorInfo = extractErrorInfo(error, {
+        endpoint: LogsCreateApi.LOGS_BATCH_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[LogsCreateApi]');
+      throw error;
       throw error;
     }
   }

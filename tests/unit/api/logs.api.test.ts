@@ -124,7 +124,10 @@ describe('LogsApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsApi.createLog(logEntry)).rejects.toThrow('Network error');
-      expect(console.error).toHaveBeenCalledWith('Create log API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsCreateApi]'),
+        expect.stringContaining('Network error'),
+      );
     });
   });
 

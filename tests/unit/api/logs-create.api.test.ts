@@ -198,7 +198,10 @@ describe('LogsCreateApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsCreateApi.createLog(logEntry)).rejects.toThrow('Create log failed');
-      expect(console.error).toHaveBeenCalledWith('Create log API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsCreateApi]'),
+        expect.stringContaining('Create log'),
+      );
     });
   });
 
@@ -366,7 +369,10 @@ describe('LogsCreateApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsCreateApi.createBatchLogs(logs)).rejects.toThrow('Create batch logs failed');
-      expect(console.error).toHaveBeenCalledWith('Create batch logs API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsCreateApi]'),
+        expect.stringContaining('Create batch logs'),
+      );
     });
   });
 });

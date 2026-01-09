@@ -112,7 +112,10 @@ describe('PermissionsApi', () => {
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
       await expect(permissionsApi.getPermissions(undefined, authStrategy)).rejects.toThrow('Network error');
-      expect(console.error).toHaveBeenCalledWith('Get permissions API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[PermissionsApi]'),
+        expect.stringContaining('Network error'),
+      );
     });
   });
 

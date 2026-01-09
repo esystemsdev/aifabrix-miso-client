@@ -4,22 +4,22 @@
  */
 
 import { Request, Response } from 'express';
+import { MisoClient, asyncHandler } from '@aifabrix/miso-client';
 
 /**
  * Health check endpoint
  * Returns server status and uptime
  */
-export function healthHandler(req: Request, res: Response): void {
-  console.log(`[${new Date().toISOString()}] Health check called`);
-  try {
+export function healthHandler(misoClient: MisoClient | null) {
+  return asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    if (misoClient) {
+      await misoClient.log.forRequest(req).info('Health check called');
+    }
+
     res.json({
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
     });
-    console.log(`[${new Date().toISOString()}] Health check response sent`);
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] Health check error:`, error);
-    res.status(500).json({ error: 'Health check failed' });
-  }
+  }, 'healthCheck');
 }

@@ -175,7 +175,10 @@ describe('LogsListApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsListApi.listGeneralLogs()).rejects.toThrow('List general logs failed');
-      expect(console.error).toHaveBeenCalledWith('List general logs API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsListApi]'),
+        expect.stringContaining('List general logs'),
+      );
     });
   });
 
@@ -290,7 +293,10 @@ describe('LogsListApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsListApi.getGeneralLog(id)).rejects.toThrow('Get general log failed');
-      expect(console.error).toHaveBeenCalledWith('Get general log API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsListApi]'),
+        expect.stringContaining('Get general log'),
+      );
     });
   });
 
@@ -401,7 +407,10 @@ describe('LogsListApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsListApi.listAuditLogs()).rejects.toThrow('List audit logs failed');
-      expect(console.error).toHaveBeenCalledWith('List audit logs API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsListApi]'),
+        expect.stringContaining('List audit logs'),
+      );
     });
   });
 
@@ -520,7 +529,10 @@ describe('LogsListApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsListApi.getAuditLog(id)).rejects.toThrow('Get audit log failed');
-      expect(console.error).toHaveBeenCalledWith('Get audit log API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsListApi]'),
+        expect.stringContaining('Get audit log'),
+      );
     });
   });
 
@@ -630,7 +642,10 @@ describe('LogsListApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsListApi.listJobLogs()).rejects.toThrow('List job logs failed');
-      expect(console.error).toHaveBeenCalledWith('List job logs API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsListApi]'),
+        expect.stringContaining('List job logs'),
+      );
     });
   });
 
@@ -716,7 +731,10 @@ describe('LogsListApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(logsListApi.getJobLog(id)).rejects.toThrow('Get job log failed');
-      expect(console.error).toHaveBeenCalledWith('Get job log API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[LogsListApi]'),
+        expect.stringContaining('Get job log'),
+      );
     });
   });
 });

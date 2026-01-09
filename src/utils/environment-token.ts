@@ -33,38 +33,21 @@ export async function getEnvironmentToken(
     const errorMessage = `Origin validation failed: ${validation.error}`;
     const origin = req.headers.origin || req.headers.referer || "unknown";
 
-    // Log error
-    await misoClient.log.error(
-      errorMessage,
-      {
-        origin,
-        allowedOrigins: allowedOrigins || [],
-        ipAddress: req.ip || req.socket.remoteAddress,
-        userAgent: req.headers["user-agent"],
-      },
-      undefined,
-      {
-        requestId: req.headers["x-request-id"] as string | undefined,
-        correlationId: req.headers["x-correlation-id"] as string | undefined,
-      },
-    );
+    // Log error with full request context (automatic extraction via forRequest)
+    await misoClient.log
+      .forRequest(req)  // Auto-extracts: IP, method, path, userAgent, correlationId, userId
+      .addContext("origin", origin)
+      .addContext("allowedOrigins", allowedOrigins || [])
+      .addContext("reason", "origin_validation_failed")
+      .error(errorMessage);
 
-    // Log audit event (ISO 27001 compliance)
-    await misoClient.log.audit(
-      "client.token.request.rejected",
-      "environment-token",
-      {
-        reason: "origin_validation_failed",
-        origin,
-        allowedOrigins: allowedOrigins || [],
-        ipAddress: req.ip || req.socket?.remoteAddress,
-        userAgent: req.headers["user-agent"],
-      },
-      {
-        requestId: req.headers["x-request-id"] as string | undefined,
-        correlationId: req.headers["x-correlation-id"] as string | undefined,
-      },
-    );
+    // Log audit event (ISO 27001 compliance) with full request context
+    await misoClient.log
+      .forRequest(req)
+      .addContext("reason", "origin_validation_failed")
+      .addContext("origin", origin)
+      .addContext("allowedOrigins", allowedOrigins || [])
+      .audit("client.token.request.rejected", "environment-token");
 
     throw new Error(errorMessage);
   }
@@ -73,10 +56,7 @@ export async function getEnvironmentToken(
   try {
     // Fetch token from controller
     // Use resolveControllerUrl to properly resolve URL (handles controllerPrivateUrl/controllerPublicUrl/controllerUrl)
-    const controllerUrl = resolveControllerUrl(config);
-    const tokenUri = config.clientTokenUri || "/api/v1/auth/token";
-    const fullUrl = `${controllerUrl}${tokenUri}`;
-    console.log(`[getEnvironmentToken] Fetching token from controller: ${fullUrl}`);
+    resolveControllerUrl(config); // Resolve URL for validation
     const token = await misoClient.getEnvironmentToken();
 
     // Log audit event with masked client credentials (ISO 27001 compliance)
@@ -89,21 +69,13 @@ export async function getEnvironmentToken(
         }) as { clientSecret: string })
       : { clientSecret: undefined };
 
-    await misoClient.log.audit(
-      "client.token.request.success",
-      "environment-token",
-      {
-        clientId: maskedClientId.clientId,
-        clientSecret: maskedClientSecret.clientSecret,
-        origin: req.headers.origin || req.headers.referer || "unknown",
-        ipAddress: req.ip || req.socket?.remoteAddress,
-        userAgent: req.headers["user-agent"],
-      },
-      {
-        requestId: req.headers["x-request-id"] as string | undefined,
-        correlationId: req.headers["x-correlation-id"] as string | undefined,
-      },
-    );
+    // Log audit event with full request context (automatic extraction via forRequest)
+    await misoClient.log
+      .forRequest(req)  // Auto-extracts: IP, method, path, userAgent, correlationId, userId
+      .addContext("clientId", maskedClientId.clientId)
+      .addContext("clientSecret", maskedClientSecret.clientSecret)
+      .addContext("origin", req.headers.origin || req.headers.referer || "unknown")
+      .audit("client.token.request.success", "environment-token");
 
     return token;
   } catch (error) {
@@ -114,39 +86,25 @@ export async function getEnvironmentToken(
       clientId: config.clientId,
     }) as { clientId: string };
 
-    // Log error
-    await misoClient.log.error(
-      `Failed to get environment token: ${errorMessage}`,
-      {
-        clientId: maskedClientId.clientId,
-        origin: req.headers.origin || req.headers.referer || "unknown",
-        ipAddress: req.ip || req.socket.remoteAddress,
-        userAgent: req.headers["user-agent"],
-      },
-      error instanceof Error ? error.stack : undefined,
-      {
-        requestId: req.headers["x-request-id"] as string | undefined,
-        correlationId: req.headers["x-correlation-id"] as string | undefined,
-      },
-    );
+    // Log error with full request context (automatic extraction via forRequest)
+    await misoClient.log
+      .forRequest(req)  // Auto-extracts: IP, method, path, userAgent, correlationId, userId
+      .addContext("clientId", maskedClientId.clientId)
+      .addContext("origin", req.headers.origin || req.headers.referer || "unknown")
+      .addContext("reason", "token_fetch_failed")
+      .error(
+        `Failed to get environment token: ${errorMessage}`,
+        error instanceof Error ? error.stack : undefined,
+      );
 
-    // Log audit event (ISO 27001 compliance)
-    await misoClient.log.audit(
-      "client.token.request.failed",
-      "environment-token",
-      {
-        reason: "token_fetch_failed",
-        error: errorMessage,
-        clientId: maskedClientId.clientId,
-        origin: req.headers.origin || req.headers.referer || "unknown",
-        ipAddress: req.ip || req.socket?.remoteAddress,
-        userAgent: req.headers["user-agent"],
-      },
-      {
-        requestId: req.headers["x-request-id"] as string | undefined,
-        correlationId: req.headers["x-correlation-id"] as string | undefined,
-      },
-    );
+    // Log audit event (ISO 27001 compliance) with full request context
+    await misoClient.log
+      .forRequest(req)
+      .addContext("reason", "token_fetch_failed")
+      .addContext("error", errorMessage)
+      .addContext("clientId", maskedClientId.clientId)
+      .addContext("origin", req.headers.origin || req.headers.referer || "unknown")
+      .audit("client.token.request.failed", "environment-token");
 
     throw error;
   }

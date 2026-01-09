@@ -115,7 +115,10 @@ describe('AuthUserApi', () => {
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
       await expect(authUserApi.getUser(authStrategy)).rejects.toThrow('Get user failed');
-      expect(console.error).toHaveBeenCalledWith('Get user API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthUserApi]'),
+        expect.stringContaining('Get user'),
+      );
     });
   });
 
@@ -144,7 +147,10 @@ describe('AuthUserApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authUserApi.logout()).rejects.toThrow('Logout failed');
-      expect(console.error).toHaveBeenCalledWith('Logout API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthUserApi]'),
+        expect.stringContaining('Logout'),
+      );
     });
   });
 
@@ -176,7 +182,10 @@ describe('AuthUserApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authUserApi.logoutWithToken(token)).rejects.toThrow('Logout with token failed');
-      expect(console.error).toHaveBeenCalledWith('Logout with token API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthUserApi]'),
+        expect.stringContaining('Logout with token'),
+      );
     });
   });
 
@@ -271,7 +280,10 @@ describe('AuthUserApi', () => {
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(authUserApi.handleCallback(params)).rejects.toThrow('Handle callback failed');
-      expect(console.error).toHaveBeenCalledWith('Handle callback API call failed:', error);
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthUserApi]'),
+        expect.stringContaining('Handle callback'),
+      );
     });
   });
 });

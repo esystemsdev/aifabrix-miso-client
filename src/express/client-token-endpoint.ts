@@ -8,6 +8,7 @@
 import { Request, Response } from "express";
 import { MisoClient } from "../index";
 import { getEnvironmentToken } from "../utils/environment-token";
+import { resolveControllerUrl } from "../utils/controller-url-resolver";
 
 /**
  * DataClient configuration returned by client-token endpoint
@@ -136,6 +137,15 @@ export function createClientTokenEndpoint(
 
         const errorMessage = tokenError instanceof Error ? tokenError.message : "Unknown error";
         
+        // Debug logging (can be removed after fixing)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[client-token-endpoint] Error caught:', {
+            errorMessage,
+            errorType: tokenError instanceof Error ? tokenError.constructor.name : typeof tokenError,
+            hasCause: tokenError && typeof tokenError === 'object' && 'cause' in tokenError,
+          });
+        }
+        
         // Check if it's an origin validation error (403)
         if (errorMessage.includes("Origin validation failed")) {
           res.status(403).json({
@@ -150,13 +160,17 @@ export function createClientTokenEndpoint(
         
         // Check if error message contains HTTP status codes (indicates HTTP error, not timeout)
         // AuthService wraps axios errors with status info like "status: 401"
-        const httpStatusMatch = errorMessage.match(/status:\s*(\d+)/i);
+        // Also check for axios error messages like "Request failed with status code 401"
+        const httpStatusMatch = errorMessage.match(/status:\s*(\d+)/i) || 
+                                errorMessage.match(/status code\s+(\d+)/i) ||
+                                errorMessage.match(/status\s+(\d+)/i);
         const httpStatus = httpStatusMatch ? parseInt(httpStatusMatch[1], 10) : undefined;
         const isHttpError = httpStatus !== undefined;
         
         // Also try to extract axios error details from the error chain
         let extractedHttpStatus: number | undefined = httpStatus;
         let httpStatusText: string | undefined;
+        let isAxiosNetworkError = false;
         
         // Try to extract axios error details from the error chain
         let currentError: unknown = tokenError;
@@ -177,6 +191,7 @@ export function createClientTokenEndpoint(
             // No response but has request = network/timeout error
             if (axiosError.request && !axiosError.response) {
               // This is a network/timeout error
+              isAxiosNetworkError = true;
               break;
             }
           }
@@ -216,17 +231,42 @@ export function createClientTokenEndpoint(
           return;
         }
 
+        // Check if it's a network error (controller unreachable)
+        // These errors indicate the controller is not reachable and should be treated as gateway timeout
+        const isNetworkError = 
+          isAxiosNetworkError ||
+          errorMessage.includes("ECONNREFUSED") ||
+          errorMessage.includes("ENOTFOUND") ||
+          errorMessage.includes("ETIMEDOUT") ||
+          errorMessage.includes("connect") ||
+          errorMessage.includes("Network Error") ||
+          errorMessage.includes("network error") ||
+          errorMessage.includes("getaddrinfo ENOTFOUND") ||
+          errorMessage.includes("getaddrinfo EAI_AGAIN");
+
         // Check if it's a timeout error (from our wrapper or axios timeout)
-        if (isTimeoutWrapperError || errorMessage.includes("timeout") || errorMessage.includes("Timeout")) {
+        const isTimeoutError = isTimeoutWrapperError || 
+          errorMessage.includes("timeout") || 
+          errorMessage.includes("Timeout");
+
+        if (isNetworkError || isTimeoutError) {
           const config = misoClient.getConfig();
-          const controllerUrl = config.controllerPrivateUrl || config.controllerUrl;
+          // Use resolveControllerUrl to get the resolved URL (with localhost -> 127.0.0.1 conversion)
+          let controllerUrl: string;
+          try {
+            controllerUrl = resolveControllerUrl(config);
+          } catch {
+            controllerUrl = config.controllerPrivateUrl || config.controllerUrl || "NOT CONFIGURED";
+          }
           res.status(504).json({
             error: "Gateway Timeout",
-            message: "Failed to get environment token: Controller request timed out",
+            message: isNetworkError 
+              ? "Failed to get environment token: Controller is unreachable"
+              : "Failed to get environment token: Controller request timed out",
             details: {
               controllerUrl: controllerUrl || "NOT CONFIGURED",
               timeout: "4 seconds",
-              suggestion: controllerUrl 
+              suggestion: controllerUrl && controllerUrl !== "NOT CONFIGURED"
                 ? `Controller at ${controllerUrl} is not responding. Please check if the controller is running and accessible.`
                 : "Controller URL is not configured. Please set MISO_CONTROLLER_URL environment variable.",
             },

@@ -932,6 +932,7 @@ describe("AuthService", () => {
 
     it("should fetch and return environment token", async () => {
       mockTempAxios.post.mockResolvedValue({
+        status: 200,
         data: {
           success: true,
           token: "env-token-123",
@@ -956,6 +957,7 @@ describe("AuthService", () => {
       authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
 
       mockTempAxios.post.mockResolvedValue({
+        status: 200,
         data: {
           success: true,
           token: "env-token-123",
@@ -978,6 +980,7 @@ describe("AuthService", () => {
       authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
 
       mockTempAxios.post.mockResolvedValue({
+        status: 200,
         data: {
           success: true,
           token: "env-token-123",
@@ -1000,6 +1003,7 @@ describe("AuthService", () => {
       authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
 
       mockTempAxios.post.mockResolvedValue({
+        status: 200,
         data: {
           success: true,
           data: {
@@ -1013,6 +1017,35 @@ describe("AuthService", () => {
 
       expect(result).toBe("nested-token-123");
       expect(mockTempAxios.post).toHaveBeenCalledWith("/api/v1/auth/client-token");
+    });
+
+    it("should handle status 201 Created with nested data.data.token format", async () => {
+      config = {
+        controllerUrl: "http://127.0.0.1:3110",
+        clientId: "miso-controller-miso-miso-test",
+        clientSecret: "test-secret",
+        clientTokenUri: "/api/v1/auth/token",
+      };
+      (mockHttpClient as any).config = config;
+      authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
+
+      // Simulate the actual controller response format: status 201 with nested data.data.token
+      mockTempAxios.post.mockResolvedValue({
+        status: 201,
+        statusText: "Created",
+        data: {
+          data: {
+            token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token",
+            expiresIn: 900,
+            expiresAt: "2026-01-09T14:43:06.000Z",
+          },
+        },
+      });
+
+      const result = await authService.getEnvironmentToken();
+
+      expect(result).toBe("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token");
+      expect(mockTempAxios.post).toHaveBeenCalledWith("/api/v1/auth/token");
     });
 
     it("should throw error on invalid response", async () => {

@@ -2551,10 +2551,78 @@ describe("HttpClient", () => {
         );
       });
 
-      it.skip("should truncate large response bodies in debug logs", async () => {
-        // Skipping this test - the truncation functionality is tested implicitly in other tests
-        // The debug logging functionality is verified in 'should log debug event when logLevel is debug'
-        // This test was causing intermittent failures due to timing issues with async logging
+      it("should truncate large response bodies in debug logs", async () => {
+        // Create a large response body (> 1000 chars to trigger truncation)
+        const largeData = {
+          items: Array.from({ length: 200 }, (_, i) => ({
+            id: i,
+            name: `Item ${i}`,
+            description: `This is a long description for item ${i} that makes the response body large`,
+            metadata: {
+              created: new Date().toISOString(),
+              updated: new Date().toISOString(),
+              tags: ["tag1", "tag2", "tag3", "tag4", "tag5"],
+            },
+          })),
+        };
+
+        const config: any = {
+          url: "/api/users",
+          method: "get",
+          baseURL: "https://controller.aifabrix.ai",
+          timeout: 30000,
+          headers: {
+            authorization: "Bearer token123",
+            "content-type": "application/json",
+          },
+          metadata: {
+            startTime: Date.now() - 100,
+            method: "GET",
+            url: "/api/users",
+            baseURL: "https://controller.aifabrix.ai",
+          },
+        };
+
+        const response: any = {
+          config,
+          status: 200,
+          data: largeData,
+          headers: { "content-type": "application/json" },
+        };
+
+        const jwt = require("jsonwebtoken");
+        jwt.decode.mockReturnValue({ sub: "user-123" });
+
+        responseSuccessFn(response);
+
+        jest.advanceTimersByTime(1);
+        await flushTimersAndPromises();
+        // Additional timer advances for nested async operations
+        jest.runOnlyPendingTimers();
+        await Promise.resolve();
+        await Promise.resolve();
+        jest.runOnlyPendingTimers();
+        await Promise.resolve();
+        // Extra flush to ensure all async operations complete
+        await flushTimersAndPromises();
+
+        // Verify debug was called
+        expect(mockLogger.debug).toHaveBeenCalled();
+
+        // Get the actual call arguments
+        const debugCall = mockLogger.debug.mock.calls.find(
+          (call) => call[0] === "HTTP GET /api/users",
+        );
+
+        expect(debugCall).toBeDefined();
+        if (debugCall) {
+          const debugContext = debugCall[1];
+          const responseBodyStr = JSON.stringify(debugContext.responseBody);
+          // Response body should be truncated (less than original size)
+          expect(responseBodyStr.length).toBeLessThan(JSON.stringify(largeData).length);
+          // Should contain truncation indicator or be significantly smaller
+          expect(responseBodyStr.length).toBeLessThanOrEqual(1003); // 1000 + "..."
+        }
       });
 
       it("should not log debug event when logLevel is not debug", async () => {

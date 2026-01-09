@@ -160,6 +160,236 @@ app.get('/api/users', async (req: Request, res) => {
 });
 ```
 
+### Log Entry Getter Methods
+
+The logger provides getter methods that return `LogEntry` objects instead of sending logs directly. These methods are designed for external logger integration, allowing you to use your own logger tables while automatically extracting default context from the system.
+
+**Use Case:** When you need to save logs to your own database tables with custom schemas, but want to leverage the SDK's automatic context extraction (IP, method, path, userAgent, correlationId, userId from request; userId, sessionId from token).
+
+#### `log.getLogWithRequest(req: Request, message: string, level?: LogEntry["level"], context?: Record<string, unknown>): LogEntry`
+
+Returns a `LogEntry` object with request context automatically extracted. Extracts IP, method, path, userAgent, correlationId, userId from Express Request.
+
+**Parameters:**
+
+- `req` - Express Request object
+- `message` - Log message
+- `level` - Optional log level (defaults to 'info')
+- `context` - Optional additional context object
+
+**Returns:** Complete `LogEntry` object with all request context extracted
+
+**Auto-extracted Fields:**
+
+- `ipAddress` - Client IP (handles proxy headers)
+- `method` - HTTP method (GET, POST, etc.)
+- `path` - Request path
+- `userAgent` - Browser/client user agent
+- `correlationId` - From `x-correlation-id` header or auto-generated
+- `userId` - Extracted from JWT token in Authorization header
+- `sessionId` - Extracted from JWT token
+- `requestId` - From `x-request-id` header
+
+**Example:**
+
+```typescript
+import { Request } from 'express';
+
+app.get('/api/users', async (req: Request, res) => {
+  // Get LogEntry object with all request context
+  const logEntry = client.log.getLogWithRequest(
+    req,
+    'Users list accessed',
+    'info',
+    { action: 'list_users' }
+  );
+
+  // Save to your own logger table
+  await myCustomLogger.save(logEntry);
+  
+  // logEntry contains: timestamp, level, message, context, 
+  // ipAddress, method, path, userAgent, correlationId, userId, etc.
+});
+```
+
+#### `log.getWithContext(context: Record<string, unknown>, message: string, level?: LogEntry["level"]): LogEntry`
+
+Returns a `LogEntry` object with provided context. Generates correlation ID automatically and extracts metadata from environment.
+
+**Parameters:**
+
+- `context` - Context object to include in logs
+- `message` - Log message
+- `level` - Optional log level (defaults to 'info')
+
+**Returns:** Complete `LogEntry` object
+
+**Example:**
+
+```typescript
+const logEntry = client.log.getWithContext(
+  { operation: 'sync', source: 'external-api' },
+  'Sync started',
+  'info'
+);
+
+// Save to your own logger table
+await myCustomLogger.save(logEntry);
+```
+
+#### `log.getWithToken(token: string, message: string, level?: LogEntry["level"], context?: Record<string, unknown>): LogEntry`
+
+Returns a `LogEntry` object with token context extracted. Extracts userId, sessionId, applicationId from JWT token and generates correlation ID automatically.
+
+**Parameters:**
+
+- `token` - JWT token to extract user context from
+- `message` - Log message
+- `level` - Optional log level (defaults to 'info')
+- `context` - Optional additional context object
+
+**Returns:** Complete `LogEntry` object with user context
+
+**Extracted from Token:**
+
+- `userId` - From `sub`, `userId`, or `user_id` fields
+- `sessionId` - From `sessionId` or `sid` fields
+- `applicationId` - From `applicationId` or `app_id` fields
+
+**Example:**
+
+```typescript
+const token = req.headers.authorization?.replace('Bearer ', '');
+
+const logEntry = client.log.getWithToken(
+  token,
+  'Token validated',
+  'audit',
+  { action: 'validate' }
+);
+
+// Save to your own logger table
+await myCustomLogger.save(logEntry);
+```
+
+#### `log.getForRequest(req: Request, message: string, level?: LogEntry["level"], context?: Record<string, unknown>): LogEntry`
+
+Alias for `getLogWithRequest()`. Returns a `LogEntry` object with request context extracted.
+
+**Parameters:**
+
+- `req` - Express Request object
+- `message` - Log message
+- `level` - Optional log level (defaults to 'info')
+- `context` - Optional additional context object
+
+**Returns:** Complete `LogEntry` object
+
+**Example:**
+
+```typescript
+const logEntry = client.log.getForRequest(req, 'User action', 'info', { action: 'login' });
+await myCustomLogger.save(logEntry);
+```
+
+#### `log.generateCorrelationId(): string`
+
+Generates a unique correlation ID for request tracing. Format: `{clientId-prefix}-{timestamp}-{counter}-{random}`.
+
+**Returns:** Unique correlation ID string
+
+**Example:**
+
+```typescript
+const correlationId = client.log.generateCorrelationId();
+// Returns: "ctrl-dev-t-1234567890-1-abc123xyz"
+```
+
+**Note:** All getter methods automatically mask sensitive data in context when data masking is enabled (default). The returned `LogEntry` objects are ready to be saved to your own logger tables without additional processing.
+
+**Complete Example - External Logger Integration:**
+
+```typescript
+import { Request } from 'express';
+import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
+import { db } from './database';
+
+const client = new MisoClient(loadConfig());
+await client.initialize();
+
+// Express route handler
+app.post('/api/users', async (req: Request, res) => {
+  try {
+    // Get LogEntry with all request context automatically extracted
+    const logEntry = client.log.getLogWithRequest(
+      req,
+      'User creation started',
+      'info',
+      { action: 'create_user' }
+    );
+
+    // Save to your own logger table
+    await db.customLogs.insert({
+      ...logEntry,
+      // Add any custom fields your schema requires
+      customField: 'value'
+    });
+
+    // Perform operation
+    const user = await createUser(req.body);
+
+    // Log success with token context
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    const successLog = client.log.getWithToken(
+      token,
+      'User created successfully',
+      'audit',
+      { userId: user.id, action: 'user.created' }
+    );
+
+    await db.customLogs.insert(successLog);
+    res.json(user);
+  } catch (error) {
+    // Log error with request context
+    const errorLog = client.log.getLogWithRequest(
+      req,
+      'User creation failed',
+      'error',
+      { 
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      }
+    );
+
+    await db.customLogs.insert(errorLog);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+// Background job example
+async function processJob(jobData: any) {
+  // Get LogEntry with context (no request available)
+  const logEntry = client.log.getWithContext(
+    { jobId: jobData.id, jobType: jobData.type },
+    'Job processing started',
+    'info'
+  );
+
+  await db.customLogs.insert(logEntry);
+
+  // Process job...
+  
+  // Log completion
+  const completionLog = client.log.getWithContext(
+    { jobId: jobData.id, status: 'completed' },
+    'Job completed',
+    'info'
+  );
+
+  await db.customLogs.insert(completionLog);
+}
+```
+
 ### LoggerChain Methods
 
 #### `withIndexedContext(context: IndexedLoggingContext): LoggerChain`

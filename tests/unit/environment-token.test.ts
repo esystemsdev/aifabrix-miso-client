@@ -33,10 +33,24 @@ const mockValidateOrigin = validateOrigin as jest.MockedFunction<
 describe("environment-token", () => {
   let mockMisoClient: jest.Mocked<MisoClient>;
   let mockRequest: Partial<Request>;
+  let mockLoggerChain: {
+    addContext: jest.Mock;
+    error: jest.Mock;
+    audit: jest.Mock;
+    info: jest.Mock;
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    // Create mock LoggerChain
+    mockLoggerChain = {
+      addContext: jest.fn().mockReturnThis(),
+      error: jest.fn().mockResolvedValue(undefined),
+      audit: jest.fn().mockResolvedValue(undefined),
+      info: jest.fn().mockResolvedValue(undefined),
+    };
 
     mockMisoClient = {
       getConfig: jest.fn().mockReturnValue({
@@ -49,6 +63,7 @@ describe("environment-token", () => {
       log: {
         error: jest.fn().mockResolvedValue(undefined),
         audit: jest.fn().mockResolvedValue(undefined),
+        forRequest: jest.fn().mockReturnValue(mockLoggerChain),
       },
     } as any;
 
@@ -97,31 +112,12 @@ describe("environment-token", () => {
         getEnvironmentToken(mockMisoClient, mockRequest as Request),
       ).rejects.toThrow("Origin validation failed");
 
-      expect(mockMisoClient.log.error).toHaveBeenCalledWith(
-        expect.stringContaining("Origin validation failed"),
-        expect.objectContaining({
-          origin: "http://localhost:3000",
-          allowedOrigins: ["http://localhost:3000"],
-        }),
-        undefined,
-        expect.objectContaining({
-          requestId: "req-123",
-          correlationId: "corr-123",
-        }),
-      );
-
-      expect(mockMisoClient.log.audit).toHaveBeenCalledWith(
-        "client.token.request.rejected",
-        "environment-token",
-        expect.objectContaining({
-          reason: "origin_validation_failed",
-          origin: "http://localhost:3000",
-        }),
-        expect.objectContaining({
-          requestId: "req-123",
-          correlationId: "corr-123",
-        }),
-      );
+      expect(mockMisoClient.log.forRequest).toHaveBeenCalledWith(mockRequest);
+      expect(mockLoggerChain.addContext).toHaveBeenCalledWith("origin", "http://localhost:3000");
+      expect(mockLoggerChain.addContext).toHaveBeenCalledWith("allowedOrigins", ["http://localhost:3000"]);
+      expect(mockLoggerChain.addContext).toHaveBeenCalledWith("reason", "origin_validation_failed");
+      expect(mockLoggerChain.error).toHaveBeenCalledWith(expect.stringContaining("Origin validation failed"));
+      expect(mockLoggerChain.audit).toHaveBeenCalledWith("client.token.request.rejected", "environment-token");
 
       expect(mockMisoClient.getEnvironmentToken).not.toHaveBeenCalled();
     });
@@ -134,14 +130,8 @@ describe("environment-token", () => {
 
       await getEnvironmentToken(mockMisoClient, mockRequest as Request);
 
-      expect(mockMisoClient.log.audit).toHaveBeenCalledWith(
-        "client.token.request.success",
-        "environment-token",
-        expect.objectContaining({
-          origin: "http://localhost:3000/page",
-        }),
-        expect.any(Object),
-      );
+      expect(mockMisoClient.log.forRequest).toHaveBeenCalled();
+      expect(mockLoggerChain.audit).toHaveBeenCalledWith("client.token.request.success", "environment-token");
     });
 
     it("should log audit event with masked client credentials on success", async () => {
@@ -158,15 +148,10 @@ describe("environment-token", () => {
 
       await getEnvironmentToken(mockMisoClient, mockRequest as Request);
 
-      expect(mockMisoClient.log.audit).toHaveBeenCalledWith(
-        "client.token.request.success",
-        "environment-token",
-        expect.objectContaining({
-          clientId: "***MASKED***",
-          clientSecret: "***MASKED***",
-        }),
-        expect.any(Object),
-      );
+      expect(mockMisoClient.log.forRequest).toHaveBeenCalled();
+      expect(mockLoggerChain.addContext).toHaveBeenCalledWith("clientId", "***MASKED***");
+      expect(mockLoggerChain.addContext).toHaveBeenCalledWith("clientSecret", "***MASKED***");
+      expect(mockLoggerChain.audit).toHaveBeenCalledWith("client.token.request.success", "environment-token");
     });
 
     it("should handle missing clientSecret in config", async () => {
@@ -179,14 +164,8 @@ describe("environment-token", () => {
 
       await getEnvironmentToken(mockMisoClient, mockRequest as Request);
 
-      expect(mockMisoClient.log.audit).toHaveBeenCalledWith(
-        "client.token.request.success",
-        "environment-token",
-        expect.objectContaining({
-          clientSecret: undefined,
-        }),
-        expect.any(Object),
-      );
+      expect(mockMisoClient.log.forRequest).toHaveBeenCalled();
+      expect(mockLoggerChain.audit).toHaveBeenCalledWith("client.token.request.success", "environment-token");
     });
 
     it("should log error and audit event when token fetch fails", async () => {
@@ -198,24 +177,10 @@ describe("environment-token", () => {
         getEnvironmentToken(mockMisoClient, mockRequest as Request),
       ).rejects.toThrow("Failed to fetch token");
 
-      expect(mockMisoClient.log.error).toHaveBeenCalledWith(
-        expect.stringContaining("Failed to get environment token"),
-        expect.objectContaining({
-          clientId: expect.any(String),
-        }),
-        expect.any(String),
-        expect.any(Object),
-      );
-
-      expect(mockMisoClient.log.audit).toHaveBeenCalledWith(
-        "client.token.request.failed",
-        "environment-token",
-        expect.objectContaining({
-          reason: "token_fetch_failed",
-          error: "Failed to fetch token",
-        }),
-        expect.any(Object),
-      );
+      expect(mockMisoClient.log.forRequest).toHaveBeenCalled();
+      expect(mockLoggerChain.addContext).toHaveBeenCalledWith("reason", "token_fetch_failed");
+      expect(mockLoggerChain.error).toHaveBeenCalledWith(expect.stringContaining("Failed to get environment token"), expect.any(String));
+      expect(mockLoggerChain.audit).toHaveBeenCalledWith("client.token.request.failed", "environment-token");
     });
 
     it("should handle missing request headers gracefully", async () => {
@@ -227,14 +192,9 @@ describe("environment-token", () => {
 
       await getEnvironmentToken(mockMisoClient, mockRequest as Request);
 
-      expect(mockMisoClient.log.audit).toHaveBeenCalledWith(
-        "client.token.request.success",
-        "environment-token",
-        expect.objectContaining({
-          origin: "unknown",
-        }),
-        expect.any(Object),
-      );
+      expect(mockMisoClient.log.forRequest).toHaveBeenCalled();
+      expect(mockLoggerChain.addContext).toHaveBeenCalledWith("origin", "unknown");
+      expect(mockLoggerChain.audit).toHaveBeenCalledWith("client.token.request.success", "environment-token");
     });
 
     it("should handle empty allowedOrigins array", async () => {
@@ -275,15 +235,8 @@ describe("environment-token", () => {
 
       await getEnvironmentToken(mockMisoClient, mockRequest as Request);
 
-      expect(mockMisoClient.log.audit).toHaveBeenCalledWith(
-        "client.token.request.success",
-        "environment-token",
-        expect.objectContaining({
-          ipAddress: "127.0.0.1",
-          userAgent: "test-agent",
-        }),
-        expect.any(Object),
-      );
+      expect(mockMisoClient.log.forRequest).toHaveBeenCalledWith(mockRequest);
+      expect(mockLoggerChain.audit).toHaveBeenCalledWith("client.token.request.success", "environment-token");
     });
 
     it("should handle non-Error thrown values in token fetch", async () => {
@@ -294,12 +247,8 @@ describe("environment-token", () => {
         getEnvironmentToken(mockMisoClient, mockRequest as Request),
       ).rejects.toBe("String error");
 
-      expect(mockMisoClient.log.error).toHaveBeenCalledWith(
-        expect.stringContaining("Failed to get environment token"),
-        expect.any(Object),
-        undefined,
-        expect.any(Object),
-      );
+      expect(mockMisoClient.log.forRequest).toHaveBeenCalled();
+      expect(mockLoggerChain.error).toHaveBeenCalledWith(expect.stringContaining("Failed to get environment token"), undefined);
     });
   });
 });

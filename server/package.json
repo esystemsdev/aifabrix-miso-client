@@ -16,12 +16,13 @@
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\" \"*.{ts,js,json}\"",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
-    "test": "jest",
+    "test": "node --unhandled-rejections=warn -r ../tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --maxWorkers=100% --no-coverage",
+    "test:coverage": "node --unhandled-rejections=warn -r ../tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --coverage",
     "test:stubs": "node frontend/scripts/test-stubs.cjs",
     "test:before-browser": "node frontend/scripts/test-before-browser.cjs",
     "patch:ioredis": "node frontend/scripts/patch-ioredis.cjs",
     "postinstall": "node frontend/scripts/patch-ioredis.cjs",
-    "validate": "npm run format:check && npm run lint && npm run test"
+    "validate": "npm run format:check && npm run lint && npm run test && npm run test:coverage"
   },
   "keywords": [
     "aifabrix",

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { DataClient, autoInitializeDataClient } from '@aifabrix/miso-client';
 
 /**
@@ -11,6 +11,8 @@ interface DataClientContextValue {
   isLoading: boolean;
   /** Initialization error, if any */
   error: Error | null;
+  /** Current retry attempt number (0 if no retries yet) */
+  retryCount: number;
   /** Re-initialize DataClient with auto-config */
   reinitialize: () => Promise<void>;
   /** Set a manually created DataClient instance */
@@ -53,11 +55,28 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
   const [dataClient, setDataClient] = useState<DataClient | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   /**
-   * Initialize DataClient
+   * Maximum number of retry attempts for initialization
    */
-  const initialize = async () => {
+  const MAX_RETRIES = 3;
+
+  /**
+   * Delay between retry attempts in milliseconds
+   */
+  const RETRY_DELAY = 2000;
+
+  /**
+   * Initialize DataClient with retry logic
+   * 
+   * Attempts to initialize the DataClient with automatic retry on failure.
+   * Retries up to MAX_RETRIES times with exponential backoff.
+   * 
+   * @param attempt - Current retry attempt number (default: 0)
+   * @returns Promise that resolves when initialization completes (success or final failure)
+   */
+  const initialize = async (attempt: number = 0): Promise<void> => {
     setIsLoading(true);
     setError(null);
     
@@ -72,8 +91,26 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
       });
       
       setDataClient(client);
+      setRetryCount(0); // Reset retry count on success
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
+      
+      // Retry logic: attempt retry if we haven't exceeded max retries
+      if (attempt < MAX_RETRIES) {
+        const nextAttempt = attempt + 1;
+        setRetryCount(nextAttempt);
+        
+        // Exponential backoff: delay increases with each retry
+        const delay = RETRY_DELAY * Math.pow(2, attempt);
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        // Retry initialization
+        return initialize(nextAttempt);
+      }
+      
+      // Max retries exceeded - set error and stop loading
       setError(error);
       setDataClient(null);
     } finally {
@@ -83,18 +120,30 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
 
   /**
    * Re-initialize DataClient
+   * 
+   * Resets retry count and attempts to initialize DataClient again.
+   * Useful for manual retry after an initialization failure.
+   * 
+   * @returns Promise that resolves when re-initialization completes
    */
-  const reinitialize = async () => {
-    await initialize();
+  const reinitialize = async (): Promise<void> => {
+    setRetryCount(0); // Reset retry count for manual reinitialize
+    await initialize(0);
   };
 
   /**
    * Set a manually created DataClient instance
+   * 
+   * Allows setting a DataClient instance that was created outside of the provider.
+   * Resets error state and retry count.
+   * 
+   * @param client - DataClient instance to use
    */
-  const setManualClient = (client: DataClient) => {
+  const setManualClient = (client: DataClient): void => {
     setDataClient(client);
     setError(null);
     setIsLoading(false);
+    setRetryCount(0);
   };
 
   // Initialize on mount
@@ -107,10 +156,11 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
       dataClient,
       isLoading,
       error,
+      retryCount,
       reinitialize,
       setManualClient,
     }),
-    [dataClient, isLoading, error],
+    [dataClient, isLoading, error, retryCount],
   );
 
   return (
