@@ -70,6 +70,53 @@ function nodePolyfillsPlugin(): Plugin {
         return dotenvStub;
       }
       
+      // Handle relative imports from services/logger directory (e.g., ./unified-logger.service)
+      if (cleanId.startsWith('./') || cleanId.startsWith('../')) {
+        const cleanImporter = importer ? importer.split('?')[0] : null;
+        if (cleanImporter && cleanImporter.includes('services/logger')) {
+          // Try to resolve from root workspace dist first
+          const rootDist = path.resolve(__dirname, '../../dist');
+          const loggerDir = path.join(rootDist, 'services', 'logger');
+          const resolvedPath = path.resolve(loggerDir, cleanId);
+          const extensions = ['.ts', '.js', '.tsx', '.jsx'];
+          for (const ext of extensions) {
+            const fullPath = resolvedPath + ext;
+            try {
+              if (fs.existsSync(fullPath)) {
+                const stats = fs.statSync(fullPath);
+                if (stats.isFile()) {
+                  console.log(`[node-polyfills] Resolving ${id} (from services/logger) -> ${fullPath}`);
+                  return fullPath;
+                }
+              }
+            } catch {
+              // Continue to next extension
+            }
+          }
+        }
+        // Handle relative imports from express directory (e.g., ./logger-context.middleware)
+        if (cleanImporter && cleanImporter.includes('express')) {
+          const rootDist = path.resolve(__dirname, '../../dist');
+          const expressDir = path.join(rootDist, 'express');
+          const resolvedPath = path.resolve(expressDir, cleanId);
+          const extensions = ['.ts', '.js', '.tsx', '.jsx'];
+          for (const ext of extensions) {
+            const fullPath = resolvedPath + ext;
+            try {
+              if (fs.existsSync(fullPath)) {
+                const stats = fs.statSync(fullPath);
+                if (stats.isFile()) {
+                  console.log(`[node-polyfills] Resolving ${id} (from express) -> ${fullPath}`);
+                  return fullPath;
+                }
+              }
+            } catch {
+              // Continue to next extension
+            }
+          }
+        }
+      }
+      
       // Handle relative imports from @aifabrix/miso-client package
       // These are internal module imports that need to be resolved properly
       if (cleanId.startsWith('./') || cleanId.startsWith('../')) {
@@ -89,7 +136,14 @@ function nodePolyfillsPlugin(): Plugin {
                                    cleanId.includes('response-validator') ||
                                    cleanId.includes('error-extractor') ||
                                    cleanId.includes('console-logger') ||
-                                   cleanId.includes('services/logger');
+                                   cleanId.includes('services/logger') ||
+                                   cleanId.includes('unified-logger') ||
+                                   cleanId.includes('logger-') ||
+                                   cleanId.includes('logger.service') ||
+                                   cleanId.includes('logger-context') ||
+                                   cleanId.includes('logger-chain') ||
+                                   cleanId.includes('express') ||
+                                   cleanId.includes('logger-context.middleware');
         
         if (isFromSDK || looksLikeSDKImport) {
           let importerDir: string;
@@ -341,7 +395,7 @@ export default defineConfig({
           return false;
         }
         // Don't externalize SDK internal imports even if they have query params
-        if (cleanId.includes('data-client-') || cleanId.includes('token-utils') || cleanId.includes('data-masker') || cleanId.includes('request-context') || cleanId.includes('logging-helpers') || cleanId.includes('response-validator') || cleanId.includes('error-extractor') || cleanId.includes('console-logger') || cleanId.includes('services/logger')) {
+        if (cleanId.includes('data-client-') || cleanId.includes('token-utils') || cleanId.includes('data-masker') || cleanId.includes('request-context') || cleanId.includes('logging-helpers') || cleanId.includes('response-validator') || cleanId.includes('error-extractor') || cleanId.includes('console-logger') || cleanId.includes('services/logger') || cleanId.includes('unified-logger') || cleanId.includes('logger-') || cleanId.includes('logger.service') || cleanId.includes('logger-context') || cleanId.includes('logger-chain') || cleanId.includes('express') || cleanId.includes('logger-context.middleware')) {
           return false;
         }
         return null; // Let Rollup decide for other imports
@@ -387,6 +441,41 @@ export default defineConfig({
                 }
               }
             }
+            // Handle relative imports from services/logger directory (e.g., ./unified-logger.service)
+            const cleanImporter = importer ? importer.split('?')[0] : null;
+            if (cleanImporter && cleanImporter.includes('services/logger') && (cleanId.startsWith('./') || cleanId.startsWith('../'))) {
+              const rootDist = path.resolve(__dirname, '../../dist');
+              // If importer is in services/logger, resolve relative imports from services/logger directory
+              if (cleanImporter.includes('services/logger')) {
+                const loggerDir = path.join(rootDist, 'services', 'logger');
+                const resolvedPath = path.resolve(loggerDir, cleanId);
+                const extensions = ['.ts', '.js', '.tsx', '.jsx'];
+                for (const ext of extensions) {
+                  const fullPath = resolvedPath + ext;
+                  if (fs.existsSync(fullPath)) {
+                    console.log(`[rollup-plugin] resolveId: ${id} (from services/logger) -> ${fullPath}`);
+                    return fullPath;
+                  }
+                }
+              }
+            }
+            // Handle relative imports from express directory (e.g., ./logger-context.middleware)
+            if (cleanImporter && cleanImporter.includes('express') && (cleanId.startsWith('./') || cleanId.startsWith('../'))) {
+              const rootDist = path.resolve(__dirname, '../../dist');
+              // If importer is in express, resolve relative imports from express directory
+              if (cleanImporter.includes('express')) {
+                const expressDir = path.join(rootDist, 'express');
+                const resolvedPath = path.resolve(expressDir, cleanId);
+                const extensions = ['.ts', '.js', '.tsx', '.jsx'];
+                for (const ext of extensions) {
+                  const fullPath = resolvedPath + ext;
+                  if (fs.existsSync(fullPath)) {
+                    console.log(`[rollup-plugin] resolveId: ${id} (from express) -> ${fullPath}`);
+                    return fullPath;
+                  }
+                }
+              }
+            }
             // Handle relative imports from @aifabrix/miso-client package
             // These are internal module imports that need to be resolved properly
             // Special handling for SDK internal imports like response-validator
@@ -399,7 +488,14 @@ export default defineConfig({
                                   cleanId.includes('request-context') ||
                                   cleanId.includes('logging-helpers') ||
                                   cleanId.includes('error-extractor') ||
-                                  cleanId.includes('console-logger');
+                                  cleanId.includes('console-logger') ||
+                                  cleanId.includes('unified-logger') ||
+                                  cleanId.includes('logger-') ||
+                                  cleanId.includes('logger.service') ||
+                                  cleanId.includes('logger-context') ||
+                                  cleanId.includes('logger-chain') ||
+                                  cleanId.includes('express') ||
+                                  cleanId.includes('logger-context.middleware');
               
               // Always resolve SDK imports from root workspace dist first (before checking importer directory)
               // This ensures we find the file even if it doesn't exist in pnpm directory
@@ -441,7 +537,14 @@ export default defineConfig({
                                          cleanId.includes('response-validator') ||
                                          cleanId.includes('error-extractor') ||
                                          cleanId.includes('console-logger') ||
-                                         cleanId.includes('services/logger');
+                                         cleanId.includes('services/logger') ||
+                                         cleanId.includes('unified-logger') ||
+                                         cleanId.includes('logger-') ||
+                                         cleanId.includes('logger.service') ||
+                                         cleanId.includes('logger-context') ||
+                                         cleanId.includes('logger-chain') ||
+                                         cleanId.includes('express') ||
+                                         cleanId.includes('logger-context.middleware');
               
               if (isFromSDK || looksLikeSDKImport || !importer || cleanImporter === cleanId || (cleanImporter && cleanImporter.includes('?commonjs-external'))) {
                 let importerDir: string;

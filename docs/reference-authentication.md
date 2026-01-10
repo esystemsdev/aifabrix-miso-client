@@ -707,7 +707,7 @@ fastify.get('/posts', async (request, reply) => {
 - [MisoClient Reference](./reference-misoclient.md) - Main client class
 - [Authorization Reference](./reference-authorization.md) - Roles and permissions
 - [Type Reference](./reference-types.md) - Complete type definitions
-- [Examples Guide](./examples.md) - Framework-specific examples
+- [Examples](./examples/README.md) - Framework-specific examples
 - [DataClient Reference](./reference-dataclient.md) - Browser client authentication methods
 - **Example Files:**
   - [Authentication Example](../examples/step-3-authentication.ts) - Token validation and user info

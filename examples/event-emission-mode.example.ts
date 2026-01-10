@@ -3,10 +3,13 @@
  * 
  * Demonstrates how to use the SDK in event emission mode when embedding the SDK directly in your own application.
  * When emitEvents = true, logs are emitted as Node.js events instead of being sent via HTTP.
+ * 
+ * The unified logging interface works seamlessly with event emission mode - logs are still emitted
+ * as events, but you use the simplified API with automatic context extraction.
  */
 
 // For development: import from '../src/index'
-import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, LogEntry, getLogger, setLoggerContext } from '@aifabrix/miso-client';
 
 async function eventEmissionExample() {
   // Create client with emitEvents enabled
@@ -18,6 +21,15 @@ async function eventEmissionExample() {
 
   try {
     await client.initialize();
+
+    // Set logger context (for non-Express environments)
+    setLoggerContext({
+      userId: 'user-123',
+      correlationId: 'req-456',
+    });
+
+    // Get logger instance - context is automatically extracted
+    const logger = getLogger();
 
     // Listen to log events
     client.log.on('log', (logEntry: LogEntry) => {
@@ -42,10 +54,11 @@ async function eventEmissionExample() {
       // await db.logs.insertMany(logEntries);
     });
 
-    // Use logger normally - events will be emitted instead of HTTP calls
-    await client.log.info('Application started');
-    await client.log.error('Error occurred', { error: 'test error' });
-    await client.log.audit('user.created', 'users', { userId: '123' });
+    // Use unified logging interface - events will be emitted instead of HTTP calls
+    // Context is automatically extracted from AsyncLocalStorage
+    await logger.info('Application started');
+    await logger.error('Error occurred', new Error('test error'));
+    await logger.audit('user.created', 'users', 'user-123');
 
     console.log('✅ Events emitted successfully');
 
@@ -124,9 +137,18 @@ async function directEmbeddingSetupExample() {
     }
   });
 
-  // Use logger normally - events will be emitted
-  await client.log.info('Application started');
-  await client.log.error('Operation failed', { error: 'details' });
+  // Set logger context
+  setLoggerContext({
+    userId: 'user-123',
+    correlationId: 'req-456',
+  });
+
+  // Get logger instance - context is automatically extracted
+  const logger = getLogger();
+
+  // Use unified logging interface - events will be emitted
+  await logger.info('Application started');
+  await logger.error('Operation failed', new Error('details'));
 }
 
 export { eventEmissionExample, directEmbeddingSetupExample };

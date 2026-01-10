@@ -3,7 +3,7 @@
  * Shows how to use loadConfig() for automatic .env loading
  */
 // For development: import from '../src/index'
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, getLogger, setLoggerContext } from '@aifabrix/miso-client';
 
 async function envConfigExample() {
   // Auto-load from .env file - that's it!
@@ -22,9 +22,18 @@ async function envConfigExample() {
       console.log('👤 User:', user);
       console.log('🔑 Roles:', roles);
       
-      await client.log.info('User accessed app', {
+      // Set logger context (for non-Express environments)
+      // In Express apps, use loggerContextMiddleware instead
+      setLoggerContext({
         userId: user?.id,
+        token: token,
       });
+      
+      // Get logger instance - context is automatically extracted
+      const logger = getLogger();
+      
+      // Log with unified interface (no context object needed - auto-extracted)
+      await logger.info('User accessed app');
     }
   } finally {
     await client.disconnect();

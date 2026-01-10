@@ -346,6 +346,60 @@ await client.log
 
 → [Complete logging example](../examples/step-5-logging.ts)
 
+### Unified Logging (Recommended)
+
+**Even simpler:** Use the unified logging interface with automatic context extraction.
+
+**Setup (one time):**
+
+```typescript
+import { loggerContextMiddleware, getLogger } from '@aifabrix/miso-client';
+
+// Add middleware early in middleware chain
+app.use(loggerContextMiddleware);
+```
+
+**Usage anywhere:**
+
+```typescript
+// In Express routes
+app.get('/api/users', async (req, res) => {
+  const logger = getLogger(); // Auto-detects context from AsyncLocalStorage
+  await logger.info('Users list accessed'); // Auto-extracts request context
+  res.json(users);
+});
+
+// In service layers (no Request object needed!)
+export class UserService {
+  async getUser(userId: string) {
+    const logger = getLogger(); // Uses AsyncLocalStorage context if available
+    await logger.info('Fetching user');
+    // ... your code
+  }
+}
+
+// Error logging with automatic context
+try {
+  await processData();
+} catch (error) {
+  const logger = getLogger();
+  await logger.error('Failed to process data', error); // Auto-extracts error details
+}
+
+// Audit logging with oldValues/newValues
+const logger = getLogger();
+await logger.audit('UPDATE', 'User', userId, oldUser, updatedUser);
+```
+
+**I love this because:**
+
+- ✅ Minimal API: `logger.info(message)` - just 1 parameter!
+- ✅ Automatic context extraction (no manual passing)
+- ✅ Works everywhere: Express routes, services, background jobs
+- ✅ Zero configuration when middleware is used
+
+→ [Background Jobs Examples](./examples/background-jobs.md)
+
 ---
 
 ## 📋 Step 7: Create Audit Trails
@@ -557,11 +611,9 @@ app.post('/create-post', authMiddleware, async (req, res) => {
 
 ### More Examples
 
-- **[Express.js Middleware](examples.md#expressjs-middleware)** - Complete Express setup
-- **[DataClient Browser Wrapper](data-client.md)** - Enhanced HTTP client for React/Vue/Angular with ISO 27001 audit logging (includes React/Vue examples)
-- **[Next.js API Routes](examples.md#nextjs-api-routes)** - Server-side rendering
-- **[NestJS Guards](examples.md#nestjs-guards)** - Decorator-based auth
-- **[MisoClient Examples](examples.md)** - Server-side SDK examples
+- **[Express.js Middleware](./examples/express-middleware.md)** - Complete Express setup
+- **[DataClient Browser Wrapper](./data-client.md)** - Enhanced HTTP client for React/Vue/Angular with ISO 27001 audit logging
+- **[Examples](./examples/README.md)** - Server-side SDK examples
 
 ### Deep Dive
 

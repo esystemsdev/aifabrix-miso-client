@@ -298,7 +298,7 @@ MisoClient provides access to authentication and authorization methods via `clie
 - [Standalone Utilities](./reference-utilities.md#standalone-utilities) - Utility functions
 - [Configuration Guide](./configuration.md) - Configuration best practices
 - [Getting Started Guide](./getting-started.md) - Quick start tutorial
-- [Examples](./examples.md) - Framework-specific examples
+- [Examples](./examples/README.md) - Framework-specific examples
 - **Example Files:**
   - [Environment Config Example](../examples/env-config-example.ts) - Configuration from .env file
   - [Manual Config Example](../examples/manual-config-example.ts) - Manual configuration setup

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - 2026-01-10
+
+### Added
+
+- **Unified Logging Interface**: New minimal API with automatic context extraction
+  - `getLogger()` factory function for automatic context detection from AsyncLocalStorage
+  - `setLoggerContext()` and `clearLoggerContext()` for manual context management
+  - `loggerContextMiddleware` Express middleware helper for automatic request context extraction
+  - AsyncLocalStorage-based context propagation across async boundaries
+  - Simplified API: `logger.info(message)`, `logger.error(message, error?)`, `logger.audit(action, resource, entityId?, oldValues?, newValues?)`
+  - Automatic context extraction from AsyncLocalStorage (set by Express middleware or manually)
+  - Works seamlessly in Express routes, service layers, and background jobs
+  - Zero configuration required when middleware is used
+
+### Documentation
+
+- Added unified logging examples and guides (`docs/examples/unified-logging.md`)
+- Updated Express middleware examples with unified logging pattern
+- Added background job logging examples with unified interface
+- Comprehensive API reference for UnifiedLogger interface in `docs/reference-services.md`
+
 ## [3.7.2] - 2026-01-10
 
 ### Added

@@ -23,12 +23,19 @@ Complete reference for error handling in the MisoClient SDK following RFC 7807 P
 
 ### Express Route Error Handling (Recommended Pattern)
 
-**✅ BEST PRACTICE: Use `asyncHandler` wrapper and `handleRouteError` middleware with MisoClient logger**
+**✅ BEST PRACTICE: Use `asyncHandler` wrapper, `loggerContextMiddleware`, and `handleRouteError` with unified logging**
 
 ```typescript
 import express from 'express';
 import { Request, Response } from 'express';
-import { asyncHandler, AppError, handleRouteError, setErrorLogger } from '@aifabrix/miso-client';
+import { 
+  asyncHandler, 
+  AppError, 
+  handleRouteError, 
+  setErrorLogger,
+  loggerContextMiddleware,
+  getLogger
+} from '@aifabrix/miso-client';
 import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
 const app = express();
@@ -38,19 +45,16 @@ app.use(express.json());
 const client = new MisoClient(loadConfig());
 await client.initialize();
 
-// Configure error logger to use MisoClient logger with forRequest()
+// Add logger context middleware early in middleware chain (after auth middleware if needed)
+// This automatically extracts context from requests and stores it in AsyncLocalStorage
+app.use(loggerContextMiddleware);
+
+// Configure error logger to use unified logging interface
 setErrorLogger({
   async logError(message, options) {
-    const req = (options as { req?: Request })?.req;
-    if (req && client) {
-      // Use forRequest() for automatic context extraction
-      await client.log
-        .forRequest(req)
-        .error(message, (options as { stack?: string })?.stack);
-    } else if (client) {
-      // Fallback for non-Express contexts
-      await client.log.error(message, options as Record<string, unknown>);
-    }
+    const logger = getLogger(); // Auto-detects context from AsyncLocalStorage
+    const stack = (options as { stack?: string })?.stack;
+    await logger.error(message, stack ? new Error(stack) : undefined);
   }
 });
 
@@ -76,18 +80,28 @@ app.listen(3000);
 
 - ✅ No try-catch boilerplate needed
 - ✅ Automatic RFC 7807 error formatting
-- ✅ Automatic error logging with full context via `forRequest()`
-- ✅ Automatic correlation ID extraction
+- ✅ Automatic error logging with full context via unified logging interface
+- ✅ Automatic correlation ID extraction (server-generated if not provided)
 - ✅ Consistent error responses across all routes
 - ✅ All errors logged with IP, method, path, userAgent, correlationId, userId automatically
+- ✅ Minimal API: `logger.error(message, error)` - just 2 parameters!
 
 ### Basic Error Handling (Non-Express)
 
+**For non-Express contexts, use `setLoggerContext()` to provide context:**
+
 ```typescript
-import { MisoClient, loadConfig, MisoClientError } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, MisoClientError, getLogger, setLoggerContext } from '@aifabrix/miso-client';
 
 const client = new MisoClient(loadConfig());
 await client.initialize();
+
+// Set context for this async execution context (if not in Express route)
+setLoggerContext({
+  userId: 'system',
+  correlationId: 'req-123',
+  ipAddress: '127.0.0.1',
+});
 
 try {
   const user = await client.getUser(token);
@@ -102,12 +116,9 @@ try {
       console.error('Correlation ID:', error.errorResponse.correlationId);
     }
     
-    // Log error with context
-    await client.log.error('User fetch failed', {
-      statusCode: error.statusCode,
-      errorType: error.errorResponse?.type,
-      correlationId: error.errorResponse?.correlationId,
-    });
+    // Log error with unified logging interface (uses context from AsyncLocalStorage)
+    const logger = getLogger();
+    await logger.error('User fetch failed', error);
   }
 }
 ```
@@ -199,30 +210,30 @@ if (errors.length > 0) {
 
 ### ✅ DO: Use handleRouteError for Error Middleware
 
-**Configure MisoClient logger with `setErrorLogger()` to use `forRequest()`:**
+**Configure unified logging interface with `setErrorLogger()`:**
 
 ```typescript
-import { handleRouteError, setErrorLogger } from '@aifabrix/miso-client';
+import { handleRouteError, setErrorLogger, loggerContextMiddleware, getLogger } from '@aifabrix/miso-client';
 import { Request, Response, NextFunction } from 'express';
 import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+const app = express();
+app.use(express.json());
 
 // Initialize MisoClient once (typically at app startup)
 const client = new MisoClient(loadConfig());
 await client.initialize();
 
-// Configure error logger to use MisoClient logger with forRequest()
+// Add logger context middleware early in middleware chain
+// This automatically extracts context from requests and stores it in AsyncLocalStorage
+app.use(loggerContextMiddleware);
+
+// Configure error logger to use unified logging interface
 setErrorLogger({
   async logError(message, options) {
-    const req = (options as { req?: Request })?.req;
-    if (req && client) {
-      // Use forRequest() for automatic context extraction
-      await client.log
-        .forRequest(req)
-        .error(message, (options as { stack?: string })?.stack);
-    } else if (client) {
-      // Fallback for non-Express contexts
-      await client.log.error(message, options as Record<string, unknown>);
-    }
+    const logger = getLogger(); // Auto-detects context from AsyncLocalStorage
+    const stack = (options as { stack?: string })?.stack;
+    await logger.error(message, stack ? new Error(stack) : undefined);
   }
 });
 
@@ -239,20 +250,20 @@ export const errorHandler = async (
 The `handleRouteError()` utility automatically:
 
 - Formats errors as RFC 7807 Problem Details
-- Logs errors with LoggerService (via configured error logger)
-- Uses `forRequest()` when MisoClient logger is configured (extracts IP, method, path, userAgent, correlationId, userId)
-- Extracts correlation ID from request headers
+- Logs errors with unified logging interface (via configured error logger)
+- Uses `getLogger()` which auto-detects context from AsyncLocalStorage (set by `loggerContextMiddleware`)
+- Automatically extracts: IP, method, path, userAgent, correlationId (server-generated if not provided), userId
 - Sets `Content-Type: application/problem+json` header
 - Maps error types to appropriate status codes
 
 ### ✅ DO: Handle External API Errors Properly
 
 ```typescript
-import { MisoClientError, AppError } from '@aifabrix/miso-client';
+import { MisoClientError, AppError, getLogger } from '@aifabrix/miso-client';
 import { DataClient, MisoClient } from '@aifabrix/miso-client';
 import { Request, Response } from 'express';
 
-// In Express route handler
+// In Express route handler (loggerContextMiddleware must be set up)
 router.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<void> => {
   const client = new MisoClient(loadConfig());
   await client.initialize();
@@ -263,10 +274,9 @@ router.post('/api/data', asyncHandler(async (req: Request, res: Response): Promi
     res.success(result);
   } catch (error) {
     if (error instanceof MisoClientError) {
-      // Log error with full request context
-      await client.log
-        .withRequest(req)
-        .error('External API call failed', error instanceof Error ? error.stack : undefined);
+      // Log error with automatic context extraction (from AsyncLocalStorage)
+      const logger = getLogger();
+      await logger.error('External API call failed', error);
       
       // Use structured error response if available
       if (error.errorResponse) {
@@ -334,13 +344,18 @@ throw new AppError('Resource not found', 404);
 
 ## Error Logging Best Practices
 
-### ✅ Good: Comprehensive Error Logging with Request Context
+### ✅ Good: Comprehensive Error Logging with Unified Logging Interface
 
-**Express routes - use `forRequest()` for automatic context extraction:**
+**Express routes - use `getLogger()` for automatic context extraction:**
 
 ```typescript
-import { MisoClient, MisoClientError } from '@aifabrix/miso-client';
+import { getLogger, loggerContextMiddleware } from '@aifabrix/miso-client';
+import { Request, Response } from 'express';
 
+// Setup (one time, early in middleware chain)
+app.use(loggerContextMiddleware);
+
+// Route handler - errors automatically logged by asyncHandler + handleRouteError
 app.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<void> => {
   await processData(req.body);
   res.json({ success: true });
@@ -352,10 +367,9 @@ app.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<
     await processData(req.body);
     res.json({ success: true });
   } catch (error) {
-    // Log with full request context (automatic extraction)
-    await client.log
-      .forRequest(req)  // Auto-extracts: IP, method, path, userAgent, correlationId, userId
-      .error('Data processing failed', error instanceof Error ? error.stack : undefined);
+    // Log with automatic context extraction (from AsyncLocalStorage)
+    const logger = getLogger(); // Auto-detects context from AsyncLocalStorage
+    await logger.error('Data processing failed', error);
     
     // Re-throw to be handled by error middleware
     throw error;
@@ -363,52 +377,84 @@ app.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<
 }, 'processData'));
 ```
 
-**What `forRequest(req)` automatically extracts:**
+**What `loggerContextMiddleware` automatically extracts and stores in AsyncLocalStorage:**
 
-- `ipAddress` - Client IP (handles proxy headers)
-- `method` - HTTP method (GET, POST, etc.)
-- `path` - Request path
-- `userAgent` - Browser/client user agent
-- `correlationId` - From `x-correlation-id` header
-- `userId` - Extracted from JWT token
-- `sessionId` - Extracted from JWT token
+- `ipAddress` - Client IP (from server connection, handles proxy headers)
+- `method` - HTTP method (GET, POST, etc.) - from server request object
+- `path` - Request path - from server request object
+- `userAgent` - Browser/client user agent - from request headers
+- `correlationId` - Server-generated if not provided (ISO 27001 compliant)
+- `userId` - Extracted from validated JWT token
+- `sessionId` - Extracted from validated JWT token
+- `applicationId` - Extracted from validated JWT token
 
 ### ✅ Good: Manual Context (Non-Express)
 
+**For background jobs or non-Express contexts, use `setLoggerContext()`:**
+
 ```typescript
+import { getLogger, setLoggerContext } from '@aifabrix/miso-client';
+
+// Set context for this async execution context
+setLoggerContext({
+  userId: 'system',
+  correlationId: 'job-123',
+  ipAddress: '127.0.0.1',
+});
+
 try {
   const result = await client.getUser(token);
 } catch (error) {
-  // Include all important context manually
-  await client.log.error('User fetch failed', {
-    // Request context
-    ipAddress: '192.168.1.1',
-    method: 'GET',
-    path: '/api/user',
-    userAgent: 'Mozilla/5.0...',
-    correlationId: 'req-123',
-    
-    // User context
-    userId: extractUserIdFromToken(token),
-    
-    // Error details
-    statusCode: error instanceof MisoClientError ? error.statusCode : 500,
-    errorMessage: error instanceof Error ? error.message : 'Unknown error',
-    errorType: error instanceof MisoClientError ? error.errorResponse?.type : undefined,
-    stack: error instanceof Error ? error.stack : undefined,
-  });
+  // Log with automatic context extraction (from AsyncLocalStorage)
+  const logger = getLogger(); // Uses context set above
+  await logger.error('User fetch failed', error);
+}
+```
+
+**Or for service layers without Request objects:**
+
+```typescript
+import { getLogger } from '@aifabrix/miso-client';
+
+// Context is automatically available if set by middleware or manually
+export class UserService {
+  async getUser(userId: string) {
+    try {
+      const user = await db.user.findUnique({ where: { id: userId } });
+      return user;
+    } catch (error) {
+      const logger = getLogger(); // Auto-detects context if available
+      await logger.error('Failed to fetch user', error);
+      throw error;
+    }
+  }
 }
 ```
 
 ### ❌ Bad: Minimal Logging (Missing Context)
 
 ```typescript
-// ❌ Don't do this - missing IP, endpoint, user, correlation ID, etc.
-try {
-  await client.getUser(token);
-} catch (error) {
-  await client.log.error('Failed');  // ❌ No context!
-}
+// ❌ Don't do this - missing context setup
+// Missing: loggerContextMiddleware setup
+app.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  try {
+    await processData(req.body);
+  } catch (error) {
+    const logger = getLogger(); // ❌ No context available - middleware not set up!
+    await logger.error('Failed');  // ❌ No IP, endpoint, user, correlation ID, etc.
+  }
+}, 'processData'));
+
+// ✅ CORRECT - Set up middleware first
+app.use(loggerContextMiddleware); // Add this early in middleware chain
+app.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<void> => {
+  try {
+    await processData(req.body);
+  } catch (error) {
+    const logger = getLogger(); // ✅ Context automatically available
+    await logger.error('Failed', error); // ✅ Auto-extracts all context
+  }
+}, 'processData'));
 ```
 
 ### Error Logging Checklist
@@ -512,11 +558,14 @@ if (!isValid) {
 
 **Behavior**: Logs warnings and continues with cached data when possible.
 
-**Express routes - use `forRequest()` for automatic context extraction:**
+**Express routes - use `getLogger()` for automatic context extraction:**
 
 ```typescript
 import { Request, Response } from 'express';
-import { MisoClient, MisoClientError } from '@aifabrix/miso-client';
+import { MisoClientError, getLogger } from '@aifabrix/miso-client';
+
+// Setup (one time, early in middleware chain)
+app.use(loggerContextMiddleware);
 
 router.get('/api/data', asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
@@ -524,10 +573,9 @@ router.get('/api/data', asyncHandler(async (req: Request, res: Response): Promis
     res.success(data);
   } catch (error) {
     if (error instanceof MisoClientError && error.statusCode === 503) {
-      // Log network issue with full request context
-      await client.log
-        .forRequest(req)
-        .error('Service unavailable, attempting cache fallback', error instanceof Error ? error.stack : undefined);
+      // Log network issue with automatic context extraction
+      const logger = getLogger(); // Auto-detects context from AsyncLocalStorage
+      await logger.error('Service unavailable, attempting cache fallback', error);
       
       // Service unavailable - try cached data
       const cachedData = await getCachedData();
@@ -544,11 +592,14 @@ router.get('/api/data', asyncHandler(async (req: Request, res: Response): Promis
 
 **Behavior**: Returns 429 status with retry-after information.
 
-**Express routes - use `forRequest()` for automatic context extraction:**
+**Express routes - use `getLogger()` for automatic context extraction:**
 
 ```typescript
 import { Request, Response } from 'express';
-import { MisoClient, MisoClientError, AppError } from '@aifabrix/miso-client';
+import { MisoClientError, AppError, getLogger } from '@aifabrix/miso-client';
+
+// Setup (one time, early in middleware chain)
+app.use(loggerContextMiddleware);
 
 router.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
@@ -558,10 +609,9 @@ router.post('/api/data', asyncHandler(async (req: Request, res: Response): Promi
     if (error instanceof MisoClientError && error.statusCode === 429) {
       const retryAfter = error.errorResponse?.retryAfter || 60;
       
-      // Log rate limit with full request context
-      await client.log
-        .forRequest(req)
-        .error(`Rate limited. Retry after ${retryAfter} seconds`, error instanceof Error ? error.stack : undefined);
+      // Log rate limit with automatic context extraction
+      const logger = getLogger(); // Auto-detects context from AsyncLocalStorage
+      await logger.error(`Rate limited. Retry after ${retryAfter} seconds`, error);
       
       // Implement retry logic with exponential backoff
       throw new AppError(`Rate limit exceeded. Retry after ${retryAfter} seconds`, 429);
@@ -678,27 +728,24 @@ throw new AppError('Insufficient permissions', 403);
 
 ### ✅ DO: Log Sensitive Details Securely
 
-**Express routes - use `forRequest()` for automatic context extraction:**
+**Express routes - use `getLogger()` for automatic context extraction:**
 
 ```typescript
-import { Request } from 'express';
-import { MisoClient } from '@aifabrix/miso-client';
+import { Request, Response } from 'express';
+import { getLogger } from '@aifabrix/miso-client';
+
+// Setup (one time, early in middleware chain)
+app.use(loggerContextMiddleware);
 
 // In Express route handler
 router.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
     await processDatabaseQuery();
   } catch (error) {
-    // Log sensitive details securely with full request context (not exposed to client)
-    await client.log
-      .forRequest(req)  // Auto-extracts: IP, method, path, userAgent, correlationId, userId
-      .error('Database query failed', error instanceof Error ? error.stack : undefined);
-    
-    // Additional context can be added via context parameter
-    await client.log.error('Database query failed', {
-      query: sanitizedQuery,  // Sanitized version
-      // Sensitive details logged but not exposed to client
-    });
+    // Log sensitive details securely with automatic context extraction (not exposed to client)
+    const logger = getLogger(); // Auto-detects context from AsyncLocalStorage
+    await logger.error('Database query failed', error);
+    // Context automatically includes: IP, method, path, userAgent, correlationId, userId
     
     throw error; // Re-throw to be handled by error middleware
   }
@@ -722,7 +769,10 @@ function sanitizeErrorResponse(error: ErrorResponse): ErrorResponse {
 
 ```typescript
 import { Request, Response } from 'express';
-import { MisoClient } from '@aifabrix/miso-client';
+import { getLogger, loggerContextMiddleware } from '@aifabrix/miso-client';
+
+// Setup (one time, early in middleware chain)
+app.use(loggerContextMiddleware);
 
 // ❌ WRONG - Never expose stack traces to clients
 res.status(500).json({
@@ -730,15 +780,15 @@ res.status(500).json({
   stack: error.stack  // NEVER expose
 });
 
-// ✅ CORRECT - Stack traces only in logs (use forRequest() in Express routes)
+// ✅ CORRECT - Stack traces only in logs (use getLogger() in Express routes)
 router.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<void> => {
   try {
     await processOperation();
   } catch (error) {
-    // Log stack trace securely with full request context
-    await client.log
-      .forRequest(req)  // Auto-extracts: IP, method, path, userAgent, correlationId, userId
-      .error('Operation failed', error instanceof Error ? error.stack : undefined);
+    // Log stack trace securely with automatic context extraction
+    const logger = getLogger(); // Auto-detects context from AsyncLocalStorage
+    await logger.error('Operation failed', error);
+    // Context automatically includes: IP, method, path, userAgent, correlationId, userId
     
     // Re-throw to be handled by error middleware (client receives sanitized error)
     throw error;
@@ -1068,7 +1118,8 @@ When implementing error handling, ensure:
 - [ ] All error responses use RFC 7807 format
 - [ ] All route handlers use `asyncHandler()` wrapper
 - [ ] All custom errors throw `AppError`
-- [ ] All errors logged with LoggerService using `forRequest()` (automatic via handleRouteError when configured)
+- [ ] All errors logged with unified logging interface using `getLogger()` (automatic via handleRouteError when configured)
+- [ ] `loggerContextMiddleware` set up early in middleware chain for automatic context extraction
 - [ ] Content-Type header set to `application/problem+json` (automatic via handleRouteError)
 - [ ] Error type URIs follow standard naming (`/Errors/{ErrorType}`)
 - [ ] Correlation IDs included in error responses (automatic via handleRouteError)
@@ -1085,7 +1136,7 @@ When implementing error handling, ensure:
 - [Type Reference](./reference-types.md) - Complete type definitions including error types
 - [MisoClient Reference](./reference-misoclient.md) - Main client class
 - [DataClient Reference](./reference-dataclient.md#error-types) - Browser client error types
-- [Examples Guide](./examples.md) - Framework-specific error handling examples
+- [Error Handling Examples](./examples/error-handling.md) - Error handling examples
 - [RFC 7807 Specification](https://tools.ietf.org/html/rfc7807) - Problem Details for HTTP APIs
 
 ---

@@ -35,7 +35,7 @@ The MisoClient SDK provides a comprehensive set of APIs for authentication, auth
 ### Types & Errors
 
 - **[Type Reference](./reference-types.md)** - Complete TypeScript type definitions
-- **[Error Handling Reference](./reference-errors.md)** - Error handling, structured error responses, and snake_case error utilities
+- **[Error Handling Reference](./reference-errors.md)** - Error handling and structured error responses
 
 ## Quick Navigation
 
@@ -56,13 +56,12 @@ The MisoClient SDK provides a comprehensive set of APIs for authentication, auth
 **Express.js Applications:**
 
 - [Utilities Reference](./reference-utilities.md#express-utilities) - Express utilities
-- [Examples Guide](./examples.md#expressjs-middleware) - Express middleware examples
+- [Express Examples](./examples/express-middleware.md) - Express middleware examples
 
 **Pagination, Filtering, Sorting:**
 
 - [Utilities Reference](./reference-utilities.md#pagination-utilities) - Pagination utilities
-- [Utilities Reference](./reference-utilities.md#filter-utilities) - Filter utilities
-- [Utilities Reference](./reference-utilities.md#sort-utilities) - Sort utilities
+- [Utilities Examples](./examples/utilities.md) - Pagination, filtering, and sorting examples
 
 **Error Handling:**
 
@@ -73,10 +72,10 @@ The MisoClient SDK provides a comprehensive set of APIs for authentication, auth
 
 For practical examples and best practices, see:
 
-- **[DataClient Guide](./data-client.md)** - Complete DataClient guide with examples and security best practices
+- **[DataClient Guide](./data-client.md)** - DataClient quick start guide
 - **[Getting Started Guide](./getting-started.md)** - Quick start tutorial
 - **[Configuration Guide](./configuration.md)** - Configuration options and best practices
-- **[Examples Guide](./examples.md)** - Framework-specific examples (Express, React, Next.js, NestJS, Fastify, etc.)
+- **[Examples](./examples/README.md)** - Framework-specific examples (Express, React)
 - **[Troubleshooting Guide](./troubleshooting.md)** - Common issues and solutions
 
 ## SDK Structure
@@ -95,7 +94,7 @@ For practical examples and best practices, see:
 
 1. **Server-Side**: See [MisoClient Reference](./reference-misoclient.md) and [Getting Started Guide](./getting-started.md)
 2. **Browser/Frontend**: See [DataClient Reference](./reference-dataclient.md) and [DataClient Guide](./data-client.md)
-3. **Examples**: See [Examples Guide](./examples.md) for framework-specific examples
+3. **Examples**: See [Examples](./examples/README.md) for framework-specific examples
 
 ## Type Exports
 
@@ -103,8 +102,8 @@ All types are exported from the main package. See [Type Reference](./reference-t
 
 ## See Also
 
-- [DataClient Guide](./data-client.md) - Complete DataClient guide with examples
+- [DataClient Guide](./data-client.md) - DataClient quick start guide
 - [Getting Started Guide](./getting-started.md) - Quick start tutorial
 - [Configuration Guide](./configuration.md) - Configuration options
-- [Examples Guide](./examples.md) - Framework-specific examples
+- [Examples](./examples/README.md) - Framework-specific examples
 - [Troubleshooting Guide](./troubleshooting.md) - Common issues and solutions

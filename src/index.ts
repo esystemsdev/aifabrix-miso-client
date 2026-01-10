@@ -72,6 +72,11 @@ export class MisoClient {
     // Set ApiClient in LoggerService (resolves circular dependency)
     this.logger.setApiClient(this.apiClient);
 
+    // Register LoggerService for unified logging interface
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { registerLoggerService } = require("./services/logger/unified-logger.factory");
+    registerLoggerService(this.logger);
+
     // Initialize cache service with Redis support (used by auth, roles and permissions)
     this.cacheService = new CacheService(this.redis);
 
@@ -566,6 +571,18 @@ export { RedisService } from "./services/redis.service";
 export { CacheService } from "./services/cache.service";
 export { HttpClient } from "./utils/http-client";
 
+// Export unified logging interface
+export {
+  getLogger,
+  setLoggerContext,
+  clearLoggerContext,
+  mergeLoggerContext,
+} from "./services/logger/unified-logger.factory";
+export type {
+  UnifiedLogger,
+} from "./services/logger/unified-logger.service";
+export type { LoggerContext } from "./services/logger/logger-context-storage";
+
 // Export utilities
 export { loadConfig } from "./utils/config-loader";
 export { validateOrigin } from "./utils/origin-validator";
@@ -617,6 +634,7 @@ export {
   EncryptionUtil,
   createClientTokenEndpoint,
   hasConfig,
+  loggerContextMiddleware,
 } from "./express";
 export type {
   ClientTokenEndpointOptions,

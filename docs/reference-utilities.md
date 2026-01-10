@@ -1096,4 +1096,4 @@ app.get('/api/applications', (req, res) => {
 - [DataClient Reference](./reference-dataclient.md) - Browser client
 - [Type Reference](./reference-types.md) - Complete type definitions
 - [Configuration Guide](./configuration.md) - Configuration options
-- [Examples Guide](./examples.md) - Framework-specific examples
+- [Utilities Examples](./examples/utilities.md) - Pagination, filtering, and sorting examples

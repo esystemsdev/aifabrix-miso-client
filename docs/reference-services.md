@@ -160,6 +160,234 @@ app.get('/api/users', async (req: Request, res) => {
 });
 ```
 
+### Unified Logging Interface
+
+The SDK provides a unified logging interface with a minimal API (1-3 parameters maximum) and automatic context extraction via AsyncLocalStorage. This enables simple, consistent logging across all applications without requiring manual context passing.
+
+**Key Benefits:**
+
+- **Minimal API**: Maximum 1-3 parameters per logging call
+- **Automatic Context**: Context extracted automatically from AsyncLocalStorage (set by Express middleware or manually)
+- **Simple Usage**: `logger.info(message)`, `logger.error(message, error?)`, `logger.audit(action, resource, entityId?, oldValues?, newValues?)`
+- **Framework Agnostic**: Works in Express routes, service layers, background jobs
+- **Zero Configuration**: Context automatically available when middleware is used
+
+**Setup:**
+
+1. Add Express middleware (if using Express):
+```typescript
+import { loggerContextMiddleware } from '@aifabrix/miso-client';
+
+app.use(loggerContextMiddleware);
+```
+
+2. Get logger instance anywhere:
+```typescript
+import { getLogger } from '@aifabrix/miso-client';
+
+const logger = getLogger();
+```
+
+#### `getLogger(loggerService?: LoggerService): UnifiedLogger`
+
+Factory function to get UnifiedLogger instance with automatic context detection from AsyncLocalStorage.
+
+**Parameters:**
+
+- `loggerService` - Optional LoggerService instance (if not provided, uses registered instance from MisoClient)
+
+**Returns:** `UnifiedLogger` instance
+
+**Example:**
+
+```typescript
+import { getLogger } from '@aifabrix/miso-client';
+
+const logger = getLogger();
+await logger.info('Message'); // Auto-extracts context from AsyncLocalStorage
+```
+
+#### `setLoggerContext(context: Partial<LoggerContext>): void`
+
+Set logger context for current async execution context. Context is automatically available to all code in the same async context.
+
+**Parameters:**
+
+- `context` - Context to set (partial, will be merged with existing)
+
+**Example:**
+
+```typescript
+import { setLoggerContext } from '@aifabrix/miso-client';
+
+setLoggerContext({
+  userId: 'user-123',
+  correlationId: 'req-456',
+  ipAddress: '192.168.1.1',
+});
+```
+
+#### `clearLoggerContext(): void`
+
+Clear logger context for current async execution context.
+
+**Example:**
+
+```typescript
+import { clearLoggerContext } from '@aifabrix/miso-client';
+
+clearLoggerContext();
+```
+
+#### `mergeLoggerContext(additional: Partial<LoggerContext>): void`
+
+Merge additional fields into existing logger context.
+
+**Parameters:**
+
+- `additional` - Additional context fields to merge
+
+**Example:**
+
+```typescript
+import { mergeLoggerContext } from '@aifabrix/miso-client';
+
+mergeLoggerContext({ userId: 'user-123' });
+```
+
+#### UnifiedLogger Methods
+
+##### `info(message: string): Promise<void>`
+
+Log info message with automatic context extraction.
+
+**Parameters:**
+
+- `message` - Info message
+
+**Example:**
+
+```typescript
+const logger = getLogger();
+await logger.info('Users list accessed');
+```
+
+##### `warn(message: string): Promise<void>`
+
+Log warning message with automatic context extraction.
+
+**Parameters:**
+
+- `message` - Warning message
+
+**Example:**
+
+```typescript
+const logger = getLogger();
+await logger.warn('Rate limit approaching');
+```
+
+##### `debug(message: string): Promise<void>`
+
+Log debug message with automatic context extraction.
+
+**Parameters:**
+
+- `message` - Debug message
+
+**Example:**
+
+```typescript
+const logger = getLogger();
+await logger.debug('Processing request');
+```
+
+##### `error(message: string, error?: unknown): Promise<void>`
+
+Log error message with automatic context extraction and error details.
+
+**Parameters:**
+
+- `message` - Error message
+- `error` - Optional error object (auto-extracts stack trace, error name, error message)
+
+**Example:**
+
+```typescript
+const logger = getLogger();
+
+try {
+  await processData();
+} catch (error) {
+  await logger.error('Failed to process data', error); // Auto-extracts error details
+}
+```
+
+##### `audit(action: string, resource: string, entityId?: string, oldValues?: object, newValues?: object): Promise<void>`
+
+Log audit event with automatic context extraction.
+
+**Parameters:**
+
+- `action` - Action performed (e.g., 'CREATE', 'UPDATE', 'DELETE')
+- `resource` - Resource type (e.g., 'User', 'Tenant')
+- `entityId` - Optional entity ID (defaults to 'unknown')
+- `oldValues` - Optional old values for UPDATE operations (ISO 27001 requirement)
+- `newValues` - Optional new values for CREATE/UPDATE operations (ISO 27001 requirement)
+
+**Example:**
+
+```typescript
+const logger = getLogger();
+
+// CREATE operation
+await logger.audit('CREATE', 'User', 'user-123', undefined, { name: 'John Doe' });
+
+// UPDATE operation
+await logger.audit('UPDATE', 'User', 'user-123', { name: 'John' }, { name: 'John Doe' });
+
+// DELETE operation
+await logger.audit('DELETE', 'User', 'user-123');
+```
+
+#### Express Middleware
+
+##### `loggerContextMiddleware`
+
+Express middleware to set logger context from request. Extracts context from Request object and sets it in AsyncLocalStorage.
+
+**Usage:**
+
+```typescript
+import { loggerContextMiddleware } from '@aifabrix/miso-client';
+
+// Add middleware early in middleware chain (after auth middleware if you need JWT context)
+app.use(loggerContextMiddleware);
+
+app.get('/api/users', async (req, res) => {
+  const logger = getLogger();
+  await logger.info('Users list accessed'); // Auto-extracts context from request
+});
+```
+
+**Auto-extracted Context Fields:**
+
+- `ipAddress` - Client IP address (from request.ip or connection.remoteAddress)
+- `userAgent` - User agent string (from User-Agent header)
+- `correlationId` - Request correlation ID (from x-correlation-id header or auto-generated)
+- `userId` - Authenticated user ID (from JWT token or x-user-id header)
+- `sessionId` - Session ID (from JWT token or x-session-id header)
+- `method` - HTTP method (GET, POST, etc.)
+- `path` - Request path
+- `hostname` - Request hostname (from Host header)
+- `applicationId` - Application identifier (from JWT token or x-application-id header)
+
+**See Also:**
+
+- [Background Jobs Examples](./examples/background-jobs.md) - Logging examples with request context
+- [Express Middleware Examples](./examples/express-middleware.md) - Express integration examples
+- [Background Jobs Examples](./examples/background-jobs.md) - Background job logging patterns
+
 ### Log Entry Getter Methods
 
 The logger provides getter methods that return `LogEntry` objects instead of sending logs directly. These methods are designed for external logger integration, allowing you to use your own logger tables while automatically extracting default context from the system.
@@ -921,7 +1149,7 @@ const value = await cacheService.get<{ data: string }>('key');
 
 ## Examples
 
-### Background Jobs with Logging
+### Basic Logging
 
 ```typescript
 import { MisoClient, loadConfig } from '@aifabrix/miso-client';
@@ -929,99 +1157,7 @@ import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 const client = new MisoClient(loadConfig());
 await client.initialize();
 
-interface Job {
-  id: string;
-  type: string;
-  userId: string;
-  data: any;
-}
-
-class JobProcessor {
-  async processJob(job: Job) {
-    try {
-      await client.log.info('Job started', {
-        jobId: job.id,
-        jobType: job.type,
-        userId: job.userId
-      });
-
-      await this.performJob(job);
-
-      await client.log.info('Job completed', {
-        jobId: job.id,
-        jobType: job.type,
-        userId: job.userId
-      });
-    } catch (error) {
-      await client.log.error('Job failed', {
-        jobId: job.id,
-        jobType: job.type,
-        userId: job.userId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
-    }
-  }
-
-  private async performJob(job: Job) {
-    // Job-specific logic here
-  }
-}
-```
-
-### Event Emission Mode
-
-```typescript
-import { MisoClient, loadConfig, LogEntry } from '@aifabrix/miso-client';
-import { db } from './database';
-
-const client = new MisoClient({
-  ...loadConfig(),
-  emitEvents: true
-});
-
-await client.initialize();
-
-// Listen to log events
-client.log.on('log', async (logEntry: LogEntry) => {
-  try {
-    // Save directly to database without HTTP
-    await db.logs.insert({
-      timestamp: logEntry.timestamp,
-      level: logEntry.level,
-      message: logEntry.message,
-      context: logEntry.context,
-      userId: logEntry.userId,
-      correlationId: logEntry.correlationId,
-      requestId: logEntry.requestId,
-      sessionId: logEntry.sessionId
-    });
-  } catch (error) {
-    console.error('Failed to save log:', error);
-  }
-});
-
-// Listen to batch events (for batched audit logs)
-client.log.on('log:batch', async (logEntries: LogEntry[]) => {
-  try {
-    await db.logs.insertMany(
-      logEntries.map(entry => ({
-        timestamp: entry.timestamp,
-        level: entry.level,
-        message: entry.message,
-        context: entry.context,
-        userId: entry.userId,
-        correlationId: entry.correlationId,
-        requestId: entry.requestId,
-        sessionId: entry.sessionId
-      }))
-    );
-  } catch (error) {
-    console.error('Failed to save batch logs:', error);
-  }
-});
-
-// Use logger normally - events will be emitted
+// Basic logging
 await client.log.info('Application started');
 await client.log.error('Operation failed', { error: 'details' });
 await client.log.audit('user.created', 'users', { userId: '123' });
@@ -1030,57 +1166,28 @@ await client.log.audit('user.created', 'users', { userId: '123' });
 ### Encryption Usage
 
 ```typescript
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
-
-const client = new MisoClient({
-  ...loadConfig(),
-  encryptionKey: process.env.ENCRYPTION_KEY
-});
-await client.initialize();
-
 if (client.encryption) {
-  // Encrypt sensitive data
   const encrypted = client.encryption.encrypt('sensitive-data');
-  console.log('Encrypted:', encrypted);
-
-  // Decrypt data
   const decrypted = client.encryption.decrypt(encrypted);
-  console.log('Decrypted:', decrypted);
 }
 ```
 
 ### Cache Usage
 
 ```typescript
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
-
-const client = new MisoClient(loadConfig());
-await client.initialize();
-
 // Store value in cache
-await client.cache.set('user:123', { name: 'John', age: 30 }, 600); // 10 minutes
+await client.cache.set('user:123', { name: 'John', age: 30 }, 600);
 
 // Retrieve from cache
 const user = await client.cache.get<{ name: string; age: number }>('user:123');
-if (user) {
-  console.log('Cached user:', user);
-}
 
 // Delete from cache
 await client.cache.delete('user:123');
-
-// Clear all cache
-await client.cache.clear();
 ```
 
 ## See Also
 
 - [MisoClient Reference](./reference-misoclient.md) - Main client class
-- [Configuration Guide](./configuration.md) - Configuration options including event emission mode
-- [Examples Guide](./examples.md) - Framework-specific examples including background jobs and event emission mode
+- [Configuration Guide](./configuration.md) - Configuration options
+- [Background Jobs Examples](./examples/background-jobs.md) - Background job logging examples
 - [Type Reference](./reference-types.md) - Complete type definitions
-- **Example Files:**
-  - [Logging Example](../examples/step-5-logging.ts) - Basic logging usage
-  - [Audit Example](../examples/step-6-audit.ts) - Audit trail implementation
-  - [Encryption & Cache Example](../examples/step-7-encryption-cache.ts) - Encryption and caching usage
-  - [Event Emission Mode Example](../examples/event-emission-mode.example.ts) - Event emission mode setup

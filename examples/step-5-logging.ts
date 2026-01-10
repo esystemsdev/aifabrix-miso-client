@@ -1,11 +1,15 @@
 /**
  * Step 5: Activate Logging
  * 
- * Send application logs to the AI Fabrix controller.
+ * Send application logs to the AI Fabrix controller using the unified logging interface.
+ * 
+ * The unified logging interface provides a minimal API (1-3 parameters) with automatic
+ * context extraction from AsyncLocalStorage. Context is automatically extracted when using
+ * Express middleware or can be set manually with setLoggerContext().
  */
 
 // For development: import from '../src/index'
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, getLogger, setLoggerContext } from '@aifabrix/miso-client';
 
 async function loggingExample() {
   // Create client - loads from .env automatically
@@ -21,30 +25,32 @@ async function loggingExample() {
 
     const user = await client.getUser(token);
 
-    // NEW: Log informational messages
-    await client.log.info('User accessed dashboard', {
+    // Set logger context manually (for non-Express environments)
+    // In Express apps, use loggerContextMiddleware instead
+    setLoggerContext({
       userId: user?.id,
-      username: user?.username,
-      timestamp: new Date().toISOString(),
+      correlationId: 'req-123',
+      ipAddress: '192.168.1.1',
+      token: token,
     });
 
-    // NEW: Log errors
+    // Get logger instance - context is automatically extracted from AsyncLocalStorage
+    const logger = getLogger();
+
+    // NEW: Log informational messages (no context object needed - auto-extracted)
+    await logger.info('User accessed dashboard');
+
+    // NEW: Log errors (error object is optional - auto-extracts stack trace)
     try {
       // Some operation that might fail
       await performOperation();
     } catch (error) {
-      await client.log.error('Operation failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        userId: user?.id,
-      });
+      // Error details (stack trace, error name, error message) are auto-extracted
+      await logger.error('Operation failed', error);
     }
 
     // NEW: Use debug for detailed diagnostic information
-    await client.log.debug('Processing user request', {
-      userId: user?.id,
-      requestDetails: '...',
-    });
+    await logger.debug('Processing user request');
 
     console.log('📊 Logs sent to controller');
 

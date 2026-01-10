@@ -1,11 +1,15 @@
 /**
  * Step 6: Activate Audit
  * 
- * Complete example with authentication, RBAC, logging, and audit trails.
+ * Complete example with authentication, RBAC, logging, and audit trails using
+ * the unified logging interface.
+ * 
+ * The unified logging interface provides automatic context extraction and a
+ * minimal API for audit logging with ISO 27001 compliance (oldValues/newValues).
  */
 
 // For development: import from '../src/index'
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, getLogger, setLoggerContext } from '@aifabrix/miso-client';
 
 async function completeExample() {
   // Create client - loads from .env automatically
@@ -18,74 +22,87 @@ async function completeExample() {
 
     const token = 'your-jwt-token-here';
 
+    // Set logger context manually (for non-Express environments)
+    // In Express apps, use loggerContextMiddleware instead
+    setLoggerContext({
+      correlationId: 'req-123',
+      ipAddress: '192.168.1.1',
+      userAgent: 'Mozilla/5.0...',
+      token: token,
+    });
+
+    // Get logger instance - context is automatically extracted from AsyncLocalStorage
+    const logger = getLogger();
+
     // Step 3: Authentication
     const isValid = await client.validateToken(token);
     if (!isValid) {
-      await client.log.audit('access.denied', 'authentication', {
-        reason: 'Invalid token',
-        ip: '192.168.1.1',
-      });
+      // Audit: Access denied (no entityId needed for authentication failures)
+      await logger.audit('access.denied', 'authentication', 'unknown');
       return;
     }
 
     const user = await client.getUser(token);
 
+    // Update context with user ID
+    setLoggerContext({ userId: user?.id });
+
     // Step 4: RBAC
     const canEdit = await client.hasPermission(token, 'edit:content');
     if (!canEdit) {
-      await client.log.audit('access.denied', 'authorization', {
-        userId: user?.id,
-        action: 'edit_content',
-        resource: 'posts',
-      });
+      // Audit: Authorization denied
+      await logger.audit('access.denied', 'authorization', user?.id || 'unknown');
       console.log('❌ Insufficient permissions');
       return;
     }
 
-    // Step 5: Logging
-    await client.log.info('User logged in successfully', {
-      userId: user?.id,
-      username: user?.username,
-      email: user?.email,
-    });
+    // Step 5: Logging (no context object needed - auto-extracted)
+    await logger.info('User logged in successfully');
 
     // Step 6: Audit Trail - Log important user actions
-    await client.log.audit('user.login', 'authentication', {
-      userId: user?.id,
-      ip: '192.168.1.1',
-      userAgent: 'Mozilla/5.0...',
-      timestamp: new Date().toISOString(),
-    });
+    // Audit: User login (no oldValues/newValues needed for login)
+    await logger.audit('user.login', 'authentication', user?.id || 'unknown');
 
-    // Audit example: Content changes
-    await client.log.audit('post.created', 'content', {
-      userId: user?.id,
-      postId: 'post-123',
-      postTitle: 'My New Post',
-      category: 'technology',
-    });
+    // Audit example: Content creation (ISO 27001 compliant with newValues)
+    await logger.audit(
+      'post.created',
+      'content',
+      'post-123',
+      undefined, // oldValues (not applicable for CREATE)
+      { // newValues (ISO 27001 requirement)
+        postTitle: 'My New Post',
+        category: 'technology',
+      }
+    );
+
+    // Audit example: Content update (ISO 27001 compliant with oldValues and newValues)
+    const oldPost = { title: 'Old Title', category: 'general' };
+    const newPost = { title: 'Updated Title', category: 'technology' };
+    await logger.audit(
+      'post.updated',
+      'content',
+      'post-123',
+      oldPost, // oldValues (ISO 27001 requirement)
+      newPost  // newValues (ISO 27001 requirement)
+    );
 
     // Audit example: Permission checks
-    await client.log.audit('role.checked', 'authorization', {
-      userId: user?.id,
-      checkedRole: 'admin',
-      result: 'granted',
-    });
+    await logger.audit('role.checked', 'authorization', user?.id || 'unknown');
 
-    // Audit example: Sensitive operations
-    await client.log.audit('user.deleted', 'administration', {
-      userId: user?.id,
-      deletedUserId: 'user-456',
-      reason: 'Policy violation',
-    });
+    // Audit example: Sensitive operations (user deletion)
+    await logger.audit(
+      'user.deleted',
+      'administration',
+      'user-456',
+      { userId: 'user-456', status: 'active' }, // oldValues
+      { userId: 'user-456', status: 'deleted', reason: 'Policy violation' } // newValues
+    );
 
     console.log('✅ Complete flow: Auth + RBAC + Logging + Audit');
 
   } catch (error) {
-    await client.log.error('Application error', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+    // Error details are auto-extracted (stack trace, error name, error message)
+    await logger.error('Application error', error);
   } finally {
     await client.disconnect();
   }

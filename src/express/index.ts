@@ -56,6 +56,9 @@ export type {
   DataClientConfigResponse,
 } from "./client-token-endpoint";
 
+// Logger context middleware
+export { loggerContextMiddleware } from "./logger-context.middleware";
+
 // Note: express.d.ts provides type augmentation for Express Response types.
 // It doesn't need to be imported - TypeScript automatically picks up .d.ts files
 // in the same directory. The build script copies it to dist/express/express.d.ts.

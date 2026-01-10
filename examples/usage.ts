@@ -1,9 +1,12 @@
 /**
- * Example usage of MisoClient SDK
+ * Example usage of MisoClient SDK with unified logging interface
+ * 
+ * The unified logging interface provides a minimal API (1-3 parameters) with
+ * automatic context extraction from AsyncLocalStorage.
  */
 
 // For development: import from '../src/index'
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, getLogger, setLoggerContext } from '@aifabrix/miso-client';
 
 async function example() {
   // Initialize the client with auto-loaded configuration
@@ -18,6 +21,17 @@ async function example() {
     // Example token (in real usage, this would come from request headers)
     const token = 'your-jwt-token-here';
 
+    // Set logger context manually (for non-Express environments)
+    // In Express apps, use loggerContextMiddleware instead
+    setLoggerContext({
+      correlationId: 'req-123',
+      ipAddress: '192.168.1.1',
+      token: token,
+    });
+
+    // Get logger instance - context is automatically extracted from AsyncLocalStorage
+    const logger = getLogger();
+
     // Validate token
     const isValid = await client.validateToken(token);
     console.log('Token valid:', isValid);
@@ -27,6 +41,9 @@ async function example() {
       const user = await client.getUser(token);
       console.log('User:', user);
 
+      // Update context with user ID
+      setLoggerContext({ userId: user?.id });
+
       // Get user roles
       const roles = await client.getRoles(token);
       console.log('User roles:', roles);
@@ -35,26 +52,19 @@ async function example() {
       const isAdmin = await client.hasRole(token, 'admin');
       console.log('Is admin:', isAdmin);
 
-      // Log some events
-      await client.log.info('User accessed application', {
-        userId: user?.id,
-        username: user?.username
-      });
+      // Log some events (no context object needed - auto-extracted)
+      await logger.info('User accessed application');
 
-      await client.log.audit('user.login', 'authentication', {
-        userId: user?.id,
-        ip: '192.168.1.1'
-      });
+      // Audit: User login (no oldValues/newValues needed for login)
+      await logger.audit('user.login', 'authentication', user?.id || 'unknown');
     }
 
-    // Example error logging
+    // Example error logging (error details are auto-extracted)
     try {
       throw new Error('Something went wrong');
     } catch (error) {
-      await client.log.error('Application error', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      // Error details (stack trace, error name, error message) are auto-extracted
+      await logger.error('Application error', error);
     }
   } catch (error) {
     console.error('Example failed:', error);

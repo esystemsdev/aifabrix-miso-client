@@ -1140,4 +1140,4 @@ const freshRoles = await dataClient.refreshRoles();
 - [Authorization Reference](./reference-authorization.md) - Detailed authorization API reference
 - [Type Reference](./reference-types.md) - Complete type definitions
 - [Error Reference](./reference-errors.md) - Error handling documentation
-- [Examples Guide](./examples.md) - Framework-specific examples
+- [Examples](./examples/README.md) - Framework-specific examples

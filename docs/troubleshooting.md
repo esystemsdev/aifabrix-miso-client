@@ -621,7 +621,7 @@ try {
    - [Getting Started](getting-started.md)
    - [API Reference Index](api-reference.md) - Overview and navigation to all API reference documents
    - [Configuration](configuration.md)
-   - [MisoClient Examples](examples.md) - Server-side SDK examples
+   - [Examples](./examples/README.md) - Server-side SDK examples
    - [DataClient Examples](data-client.md#examples) - Browser/frontend examples
 
 2. **Enable Debug Logging**:
