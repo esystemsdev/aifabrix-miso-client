@@ -94,6 +94,27 @@ function nodePolyfillsPlugin(): Plugin {
             }
           }
         }
+        // Handle relative imports from services directory (e.g., ./application-context.service)
+        if (cleanImporter && cleanImporter.includes('services/')) {
+          const rootDist = path.resolve(__dirname, '../../dist');
+          const servicesDir = path.join(rootDist, 'services');
+          const resolvedPath = path.resolve(servicesDir, cleanId);
+          const extensions = ['.ts', '.js', '.tsx', '.jsx'];
+          for (const ext of extensions) {
+            const fullPath = resolvedPath + ext;
+            try {
+              if (fs.existsSync(fullPath)) {
+                const stats = fs.statSync(fullPath);
+                if (stats.isFile()) {
+                  console.log(`[node-polyfills] Resolving ${id} (from services) -> ${fullPath}`);
+                  return fullPath;
+                }
+              }
+            } catch {
+              // Continue to next extension
+            }
+          }
+        }
         // Handle relative imports from express directory (e.g., ./logger-context.middleware)
         if (cleanImporter && cleanImporter.includes('express')) {
           const rootDist = path.resolve(__dirname, '../../dist');
@@ -137,6 +158,8 @@ function nodePolyfillsPlugin(): Plugin {
                                    cleanId.includes('error-extractor') ||
                                    cleanId.includes('console-logger') ||
                                    cleanId.includes('services/logger') ||
+                                   cleanId.includes('services/') ||
+                                   cleanId.includes('application-context') ||
                                    cleanId.includes('unified-logger') ||
                                    cleanId.includes('logger-') ||
                                    cleanId.includes('logger.service') ||

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.1] - 2026-01-10
+
+### Changed
+
+- **Unified Application Context Service** - Centralized application and environment extraction
+  - New `ApplicationContextService` class to extract `application`, `applicationId`, and `environment` with consistent fallback logic
+  - Extracts from client token first (if available), then falls back to parsing `miso-controller-{environment}-{application}` format from clientId
+  - RoleService, PermissionService, LoggerService, and UnifiedLoggerService now use the unified service
+  - Reduces code duplication and ensures consistent behavior across all services
+  - Caches parsed results to avoid repeated extraction
+
+### Fixed
+
+- **Logger Context Application Fallback** - Fixed application fallback to use clientId when parsing fails
+  - Logger getter methods (`getLogWithRequest`, `getWithContext`, `getWithToken`) now properly fall back to `clientId` when `application` cannot be extracted from client token or parsed from clientId format
+  - Ensures application field is always populated in log entries, even when clientId format doesn't match expected pattern
+
+### Technical
+
+- **New service**: `src/services/application-context.service.ts` - Unified application context extraction (175 lines)
+- **Test coverage**: Comprehensive tests in `tests/unit/application-context.service.test.ts` (323 lines, 100% coverage)
+- **Code quality**: All services updated to use ApplicationContextService, reducing code duplication by ~50 lines
+
 ## [3.8.0] - 2026-01-10
 
 ### Added

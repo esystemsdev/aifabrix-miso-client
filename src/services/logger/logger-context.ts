@@ -5,9 +5,10 @@
 
 import { Request } from "express";
 import jwt from "jsonwebtoken";
-import { LogEntry, MisoClientConfig } from "../../types/config.types";
+import { LogEntry } from "../../types/config.types";
 import { DataMasker } from "../../utils/data-masker";
 import { extractRequestContext } from "../../utils/request-context";
+import { ApplicationContextService } from "../application-context.service";
 
 /**
  * Extract JWT token information
@@ -86,14 +87,15 @@ export function extractEnvironmentMetadata(): Partial<LogEntry> {
  * @param message - Log message
  * @param level - Optional log level (defaults to 'info')
  * @param context - Optional additional context
- * @param config - MisoClientConfig for application identifier
+ * @param applicationContextService - ApplicationContextService for application/environment extraction
  * @param generateCorrelationId - Function to generate correlation ID
  * @param maskSensitiveData - Whether to mask sensitive data
+ * @param clientId - Client ID to use as fallback when application is empty
  * @returns Complete LogEntry object with all request context extracted
  *
  * @example
  * ```typescript
- * const logEntry = getLogWithRequest(req, 'User action', 'info', { action: 'login' }, config, generateCorrelationId, true);
+ * const logEntry = getLogWithRequest(req, 'User action', 'info', { action: 'login' }, applicationContextService, generateCorrelationId, true, config.clientId);
  * await myCustomLogger.save(logEntry);
  * ```
  */
@@ -102,15 +104,17 @@ export function getLogWithRequest(
   message: string,
   level: LogEntry["level"] = "info",
   context: Record<string, unknown> | undefined,
-  config: MisoClientConfig,
+  applicationContextService: ApplicationContextService,
   generateCorrelationId: () => string,
   maskSensitiveData: boolean,
+  clientId?: string,
 ): LogEntry {
   const requestContext = extractRequestContext(req);
   const jwtContext = extractJwtContext(
     req.headers.authorization?.replace("Bearer ", ""),
   );
   const metadata = extractEnvironmentMetadata();
+  const appContext = applicationContextService.getApplicationContext();
 
   const correlationId =
     requestContext.correlationId || generateCorrelationId();
@@ -121,12 +125,18 @@ export function getLogWithRequest(
       ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
       : context;
 
+  // Extract applicationId: try user JWT first, then client token
+  let applicationId = jwtContext.applicationId || "";
+  if (!applicationId && appContext.applicationId) {
+    applicationId = appContext.applicationId;
+  }
+
   return {
     timestamp: new Date().toISOString(),
     level,
-    environment: "unknown", // Backend extracts from client credentials
-    application: config.clientId,
-    applicationId: jwtContext.applicationId || "",
+    environment: appContext.environment || "unknown",
+    application: appContext.application || clientId || "",
+    applicationId,
     message,
     context: maskedContext,
     correlationId,
@@ -146,14 +156,15 @@ export function getLogWithRequest(
  * @param context - Context object to include in logs
  * @param message - Log message
  * @param level - Optional log level (defaults to 'info')
- * @param config - MisoClientConfig for application identifier
+ * @param applicationContextService - ApplicationContextService for application/environment extraction
  * @param generateCorrelationId - Function to generate correlation ID
  * @param maskSensitiveData - Whether to mask sensitive data
+ * @param clientId - Client ID to use as fallback when application is empty
  * @returns Complete LogEntry object
  *
  * @example
  * ```typescript
- * const logEntry = getWithContext({ operation: 'sync' }, 'Sync started', 'info', config, generateCorrelationId, true);
+ * const logEntry = getWithContext({ operation: 'sync' }, 'Sync started', 'info', applicationContextService, generateCorrelationId, true, config.clientId);
  * await myCustomLogger.save(logEntry);
  * ```
  */
@@ -161,12 +172,14 @@ export function getWithContext(
   context: Record<string, unknown>,
   message: string,
   level: LogEntry["level"] = "info",
-  config: MisoClientConfig,
+  applicationContextService: ApplicationContextService,
   generateCorrelationId: () => string,
   maskSensitiveData: boolean,
+  clientId?: string,
 ): LogEntry {
   const metadata = extractEnvironmentMetadata();
   const correlationId = generateCorrelationId();
+  const appContext = applicationContextService.getApplicationContext();
 
   // Mask sensitive data in context if enabled
   const maskedContext = maskSensitiveData
@@ -176,9 +189,9 @@ export function getWithContext(
   return {
     timestamp: new Date().toISOString(),
     level,
-    environment: "unknown", // Backend extracts from client credentials
-    application: config.clientId,
-    applicationId: "",
+    environment: appContext.environment || "unknown",
+    application: appContext.application || clientId || "",
+    applicationId: appContext.applicationId || "",
     message,
     context: maskedContext,
     correlationId,
@@ -195,14 +208,15 @@ export function getWithContext(
  * @param message - Log message
  * @param level - Optional log level (defaults to 'info')
  * @param context - Optional additional context
- * @param config - MisoClientConfig for application identifier
+ * @param applicationContextService - ApplicationContextService for application/environment extraction
  * @param generateCorrelationId - Function to generate correlation ID
  * @param maskSensitiveData - Whether to mask sensitive data
+ * @param clientId - Client ID to use as fallback when application is empty
  * @returns Complete LogEntry object with user context
  *
  * @example
  * ```typescript
- * const logEntry = getWithToken(token, 'Token validated', 'audit', undefined, config, generateCorrelationId, true);
+ * const logEntry = getWithToken(token, 'Token validated', 'audit', undefined, applicationContextService, generateCorrelationId, true, config.clientId);
  * await myCustomLogger.save(logEntry);
  * ```
  */
@@ -211,13 +225,15 @@ export function getWithToken(
   message: string,
   level: LogEntry["level"] = "info",
   context: Record<string, unknown> | undefined,
-  config: MisoClientConfig,
+  applicationContextService: ApplicationContextService,
   generateCorrelationId: () => string,
   maskSensitiveData: boolean,
+  clientId?: string,
 ): LogEntry {
   const jwtContext = extractJwtContext(token);
   const metadata = extractEnvironmentMetadata();
   const correlationId = generateCorrelationId();
+  const appContext = applicationContextService.getApplicationContext();
 
   // Mask sensitive data in context if enabled
   const maskedContext =
@@ -225,12 +241,18 @@ export function getWithToken(
       ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
       : context;
 
+  // Extract applicationId: try user JWT first, then client token
+  let applicationId = jwtContext.applicationId || "";
+  if (!applicationId && appContext.applicationId) {
+    applicationId = appContext.applicationId;
+  }
+
   return {
     timestamp: new Date().toISOString(),
     level,
-    environment: "unknown", // Backend extracts from client credentials
-    application: config.clientId,
-    applicationId: jwtContext.applicationId || "",
+    environment: appContext.environment || "unknown",
+    application: appContext.application || clientId || "",
+    applicationId,
     message,
     context: maskedContext,
     correlationId,

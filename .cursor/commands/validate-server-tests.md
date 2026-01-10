@@ -38,6 +38,19 @@ When the `/validate-server-tests` command is used, the agent must automatically 
    - Continue this loop until lint:fix and lint make no changes AND tests pass
    - This ensures the server codebase is in a stable, validated state
 
+5. **Build Step**:
+   - Run `pnpm build` to build the server application
+   - If build fails, automatically fix all build errors in the server codebase
+   - Re-run `pnpm build` until it passes (exit code 0)
+   - Do not proceed until build step is green
+
+6. **Start Dev Step**:
+   - Run `pnpm start:dev` to start the development server
+   - Verify the server starts successfully (check for startup errors)
+   - The server should be running and ready to accept requests
+   - If startup fails, automatically fix all startup errors
+   - Re-run `pnpm start:dev` until it starts successfully
+
 **Critical Requirements:**
 
 - **Automatic Error Fixing**: The agent MUST automatically fix all errors found during validation
@@ -54,6 +67,8 @@ When the `/validate-server-tests` command is used, the agent must automatically 
   - ✅ `cd server && npm run lint:fix` passes (final, no changes)
   - ✅ `cd server && npm run lint` passes (final, no changes)
   - ✅ `cd server && npm test` passes (final, if lint:fix/lint made changes)
+  - ✅ `cd server && pnpm build` passes
+  - ✅ `cd server && pnpm start:dev` starts successfully
 
 **Server-Specific Test Requirements:**
 
@@ -66,4 +81,4 @@ When the `/validate-server-tests` command is used, the agent must automatically 
 - Ensure all async operations are properly awaited in tests
 - Mock environment variables and configuration
 
-**Work is only done when all validation checks are green and working, final verification shows no changes, and each individual test completes in under 0.5 seconds.**
+**Work is only done when all validation checks are green and working, final verification shows no changes, each individual test completes in under 0.5 seconds, build completes successfully, and the development server starts without errors.**

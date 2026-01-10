@@ -11,7 +11,7 @@ import {
   AuthMethod,
 } from "../types/config.types";
 import jwt from "jsonwebtoken";
-import { extractClientTokenInfo } from "../utils/token-utils";
+import { ApplicationContextService } from "./application-context.service";
 
 interface PermissionCacheData {
   permissions: string[];
@@ -24,6 +24,7 @@ export class PermissionService {
   private cache: CacheService;
   private config: MisoClientConfig;
   private permissionTTL: number;
+  private applicationContextService: ApplicationContextService;
 
   constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
     this.config = httpClient.config;
@@ -31,6 +32,7 @@ export class PermissionService {
     this.httpClient = httpClient;
     this.apiClient = apiClient;
     this.permissionTTL = this.config.cache?.permissionTTL || 900; // 15 minutes default
+    this.applicationContextService = new ApplicationContextService(httpClient);
   }
 
   /**
@@ -51,40 +53,6 @@ export class PermissionService {
     }
   }
 
-  /**
-   * Extract environment from client token (server-side)
-   * Gets the client token from HttpClient's internal state or config
-   */
-  private getEnvironmentFromClientToken(): string | null {
-    try {
-      // Try to get client token from config first (if provided)
-      if (this.config.clientToken) {
-        const tokenInfo = extractClientTokenInfo(this.config.clientToken);
-        if (tokenInfo.environment) {
-          return tokenInfo.environment;
-        }
-      }
-      
-      // Try to access from internal client (private property access)
-      // This is a workaround since clientToken is private in InternalHttpClient
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const internalClient = (this.httpClient as any).internalClient;
-      if (internalClient) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const clientToken = (internalClient as any).clientToken;
-        if (clientToken && typeof clientToken === 'string') {
-          const tokenInfo = extractClientTokenInfo(clientToken);
-          return tokenInfo.environment || null;
-        }
-      }
-      
-      return null;
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn("Failed to extract environment from client token:", error);
-      return null;
-    }
-  }
 
   /**
    * Get user permissions with caching
@@ -133,9 +101,9 @@ export class PermissionService {
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
       
-      // Extract environment from client token for query parameter
-      const environment = this.getEnvironmentFromClientToken();
-      const queryParams = environment ? { environment } : undefined;
+      // Extract environment from application context service
+      const context = this.applicationContextService.getApplicationContext();
+      const queryParams = context.environment ? { environment: context.environment } : undefined;
       
       const permissionResult = await this.apiClient.permissions.getPermissions(
         queryParams,
@@ -237,9 +205,9 @@ export class PermissionService {
       const userId = userInfo.data.user.id;
       const cacheKey = `permissions:${userId}`;
 
-      // Extract environment from client token for query parameter
-      const environment = this.getEnvironmentFromClientToken();
-      const queryParams = environment ? { environment } : undefined;
+      // Extract environment from application context service
+      const context = this.applicationContextService.getApplicationContext();
+      const queryParams = context.environment ? { environment: context.environment } : undefined;
 
       // Fetch fresh permissions from controller using refresh endpoint via ApiClient
       const permissionResult = await this.apiClient.permissions.refreshPermissions(

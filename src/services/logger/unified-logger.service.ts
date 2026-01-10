@@ -90,6 +90,10 @@ export class UnifiedLoggerService implements UnifiedLogger {
       maskSensitiveData: true, // Default: mask sensitive data
     };
 
+    // Get application context service from logger service
+    const applicationContextService = this.loggerService.getApplicationContextService();
+    const appContext = applicationContextService.getApplicationContext();
+
     // Extract JWT context if token is available
     if (context.token) {
       const jwtContext = extractJwtContext(context.token);
@@ -100,9 +104,15 @@ export class UnifiedLoggerService implements UnifiedLogger {
       if (!options.sessionId && jwtContext.sessionId) {
         options.sessionId = jwtContext.sessionId;
       }
+      // applicationId priority: explicit > user JWT > client token
       if (!options.applicationId && jwtContext.applicationId) {
         options.applicationId = jwtContext.applicationId;
       }
+    }
+
+    // If still no applicationId, try client token
+    if (!options.applicationId && appContext.applicationId) {
+      options.applicationId = appContext.applicationId;
     }
 
     return options;

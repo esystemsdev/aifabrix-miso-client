@@ -11,6 +11,7 @@ import { DataMasker } from "../../utils/data-masker";
 import { MisoClientConfig, LogEntry } from "../../types/config.types";
 import { AuditLogQueue } from "../../utils/audit-log-queue";
 import { LoggerChain } from "./logger-chain";
+import { ApplicationContextService } from "../application-context.service";
 import {
   extractJwtContext,
   extractEnvironmentMetadata,
@@ -61,6 +62,7 @@ export class LoggerService extends EventEmitter {
   private maskSensitiveData = true; // Default: mask sensitive data
   private correlationCounter = 0;
   private auditLogQueue: AuditLogQueue | null = null;
+  private applicationContextService: ApplicationContextService;
   // Circuit breaker for HTTP logging - skip attempts after repeated failures
   private httpLoggingFailures = 0;
   private httpLoggingDisabledUntil: number | null = null;
@@ -72,6 +74,7 @@ export class LoggerService extends EventEmitter {
     this.config = httpClient.config;
     this.redis = redis;
     this.httpClient = httpClient;
+    this.applicationContextService = new ApplicationContextService(httpClient);
 
     // Initialize audit log queue if batch logging is enabled
     const auditConfig = this.config.audit || {};
@@ -98,6 +101,15 @@ export class LoggerService extends EventEmitter {
     if (this.auditLogQueue) {
       this.auditLogQueue.setApiClient(apiClient);
     }
+  }
+
+  /**
+   * Get ApplicationContextService instance
+   * Used by UnifiedLoggerService to access application context
+   * @returns ApplicationContextService instance
+   */
+  getApplicationContextService(): ApplicationContextService {
+    return this.applicationContextService;
   }
 
   /**
@@ -216,12 +228,24 @@ export class LoggerService extends EventEmitter {
         ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
         : context;
 
+    // Get application context
+    const appContext = this.applicationContextService.getApplicationContext();
+    
+    // Extract applicationId from options, then try client token, then user JWT
+    let applicationId = options?.applicationId || "";
+    if (!applicationId && appContext.applicationId) {
+      applicationId = appContext.applicationId;
+    }
+    if (!applicationId && jwtContext.applicationId) {
+      applicationId = jwtContext.applicationId;
+    }
+
     const logEntry: LogEntry = {
       timestamp: new Date().toISOString(),
       level,
-      environment: "unknown", // Backend extracts from client credentials
-      application: this.config.clientId, // Use clientId as application identifier
-      applicationId: options?.applicationId || "", // Optional from options
+      environment: appContext.environment || "unknown",
+      application: appContext.application || this.config.clientId,
+      applicationId,
       message,
       context: maskedContext,
       stackTrace,
@@ -457,9 +481,10 @@ export class LoggerService extends EventEmitter {
       message,
       level,
       context,
-      this.config,
+      this.applicationContextService,
       () => this.generateCorrelationId(),
       this.maskSensitiveData,
+      this.config.clientId,
     );
   }
 
@@ -487,9 +512,10 @@ export class LoggerService extends EventEmitter {
       context,
       message,
       level,
-      this.config,
+      this.applicationContextService,
       () => this.generateCorrelationId(),
       this.maskSensitiveData,
+      this.config.clientId,
     );
   }
 
@@ -521,9 +547,10 @@ export class LoggerService extends EventEmitter {
       message,
       level,
       context,
-      this.config,
+      this.applicationContextService,
       () => this.generateCorrelationId(),
       this.maskSensitiveData,
+      this.config.clientId,
     );
   }
 
