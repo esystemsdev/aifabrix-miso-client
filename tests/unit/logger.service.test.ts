@@ -7,6 +7,7 @@ import { HttpClient } from "../../src/utils/http-client";
 import { RedisService } from "../../src/services/redis.service";
 import { MisoClientConfig } from "../../src/types/config.types";
 import { Request } from "express";
+import { ApiClient } from "../../src/api";
 
 // Mock HttpClient
 jest.mock("../../src/utils/http-client");
@@ -26,6 +27,7 @@ describe("LoggerService", () => {
   let loggerService: LoggerService;
   let mockHttpClient: jest.Mocked<HttpClient>;
   let mockRedisService: jest.Mocked<RedisService>;
+  let mockApiClient: jest.Mocked<ApiClient>;
   let config: MisoClientConfig;
 
   beforeEach(() => {
@@ -46,10 +48,20 @@ describe("LoggerService", () => {
       rpush: jest.fn(),
     } as any;
 
+    // Mock ApiClient with logs.createLog that calls through to httpClient.request
+    mockApiClient = {
+      logs: {
+        createLog: jest.fn().mockImplementation(async (logEntry) => {
+          return mockHttpClient.request('POST', '/api/v1/logs', logEntry);
+        }),
+      },
+    } as any;
+
     MockedHttpClient.mockImplementation(() => mockHttpClient);
     MockedRedisService.mockImplementation(() => mockRedisService);
 
     loggerService = new LoggerService(mockHttpClient, mockRedisService);
+    loggerService.setApiClient(mockApiClient);
   });
 
   afterEach(() => {
@@ -93,9 +105,12 @@ describe("LoggerService", () => {
         "POST",
         "/api/v1/logs",
         expect.objectContaining({
-          level: "error",
-          message: "Test error",
-          context: { userId: "123" },
+          type: "error",
+          data: expect.objectContaining({
+            level: "error",
+            message: "Test error",
+            context: expect.any(Object),
+          }),
         }),
       );
     });
@@ -110,8 +125,11 @@ describe("LoggerService", () => {
         "POST",
         "/api/v1/logs",
         expect.objectContaining({
-          level: "error",
-          message: "Test error",
+          type: "error",
+          data: expect.objectContaining({
+            level: "error",
+            message: "Test error",
+          }),
         }),
       );
       expect(mockRedisService.rpush).not.toHaveBeenCalled();

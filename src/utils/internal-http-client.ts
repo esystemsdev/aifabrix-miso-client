@@ -47,9 +47,43 @@ export class InternalHttpClient {
       }
     }
 
+    // Force IPv4 and set connection timeout for main axios instance
+    const controllerUrl = resolveControllerUrl(config);
+    const isHttps = controllerUrl.startsWith("https://");
+    let httpAgent: import("http").Agent | undefined;
+    let httpsAgent: import("https").Agent | undefined;
+    
+    if (typeof (globalThis as { window?: unknown }).window === "undefined") {
+      // Node.js environment - use agents with timeout
+      // Use connectTimeout for connection timeout and timeout for socket timeout
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const http = require("http");
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const https = require("https");
+      const requestTimeout = 30000; // Default timeout
+      // timeout: timeout for socket inactivity (should match request timeout)
+      // For faster connection failures, we rely on Promise.race timeout wrapper
+      httpAgent = !isHttps 
+        ? new http.Agent({ 
+            family: 4, 
+            timeout: requestTimeout,
+            keepAlive: false // Disable keep-alive to ensure timeout works
+          }) 
+        : undefined;
+      httpsAgent = isHttps 
+        ? new https.Agent({ 
+            family: 4, 
+            timeout: requestTimeout,
+            keepAlive: false // Disable keep-alive to ensure timeout works
+          }) 
+        : undefined;
+    }
+
     this.axios = axios.create({
-      baseURL: resolveControllerUrl(config),
-      timeout: 30000,
+      baseURL: controllerUrl,
+      timeout: 30000, // Default timeout
+      httpAgent,
+      httpsAgent,
       headers: {
         "Content-Type": "application/json",
       },
@@ -184,6 +218,19 @@ export class InternalHttpClient {
   }
 
   /**
+   * Merge two AbortSignals into one
+   */
+  private mergeAbortSignals(signal1: AbortSignal, signal2: AbortSignal): AbortSignal {
+    const controller = new AbortController();
+    
+    const abort = () => controller.abort();
+    signal1.addEventListener("abort", abort);
+    signal2.addEventListener("abort", abort);
+    
+    return controller.signal;
+  }
+
+  /**
    * Generate unique correlation ID for request tracking
    */
   private generateCorrelationId(): string {
@@ -207,10 +254,31 @@ export class InternalHttpClient {
     const clientId = this.config.clientId;
 
     try {
+      // Use default timeout of 30 seconds
+      const requestTimeout = 30000;
+      
+      // Create AbortController for connection timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+      }, requestTimeout);
+
+      // Force IPv4 to avoid IPv6 connection issues and set connection timeout
+      const http = await import("http");
+      const https = await import("https");
+      const controllerUrl = resolveControllerUrl(this.config);
+      const isHttps = controllerUrl.startsWith("https://");
+      const httpAgent = isHttps
+        ? new https.Agent({ family: 4, timeout: requestTimeout })
+        : new http.Agent({ family: 4, timeout: requestTimeout });
+
       // Create a temporary axios instance without interceptors to avoid recursion
       const tempAxios = axios.create({
-        baseURL: resolveControllerUrl(this.config),
-        timeout: 30000,
+        baseURL: controllerUrl,
+        timeout: requestTimeout,
+        signal: controller.signal, // Abort signal for connection timeout
+        httpAgent: !isHttps ? httpAgent : undefined,
+        httpsAgent: isHttps ? httpAgent : undefined,
         headers: {
           "Content-Type": "application/json",
           "x-client-id": this.config.clientId,
@@ -218,15 +286,36 @@ export class InternalHttpClient {
         },
       });
 
-      const response =
-        await tempAxios.post<ClientTokenResponse>("/api/v1/auth/token");
+      // Wrap in Promise.race to ensure timeout even if axios hangs
+      const axiosPromise = tempAxios.post<ClientTokenResponse>("/api/v1/auth/token");
+      
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Request timeout after ${requestTimeout}ms`));
+        }, requestTimeout);
+      });
+      
+      let response;
+      try {
+        response = await Promise.race([axiosPromise, timeoutPromise]);
+        clearTimeout(timeoutId); // Clear timeout on success
+      } catch (requestError) {
+        clearTimeout(timeoutId); // Clear timeout on error
+        throw requestError; // Re-throw to be handled by outer catch
+      }
 
       // Handle both nested (new) and flat (old) response formats
       const token = response.data.data?.token || response.data.token;
       const expiresIn =
         response.data.data?.expiresIn || response.data.expiresIn;
 
-      if (response.data.success && token) {
+      // Accept response if:
+      // 1. Has success: true AND token (old format)
+      // 2. Has token AND status is 2xx (new format without success field)
+      const hasSuccess = response.data.success === true;
+      const hasValidStatus = response.status >= 200 && response.status < 300;
+      
+      if (token && (hasSuccess || hasValidStatus)) {
         this.clientToken = token;
         // Set expiration with 30 second buffer before actual expiration
         if (expiresIn) {
@@ -262,8 +351,11 @@ export class InternalHttpClient {
             );
           }
         } else if (error.request) {
-          responseDetails.push(`request: ${JSON.stringify(error.request)}`);
+          // Don't stringify error.request - it contains circular references (Socket -> ClientRequest -> Socket)
+          // Instead, just include the error message and code
+          responseDetails.push(`request: [Request object - contains circular references]`);
           responseDetails.push(`message: ${error.message}`);
+          responseDetails.push(`code: ${error.code || "N/A"}`);
         } else {
           responseDetails.push(`message: ${error.message}`);
         }
@@ -469,12 +561,38 @@ export class InternalHttpClient {
   }
 
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    const requestTimeout = 30000; // Default timeout
+    
+    // Create AbortController to cancel request on timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, requestTimeout);
+    
+    // Merge abort signal with existing config
+    const requestConfig: AxiosRequestConfig = {
+      ...config,
+      signal: config?.signal 
+        ? this.mergeAbortSignals(controller.signal, config.signal as AbortSignal)
+        : controller.signal,
+    };
+    
+    // Wrap in Promise.race to ensure timeout even if axios hangs
+    const axiosPromise = this.axios.get<T>(url, requestConfig);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Request timeout after ${requestTimeout}ms`));
+      }, requestTimeout);
+    });
+    
     try {
-      const response = await this.axios.get<T>(url, config);
+      const response = await Promise.race([axiosPromise, timeoutPromise]);
+      clearTimeout(timeoutId);
       const requestUrl = response.config?.url || url;
       this.validateResponse(response.data, requestUrl);
       return response.data;
     } catch (error) {
+      clearTimeout(timeoutId);
       if (this.isAxiosError(error)) {
         const requestUrl = error.config?.url || url;
         throw this.createMisoClientError(error, requestUrl);
@@ -488,12 +606,38 @@ export class InternalHttpClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
+    const requestTimeout = 30000; // Default timeout
+    
+    // Create AbortController to cancel request on timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, requestTimeout);
+    
+    // Merge abort signal with existing config
+    const requestConfig: AxiosRequestConfig = {
+      ...config,
+      signal: config?.signal 
+        ? this.mergeAbortSignals(controller.signal, config.signal as AbortSignal)
+        : controller.signal,
+    };
+    
+    // Wrap in Promise.race to ensure timeout even if axios hangs
+    const axiosPromise = this.axios.post<T>(url, data, requestConfig);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Request timeout after ${requestTimeout}ms`));
+      }, requestTimeout);
+    });
+    
     try {
-      const response = await this.axios.post<T>(url, data, config);
+      const response = await Promise.race([axiosPromise, timeoutPromise]);
+      clearTimeout(timeoutId);
       const requestUrl = response.config?.url || url;
       this.validateResponse(response.data, requestUrl);
       return response.data;
     } catch (error) {
+      clearTimeout(timeoutId);
       if (this.isAxiosError(error)) {
         const requestUrl = error.config?.url || url;
         throw this.createMisoClientError(error, requestUrl);
@@ -507,12 +651,38 @@ export class InternalHttpClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
+    const requestTimeout = 30000; // Default timeout
+    
+    // Create AbortController to cancel request on timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, requestTimeout);
+    
+    // Merge abort signal with existing config
+    const requestConfig: AxiosRequestConfig = {
+      ...config,
+      signal: config?.signal 
+        ? this.mergeAbortSignals(controller.signal, config.signal as AbortSignal)
+        : controller.signal,
+    };
+    
+    // Wrap in Promise.race to ensure timeout even if axios hangs
+    const axiosPromise = this.axios.put<T>(url, data, requestConfig);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Request timeout after ${requestTimeout}ms`));
+      }, requestTimeout);
+    });
+    
     try {
-      const response = await this.axios.put<T>(url, data, config);
+      const response = await Promise.race([axiosPromise, timeoutPromise]);
+      clearTimeout(timeoutId);
       const requestUrl = response.config?.url || url;
       this.validateResponse(response.data, requestUrl);
       return response.data;
     } catch (error) {
+      clearTimeout(timeoutId);
       if (this.isAxiosError(error)) {
         const requestUrl = error.config?.url || url;
         throw this.createMisoClientError(error, requestUrl);
@@ -522,12 +692,38 @@ export class InternalHttpClient {
   }
 
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    const requestTimeout = 30000; // Default timeout
+    
+    // Create AbortController to cancel request on timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, requestTimeout);
+    
+    // Merge abort signal with existing config
+    const requestConfig: AxiosRequestConfig = {
+      ...config,
+      signal: config?.signal 
+        ? this.mergeAbortSignals(controller.signal, config.signal as AbortSignal)
+        : controller.signal,
+    };
+    
+    // Wrap in Promise.race to ensure timeout even if axios hangs
+    const axiosPromise = this.axios.delete<T>(url, requestConfig);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Request timeout after ${requestTimeout}ms`));
+      }, requestTimeout);
+    });
+    
     try {
-      const response = await this.axios.delete<T>(url, config);
+      const response = await Promise.race([axiosPromise, timeoutPromise]);
+      clearTimeout(timeoutId);
       const requestUrl = response.config?.url || url;
       this.validateResponse(response.data, requestUrl);
       return response.data;
     } catch (error) {
+      clearTimeout(timeoutId);
       if (this.isAxiosError(error)) {
         const requestUrl = error.config?.url || url;
         throw this.createMisoClientError(error, requestUrl);

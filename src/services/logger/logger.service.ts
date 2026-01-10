@@ -285,116 +285,108 @@ export class LoggerService extends EventEmitter {
       return;
     }
 
-    // Fallback to unified logging endpoint with client credentials
+    // Send to unified logging endpoint with client credentials
     try {
-      // Use ApiClient if available, otherwise fallback to HttpClient
-      if (this.apiClient) {
-        // Map LogEntry to CreateLogRequest format
-        const logType = level === 'audit' ? 'audit' : level === 'error' ? 'error' : 'general';
-        // Map level: 'audit' -> 'info', others map directly (CreateLogRequest.data.level doesn't accept 'audit')
-        const logLevel = level === 'audit' ? 'info' : level === 'error' ? 'error' : level === 'info' ? 'info' : 'debug';
+      if (!this.apiClient) {
+        throw new Error('ApiClient not initialized. Call setApiClient() before logging.');
+      }
+
+      // Map LogEntry to CreateLogRequest format
+      const logType = level === 'audit' ? 'audit' : level === 'error' ? 'error' : 'general';
+      // Map level: 'audit' -> 'info', others map directly (CreateLogRequest.data.level doesn't accept 'audit')
+      const logLevel = level === 'audit' ? 'info' : level === 'error' ? 'error' : level === 'info' ? 'info' : 'debug';
+      
+      // Build context with all LogEntry fields (backend extracts environment/application from credentials)
+      const enrichedContext: Record<string, unknown> = {
+        ...logEntry.context,
+        // Include additional LogEntry fields in context
+        userId: logEntry.userId,
+        sessionId: logEntry.sessionId,
+        requestId: logEntry.requestId,
+        ipAddress: logEntry.ipAddress,
+        userAgent: logEntry.userAgent,
+        hostname: logEntry.hostname,
+        applicationId: logEntry.applicationId,
+        sourceKey: logEntry.sourceKey,
+        sourceDisplayName: logEntry.sourceDisplayName,
+        externalSystemKey: logEntry.externalSystemKey,
+        externalSystemDisplayName: logEntry.externalSystemDisplayName,
+        recordKey: logEntry.recordKey,
+        recordDisplayName: logEntry.recordDisplayName,
+        credentialId: logEntry.credentialId,
+        credentialType: logEntry.credentialType,
+        requestSize: logEntry.requestSize,
+        responseSize: logEntry.responseSize,
+        durationMs: logEntry.durationMs,
+        errorCategory: logEntry.errorCategory,
+        httpStatusCategory: logEntry.httpStatusCategory,
+      };
+      
+      // Remove undefined values to keep payload clean
+      Object.keys(enrichedContext).forEach(key => {
+        if (enrichedContext[key] === undefined) {
+          delete enrichedContext[key];
+        }
+      });
+      
+      // Include stackTrace in context if present
+      if (logEntry.stackTrace) {
+        enrichedContext.stackTrace = logEntry.stackTrace;
+      }
+      
+      // For audit logs, extract required fields from context
+      if (level === 'audit') {
+        // Extract action and resource from context (set by audit() method)
+        const auditAction = enrichedContext.action as string | undefined;
+        const auditResource = enrichedContext.resource as string | undefined;
         
-        // Build context with all LogEntry fields (backend extracts environment/application from credentials)
-        const enrichedContext: Record<string, unknown> = {
-          ...logEntry.context,
-          // Include additional LogEntry fields in context
-          userId: logEntry.userId,
-          sessionId: logEntry.sessionId,
-          requestId: logEntry.requestId,
-          ipAddress: logEntry.ipAddress,
-          userAgent: logEntry.userAgent,
-          hostname: logEntry.hostname,
-          applicationId: logEntry.applicationId,
-          sourceKey: logEntry.sourceKey,
-          sourceDisplayName: logEntry.sourceDisplayName,
-          externalSystemKey: logEntry.externalSystemKey,
-          externalSystemDisplayName: logEntry.externalSystemDisplayName,
-          recordKey: logEntry.recordKey,
-          recordDisplayName: logEntry.recordDisplayName,
-          credentialId: logEntry.credentialId,
-          credentialType: logEntry.credentialType,
-          requestSize: logEntry.requestSize,
-          responseSize: logEntry.responseSize,
-          durationMs: logEntry.durationMs,
-          errorCategory: logEntry.errorCategory,
-          httpStatusCategory: logEntry.httpStatusCategory,
-        };
+        // Extract entityType and entityId if already provided in context
+        const providedEntityType = enrichedContext.entityType as string | undefined;
+        const providedEntityId = enrichedContext.entityId as string | undefined;
+        const providedOldValues = enrichedContext.oldValues as Record<string, unknown> | undefined;
+        const providedNewValues = enrichedContext.newValues as Record<string, unknown> | undefined;
         
-        // Remove undefined values to keep payload clean
-        Object.keys(enrichedContext).forEach(key => {
-          if (enrichedContext[key] === undefined) {
-            delete enrichedContext[key];
-          }
+        // Remove fields that will be moved to data object (not in context)
+        delete enrichedContext.action;
+        delete enrichedContext.resource;
+        delete enrichedContext.entityType;
+        delete enrichedContext.entityId;
+        delete enrichedContext.oldValues;
+        delete enrichedContext.newValues;
+        
+        // Map to required audit log fields
+        // entityType: Type of entity (use provided, or default to "HTTP Request" for HTTP requests, or "API Endpoint" for API paths)
+        // entityId: The resource/URL being acted upon (use provided, or default to resource/URL)
+        // action: The action being performed (use provided action from audit() call)
+        const entityType = providedEntityType || 
+                          (auditResource && auditResource.startsWith('/api/') ? 'API Endpoint' : 'HTTP Request');
+        const entityId = providedEntityId || auditResource || 'unknown';
+        const action = auditAction || 'unknown';
+        
+        await this.apiClient.logs.createLog({
+          type: logType,
+          data: {
+            level: logLevel,
+            message: logEntry.message,
+            context: enrichedContext,
+            correlationId: logEntry.correlationId,
+            entityType,
+            entityId,
+            action,
+            // Include oldValues and newValues if present
+            oldValues: providedOldValues,
+            newValues: providedNewValues,
+          },
         });
-        
-        // Include stackTrace in context if present
-        if (logEntry.stackTrace) {
-          enrichedContext.stackTrace = logEntry.stackTrace;
-        }
-        
-        // For audit logs, extract required fields from context
-        if (level === 'audit') {
-          // Extract action and resource from context (set by audit() method)
-          const auditAction = enrichedContext.action as string | undefined;
-          const auditResource = enrichedContext.resource as string | undefined;
-          
-          // Extract entityType and entityId if already provided in context
-          const providedEntityType = enrichedContext.entityType as string | undefined;
-          const providedEntityId = enrichedContext.entityId as string | undefined;
-          const providedOldValues = enrichedContext.oldValues as Record<string, unknown> | undefined;
-          const providedNewValues = enrichedContext.newValues as Record<string, unknown> | undefined;
-          
-          // Remove fields that will be moved to data object (not in context)
-          delete enrichedContext.action;
-          delete enrichedContext.resource;
-          delete enrichedContext.entityType;
-          delete enrichedContext.entityId;
-          delete enrichedContext.oldValues;
-          delete enrichedContext.newValues;
-          
-          // Map to required audit log fields
-          // entityType: Type of entity (use provided, or default to "HTTP Request" for HTTP requests, or "API Endpoint" for API paths)
-          // entityId: The resource/URL being acted upon (use provided, or fallback to resource/URL)
-          // action: The action being performed (use provided action from audit() call)
-          const entityType = providedEntityType || 
-                            (auditResource && auditResource.startsWith('/api/') ? 'API Endpoint' : 'HTTP Request');
-          const entityId = providedEntityId || auditResource || 'unknown';
-          const action = auditAction || 'unknown';
-          
-          await this.apiClient.logs.createLog({
-            type: logType,
-            data: {
-              level: logLevel,
-              message: logEntry.message,
-              context: enrichedContext,
-              correlationId: logEntry.correlationId,
-              entityType,
-              entityId,
-              action,
-              // Include oldValues and newValues if present
-              oldValues: providedOldValues,
-              newValues: providedNewValues,
-            },
-          });
-        } else {
-          await this.apiClient.logs.createLog({
-            type: logType,
-            data: {
-              level: logLevel,
-              message: logEntry.message,
-              context: enrichedContext,
-              correlationId: logEntry.correlationId,
-            },
-          });
-        }
       } else {
-        // Fallback to HttpClient (shouldn't happen after initialization)
-        // Backend extracts environment and application from client credentials
-        await this.httpClient.request("POST", "/api/v1/logs", {
-          ...logEntry,
-          // Remove fields that backend extracts from credentials
-          environment: undefined,
-          application: undefined,
+        await this.apiClient.logs.createLog({
+          type: logType,
+          data: {
+            level: logLevel,
+            message: logEntry.message,
+            context: enrichedContext,
+            correlationId: logEntry.correlationId,
+          },
         });
       }
       // Success - reset failure counter

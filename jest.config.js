@@ -19,6 +19,10 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests'],
   testMatch: ['**/*.test.ts'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/tests/integration/' // Exclude integration tests from normal test run (require real controller)
+  ],
   // Setup file runs before all tests to configure unhandled rejection handling
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   // Performance optimizations - maximize speed for < 0.5s execution

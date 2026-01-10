@@ -335,10 +335,13 @@ describe("MisoClient Integration", () => {
             correlationId: expect.any(String),
             context: expect.objectContaining({
               applicationId: "",
+              hostname: expect.anything(),
             }),
           }),
         }),
-        undefined,
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
       );
     });
   });

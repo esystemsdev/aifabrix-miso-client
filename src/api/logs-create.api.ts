@@ -55,11 +55,25 @@ export class LogsCreateApi {
           logEntry,
         );
       }
-      return await this.httpClient.request<CreateLogResponse>(
+      const response = await this.httpClient.request<Record<string, unknown>>(
         'POST',
         LogsCreateApi.LOGS_ENDPOINT,
         logEntry,
       );
+      
+      // Transform response to match CreateLogResponse format
+      // Handle both formats: {success: true, ...} and {data: {...}} or just {...}
+      if (response.success !== undefined) {
+        return response as unknown as CreateLogResponse;
+      } else {
+        // New format without success field - add it
+        return {
+          success: true,
+          data: null,
+          message: typeof response.message === 'string' ? response.message : 'Log created successfully',
+          timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+        };
+      }
     } catch (error) {
       // Suppress logging for 401 errors (token expired) - these are expected
       // and will be automatically refreshed. Logging them creates noise.
@@ -105,11 +119,29 @@ export class LogsCreateApi {
           logs,
         );
       }
-      return await this.httpClient.request<BatchLogResponse>(
+      const response = await this.httpClient.request<Record<string, unknown>>(
         'POST',
         LogsCreateApi.LOGS_BATCH_ENDPOINT,
         logs,
       );
+      
+      // Transform response to match BatchLogResponse format
+      // Handle both formats: {success: true, ...} and {data: {...}} or just {...}
+      if (response.success !== undefined) {
+        return response as unknown as BatchLogResponse;
+      } else {
+        // New format without success field - add it
+        // BatchLogResponse format: {success, message, processed, failed, errors?, timestamp}
+        const data = response.data && typeof response.data === 'object' ? response.data as Record<string, unknown> : undefined;
+        return {
+          success: true,
+          message: typeof response.message === 'string' ? response.message : 'Batch logs processed',
+          processed: typeof data?.processed === 'number' ? data.processed : typeof response.processed === 'number' ? response.processed : 0,
+          failed: typeof data?.failed === 'number' ? data.failed : typeof response.failed === 'number' ? response.failed : 0,
+          errors: Array.isArray(data?.errors) ? data.errors : Array.isArray(response.errors) ? response.errors : undefined,
+          timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+        };
+      }
     } catch (error) {
       // Suppress logging for 401 errors (token expired) - these are expected
       // and will be automatically refreshed. Logging them creates noise.

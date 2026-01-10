@@ -46,10 +46,45 @@ export class AuthTokenApi {
           authStrategy,
         );
       }
-      return await this.httpClient.request<ClientTokenResponse>(
+      // For frontend client-token endpoint, it uses origin validation (no client-secret needed)
+      // But we still need to prevent interceptor from trying to add x-client-token
+      // The interceptor will see x-client-id and skip adding x-client-token
+      const response = await this.httpClient.request<Record<string, unknown>>(
         'POST',
         AuthTokenApi.CLIENT_TOKEN_ENDPOINT,
+        undefined, // no body
+        {
+          headers: {
+            // Set x-client-id so interceptor skips adding x-client-token
+            // Frontend endpoint uses origin validation, not client-secret
+            'x-client-id': this.httpClient.config.clientId || '',
+          },
+        },
       );
+      
+      // Transform response to match ClientTokenResponse format
+      // Handle both formats: {success: true, data: {token: ...}} and {data: {token: ...}}
+      if (response.success !== undefined) {
+        // Already in expected format
+        return response as unknown as ClientTokenResponse;
+      } else if (response.data && typeof response.data === 'object') {
+        const data = response.data as Record<string, unknown>;
+        if (typeof data.token === 'string') {
+          // New nested format without success field - add it
+          return {
+            success: true,
+            data: {
+              token: data.token,
+              expiresIn: typeof data.expiresIn === 'number' ? data.expiresIn : 0,
+              expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : new Date().toISOString(),
+            },
+            timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+          };
+        }
+      }
+      
+      // If we get here, response format is unexpected
+      throw new Error(`Unexpected response format from client-token endpoint: ${JSON.stringify(response)}`);
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthTokenApi.CLIENT_TOKEN_ENDPOINT,
@@ -76,10 +111,52 @@ export class AuthTokenApi {
           authStrategy,
         );
       }
-      return await this.httpClient.request<ClientTokenLegacyResponse>(
+      // For token endpoint, explicitly send x-client-id and x-client-secret headers
+      // to prevent interceptor from trying to add x-client-token (which doesn't exist yet - chicken/egg problem)
+      // The interceptor will see x-client-id and skip adding x-client-token
+      const response = await this.httpClient.request<Record<string, unknown>>(
         'POST',
         AuthTokenApi.CLIENT_TOKEN_LEGACY_ENDPOINT,
+        undefined, // no body
+        {
+          headers: {
+            // Set both headers so interceptor skips adding x-client-token
+            'x-client-id': this.httpClient.config.clientId || '',
+            'x-client-secret': this.httpClient.config.clientSecret || '',
+          },
+        },
       );
+      
+      // Transform response to match ClientTokenLegacyResponse format
+      // Handle both formats: {success: true, token: ...} and {data: {token: ...}}
+      if (response.success !== undefined) {
+        // Already in legacy format
+        return response as unknown as ClientTokenLegacyResponse;
+      } else if (response.data && typeof response.data === 'object') {
+        const data = response.data as Record<string, unknown>;
+        if (typeof data.token === 'string') {
+          // New nested format - transform to legacy format
+          return {
+            success: true,
+            token: data.token,
+            expiresIn: typeof data.expiresIn === 'number' ? data.expiresIn : 0,
+            expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : new Date().toISOString(),
+            timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+          };
+        }
+      } else if (typeof response.token === 'string') {
+        // Flat format without success field - add it
+        return {
+          success: true,
+          token: response.token,
+          expiresIn: typeof response.expiresIn === 'number' ? response.expiresIn : 0,
+          expiresAt: typeof response.expiresAt === 'string' ? response.expiresAt : new Date().toISOString(),
+          timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+        };
+      }
+      
+      // If we get here, response format is unexpected
+      throw new Error(`Unexpected response format from token endpoint: ${JSON.stringify(response)}`);
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthTokenApi.CLIENT_TOKEN_LEGACY_ENDPOINT,

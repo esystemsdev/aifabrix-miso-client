@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.2] - 2026-01-10
+
+### Added
+
+- **Comprehensive Integration Tests** - Full end-to-end integration tests for Auth and Logs API endpoints
+  - New `tests/integration/api-endpoints.integration.test.ts` with comprehensive endpoint coverage
+  - Tests all Auth and Logs endpoints against real controller using credentials from `.env`
+  - Validates endpoint paths, HTTP methods, request bodies, and response structures against OpenAPI specs
+  - Tests error cases (invalid tokens, missing params, etc.) with proper status code verification
+  - Gracefully skips tests if controller is unavailable (CI/CD friendly)
+  - New npm script `test:integration:api` for running integration tests
+
+### Changed
+
+- **Logger Service Refactoring** - Improved code organization and maintainability
+  - Moved logger service to modular structure in `src/services/logger/` directory
+  - Split `LoggerService` into focused modules: `logger-chain.ts`, `logger-context.ts`, `logger.service.ts`
+  - New barrel export `src/services/logger/index.ts` for cleaner imports
+  - Maintains backward compatibility (no breaking changes to public API)
+
+- **Error Handling Improvements** - Enhanced error handling across API layer
+  - Updated error handling in integration tests to gracefully skip unavailable controllers
+  - Improved error reporting and logging throughout API files
+  - Enhanced user information retrieval functionality
+
+- **Code Quality Improvements** - Refactoring for better readability and maintainability
+  - Updated various components for improved logging and error reporting
+  - Enhanced API response handling and validation
+  - Improved code organization and structure
+
+### Fixed
+
+- **Linting Issues** - Fixed ESLint errors in internal HTTP client
+  - Converted `require()` statements to use ESLint disable comments for Node.js-only code
+  - Fixed `@typescript-eslint/no-var-requires` errors in `src/utils/internal-http-client.ts`
+
+### Technical
+
+- **New test infrastructure**:
+  - Comprehensive integration test suite (`tests/integration/api-endpoints.integration.test.ts` - 554 lines)
+  - New npm script: `test:integration:api` for running integration tests
+  - Enhanced validation plans and summaries for API calls
+
+- **Code organization**:
+  - Logger service modularized into `src/services/logger/` directory structure
+  - Improved separation of concerns with focused modules
+  - Better code maintainability and testability
+
+- **Documentation**:
+  - Added endpoint validation summary documentation
+  - Updated validation plans for API calls
+
 ## [3.7.1] - 2026-01-09
 
 ### Added

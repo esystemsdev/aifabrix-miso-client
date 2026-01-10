@@ -125,7 +125,6 @@ export interface CreateLogResponse {
 
 /**
  * Batch log entry for requests
- * Accepts both string IDs and ForeignKeyReference objects for backward compatibility
  * Controller accepts strings and converts them to ForeignKeyReference objects
  */
 export interface BatchLogEntry {

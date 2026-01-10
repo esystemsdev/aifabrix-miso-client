@@ -133,10 +133,10 @@ export class AuthService {
       const tokenUri = this.config.clientTokenUri || "/api/v1/auth/token";
       const fullUrl = `${controllerUrl}${tokenUri}`;
       
-      // Use shorter timeout (4 seconds) to match handler timeout (5 seconds)
+      // Use default timeout of 4 seconds
       // This ensures axios fails before the handler timeout wrapper
       // Wrap axios call in Promise.race to ensure it always times out
-      const axiosTimeout = 4000; // 4 seconds
+      const axiosTimeout = 4000; // Default to 4 seconds
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();

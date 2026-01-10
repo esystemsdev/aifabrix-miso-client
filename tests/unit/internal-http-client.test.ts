@@ -116,13 +116,17 @@ describe("InternalHttpClient", () => {
 
   describe("constructor", () => {
     it("should create axios instance with correct config", () => {
-      expect(axios.create).toHaveBeenCalledWith({
-        baseURL: config.controllerUrl,
-        timeout: 30000,
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      expect(axios.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseURL: config.controllerUrl,
+          timeout: 30000,
+          headers: {
+            "Content-Type": "application/json",
+          },
+          httpsAgent: expect.anything(),
+          httpAgent: undefined,
+        }),
+      );
     });
 
     it("should set up request interceptor", () => {
@@ -343,8 +347,13 @@ describe("InternalHttpClient", () => {
 
       // Verify the request succeeds
       expect(result).toEqual({ message: "success" });
-      // The config parameter might be undefined if not provided
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/test", undefined);
+      // The config parameter includes signal for timeout handling
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith(
+        "/test",
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
+      );
     });
 
     it("should cache client token until expiration", async () => {
@@ -1298,7 +1307,12 @@ describe("InternalHttpClient", () => {
       (mockAxiosInstance.get as jest.Mock).mockResolvedValue(response);
 
       const result = await httpClient.get("/test");
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/test", undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith(
+        "/test",
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
+      );
       expect(result).toEqual({ message: "success" });
     });
 
@@ -1318,7 +1332,10 @@ describe("InternalHttpClient", () => {
       await httpClient.get("/test", requestConfig);
       expect(mockAxiosInstance.get).toHaveBeenCalledWith(
         "/test",
-        requestConfig,
+        expect.objectContaining({
+          ...requestConfig,
+          signal: expect.anything(),
+        }),
       );
     });
 
@@ -1370,7 +1387,9 @@ describe("InternalHttpClient", () => {
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         "/test",
         requestData,
-        undefined,
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
       );
       expect(result).toEqual({ id: "123" });
     });
@@ -1427,7 +1446,9 @@ describe("InternalHttpClient", () => {
       expect(mockAxiosInstance.put).toHaveBeenCalledWith(
         "/test",
         requestData,
-        undefined,
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
       );
       expect(result).toEqual({ updated: true });
     });
@@ -1480,7 +1501,12 @@ describe("InternalHttpClient", () => {
       (mockAxiosInstance.delete as jest.Mock).mockResolvedValue(response);
 
       const result = await httpClient.delete("/test");
-      expect(mockAxiosInstance.delete).toHaveBeenCalledWith("/test", undefined);
+      expect(mockAxiosInstance.delete).toHaveBeenCalledWith(
+        "/test",
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
+      );
       expect(result).toEqual({ deleted: true });
     });
 
@@ -1528,7 +1554,12 @@ describe("InternalHttpClient", () => {
       (mockAxiosInstance.get as jest.Mock).mockResolvedValue(response);
 
       const result = await httpClient.request("GET", "/test");
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/test", undefined);
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith(
+        "/test",
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
+      );
       expect(result).toEqual({ message: "success" });
     });
 
@@ -1549,7 +1580,9 @@ describe("InternalHttpClient", () => {
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         "/test",
         requestData,
-        undefined,
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
       );
       expect(result).toEqual({ id: "123" });
     });
@@ -1571,7 +1604,9 @@ describe("InternalHttpClient", () => {
       expect(mockAxiosInstance.put).toHaveBeenCalledWith(
         "/test",
         requestData,
-        undefined,
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
       );
       expect(result).toEqual({ updated: true });
     });
@@ -1589,7 +1624,12 @@ describe("InternalHttpClient", () => {
       (mockAxiosInstance.delete as jest.Mock).mockResolvedValue(response);
 
       const result = await httpClient.request("DELETE", "/test");
-      expect(mockAxiosInstance.delete).toHaveBeenCalledWith("/test", undefined);
+      expect(mockAxiosInstance.delete).toHaveBeenCalledWith(
+        "/test",
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
+      );
       expect(result).toEqual({ deleted: true });
     });
 
@@ -1618,11 +1658,15 @@ describe("InternalHttpClient", () => {
         "/user",
         "token123",
       );
-      expect(mockAxiosInstance.get).toHaveBeenCalledWith("/user", {
-        headers: {
-          Authorization: "Bearer token123",
-        },
-      });
+      expect(mockAxiosInstance.get).toHaveBeenCalledWith(
+        "/user",
+        expect.objectContaining({
+          headers: {
+            Authorization: "Bearer token123",
+          },
+          signal: expect.anything(),
+        }),
+      );
       expect(result).toEqual({ user: "test" });
     });
 
@@ -1648,11 +1692,12 @@ describe("InternalHttpClient", () => {
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         "/test",
         requestData,
-        {
+        expect.objectContaining({
           headers: {
             Authorization: "Bearer token123",
           },
-        },
+          signal: expect.anything(),
+        }),
       );
       expect(result).toEqual({ success: true });
     });
@@ -1676,11 +1721,16 @@ describe("InternalHttpClient", () => {
         "token123",
         requestData,
       );
-      expect(mockAxiosInstance.put).toHaveBeenCalledWith("/test", requestData, {
-        headers: {
-          Authorization: "Bearer token123",
-        },
-      });
+      expect(mockAxiosInstance.put).toHaveBeenCalledWith(
+        "/test",
+        requestData,
+        expect.objectContaining({
+          headers: {
+            Authorization: "Bearer token123",
+          },
+          signal: expect.anything(),
+        }),
+      );
       expect(result).toEqual({ updated: true });
     });
 
@@ -1701,11 +1751,15 @@ describe("InternalHttpClient", () => {
         "/test",
         "token123",
       );
-      expect(mockAxiosInstance.delete).toHaveBeenCalledWith("/test", {
-        headers: {
-          Authorization: "Bearer token123",
-        },
-      });
+      expect(mockAxiosInstance.delete).toHaveBeenCalledWith(
+        "/test",
+        expect.objectContaining({
+          headers: {
+            Authorization: "Bearer token123",
+          },
+          signal: expect.anything(),
+        }),
+      );
       expect(result).toEqual({ deleted: true });
     });
 
@@ -1735,13 +1789,14 @@ describe("InternalHttpClient", () => {
       expect(mockAxiosInstance.post).toHaveBeenCalledWith(
         "/test",
         {},
-        {
+        expect.objectContaining({
           ...requestConfig,
           headers: {
             ...requestConfig.headers,
             Authorization: "Bearer token123",
           },
-        },
+          signal: expect.anything(),
+        }),
       );
     });
 

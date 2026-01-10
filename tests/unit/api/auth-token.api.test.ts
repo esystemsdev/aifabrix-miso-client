@@ -29,6 +29,10 @@ describe('AuthTokenApi', () => {
       request: jest.fn(),
       authenticatedRequest: jest.fn(),
       requestWithAuthStrategy: jest.fn(),
+      config: {
+        clientId: 'test-client-id',
+        clientSecret: 'test-client-secret',
+      },
     } as any;
 
     MockedHttpClient.mockImplementation(() => mockHttpClient);
@@ -59,6 +63,12 @@ describe('AuthTokenApi', () => {
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         'POST',
         '/api/v1/auth/client-token',
+        undefined,
+        {
+          headers: {
+            'x-client-id': 'test-client-id',
+          },
+        },
       );
       expect(result).toEqual(mockResponse);
     });
@@ -119,6 +129,13 @@ describe('AuthTokenApi', () => {
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         'POST',
         '/api/v1/auth/token',
+        undefined,
+        {
+          headers: {
+            'x-client-id': 'test-client-id',
+            'x-client-secret': 'test-client-secret',
+          },
+        },
       );
       expect(result).toEqual(mockResponse);
     });

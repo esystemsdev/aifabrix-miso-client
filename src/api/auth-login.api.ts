@@ -159,12 +159,34 @@ export class AuthLoginApi {
   ): Promise<DiagnosticsResponse> {
     try {
       const params = environment ? { environment } : undefined;
-      return await this.httpClient.request<DiagnosticsResponse>(
+      const response = await this.httpClient.request<Record<string, unknown>>(
         'GET',
         AuthLoginApi.LOGIN_DIAGNOSTICS_ENDPOINT,
         undefined,
         { params },
       );
+      
+      // Transform response to match DiagnosticsResponse format
+      // Handle both formats: {success: true, data: {...}} and {data: {...}}
+      if (response.success !== undefined) {
+        return response as unknown as DiagnosticsResponse;
+      } else if (response.data && typeof response.data === 'object') {
+        // New format without success field - add it
+        const data = response.data as Record<string, unknown>;
+        return {
+          success: true,
+          data: {
+            database: (data.database as Record<string, unknown>) || {},
+            controller: (data.controller as Record<string, unknown>) || {},
+            environment: (data.environment as Record<string, unknown>) || {},
+            keycloak: (data.keycloak as Record<string, unknown>) || {},
+          },
+          timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+        };
+      }
+      
+      // If we get here, response format is unexpected
+      throw new Error(`Unexpected response format from login diagnostics endpoint: ${JSON.stringify(response)}`);
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthLoginApi.LOGIN_DIAGNOSTICS_ENDPOINT,
