@@ -15,6 +15,24 @@ jest.mock("jose", () => ({
   createRemoteJWKSet: jest.fn(),
 }));
 
+// Mock controller-url-resolver
+jest.mock("../../src/utils/controller-url-resolver", () => {
+  const mockResolveKeycloakUrl = jest.fn((config: KeycloakConfig) => {
+    // Simulate server environment - use private URL if available, else fallback to authServerUrl
+    const resolved = config.authServerPrivateUrl || config.authServerUrl;
+    // Convert localhost to 127.0.0.1 (matching actual implementation)
+    return resolved?.replace(/localhost/g, '127.0.0.1') || resolved;
+  });
+  
+  return {
+    resolveKeycloakUrl: mockResolveKeycloakUrl,
+    isBrowser: jest.fn(() => false), // Mock as server environment
+  };
+});
+
+// Get the mocked function for test assertions
+const { resolveKeycloakUrl: mockResolveKeycloakUrl } = require("../../src/utils/controller-url-resolver");
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jose = require("jose");
 
@@ -89,6 +107,113 @@ describe("TokenValidationService", () => {
         expect(result.valid).toBe(false);
         expect(result.tokenType).toBe("keycloak");
         expect(result.error).toContain("signature");
+      });
+
+      it("should use private URL for JWKS fetching on server", async () => {
+        const token = "valid.keycloak.token";
+        const configWithPrivateUrl: KeycloakConfig = {
+          authServerUrl: "https://keycloak-public.example.com",
+          authServerPrivateUrl: "http://keycloak-private:8080",
+          authServerPublicUrl: "https://keycloak-public.example.com",
+          realm: "test-realm",
+        };
+        const serviceWithPrivateUrl = new TokenValidationService(configWithPrivateUrl);
+
+        jose.decodeJwt.mockReturnValue({
+          iss: "https://keycloak-public.example.com/realms/test-realm",
+        });
+        jose.jwtVerify.mockResolvedValue({
+          payload: { sub: "user-123", iss: "https://keycloak-public.example.com/realms/test-realm" },
+        });
+
+        await serviceWithPrivateUrl.validateTokenLocal(token);
+
+        // Verify resolveKeycloakUrl was called (which returns private URL)
+        expect(mockResolveKeycloakUrl).toHaveBeenCalledWith(configWithPrivateUrl);
+        // Verify JWKS URI uses private URL (as returned by resolveKeycloakUrl)
+        expect(jose.createRemoteJWKSet).toHaveBeenCalledWith(
+          expect.objectContaining({
+            href: "http://keycloak-private:8080/realms/test-realm/protocol/openid-connect/certs",
+          })
+        );
+      });
+
+      it("should use public URL for issuer validation", async () => {
+        const token = "valid.keycloak.token";
+        const configWithPublicUrl: KeycloakConfig = {
+          authServerUrl: "https://keycloak-public.example.com",
+          authServerPrivateUrl: "http://keycloak-private:8080",
+          authServerPublicUrl: "https://keycloak-public.example.com",
+          realm: "test-realm",
+        };
+        const serviceWithPublicUrl = new TokenValidationService(configWithPublicUrl);
+
+        jose.decodeJwt.mockReturnValue({
+          iss: "https://keycloak-public.example.com/realms/test-realm",
+        });
+        jose.jwtVerify.mockResolvedValue({
+          payload: { sub: "user-123", iss: "https://keycloak-public.example.com/realms/test-realm" },
+        });
+
+        await serviceWithPublicUrl.validateTokenLocal(token);
+
+        // Verify issuer validation uses public URL
+        expect(jose.jwtVerify).toHaveBeenCalledWith(
+          token,
+          expect.anything(),
+          expect.objectContaining({
+            issuer: "https://keycloak-public.example.com/realms/test-realm",
+          })
+        );
+      });
+
+      it("should fallback to authServerUrl for issuer when public URL not provided", async () => {
+        const token = "valid.keycloak.token";
+        const configWithoutPublicUrl: KeycloakConfig = {
+          authServerUrl: "https://keycloak.example.com",
+          authServerPrivateUrl: "http://keycloak-private:8080",
+          realm: "test-realm",
+        };
+        const serviceWithoutPublicUrl = new TokenValidationService(configWithoutPublicUrl);
+
+        jose.decodeJwt.mockReturnValue({
+          iss: "https://keycloak.example.com/realms/test-realm",
+        });
+        jose.jwtVerify.mockResolvedValue({
+          payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+        });
+
+        await serviceWithoutPublicUrl.validateTokenLocal(token);
+
+        // Verify issuer validation falls back to authServerUrl
+        expect(jose.jwtVerify).toHaveBeenCalledWith(
+          token,
+          expect.anything(),
+          expect.objectContaining({
+            issuer: "https://keycloak.example.com/realms/test-realm",
+          })
+        );
+      });
+
+      it("should work with backward compatible single authServerUrl", async () => {
+        const token = "valid.keycloak.token";
+        const backwardCompatibleConfig: KeycloakConfig = {
+          authServerUrl: "https://keycloak.example.com",
+          realm: "test-realm",
+        };
+        const backwardCompatibleService = new TokenValidationService(backwardCompatibleConfig);
+
+        jose.decodeJwt.mockReturnValue({
+          iss: "https://keycloak.example.com/realms/test-realm",
+        });
+        jose.jwtVerify.mockResolvedValue({
+          payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+        });
+
+        const result = await backwardCompatibleService.validateTokenLocal(token);
+
+        expect(result.valid).toBe(true);
+        expect(result.tokenType).toBe("keycloak");
       });
 
       it("should return error when Keycloak is not configured", async () => {
@@ -473,7 +598,29 @@ describe("TokenValidationService", () => {
   });
 
   describe("Token type detection", () => {
-    it("should detect Keycloak token by issuer", async () => {
+    it("should detect Keycloak token by issuer using public URL", async () => {
+      const token = "keycloak.token";
+      const configWithPublicUrl: KeycloakConfig = {
+        authServerUrl: "https://keycloak.example.com",
+        authServerPublicUrl: "https://keycloak-public.example.com",
+        realm: "test-realm",
+      };
+      const serviceWithPublicUrl = new TokenValidationService(configWithPublicUrl);
+
+      // Token has public URL in issuer
+      jose.decodeJwt.mockReturnValue({
+        iss: "https://keycloak-public.example.com/realms/test-realm",
+      });
+      jose.jwtVerify.mockResolvedValue({
+        payload: { sub: "user-123", iss: "https://keycloak-public.example.com/realms/test-realm" },
+      });
+
+      const result = await serviceWithPublicUrl.validateTokenLocal(token);
+
+      expect(result.tokenType).toBe("keycloak");
+    });
+
+    it("should detect Keycloak token by issuer using authServerUrl fallback", async () => {
       const token = "keycloak.token";
 
       jose.decodeJwt.mockReturnValue({

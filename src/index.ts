@@ -590,7 +590,7 @@ export { getEnvironmentToken } from "./utils/environment-token";
 export { extractClientTokenInfo } from "./utils/token-utils";
 export type { ClientTokenInfo } from "./utils/token-utils";
 export type { OriginValidationResult } from "./utils/origin-validator";
-export { resolveControllerUrl, isBrowser, validateUrl } from "./utils/controller-url-resolver";
+export { resolveControllerUrl, resolveKeycloakUrl, isBrowser, validateUrl } from "./utils/controller-url-resolver";
 export { extractLoggingContext } from "./utils/logging-helpers";
 export type { IndexedLoggingContext, HasKey, HasExternalSystem } from "./utils/logging-helpers";
 export { extractRequestContext } from "./utils/request-context";

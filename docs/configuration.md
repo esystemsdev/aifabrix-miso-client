@@ -282,6 +282,110 @@ console.log('Resolved URL:', resolvedUrl);
 
 - [Standalone Utilities Reference](./reference-utilities.md#standalone-utilities) - Complete documentation for `resolveControllerUrl()` and `isBrowser()`
 
+## Keycloak Configuration
+
+**You need to:** Configure Keycloak URLs for local token validation with `validateTokenLocal()`.
+
+**Here's how:** Use `authServerPublicUrl` for browser-side and issuer validation, and `authServerPrivateUrl` for server-side JWKS fetching. The SDK automatically detects the environment and uses the appropriate URL.
+
+### Keycloak URL Configuration
+
+The SDK supports separate private and public Keycloak URLs, similar to controller URLs:
+
+- **`authServerUrl`**: Fallback URL for backward compatibility
+- **`authServerPrivateUrl`**: Private URL for server-side JWKS fetching (internal network)
+- **`authServerPublicUrl`**: Public URL for browser-side and issuer validation (public network)
+
+### Automatic Environment Detection
+
+The SDK automatically detects whether it's running in a browser or server environment:
+
+- **Browser/Vite**: Uses `authServerPublicUrl` (or falls back to `authServerUrl`)
+- **Server/Node.js**: Uses `authServerPrivateUrl` (or falls back to `authServerUrl`)
+
+### Server Configuration
+
+```typescript
+// Server configuration - use private URL for JWKS fetching
+const serverClient = new MisoClient({
+  controllerPrivateUrl: 'http://miso-controller:3010',
+  clientId: 'my-app',
+  clientSecret: 'your-secret',
+  keycloak: {
+    authServerUrl: 'https://keycloak.example.com', // Fallback
+    authServerPrivateUrl: 'http://keycloak-internal:8080', // For JWKS fetching
+    authServerPublicUrl: 'https://keycloak.example.com', // For issuer validation
+    realm: 'my-realm',
+    clientId: 'my-client',
+    verifyAudience: true,
+  },
+});
+```
+
+**What happens:**
+
+- JWKS keys are fetched from `authServerPrivateUrl` (faster, more secure, internal network)
+- Token issuer validation uses `authServerPublicUrl` (matches token's `iss` claim)
+- Tokens are always issued with the public URL in the `iss` claim
+
+### Browser Configuration
+
+```typescript
+// Browser configuration - use public URL
+const browserClient = new MisoClient({
+  controllerPublicUrl: 'https://controller.aifabrix.ai',
+  clientId: 'my-app',
+  keycloak: {
+    authServerUrl: 'https://keycloak.example.com', // Fallback
+    authServerPublicUrl: 'https://keycloak.example.com', // For JWKS and issuer
+    realm: 'my-realm',
+  },
+});
+```
+
+### Environment Variables
+
+You can configure Keycloak URLs using environment variables:
+
+```bash
+# .env file
+KEYCLOAK_SERVER_URL=http://keycloak-internal:8080
+KEYCLOAK_PUBLIC_SERVER_URL=https://keycloak.example.com
+KEYCLOAK_REALM=my-realm
+KEYCLOAK_CLIENT_ID=my-client
+KEYCLOAK_VERIFY_AUDIENCE=true
+```
+
+The `loadConfig()` function automatically maps these to the Keycloak configuration:
+
+- `KEYCLOAK_SERVER_URL` → `authServerPrivateUrl`
+- `KEYCLOAK_PUBLIC_SERVER_URL` → `authServerPublicUrl`
+- `KEYCLOAK_REALM` → `realm`
+- `KEYCLOAK_CLIENT_ID` → `clientId`
+- `KEYCLOAK_VERIFY_AUDIENCE` → `verifyAudience`
+
+### Backward Compatibility
+
+Existing code using single `authServerUrl` will continue to work:
+
+```typescript
+// Backward compatible - single URL
+const client = new MisoClient({
+  keycloak: {
+    authServerUrl: 'https://keycloak.example.com',
+    realm: 'my-realm',
+  },
+});
+```
+
+**Benefits:**
+
+- ✅ Separate network topologies for JWKS fetching and issuer validation
+- ✅ Private URL for internal JWKS fetching (server-side)
+- ✅ Public URL for issuer validation (matches token's `iss` claim)
+- ✅ Automatic environment detection
+- ✅ Backward compatible with existing `authServerUrl`
+
 ## Redis Configuration
 
 **You need to:** Configure Redis for improved performance through caching.

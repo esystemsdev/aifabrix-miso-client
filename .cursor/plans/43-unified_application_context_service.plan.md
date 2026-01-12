@@ -116,12 +116,14 @@ This plan must comply with the following rules from [Project Rules](.cursor/rule
 - Update `getLogWithRequest()`, `getWithContext()`, and `getWithToken()` to accept and use `ApplicationContextService`
 - Replace hardcoded `environment: "unknown"` and `application: config.clientId` with context service values
 
-### 7. Update Browser Services (if needed)
+### 7. Update Browser Services (MANDATORY)
 
 **Files**: `src/services/browser-role.service.ts`, `src/services/browser-permission.service.ts`
 
-- Check if they need similar updates for browser environment
-- May need browser-specific client token extraction from localStorage
+- Replace `getEnvironmentFromClientToken()` with `ApplicationContextService`
+- Use `applicationContextService.getApplicationContext().environment` for environment extraction
+- Update all calls to use the new service
+- ApplicationContextService must support browser localStorage token extraction
 
 ## ClientId Format Parsing
 
@@ -180,23 +182,25 @@ Before marking this plan as complete, ensure:
 4. `src/services/logger/logger.service.ts`
 5. `src/services/logger/unified-logger.service.ts`
 6. `src/services/logger/logger-context.ts`
-7. `src/services/browser-role.service.ts` (if needed)
-8. `src/services/browser-permission.service.ts` (if needed)
+7. `src/services/browser-role.service.ts` (MANDATORY)
+8. `src/services/browser-permission.service.ts` (MANDATORY)
 9. `tests/unit/application-context.service.test.ts` (NEW)
 
 ---
 
 ## Plan Validation Report
 
-**Date**: 2025-01-27
+**Date**: 2026-01-10
+
 **Plan**: `.cursor/plans/43-unified_application_context_service.plan.md`
+
 **Status**: ✅ VALIDATED
 
 ### Plan Purpose
 
 Create a unified `ApplicationContextService` to extract `application`, `applicationId`, and `environment` with consistent fallback logic (client token → clientId parsing) across RoleService, PermissionService, and LoggerService. This refactoring centralizes token extraction and clientId parsing logic to ensure consistency and reduce code duplication.
 
-**Scope**: Services (RoleService, PermissionService, LoggerService, UnifiedLoggerService), token extraction utilities, clientId format parsing, logger context utilities, browser services (if needed)
+**Scope**: Services (RoleService, PermissionService, LoggerService, UnifiedLoggerService, BrowserRoleService, BrowserPermissionService), token extraction utilities, clientId format parsing, logger context utilities, browser services (MANDATORY)
 
 **Type**: Service Development + Refactoring
 

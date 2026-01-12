@@ -113,7 +113,9 @@ export interface MisoClientConfig {
 
   // Optional: Keycloak configuration for local token validation
   keycloak?: {
-    authServerUrl: string;
+    authServerUrl: string; // Keep for backward compatibility (fallback)
+    authServerPrivateUrl?: string; // For server-side JWKS fetching (internal network)
+    authServerPublicUrl?: string; // For browser-side and issuer validation (public network)
     realm: string;
     clientId?: string;
     clientSecret?: string;

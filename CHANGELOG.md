@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.2] - 2026-01-12
+
+### Added
+
+- **Keycloak Separate Private/Public URL Support** - Separate URLs for JWKS fetching and issuer validation
+  - New `authServerPrivateUrl` configuration option for server-side JWKS fetching (internal network)
+  - New `authServerPublicUrl` configuration option for browser-side and issuer validation (public network)
+  - New `resolveKeycloakUrl()` utility function that automatically detects environment and selects appropriate URL
+  - `validateTokenLocal()` now uses private URL for JWKS fetching on server, public URL for issuer validation
+  - Environment variable support: `KEYCLOAK_SERVER_URL` (maps to `authServerPrivateUrl`), `KEYCLOAK_PUBLIC_SERVER_URL` (maps to `authServerPublicUrl`)
+  - Maintains backward compatibility with existing `authServerUrl` configuration
+
+### Technical
+
+- **TokenValidationService** - Now uses `resolveKeycloakUrl()` for automatic URL resolution
+  - JWKS URI construction uses resolved URL (private on server, public on browser)
+  - Issuer validation always uses public URL (matches token's `iss` claim)
+  - `determineTokenType()` updated to use public URL for issuer matching
+- **controller-url-resolver.ts** - Added `resolveKeycloakUrl()` function (mirrors `resolveControllerUrl()` pattern)
+- **config-loader.ts** - Added Keycloak environment variable support
+- **Tests**: Comprehensive tests for `resolveKeycloakUrl()` and updated TokenValidationService tests
+
 ## [3.8.1] - 2026-01-10
 
 ### Changed

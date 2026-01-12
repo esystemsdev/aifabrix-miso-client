@@ -10,8 +10,12 @@ export type TokenType = "keycloak" | "delegated" | "auto";
 
 /** Keycloak server configuration for local token validation */
 export interface KeycloakConfig {
-  /** Keycloak server URL (e.g., "https://keycloak.example.com") */
+  /** Keycloak server URL (fallback for backward compatibility) */
   authServerUrl: string;
+  /** Keycloak private URL for server-side JWKS fetching (internal network) */
+  authServerPrivateUrl?: string;
+  /** Keycloak public URL for browser-side and issuer validation (public network) */
+  authServerPublicUrl?: string;
   /** Keycloak realm name */
   realm: string;
   /** Client ID for audience validation (optional) */

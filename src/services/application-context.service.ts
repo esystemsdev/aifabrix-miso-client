@@ -7,6 +7,7 @@
 import { HttpClient } from "../utils/http-client";
 import { MisoClientConfig } from "../types/config.types";
 import { extractClientTokenInfo } from "../utils/token-utils";
+import { isBrowser, getLocalStorage } from "../utils/data-client-utils";
 
 /**
  * Application context information
@@ -68,7 +69,7 @@ export class ApplicationContextService {
   }
 
   /**
-   * Extract client token from HttpClient's internal state or config
+   * Extract client token from HttpClient's internal state, config, or browser localStorage
    * @returns Client token string or null if not available
    */
   private getClientToken(): string | null {
@@ -76,6 +77,14 @@ export class ApplicationContextService {
       // Try to get client token from config first (if provided)
       if (this.config.clientToken) {
         return this.config.clientToken;
+      }
+
+      // Try browser localStorage (for browser environments)
+      if (isBrowser()) {
+        const localStorageToken = getLocalStorage("miso:client-token");
+        if (localStorageToken) {
+          return localStorageToken;
+        }
       }
 
       // Try to access from internal client (private property access)

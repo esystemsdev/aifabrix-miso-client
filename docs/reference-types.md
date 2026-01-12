@@ -40,6 +40,15 @@ interface MisoClientConfig {
   sensitiveFieldsConfig?: string; // Optional: Path to custom sensitive fields JSON configuration file
   audit?: AuditConfig; // Optional: Audit logging configuration
   allowedOrigins?: string[]; // Optional: Allowed origins for CORS validation
+  keycloak?: {
+    authServerUrl: string; // Required: Keycloak server URL (fallback for backward compatibility)
+    authServerPrivateUrl?: string; // Optional: Private URL for server-side JWKS fetching (internal network)
+    authServerPublicUrl?: string; // Optional: Public URL for browser-side and issuer validation (public network)
+    realm: string; // Required: Keycloak realm name
+    clientId?: string; // Optional: Client ID for audience validation
+    clientSecret?: string; // Optional: Client secret for confidential clients
+    verifyAudience?: boolean; // Optional: Enable audience validation (default: false)
+  }; // Optional: Keycloak configuration for local token validation
 }
 ```
 

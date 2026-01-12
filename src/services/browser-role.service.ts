@@ -12,8 +12,7 @@ import {
   AuthMethod,
 } from "../types/config.types";
 import { decodeJWT } from "../utils/browser-jwt-decoder";
-import { extractClientTokenInfo } from "../utils/token-utils";
-import { isBrowser, getLocalStorage } from "../utils/data-client-utils";
+import { ApplicationContextService } from "./application-context.service";
 
 interface RoleCacheData {
   roles: string[];
@@ -26,6 +25,7 @@ export class BrowserRoleService {
   private cache: CacheService;
   private config: MisoClientConfig;
   private roleTTL: number;
+  private applicationContextService: ApplicationContextService;
 
   constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
     this.config = httpClient.config;
@@ -33,6 +33,7 @@ export class BrowserRoleService {
     this.httpClient = httpClient;
     this.apiClient = apiClient;
     this.roleTTL = this.config.cache?.roleTTL || 900; // 15 minutes default
+    this.applicationContextService = new ApplicationContextService(httpClient);
   }
 
   /**
@@ -58,37 +59,6 @@ export class BrowserRoleService {
     }
   }
 
-  /**
-   * Extract environment from client token stored in localStorage
-   * Returns null if not available (browser-only)
-   */
-  private getEnvironmentFromClientToken(): string | null {
-    if (!isBrowser()) {
-      return null;
-    }
-
-    try {
-      const clientToken = getLocalStorage("miso:client-token");
-      if (!clientToken) {
-        console.warn("[BrowserRoleService] No client token found in localStorage");
-        return null;
-      }
-
-      const tokenInfo = extractClientTokenInfo(clientToken);
-      
-      // Log token info for debugging
-      if (!tokenInfo.environment) {
-        console.warn("[BrowserRoleService] No environment in client token. Token info:", tokenInfo);
-        console.log("[BrowserRoleService] Available token info fields:", Object.keys(tokenInfo));
-      }
-      
-      return tokenInfo.environment || null;
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn("Failed to extract environment from client token:", error);
-      return null;
-    }
-  }
 
   /**
    * Get user roles with caching
@@ -137,20 +107,9 @@ export class BrowserRoleService {
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
       
-      // Extract environment from client token for query parameter
-      const environment = this.getEnvironmentFromClientToken();
-      
-      // Log warning if environment is missing (required by controller)
-      if (!environment) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          "[BrowserRoleService] Environment not found in client token. " +
-          "Roles API requires environment parameter. " +
-          "This may cause a 400 Bad Request error."
-        );
-      }
-      
-      const queryParams = environment ? { environment } : undefined;
+      // Extract environment from application context service
+      const context = this.applicationContextService.getApplicationContext();
+      const queryParams = context.environment ? { environment: context.environment } : undefined;
       
       const roleResult = await this.apiClient.roles.getRoles(
         queryParams,
@@ -248,9 +207,9 @@ export class BrowserRoleService {
       const userId = userInfo.data.user.id;
       const cacheKey = `roles:${userId}`;
 
-      // Extract environment from client token for query parameter
-      const environment = this.getEnvironmentFromClientToken();
-      const queryParams = environment ? { environment } : undefined;
+      // Extract environment from application context service
+      const context = this.applicationContextService.getApplicationContext();
+      const queryParams = context.environment ? { environment: context.environment } : undefined;
 
       // Fetch fresh roles from controller using refresh endpoint via ApiClient
       const roleResult = await this.apiClient.roles.refreshRoles(

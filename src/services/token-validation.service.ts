@@ -18,6 +18,7 @@ import {
   DelegatedProviderConfig,
   ValidationCacheEntry,
 } from "../types/token-validation.types";
+import { resolveKeycloakUrl } from "../utils/controller-url-resolver";
 
 export class TokenValidationService {
   // JWKS cache: jwksUri -> { keySet, expiresAt }
@@ -142,7 +143,9 @@ export class TokenValidationService {
     if (hint && hint !== "auto") return hint;
 
     if (this.keycloakConfig) {
-      const keycloakIssuer = `${this.keycloakConfig.authServerUrl}/realms/${this.keycloakConfig.realm}`;
+      // Use public URL for issuer matching (tokens contain public URL in iss claim)
+      const issuerUrl = this.keycloakConfig.authServerPublicUrl || this.keycloakConfig.authServerUrl;
+      const keycloakIssuer = `${issuerUrl}/realms/${this.keycloakConfig.realm}`;
       if (issuer === keycloakIssuer) return "keycloak";
     }
 
@@ -161,8 +164,14 @@ export class TokenValidationService {
       };
     }
 
-    const jwksUri = `${this.keycloakConfig.authServerUrl}/realms/${this.keycloakConfig.realm}/protocol/openid-connect/certs`;
-    const expectedIssuer = `${this.keycloakConfig.authServerUrl}/realms/${this.keycloakConfig.realm}`;
+    // Use resolved URL for JWKS fetching (private on server, public on browser)
+    const resolvedKeycloakUrl = resolveKeycloakUrl(this.keycloakConfig);
+    const jwksUri = `${resolvedKeycloakUrl}/realms/${this.keycloakConfig.realm}/protocol/openid-connect/certs`;
+    
+    // For issuer validation, use public URL (matches token's iss claim)
+    // Tokens are always issued with the public URL in the iss claim
+    const issuerUrl = this.keycloakConfig.authServerPublicUrl || this.keycloakConfig.authServerUrl;
+    const expectedIssuer = `${issuerUrl}/realms/${this.keycloakConfig.realm}`;
 
     try {
       const jwks = await this.getJWKS(jwksUri);

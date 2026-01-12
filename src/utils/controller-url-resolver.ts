@@ -5,6 +5,7 @@
  */
 
 import { MisoClientConfig } from "../types/config.types";
+import { KeycloakConfig } from "../types/token-validation.types";
 
 /**
  * Check if running in browser environment
@@ -98,3 +99,74 @@ export function resolveControllerUrl(config: MisoClientConfig): string {
   return resolvedUrl;
 }
 
+/**
+ * Resolve Keycloak URL based on environment and configuration
+ * 
+ * Priority order:
+ * 1. Environment-specific URL (authServerPublicUrl for browser, authServerPrivateUrl for server)
+ * 2. Fallback to authServerUrl if environment-specific URL not provided
+ * 3. Throw error if no URL available
+ * 
+ * @param config - KeycloakConfig object
+ * @returns Resolved Keycloak URL string
+ * @throws Error if no valid URL is available
+ * 
+ * @example
+ * ```typescript
+ * // Server environment - uses private URL
+ * const config: KeycloakConfig = {
+ *   authServerUrl: 'https://keycloak.example.com',
+ *   authServerPrivateUrl: 'http://keycloak-internal:8080',
+ *   realm: 'my-realm'
+ * };
+ * const url = resolveKeycloakUrl(config); // Returns: 'http://127.0.0.1:8080'
+ * 
+ * // Browser environment - uses public URL
+ * const browserConfig: KeycloakConfig = {
+ *   authServerUrl: 'https://keycloak.example.com',
+ *   authServerPublicUrl: 'https://keycloak.example.com',
+ *   realm: 'my-realm'
+ * };
+ * const browserUrl = resolveKeycloakUrl(browserConfig); // Returns: 'https://keycloak.example.com'
+ * ```
+ */
+export function resolveKeycloakUrl(config: KeycloakConfig): string {
+  const isBrowserEnv = isBrowser();
+  let resolvedUrl: string | undefined;  // Step 1: Try environment-specific URL
+  if (isBrowserEnv) {
+    // Browser environment: use public URL
+    resolvedUrl = config.authServerPublicUrl;
+  } else {
+    // Server environment: use private URL
+    resolvedUrl = config.authServerPrivateUrl;
+  }
+
+  // Step 2: Fallback to authServerUrl if environment-specific URL not provided
+  if (!resolvedUrl) {
+    resolvedUrl = config.authServerUrl;
+  }
+
+  // Step 3: Validate and return (or throw error)
+  if (!resolvedUrl) {
+    throw new Error(
+      `No Keycloak URL configured. Please provide ${
+        isBrowserEnv ? "authServerPublicUrl" : "authServerPrivateUrl"
+      } or authServerUrl in your Keycloak configuration.`
+    );
+  }
+
+  // Validate URL format
+  if (!validateUrl(resolvedUrl)) {
+    throw new Error(
+      `Invalid Keycloak URL format: "${resolvedUrl}". URL must be a valid HTTP or HTTPS URL.`
+    );
+  }
+
+  // Resolve localhost to 127.0.0.1 to force IPv4 and avoid IPv6 connection issues
+  // This prevents axios from hanging on IPv6 (::1) connections
+  if (resolvedUrl.includes('localhost')) {
+    resolvedUrl = resolvedUrl.replace(/localhost/g, '127.0.0.1');
+  }
+
+  return resolvedUrl;
+}

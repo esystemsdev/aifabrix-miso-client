@@ -145,5 +145,17 @@ export function loadConfig(): MisoClientConfig {
     config.validateResponses = process.env.NODE_ENV !== "production";
   }
 
+  // Optional Keycloak configuration for local token validation
+  if (process.env.KEYCLOAK_SERVER_URL || process.env.KEYCLOAK_PUBLIC_SERVER_URL) {
+    config.keycloak = {
+      authServerUrl: process.env.KEYCLOAK_PUBLIC_SERVER_URL || process.env.KEYCLOAK_SERVER_URL || '',
+      authServerPrivateUrl: process.env.KEYCLOAK_SERVER_URL,
+      authServerPublicUrl: process.env.KEYCLOAK_PUBLIC_SERVER_URL,
+      realm: process.env.KEYCLOAK_REALM || '',
+      clientId: process.env.KEYCLOAK_CLIENT_ID,
+      verifyAudience: process.env.KEYCLOAK_VERIFY_AUDIENCE === 'true',
+    };
+  }
+
   return config;
 }

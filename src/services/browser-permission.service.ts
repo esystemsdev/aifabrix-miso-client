@@ -12,8 +12,7 @@ import {
   AuthMethod,
 } from "../types/config.types";
 import { decodeJWT } from "../utils/browser-jwt-decoder";
-import { extractClientTokenInfo } from "../utils/token-utils";
-import { isBrowser, getLocalStorage } from "../utils/data-client-utils";
+import { ApplicationContextService } from "./application-context.service";
 
 interface PermissionCacheData {
   permissions: string[];
@@ -26,6 +25,7 @@ export class BrowserPermissionService {
   private cache: CacheService;
   private config: MisoClientConfig;
   private permissionTTL: number;
+  private applicationContextService: ApplicationContextService;
 
   constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
     this.config = httpClient.config;
@@ -33,6 +33,7 @@ export class BrowserPermissionService {
     this.httpClient = httpClient;
     this.apiClient = apiClient;
     this.permissionTTL = this.config.cache?.permissionTTL || 900; // 15 minutes default
+    this.applicationContextService = new ApplicationContextService(httpClient);
   }
 
   /**
@@ -58,29 +59,6 @@ export class BrowserPermissionService {
     }
   }
 
-  /**
-   * Extract environment from client token stored in localStorage
-   * Returns null if not available (browser-only)
-   */
-  private getEnvironmentFromClientToken(): string | null {
-    if (!isBrowser()) {
-      return null;
-    }
-
-    try {
-      const clientToken = getLocalStorage("miso:client-token");
-      if (!clientToken) {
-        return null;
-      }
-
-      const tokenInfo = extractClientTokenInfo(clientToken);
-      return tokenInfo.environment || null;
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn("Failed to extract environment from client token:", error);
-      return null;
-    }
-  }
 
   /**
    * Get user permissions with caching
@@ -129,20 +107,9 @@ export class BrowserPermissionService {
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
       
-      // Extract environment from client token for query parameter
-      const environment = this.getEnvironmentFromClientToken();
-      
-      // Log warning if environment is missing (required by controller)
-      if (!environment) {
-        // eslint-disable-next-line no-console
-        console.warn(
-          "[BrowserPermissionService] Environment not found in client token. " +
-          "Permissions API requires environment parameter. " +
-          "This may cause a 400 Bad Request error."
-        );
-      }
-      
-      const queryParams = environment ? { environment } : undefined;
+      // Extract environment from application context service
+      const context = this.applicationContextService.getApplicationContext();
+      const queryParams = context.environment ? { environment: context.environment } : undefined;
       
       const permissionResult = await this.apiClient.permissions.getPermissions(
         queryParams,
@@ -244,9 +211,9 @@ export class BrowserPermissionService {
       const userId = userInfo.data.user.id;
       const cacheKey = `permissions:${userId}`;
 
-      // Extract environment from client token for query parameter
-      const environment = this.getEnvironmentFromClientToken();
-      const queryParams = environment ? { environment } : undefined;
+      // Extract environment from application context service
+      const context = this.applicationContextService.getApplicationContext();
+      const queryParams = context.environment ? { environment: context.environment } : undefined;
       
       // Fetch fresh permissions from controller using refresh endpoint via ApiClient
       const permissionResult = await this.apiClient.permissions.refreshPermissions(
