@@ -438,159 +438,42 @@ export class LoggerService extends EventEmitter {
     }
   }
 
-  /**
-   * Method chaining support for complex logging scenarios
-   */
+  /** Method chaining with context */
   withContext(context: Record<string, unknown>): LoggerChain {
     return new LoggerChain(this, context);
   }
 
+  /** Method chaining with token */
   withToken(token: string): LoggerChain {
     return new LoggerChain(this, {}, { token });
   }
 
+  /** Method chaining without sensitive data masking */
   withoutMasking(): LoggerChain {
     return new LoggerChain(this, {}, { maskSensitiveData: false });
   }
 
-  /**
-   * Get LogEntry object with request context extracted
-   * Extracts IP, method, path, userAgent, correlationId, userId from Express Request
-   * Returns structured LogEntry object ready for external logger tables
-   *
-   * @param req - Express Request object
-   * @param message - Log message
-   * @param level - Optional log level (defaults to 'info')
-   * @param context - Optional additional context
-   * @returns Complete LogEntry object with all request context extracted
-   *
-   * @example
-   * ```typescript
-   * const logEntry = client.log.getLogWithRequest(req, 'User action', 'info', { action: 'login' });
-   * await myCustomLogger.save(logEntry); // Save to own logger table
-   * ```
-   */
-  getLogWithRequest(
-    req: Request,
-    message: string,
-    level: LogEntry["level"] = "info",
-    context?: Record<string, unknown>,
-  ): LogEntry {
-    return getLogWithRequest(
-      req,
-      message,
-      level,
-      context,
-      this.applicationContextService,
-      () => this.generateCorrelationId(),
-      this.maskSensitiveData,
-      this.config.clientId,
-    );
+  /** Get LogEntry with request context extracted */
+  getLogWithRequest(req: Request, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
+    return getLogWithRequest(req, message, level, context, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.config.clientId);
   }
 
-  /**
-   * Get LogEntry object with provided context
-   * Generates correlation ID automatically and extracts metadata from environment
-   *
-   * @param context - Context object to include in logs
-   * @param message - Log message
-   * @param level - Optional log level (defaults to 'info')
-   * @returns Complete LogEntry object
-   *
-   * @example
-   * ```typescript
-   * const logEntry = client.log.getWithContext({ operation: 'sync' }, 'Sync started');
-   * await myCustomLogger.save(logEntry);
-   * ```
-   */
-  getWithContext(
-    context: Record<string, unknown>,
-    message: string,
-    level: LogEntry["level"] = "info",
-  ): LogEntry {
-    return getWithContext(
-      context,
-      message,
-      level,
-      this.applicationContextService,
-      () => this.generateCorrelationId(),
-      this.maskSensitiveData,
-      this.config.clientId,
-    );
+  /** Get LogEntry with provided context */
+  getWithContext(context: Record<string, unknown>, message: string, level: LogEntry["level"] = "info"): LogEntry {
+    return getWithContext(context, message, level, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.config.clientId);
   }
 
-  /**
-   * Get LogEntry object with token context extracted
-   * Extracts userId, sessionId, applicationId from JWT token
-   * Generates correlation ID automatically
-   *
-   * @param token - JWT token to extract user context from
-   * @param message - Log message
-   * @param level - Optional log level (defaults to 'info')
-   * @param context - Optional additional context
-   * @returns Complete LogEntry object with user context
-   *
-   * @example
-   * ```typescript
-   * const logEntry = client.log.getWithToken(token, 'Token validated', 'audit');
-   * await myCustomLogger.save(logEntry);
-   * ```
-   */
-  getWithToken(
-    token: string,
-    message: string,
-    level: LogEntry["level"] = "info",
-    context?: Record<string, unknown>,
-  ): LogEntry {
-    return getWithToken(
-      token,
-      message,
-      level,
-      context,
-      this.applicationContextService,
-      () => this.generateCorrelationId(),
-      this.maskSensitiveData,
-      this.config.clientId,
-    );
+  /** Get LogEntry with token context extracted */
+  getWithToken(token: string, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
+    return getWithToken(token, message, level, context, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.config.clientId);
   }
 
-  /**
-   * Get LogEntry object with request context extracted (alias for getLogWithRequest)
-   * Alias for getLogWithRequest() for consistency with existing forRequest() pattern
-   *
-   * @param req - Express Request object
-   * @param message - Log message
-   * @param level - Optional log level (defaults to 'info')
-   * @param context - Optional additional context
-   * @returns Complete LogEntry object
-   *
-   * @example
-   * ```typescript
-   * const logEntry = client.log.getForRequest(req, 'User action', 'info', { action: 'login' });
-   * await myCustomLogger.save(logEntry);
-   * ```
-   */
-  getForRequest(
-    req: Request,
-    message: string,
-    level: LogEntry["level"] = "info",
-    context?: Record<string, unknown>,
-  ): LogEntry {
+  /** Get LogEntry with request context (alias) */
+  getForRequest(req: Request, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
     return this.getLogWithRequest(req, message, level, context);
   }
 
-  /**
-   * Create logger chain with request context pre-populated
-   * Auto-extracts: IP, method, path, user-agent, correlation ID, user from JWT
-   *
-   * @param req - Express Request object
-   * @returns LoggerChain with request context pre-populated
-   *
-   * @example
-   * ```typescript
-   * await miso.log.forRequest(req).info("Processing request");
-   * ```
-   */
+  /** Create logger chain with request context pre-populated */
   forRequest(req: Request): LoggerChain {
     return new LoggerChain(this, {}, {}).withRequest(req);
   }

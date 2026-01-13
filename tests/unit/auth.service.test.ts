@@ -742,7 +742,7 @@ describe("AuthService", () => {
       // Verify warning was logged
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining(
-          "Logout: No active session or invalid request (400)",
+          "Logout: No active session (400)",
         ),
       );
 
@@ -1056,7 +1056,7 @@ describe("AuthService", () => {
       });
 
       await expect(authService.getEnvironmentToken()).rejects.toThrow(
-        "Failed to get environment token",
+        "Get environment token failed",
       );
     });
 
@@ -1064,7 +1064,7 @@ describe("AuthService", () => {
       mockTempAxios.post.mockRejectedValue(new Error("Network error"));
 
       await expect(authService.getEnvironmentToken()).rejects.toThrow(
-        "Failed to get environment token",
+        "Get environment token failed",
       );
     });
 
@@ -1072,7 +1072,7 @@ describe("AuthService", () => {
       mockTempAxios.post.mockRejectedValue("String error");
 
       await expect(authService.getEnvironmentToken()).rejects.toThrow(
-        "Failed to get environment token: Unknown error",
+        "Get environment token failed: Unknown error",
       );
     });
   });

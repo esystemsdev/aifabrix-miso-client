@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://aifabrix.ai/schemas/filter.schema.json",
+  "title": "Filter Schema",
+  "description": "JSON Schema for defining filterable fields in a resource",
+  "type": "object",
+  "required": ["resource", "fields"],
+  "properties": {
+    "resource": {
+      "type": "string",
+      "description": "Resource name (e.g., 'applications', 'users')"
+    },
+    "version": {
+      "type": "string",
+      "description": "Schema version for compatibility tracking"
+    },
+    "fields": {
+      "type": "object",
+      "description": "Field definitions keyed by field name",
+      "additionalProperties": {
+        "$ref": "#/definitions/fieldDefinition"
+      }
+    }
+  },
+  "definitions": {
+    "fieldDefinition": {
+      "type": "object",
+      "required": ["column", "type", "operators"],
+      "properties": {
+        "column": {
+          "type": "string",
+          "description": "Actual database column name"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["string", "number", "boolean", "uuid", "timestamp", "enum"],
+          "description": "Field data type for validation and coercion"
+        },
+        "operators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/operator"
+          },
+          "description": "Allowed operators for this field"
+        },
+        "enumValues": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Allowed values for enum type fields"
+        },
+        "nullable": {
+          "type": "boolean",
+          "description": "Whether the field can be null (enables isNull/isNotNull operators)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the field"
+        }
+      }
+    },
+    "operator": {
+      "type": "string",
+      "enum": [
+        "eq",
+        "neq",
+        "in",
+        "nin",
+        "gt",
+        "lt",
+        "gte",
+        "lte",
+        "contains",
+        "like",
+        "ilike",
+        "isNull",
+        "isNotNull"
+      ],
+      "description": "Filter operator"
+    }
+  }
+}

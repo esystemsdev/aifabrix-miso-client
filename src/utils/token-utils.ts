@@ -108,38 +108,9 @@ export function extractClientTokenInfo(
       info.clientId = decoded.client_id;
     }
 
-    // Always log available fields for debugging (even if we found some)
-    if (Object.keys(info).length === 0) {
-      console.log("[extractClientTokenInfo] No standard fields found in token payload");
-      console.log("[extractClientTokenInfo] Available fields:", Object.keys(decoded));
-      console.log("[extractClientTokenInfo] Full payload:", JSON.stringify(decoded, null, 2));
-      
-      // Try to extract any useful information from common JWT fields
-      // This helps with debugging even if standard fields aren't present
-      if (decoded.iss) {
-        console.log("[extractClientTokenInfo] Token issuer (iss):", decoded.iss);
-      }
-      if (decoded.sub) {
-        console.log("[extractClientTokenInfo] Token subject (sub):", decoded.sub);
-      }
-      if (decoded.aud) {
-        console.log("[extractClientTokenInfo] Token audience (aud):", decoded.aud);
-      }
-    } else {
-      console.log("[extractClientTokenInfo] Successfully extracted token info:", info);
-      // Still log all available fields to help debug missing environment
-      if (!info.environment) {
-        console.log("[extractClientTokenInfo] Environment not found. Available payload fields:", Object.keys(decoded));
-        console.log("[extractClientTokenInfo] Full payload:", JSON.stringify(decoded, null, 2));
-      }
-    }
-
     return info;
   } catch (error) {
-    console.warn("[extractClientTokenInfo] Failed to decode client token:", error);
-    if (error instanceof Error) {
-      console.warn("[extractClientTokenInfo] Error details:", error.message, error.stack);
-    }
+    console.warn("[extractClientTokenInfo] Failed to decode client token:", error instanceof Error ? error.message : error);
     return {};
   }
 }

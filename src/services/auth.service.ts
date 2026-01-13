@@ -14,9 +14,9 @@ import {
   LogoutResponse,
   RefreshTokenResponse,
 } from "../types/config.types";
-import { MisoClientError } from "../utils/errors";
 import { resolveControllerUrl } from "../utils/controller-url-resolver";
 import jwt from "jsonwebtoken";
+import { handleAuthError, handleAuthErrorSilent, isHttpStatus } from "./auth-error-handler";
 
 interface TokenCacheData {
   authenticated: boolean;
@@ -119,216 +119,59 @@ export class AuthService {
 
   /**
    * Get environment token using client credentials
-   * This is called automatically by HttpClient, but can be called manually if needed
    */
   async getEnvironmentToken(): Promise<string> {
     const correlationId = this.generateCorrelationId();
     const clientId = this.config.clientId;
 
     try {
-      // Use a temporary axios instance to avoid interceptor recursion
       const axios = (await import("axios")).default;
-      // resolveControllerUrl already handles localhost -> 127.0.0.1 conversion
       const controllerUrl = resolveControllerUrl(this.config);
       const tokenUri = this.config.clientTokenUri || "/api/v1/auth/token";
-      const fullUrl = `${controllerUrl}${tokenUri}`;
-      
-      // Use default timeout of 4 seconds
-      // This ensures axios fails before the handler timeout wrapper
-      // Wrap axios call in Promise.race to ensure it always times out
-      const axiosTimeout = 4000; // Default to 4 seconds
+      const axiosTimeout = 4000;
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        controller.abort();
-      }, axiosTimeout);
-      
-      // Force IPv4 to avoid IPv6 connection issues (localhost resolves to both ::1 and 127.0.0.1)
-      // Use http/https agent with family: 4 to force IPv4
+      const timeoutId = setTimeout(() => controller.abort(), axiosTimeout);
+
       const http = await import("http");
       const https = await import("https");
       const isHttps = controllerUrl.startsWith("https://");
-      const httpAgent = isHttps
-        ? new https.Agent({ family: 4, timeout: axiosTimeout })
-        : new http.Agent({ family: 4, timeout: axiosTimeout });
+      const agentOpts = { family: 4, timeout: axiosTimeout };
       
       const tempAxios = axios.create({
         baseURL: controllerUrl,
-        timeout: axiosTimeout, // Request timeout
-        signal: controller.signal, // Abort signal for connection timeout
-        httpAgent: !isHttps ? httpAgent : undefined,
-        httpsAgent: isHttps ? httpAgent : undefined,
-        headers: {
-          "Content-Type": "application/json",
-          "x-client-id": this.config.clientId,
-          "x-client-secret": this.config.clientSecret,
-        },
+        timeout: axiosTimeout,
+        signal: controller.signal,
+        httpAgent: !isHttps ? new http.Agent(agentOpts) : undefined,
+        httpsAgent: isHttps ? new https.Agent(agentOpts) : undefined,
+        headers: { "Content-Type": "application/json", "x-client-id": clientId, "x-client-secret": this.config.clientSecret },
       });
 
-      console.log(`[getEnvironmentToken] Calling controller: ${fullUrl} [correlationId: ${correlationId}, clientId: ${clientId}]`);
-      
-      // Wrap in Promise.race to ensure timeout even if axios hangs
-      const axiosPromise = tempAxios.post<
-        import("../types/config.types").ClientTokenResponse
-      >(tokenUri);
-      
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Request timeout after ${axiosTimeout}ms`));
-        }, axiosTimeout);
-      });
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Request timeout after ${axiosTimeout}ms`)), axiosTimeout),
+      );
       
       let response;
       try {
-        response = await Promise.race([axiosPromise, timeoutPromise]);
-        clearTimeout(timeoutId); // Clear timeout on success
-        console.log(`[getEnvironmentToken] Successfully received response from controller [correlationId: ${correlationId}]`);
-      } catch (requestError) {
-        clearTimeout(timeoutId); // Clear timeout on error
-        console.error(`[getEnvironmentToken] Request failed: ${requestError instanceof Error ? requestError.message : String(requestError)} [correlationId: ${correlationId}]`);
-        throw requestError; // Re-throw to be handled by outer catch
+        response = await Promise.race([tempAxios.post<import("../types/config.types").ClientTokenResponse>(tokenUri), timeoutPromise]);
+        clearTimeout(timeoutId);
+      } catch (e) {
+        clearTimeout(timeoutId);
+        throw e;
       }
 
-      // Handle multiple response formats:
-      // 1. Nested format: { success: true, data: { data: { token: "...", expiresIn: 900 } } }
-      // 2. Standard format: { success: true, data: { token: "...", expiresIn: 900 } }
-      // 3. Flat format: { success: true, token: "...", expiresIn: 900 }
-      // 4. Axios wrapped: { status: 200, data: { data: { token: "...", expiresIn: 900 } } }
+      // Extract token from various response formats
+      const rd = response.data as unknown as Record<string, unknown>;
+      const dataObj = rd?.data as Record<string, unknown> | undefined;
+      const nestedData = dataObj?.data as Record<string, unknown> | undefined;
+      const token = (nestedData?.token || dataObj?.token || rd?.token) as string | undefined;
       
-      // Type assertion to handle various response formats
-      const responseData = response.data as unknown as Record<string, unknown>;
-      let token: string | undefined;
-      
-      // Try nested data.data.token first (controller response wrapped in axios)
-      if (
-        responseData?.data &&
-        typeof responseData.data === "object" &&
-        responseData.data !== null &&
-        "data" in responseData.data &&
-        typeof (responseData.data as Record<string, unknown>).data === "object" &&
-        (responseData.data as Record<string, unknown>).data !== null &&
-        "token" in ((responseData.data as Record<string, unknown>).data as Record<string, unknown>)
-      ) {
-        token = ((responseData.data as Record<string, unknown>).data as Record<string, unknown>).token as string;
-      }
-      // Try data.data.token (standard nested format)
-      else if (
-        responseData?.data &&
-        typeof responseData.data === "object" &&
-        responseData.data !== null &&
-        "token" in (responseData.data as Record<string, unknown>)
-      ) {
-        token = (responseData.data as Record<string, unknown>).token as string;
-      }
-      // Try data.token (flat format)
-      else if (responseData?.token && typeof responseData.token === "string") {
-        token = responseData.token;
-      }
-      
-      // Check if we have a token and response indicates success
-      // Accept response if status is 2xx and we have a token, even without explicit success field
-      // Controller may return 200 (OK) or 201 (Created) for token creation
-      const hasSuccessField = 
-        responseData?.success === true || 
-        (responseData?.data &&
-          typeof responseData.data === "object" &&
-          responseData.data !== null &&
-          "success" in (responseData.data as Record<string, unknown>) &&
-          (responseData.data as Record<string, unknown>).success === true);
-      
-      // Accept any 2xx status code (200 OK, 201 Created, etc.)
-      const isSuccess = response.status >= 200 && response.status < 300 && (hasSuccessField || token !== undefined);
-      
-      if (isSuccess && token) {
-        console.log(`[getEnvironmentToken] Successfully received token from controller [correlationId: ${correlationId}]`);
+      if (response.status >= 200 && response.status < 300 && token) {
         return token;
       }
 
-      // Invalid response format - include full response details
-      const responseDetails = JSON.stringify({
-        status: response.status,
-        statusText: response.statusText,
-        data: response.data,
-        headers: response.headers,
-      });
-      throw new Error(
-        `Failed to get environment token: Invalid response format. Expected token in response. ` +
-          `Full response: ${responseDetails} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-      );
+      throw new Error(`Invalid response format. Status: ${response.status}`);
     } catch (error) {
-      // Check if it's an AbortError (timeout/abort signal) or ECONNABORTED
-      const isAbortError = 
-        (error && typeof error === "object" && "name" in error && error.name === "AbortError") ||
-        (error && typeof error === "object" && "code" in error && error.code === "ECONNABORTED") ||
-        (error instanceof Error && (error.message.includes("aborted") || error.message.includes("timeout")));
-      
-      if (isAbortError) {
-        const controllerUrl = resolveControllerUrl(this.config);
-        const tokenUri = this.config.clientTokenUri || "/api/v1/auth/token";
-        console.error(
-          `[getEnvironmentToken] Request aborted/timeout: ${controllerUrl}${tokenUri} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-          error instanceof Error ? error.message : String(error)
-        );
-        throw new Error(
-          `Failed to get environment token: Request timeout or aborted. ` +
-            `Controller: ${controllerUrl}${tokenUri} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-        );
-      }
-      
-      // Check if it's an AxiosError to extract full response details
-      if (
-        error &&
-        typeof error === "object" &&
-        "isAxiosError" in error &&
-        error.isAxiosError
-      ) {
-        const axiosError = error as import("axios").AxiosError;
-        const responseDetails: string[] = [];
-
-        if (axiosError.response) {
-          // HTTP error response (like 401, 403, etc.)
-          responseDetails.push(`status: ${axiosError.response.status}`);
-          responseDetails.push(`statusText: ${axiosError.response.statusText}`);
-          responseDetails.push(
-            `data: ${JSON.stringify(axiosError.response.data)}`,
-          );
-          if (axiosError.response.headers) {
-            responseDetails.push(
-              `headers: ${JSON.stringify(axiosError.response.headers)}`,
-            );
-          }
-        } else if (axiosError.request) {
-          // Network/timeout error - controller unreachable
-          const controllerUrl = resolveControllerUrl(this.config);
-          const tokenUri = this.config.clientTokenUri || "/api/v1/auth/token";
-          console.error(
-            `[getEnvironmentToken] Controller unreachable or timeout: ${controllerUrl}${tokenUri} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-            axiosError.message
-          );
-          responseDetails.push(
-            `request: [Request object - not serializable]`,
-          );
-          responseDetails.push(`message: ${axiosError.message}`);
-          responseDetails.push(`controllerUrl: ${controllerUrl}`);
-        } else {
-          responseDetails.push(`message: ${axiosError.message}`);
-        }
-
-        // Preserve axios error for proper error handling upstream
-        const tokenError = new Error(
-          `Failed to get environment token: ${axiosError.message}. ` +
-            `Full response: {${responseDetails.join(", ")}} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-        );
-        // Attach original axios error as cause for error chain traversal
-        (tokenError as Error & { cause?: unknown }).cause = axiosError;
-        throw tokenError;
-      }
-
-      // Non-Axios error
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      throw new Error(
-        `Failed to get environment token: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-      );
+      handleAuthError(error, "Get environment token", correlationId, clientId);
     }
   }
 
@@ -380,62 +223,7 @@ export class AuthService {
         timestamp: response.timestamp,
       };
     } catch (error) {
-      // Check if it's a MisoClientError (converted from AxiosError by HttpClient)
-      if (error instanceof MisoClientError) {
-        const errorDetails = {
-          statusCode: error.statusCode,
-          message: error.message,
-          errorResponse: error.errorResponse,
-          errorBody: error.errorBody,
-        };
-        throw new Error(
-          `Login failed: ${error.message}. ` +
-            `Full response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-        );
-      }
-
-      // Check if it's an AxiosError (shouldn't happen after HttpClient, but handle just in case)
-      if (
-        error &&
-        typeof error === "object" &&
-        "isAxiosError" in error &&
-        error.isAxiosError
-      ) {
-        const axiosError = error as import("axios").AxiosError;
-        const responseDetails: string[] = [];
-
-        if (axiosError.response) {
-          responseDetails.push(`status: ${axiosError.response.status}`);
-          responseDetails.push(`statusText: ${axiosError.response.statusText}`);
-          responseDetails.push(
-            `data: ${JSON.stringify(axiosError.response.data)}`,
-          );
-          if (axiosError.response.headers) {
-            responseDetails.push(
-              `headers: ${JSON.stringify(axiosError.response.headers)}`,
-            );
-          }
-        } else if (axiosError.request) {
-          responseDetails.push(
-            `request: [Request object - not serializable]`,
-          );
-          responseDetails.push(`message: ${axiosError.message}`);
-        } else {
-          responseDetails.push(`message: ${axiosError.message}`);
-        }
-
-        throw new Error(
-          `Login failed: ${axiosError.message}. ` +
-            `Full response: {${responseDetails.join(", ")}} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-        );
-      }
-
-      // Non-Axios/MisoClientError (network errors, timeouts, etc.)
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      throw new Error(
-        `Login failed: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-      );
+      handleAuthError(error, "Login", correlationId, clientId);
     }
   }
 
@@ -611,106 +399,13 @@ export class AuthService {
 
       return response;
     } catch (error) {
-      // Check if it's a MisoClientError (converted from AxiosError by HttpClient)
-      if (error instanceof MisoClientError) {
-        // Gracefully handle 400 Bad Request (no session, already logged out, etc.)
-        if (error.statusCode === 400) {
-          // Log the response for debugging but return a success response
-          const errorDetails = {
-            statusCode: error.statusCode,
-            message: error.message,
-            errorResponse: error.errorResponse,
-            errorBody: error.errorBody,
-          };
-          console.warn(
-            `Logout: No active session or invalid request (400). ` +
-              `Response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-          );
-          // Clear token cache even if logout returns 400 (idempotent behavior)
-          this.clearTokenCache(params.token);
-          // Return a success response - logout is idempotent
-          return {
-            success: true,
-            message: "Logout successful (no active session)",
-            timestamp: new Date().toISOString(),
-          };
-        }
-
-        // For other HTTP errors (401, 403, 500, etc.), include full details
-        const errorDetails = {
-          statusCode: error.statusCode,
-          message: error.message,
-          errorResponse: error.errorResponse,
-          errorBody: error.errorBody,
-        };
-        throw new Error(
-          `Logout failed: ${error.message}. ` +
-            `Full response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-        );
+      // Gracefully handle 400 Bad Request (no session, already logged out, etc.)
+      if (isHttpStatus(error, 400)) {
+        console.warn(`Logout: No active session (400) [correlationId: ${correlationId}]`);
+        this.clearTokenCache(params.token);
+        return { success: true, message: "Logout successful (no active session)", timestamp: new Date().toISOString() };
       }
-
-      // Check if it's an AxiosError (shouldn't happen after HttpClient, but handle just in case)
-      if (
-        error &&
-        typeof error === "object" &&
-        "isAxiosError" in error &&
-        error.isAxiosError
-      ) {
-        const axiosError = error as import("axios").AxiosError;
-
-        // Gracefully handle 400 Bad Request
-        if (axiosError.response?.status === 400) {
-          const responseData = axiosError.response.data
-            ? JSON.stringify(axiosError.response.data)
-            : "No response data";
-          console.warn(
-            `Logout: No active session or invalid request (400). ` +
-              `Response: ${responseData} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-          );
-          // Clear token cache even if logout returns 400 (idempotent behavior)
-          this.clearTokenCache(params.token);
-          // Return a success response - logout is idempotent
-          return {
-            success: true,
-            message: "Logout successful (no active session)",
-            timestamp: new Date().toISOString(),
-          };
-        }
-
-        // For other HTTP errors, include full details
-        const responseDetails: string[] = [];
-        if (axiosError.response) {
-          responseDetails.push(`status: ${axiosError.response.status}`);
-          responseDetails.push(`statusText: ${axiosError.response.statusText}`);
-          responseDetails.push(
-            `data: ${JSON.stringify(axiosError.response.data)}`,
-          );
-          if (axiosError.response.headers) {
-            responseDetails.push(
-              `headers: ${JSON.stringify(axiosError.response.headers)}`,
-            );
-          }
-        } else if (axiosError.request) {
-          responseDetails.push(
-            `request: [Request object - not serializable]`,
-          );
-          responseDetails.push(`message: ${axiosError.message}`);
-        } else {
-          responseDetails.push(`message: ${axiosError.message}`);
-        }
-
-        throw new Error(
-          `Logout failed: ${axiosError.message}. ` +
-            `Full response: {${responseDetails.join(", ")}} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-        );
-      }
-
-      // Non-Axios/MisoClientError (network errors, timeouts, etc.) - these should throw
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      throw new Error(
-        `Logout failed: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-      );
+      handleAuthError(error, "Logout", correlationId, clientId);
     }
   }
 
@@ -749,65 +444,7 @@ export class AuthService {
 
       return null;
     } catch (error) {
-      // Check if it's a MisoClientError (converted from AxiosError by HttpClient)
-      if (error instanceof MisoClientError) {
-        const errorDetails = {
-          statusCode: error.statusCode,
-          message: error.message,
-          errorResponse: error.errorResponse,
-          errorBody: error.errorBody,
-        };
-        console.error(
-          `Refresh token failed: ${error.message}. ` +
-            `Full response: ${JSON.stringify(errorDetails)} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-        );
-        return null;
-      }
-
-      // Check if it's an AxiosError (shouldn't happen after HttpClient, but handle just in case)
-      if (
-        error &&
-        typeof error === "object" &&
-        "isAxiosError" in error &&
-        error.isAxiosError
-      ) {
-        const axiosError = error as import("axios").AxiosError;
-        const responseDetails: string[] = [];
-
-        if (axiosError.response) {
-          responseDetails.push(`status: ${axiosError.response.status}`);
-          responseDetails.push(`statusText: ${axiosError.response.statusText}`);
-          responseDetails.push(
-            `data: ${JSON.stringify(axiosError.response.data)}`,
-          );
-          if (axiosError.response.headers) {
-            responseDetails.push(
-              `headers: ${JSON.stringify(axiosError.response.headers)}`,
-            );
-          }
-        } else if (axiosError.request) {
-          responseDetails.push(
-            `request: [Request object - not serializable]`,
-          );
-          responseDetails.push(`message: ${axiosError.message}`);
-        } else {
-          responseDetails.push(`message: ${axiosError.message}`);
-        }
-
-        console.error(
-          `Refresh token failed: ${axiosError.message}. ` +
-            `Full response: {${responseDetails.join(", ")}} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-        );
-        return null;
-      }
-
-      // Non-Axios/MisoClientError (network errors, timeouts, etc.)
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
-      console.error(
-        `Refresh token failed: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-      );
-      return null;
+      return handleAuthErrorSilent(error, "Refresh token", correlationId, clientId);
     }
   }
 

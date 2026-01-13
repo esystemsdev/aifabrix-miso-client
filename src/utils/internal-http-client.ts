@@ -10,21 +10,11 @@ import axios, {
   AxiosError,
   InternalAxiosRequestConfig,
 } from "axios";
-import {
-  MisoClientConfig,
-  ClientTokenResponse,
-  ErrorResponse,
-  isErrorResponse,
-  AuthStrategy,
-} from "../types/config.types";
-import { MisoClientError } from "./errors";
+import { MisoClientConfig, ClientTokenResponse, AuthStrategy } from "../types/config.types";
 import { AuthStrategyHandler } from "./auth-strategy";
 import { resolveControllerUrl } from "./controller-url-resolver";
-import {
-  validateSuccessResponse,
-  validatePaginatedResponse,
-  getResponseType,
-} from "./response-validator";
+import { validateHttpResponse } from "./http-response-validator";
+import { createMisoClientError, isAxiosError } from "./http-error-handler";
 
 export class InternalHttpClient {
   private axios: AxiosInstance;
@@ -54,29 +44,13 @@ export class InternalHttpClient {
     let httpsAgent: import("https").Agent | undefined;
     
     if (typeof (globalThis as { window?: unknown }).window === "undefined") {
-      // Node.js environment - use agents with timeout
-      // Use connectTimeout for connection timeout and timeout for socket timeout
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const http = require("http");
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const https = require("https");
-      const requestTimeout = 30000; // Default timeout
-      // timeout: timeout for socket inactivity (should match request timeout)
-      // For faster connection failures, we rely on Promise.race timeout wrapper
-      httpAgent = !isHttps 
-        ? new http.Agent({ 
-            family: 4, 
-            timeout: requestTimeout,
-            keepAlive: false // Disable keep-alive to ensure timeout works
-          }) 
-        : undefined;
-      httpsAgent = isHttps 
-        ? new https.Agent({ 
-            family: 4, 
-            timeout: requestTimeout,
-            keepAlive: false // Disable keep-alive to ensure timeout works
-          }) 
-        : undefined;
+      const agentOpts = { family: 4, timeout: 30000, keepAlive: false };
+      httpAgent = !isHttps ? new http.Agent(agentOpts) : undefined;
+      httpsAgent = isHttps ? new https.Agent(agentOpts) : undefined;
     }
 
     this.axios = axios.create({
@@ -89,48 +63,32 @@ export class InternalHttpClient {
       },
     });
 
-    // Interceptor adds client token (or fetches it if needed)
-    // Note: This interceptor always adds client-token for backward compatibility
-    // When using auth strategy, the strategy handler will override headers as needed
+    // Request interceptor: adds client token
     this.axios.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         config.headers = config.headers || {};
-
-        // Only add client token if not already set by auth strategy
-        // Auth strategy will set headers appropriately
-        if (
-          !config.headers["x-client-token"] &&
-          !config.headers["x-client-id"]
-        ) {
+        if (!config.headers["x-client-token"] && !config.headers["x-client-id"]) {
           const token = await this.getClientToken();
           if (token) {
             config.headers["x-client-token"] = token;
           } else {
-            // Token is null - log warning to help debug authentication issues
-            console.warn(
-              "Client token is not available. Ensure clientSecret or onClientTokenRefresh is configured.",
-            );
+            console.warn("Client token is not available. Ensure clientSecret or onClientTokenRefresh is configured.");
           }
         }
-
         return config;
       },
       (error: AxiosError) => Promise.reject(error),
     );
 
-    // Add response interceptor for error handling
+    // Response interceptor: handle 401 errors
     this.axios.interceptors.response.use(
       (response: AxiosResponse) => response,
       (error: AxiosError) => {
         if (error.response?.status === 401) {
-          // Enhance error with authentication context
           error.message = "Authentication failed - token may be invalid";
-          // Clear token on 401 to force refresh
           this.clientToken = null;
           this.tokenExpiresAt = null;
         }
-        // Note: Don't convert to MisoClientError here - let the method handlers do it
-        // This preserves the original error for the try-catch blocks in each method
         return Promise.reject(error);
       },
     );
@@ -222,12 +180,47 @@ export class InternalHttpClient {
    */
   private mergeAbortSignals(signal1: AbortSignal, signal2: AbortSignal): AbortSignal {
     const controller = new AbortController();
-    
     const abort = () => controller.abort();
     signal1.addEventListener("abort", abort);
     signal2.addEventListener("abort", abort);
-    
     return controller.signal;
+  }
+
+  /**
+   * Execute axios request with timeout wrapper
+   */
+  private async executeWithTimeout<T>(
+    axiosFn: (config: AxiosRequestConfig) => Promise<AxiosResponse<T>>,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
+    const timeout = 30000;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const requestConfig: AxiosRequestConfig = {
+      ...config,
+      signal: config?.signal
+        ? this.mergeAbortSignals(controller.signal, config.signal as AbortSignal)
+        : controller.signal,
+    };
+
+    try {
+      const response = await Promise.race([
+        axiosFn(requestConfig),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout),
+        ),
+      ]);
+      clearTimeout(timeoutId);
+      const url = response.config?.url || "";
+      validateHttpResponse(response.data, url, this.config);
+      return response.data;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (isAxiosError(error)) {
+        throw createMisoClientError(error, error.config?.url);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -337,221 +330,18 @@ export class InternalHttpClient {
           `Full response: ${responseDetails} [correlationId: ${correlationId}, clientId: ${clientId}]`,
       );
     } catch (error) {
-      // Check if it's an AxiosError to extract full response details
-      if (this.isAxiosError(error)) {
-        const responseDetails: string[] = [];
-
-        if (error.response) {
-          responseDetails.push(`status: ${error.response.status}`);
-          responseDetails.push(`statusText: ${error.response.statusText}`);
-          responseDetails.push(`data: ${JSON.stringify(error.response.data)}`);
-          if (error.response.headers) {
-            responseDetails.push(
-              `headers: ${JSON.stringify(error.response.headers)}`,
-            );
-          }
-        } else if (error.request) {
-          // Don't stringify error.request - it contains circular references (Socket -> ClientRequest -> Socket)
-          // Instead, just include the error message and code
-          responseDetails.push(`request: [Request object - contains circular references]`);
-          responseDetails.push(`message: ${error.message}`);
-          responseDetails.push(`code: ${error.code || "N/A"}`);
-        } else {
-          responseDetails.push(`message: ${error.message}`);
-        }
-
-        throw new Error(
-          `Failed to get client token: ${error.message}. ` +
-            `Full response: {${responseDetails.join(", ")}} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-        );
-      }
-
-      // Non-Axios error
-      const errorMessage =
-        error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const details = isAxiosError(error) && error.response
+        ? `status: ${error.response.status}, data: ${JSON.stringify(error.response.data)}`
+        : isAxiosError(error) && error.request
+          ? `code: ${error.code || "N/A"}`
+          : "";
       throw new Error(
-        `Failed to get client token: ${errorMessage} [correlationId: ${correlationId}, clientId: ${clientId}]`,
+        `Failed to get client token: ${errorMessage}${details ? `. ${details}` : ""} [correlationId: ${correlationId}, clientId: ${clientId}]`,
       );
     }
   }
 
-  /**
-   * Check if error is an AxiosError (supports both instanceof and isAxiosError property)
-   */
-  private isAxiosError(error: unknown): error is AxiosError {
-    if (error instanceof AxiosError) {
-      return true;
-    }
-    // Support for mocked errors in tests
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "isAxiosError" in error
-    ) {
-      return (error as AxiosError).isAxiosError === true;
-    }
-    return false;
-  }
-
-  /**
-   * Validate response structure if validation is enabled
-   * Logs warnings for validation failures but doesn't throw (non-breaking behavior)
-   * @param data - Response data to validate
-   * @param url - Request URL for error context
-   * @returns True if validation passed or is disabled, false if validation failed
-   */
-  private validateResponse(data: unknown, url: string): boolean {
-    // Skip validation if explicitly disabled
-    if (this.config.validateResponses === false) {
-      return true;
-    }
-
-    // Default to enabled (true) if not explicitly set
-    // validateResponses can be true | undefined (defaults to true in development)
-
-    // Skip validation for validate token endpoint - it may return different formats
-    // depending on controller version
-    if (url.includes('/api/v1/auth/validate') || url.includes('/api/auth/validate')) {
-      // Allow responses with just {data: {...}} format for backward compatibility
-      if (data && typeof data === 'object' && 'data' in (data as Record<string, unknown>)) {
-        return true;
-      }
-    }
-
-    // Determine response type and validate accordingly
-    const responseType = getResponseType(data);
-
-    if (responseType === "unknown") {
-      // Log warning but don't throw (backward compatibility)
-      console.warn(
-        `Response validation failed for ${url}: Response structure doesn't match expected format.`,
-        `Expected: success response ({success, data?, message?, timestamp}) or paginated response ({data[], meta, links?}).`,
-        `Actual:`,
-        data,
-      );
-      return false;
-    }
-
-    // Validate based on detected type
-    if (responseType === "success") {
-      if (!validateSuccessResponse(data)) {
-        console.warn(
-          `Response validation failed for ${url}: Success response structure invalid.`,
-          `Expected: {success: boolean, data?: T, message?: string, timestamp: string}.`,
-          `Actual:`,
-          data,
-        );
-        return false;
-      }
-    } else if (responseType === "paginated") {
-      if (!validatePaginatedResponse(data)) {
-        console.warn(
-          `Response validation failed for ${url}: Paginated response structure invalid.`,
-          `Expected: {data: T[], meta: {totalItems, currentPage, pageSize, type}, links?}.`,
-          `Actual:`,
-          data,
-        );
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  /**
-   * Parse error response from AxiosError
-   * Attempts to parse structured ErrorResponse, falls back to null if parsing fails
-   */
-  private parseErrorResponse(
-    error: AxiosError,
-    requestUrl?: string,
-  ): ErrorResponse | null {
-    try {
-      // Check if response data exists
-      if (!error.response?.data) {
-        return null;
-      }
-
-      const data = error.response.data;
-
-      // If data is already an object, check if it matches ErrorResponse structure
-      if (typeof data === "object" && data !== null) {
-        // Validate using type guard
-        if (isErrorResponse(data)) {
-          const errorResponse: ErrorResponse = {
-            errors: (data as ErrorResponse).errors,
-            type: (data as ErrorResponse).type,
-            title: (data as ErrorResponse).title,
-            statusCode: (data as ErrorResponse).statusCode,
-            instance: (data as ErrorResponse).instance || requestUrl,
-          };
-          return errorResponse;
-        }
-      }
-
-      // If data is a string, try to parse as JSON
-      if (typeof data === "string") {
-        try {
-          const parsed = JSON.parse(data);
-          if (isErrorResponse(parsed)) {
-            const errorResponse: ErrorResponse = {
-              errors: parsed.errors,
-              type: parsed.type,
-              title: parsed.title,
-              statusCode: parsed.statusCode,
-              instance: parsed.instance || requestUrl,
-            };
-            return errorResponse;
-          }
-        } catch {
-          // JSON parse failed, return null
-          return null;
-        }
-      }
-
-      return null;
-    } catch {
-      // Any parsing error, return null
-      return null;
-    }
-  }
-
-  /**
-   * Create MisoClientError from AxiosError
-   * Parses structured error response if available, falls back to errorBody
-   */
-  private createMisoClientError(
-    error: AxiosError,
-    requestUrl?: string,
-  ): MisoClientError {
-    // Extract status code
-    const statusCode = error.response?.status;
-
-    // Try to parse structured error response
-    const errorResponse = this.parseErrorResponse(error, requestUrl);
-
-    // Extract errorBody for backward compatibility
-    let errorBody: Record<string, unknown> | undefined;
-    if (error.response?.data && typeof error.response.data === "object") {
-      errorBody = error.response.data as Record<string, unknown>;
-    }
-
-    // Generate default message
-    let message = error.message || "Request failed";
-    if (error.response) {
-      message =
-        error.response.statusText ||
-        `Request failed with status code ${statusCode}`;
-    }
-
-    // Create MisoClientError (convert null to undefined)
-    return new MisoClientError(
-      message,
-      errorResponse || undefined,
-      errorBody,
-      statusCode,
-    );
-  }
 
   /**
    * Get access to internal axios instance (for interceptors)
@@ -561,175 +351,19 @@ export class InternalHttpClient {
   }
 
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const requestTimeout = 30000; // Default timeout
-    
-    // Create AbortController to cancel request on timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, requestTimeout);
-    
-    // Merge abort signal with existing config
-    const requestConfig: AxiosRequestConfig = {
-      ...config,
-      signal: config?.signal 
-        ? this.mergeAbortSignals(controller.signal, config.signal as AbortSignal)
-        : controller.signal,
-    };
-    
-    // Wrap in Promise.race to ensure timeout even if axios hangs
-    const axiosPromise = this.axios.get<T>(url, requestConfig);
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Request timeout after ${requestTimeout}ms`));
-      }, requestTimeout);
-    });
-    
-    try {
-      const response = await Promise.race([axiosPromise, timeoutPromise]);
-      clearTimeout(timeoutId);
-      const requestUrl = response.config?.url || url;
-      this.validateResponse(response.data, requestUrl);
-      return response.data;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (this.isAxiosError(error)) {
-        const requestUrl = error.config?.url || url;
-        throw this.createMisoClientError(error, requestUrl);
-      }
-      throw error;
-    }
+    return this.executeWithTimeout<T>((cfg) => this.axios.get<T>(url, cfg), config);
   }
 
-  async post<T>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig,
-  ): Promise<T> {
-    const requestTimeout = 30000; // Default timeout
-    
-    // Create AbortController to cancel request on timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, requestTimeout);
-    
-    // Merge abort signal with existing config
-    const requestConfig: AxiosRequestConfig = {
-      ...config,
-      signal: config?.signal 
-        ? this.mergeAbortSignals(controller.signal, config.signal as AbortSignal)
-        : controller.signal,
-    };
-    
-    // Wrap in Promise.race to ensure timeout even if axios hangs
-    const axiosPromise = this.axios.post<T>(url, data, requestConfig);
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Request timeout after ${requestTimeout}ms`));
-      }, requestTimeout);
-    });
-    
-    try {
-      const response = await Promise.race([axiosPromise, timeoutPromise]);
-      clearTimeout(timeoutId);
-      const requestUrl = response.config?.url || url;
-      this.validateResponse(response.data, requestUrl);
-      return response.data;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (this.isAxiosError(error)) {
-        const requestUrl = error.config?.url || url;
-        throw this.createMisoClientError(error, requestUrl);
-      }
-      throw error;
-    }
+  async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    return this.executeWithTimeout<T>((cfg) => this.axios.post<T>(url, data, cfg), config);
   }
 
-  async put<T>(
-    url: string,
-    data?: unknown,
-    config?: AxiosRequestConfig,
-  ): Promise<T> {
-    const requestTimeout = 30000; // Default timeout
-    
-    // Create AbortController to cancel request on timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, requestTimeout);
-    
-    // Merge abort signal with existing config
-    const requestConfig: AxiosRequestConfig = {
-      ...config,
-      signal: config?.signal 
-        ? this.mergeAbortSignals(controller.signal, config.signal as AbortSignal)
-        : controller.signal,
-    };
-    
-    // Wrap in Promise.race to ensure timeout even if axios hangs
-    const axiosPromise = this.axios.put<T>(url, data, requestConfig);
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Request timeout after ${requestTimeout}ms`));
-      }, requestTimeout);
-    });
-    
-    try {
-      const response = await Promise.race([axiosPromise, timeoutPromise]);
-      clearTimeout(timeoutId);
-      const requestUrl = response.config?.url || url;
-      this.validateResponse(response.data, requestUrl);
-      return response.data;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (this.isAxiosError(error)) {
-        const requestUrl = error.config?.url || url;
-        throw this.createMisoClientError(error, requestUrl);
-      }
-      throw error;
-    }
+  async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+    return this.executeWithTimeout<T>((cfg) => this.axios.put<T>(url, data, cfg), config);
   }
 
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    const requestTimeout = 30000; // Default timeout
-    
-    // Create AbortController to cancel request on timeout
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, requestTimeout);
-    
-    // Merge abort signal with existing config
-    const requestConfig: AxiosRequestConfig = {
-      ...config,
-      signal: config?.signal 
-        ? this.mergeAbortSignals(controller.signal, config.signal as AbortSignal)
-        : controller.signal,
-    };
-    
-    // Wrap in Promise.race to ensure timeout even if axios hangs
-    const axiosPromise = this.axios.delete<T>(url, requestConfig);
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(new Error(`Request timeout after ${requestTimeout}ms`));
-      }, requestTimeout);
-    });
-    
-    try {
-      const response = await Promise.race([axiosPromise, timeoutPromise]);
-      clearTimeout(timeoutId);
-      const requestUrl = response.config?.url || url;
-      this.validateResponse(response.data, requestUrl);
-      return response.data;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (this.isAxiosError(error)) {
-        const requestUrl = error.config?.url || url;
-        throw this.createMisoClientError(error, requestUrl);
-      }
-      throw error;
-    }
+    return this.executeWithTimeout<T>((cfg) => this.axios.delete<T>(url, cfg), config);
   }
 
   // Generic method for all requests (uses client credentials)

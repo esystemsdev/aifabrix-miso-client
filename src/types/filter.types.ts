@@ -17,6 +17,7 @@ export type FilterOperator =
   | "lte"
   | "contains"
   | "like"
+  | "ilike"
   | "isNull"
   | "isNotNull";
 

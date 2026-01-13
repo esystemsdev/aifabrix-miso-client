@@ -619,7 +619,8 @@ type FilterOperator =
   | 'gte'       // Greater than or equal
   | 'lte'       // Less than or equal
   | 'contains'  // String contains
-  | 'like'      // Pattern match
+  | 'like'      // Pattern match (case-insensitive)
+  | 'ilike'     // Pattern match (PostgreSQL case-insensitive LIKE)
   | 'isNull'    // Field is null
   | 'isNotNull'; // Field is not null
 ```
@@ -721,13 +722,21 @@ const queryString = filterBuilder.toQueryString();
 
 ### `parseFilterParams(query: Record<string, unknown>): FilterOption[]`
 
-Parses filter query parameters into structured FilterOption array. Supports JSON format: object, JSON string, or URL-encoded JSON string.
+Parses filter query parameters into structured FilterOption array. Supports both JSON format and colon format.
 
 **Supported Formats:**
+
+**JSON Format:**
 - Direct object: `{"status": {"eq": "active"}}`
 - JSON string: `'{"status": {"eq": "active"}}'`
 - URL-encoded JSON: `'%7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%7D'` (for query strings)
 - Array of filters: `[{"status": {"eq": "active"}}, {"region": {"in": ["eu", "us"]}}]`
+
+**Colon Format:**
+- Simple: `field:operator:value` (e.g., `status:eq:active`)
+- Array values: `field:operator:value1,value2` (e.g., `region:in:eu,us`)
+- Null checks: `field:isNull:` or `field:isNotNull:`
+- Timestamps with colons: `createdAt:gte:2024-01-01T12:00:00` (colons in value preserved)
 
 **Parameters:**
 
@@ -740,14 +749,34 @@ Parses filter query parameters into structured FilterOption array. Supports JSON
 ```typescript
 import { parseFilterParams } from '@aifabrix/miso-client';
 
-// From URL query with URL-encoded JSON: ?filter=%7B%22status%22%3A%7B%22eq%22%3A%22active%22%7D%7D
-const filters = parseFilterParams({
+// JSON format
+const jsonFilters = parseFilterParams({
   filter: '{"status": {"eq": "active"}, "region": {"in": ["eu", "us"]}}'
 });
 // Returns: [
 //   { field: 'status', op: 'eq', value: 'active' },
 //   { field: 'region', op: 'in', value: ['eu', 'us'] }
 // ]
+
+// Colon format (single filter)
+const colonFilter = parseFilterParams({ filter: 'status:eq:active' });
+// Returns: [{ field: 'status', op: 'eq', value: 'active' }]
+
+// Colon format (multiple filters as array)
+const multipleFilters = parseFilterParams({
+  filter: ['status:eq:active', 'region:in:eu,us', 'deletedAt:isNull:']
+});
+// Returns: [
+//   { field: 'status', op: 'eq', value: 'active' },
+//   { field: 'region', op: 'in', value: ['eu', 'us'] },
+//   { field: 'deletedAt', op: 'isNull', value: null }
+// ]
+
+// Colon format with timestamp (colons in value preserved)
+const timestampFilter = parseFilterParams({
+  filter: 'createdAt:gte:2024-01-01T12:00:00'
+});
+// Returns: [{ field: 'createdAt', op: 'gte', value: '2024-01-01T12:00:00' }]
 
 // Direct object format
 const filters2 = parseFilterParams({
@@ -909,6 +938,250 @@ const filterQuery = jsonToFilterQuery({
 //     { field: 'region', op: 'in', value: ['eu', 'us'] }
 //   ]
 // }
+```
+
+## Filter Schema Utilities
+
+Utilities for schema-based filter validation and SQL compilation. These utilities enable type-safe filtering with validation against field schemas, automatic value coercion, and PostgreSQL-safe parameterized SQL generation.
+
+### Filter Schema Types
+
+```typescript
+/** Field data types for filter schema validation. */
+type FilterFieldType = 'string' | 'number' | 'boolean' | 'uuid' | 'timestamp' | 'enum';
+
+/** Definition of a filterable field in a schema. */
+interface FilterFieldDefinition {
+  column: string;            // Actual database column name
+  type: FilterFieldType;     // Field data type for validation
+  operators: FilterOperator[]; // Allowed operators for this field
+  enumValues?: string[];     // Allowed values for enum type fields
+  nullable?: boolean;        // Enables isNull/isNotNull operators
+  description?: string;      // Human-readable description
+}
+
+/** Schema defining filterable fields for a resource. */
+interface FilterSchema {
+  resource: string;          // Resource name (e.g., "applications")
+  version?: string;          // Schema version for compatibility tracking
+  fields: Record<string, FilterFieldDefinition>;
+}
+
+/** Filter validation error following RFC 7807 Problem Details structure. */
+interface FilterValidationError {
+  code: string;              // Error code (e.g., "INVALID_OPERATOR")
+  message: string;           // Human-readable error message
+  field?: string;            // Field that caused the error
+  operator?: string;         // Operator that caused the error
+  value?: unknown;           // Value that caused the error
+  allowedOperators?: string[]; // List of allowed operators
+  allowedValues?: string[];  // List of allowed values (for enum)
+}
+
+/** Compiled filter result with parameterized SQL. */
+interface CompiledFilter {
+  sql: string;               // SQL WHERE clause
+  params: unknown[];         // Parameter values in order
+}
+```
+
+### Default Operators by Field Type
+
+| Type | Default Operators |
+|------|-------------------|
+| string | eq, neq, in, nin, contains, like, ilike |
+| number | eq, neq, gt, gte, lt, lte, in, nin |
+| boolean | eq |
+| uuid | eq, in |
+| timestamp | eq, gt, gte, lt, lte |
+| enum | eq, in |
+
+### `createFilterSchema(resource, fields, version?): FilterSchema`
+
+Create a filter schema with default operators per field type.
+
+```typescript
+import { createFilterSchema } from '@aifabrix/miso-client';
+
+const schema = createFilterSchema('applications', {
+  name: { column: 'name', type: 'string' },
+  status: { 
+    column: 'status', 
+    type: 'enum', 
+    enumValues: ['active', 'disabled', 'deleted'],
+    operators: ['eq', 'in']  // Override default operators
+  },
+  createdAt: { column: 'created_at', type: 'timestamp' },
+  environmentId: { column: 'environment_id', type: 'uuid' },
+  deletedAt: { column: 'deleted_at', type: 'timestamp', nullable: true }
+});
+```
+
+### `validateFilter(filter, schema): FilterValidationError | null`
+
+Validate a single filter against a schema. Returns error if invalid, null if valid.
+
+```typescript
+import { validateFilter, createFilterSchema, FilterErrorCode } from '@aifabrix/miso-client';
+
+const schema = createFilterSchema('applications', {
+  status: { column: 'status', type: 'enum', enumValues: ['active', 'disabled'], operators: ['eq', 'in'] }
+});
+
+// Valid filter
+const error1 = validateFilter({ field: 'status', op: 'eq', value: 'active' }, schema);
+// Returns: null (valid)
+
+// Invalid operator
+const error2 = validateFilter({ field: 'status', op: 'ilike', value: 'test' }, schema);
+// Returns: { 
+//   code: 'INVALID_OPERATOR', 
+//   message: "Operator 'ilike' is not allowed for field 'status'",
+//   field: 'status',
+//   operator: 'ilike',
+//   allowedOperators: ['eq', 'in']
+// }
+
+// Invalid enum value
+const error3 = validateFilter({ field: 'status', op: 'eq', value: 'invalid' }, schema);
+// Returns: {
+//   code: 'INVALID_ENUM',
+//   message: "Invalid value 'invalid' for field 'status'. Allowed: active, disabled",
+//   allowedValues: ['active', 'disabled']
+// }
+```
+
+### `validateFilters(filters, schema): FilterValidationResult`
+
+Validate multiple filters against a schema.
+
+```typescript
+import { validateFilters, createFilterSchema } from '@aifabrix/miso-client';
+
+const schema = createFilterSchema('applications', {
+  name: { column: 'name', type: 'string' },
+  status: { column: 'status', type: 'enum', enumValues: ['active', 'disabled'], operators: ['eq'] }
+});
+
+const result = validateFilters([
+  { field: 'name', op: 'eq', value: 'test' },
+  { field: 'unknown', op: 'eq', value: 'value' },  // Unknown field
+  { field: 'status', op: 'ilike', value: 'test' }  // Invalid operator
+], schema);
+
+// Returns: {
+//   valid: false,
+//   errors: [
+//     { code: 'UNKNOWN_FIELD', message: "Field 'unknown' is not allowed...", field: 'unknown' },
+//     { code: 'INVALID_OPERATOR', message: "Operator 'ilike' is not allowed...", field: 'status' }
+//   ]
+// }
+```
+
+### `compileFilter(filters, schema, logic?): CompiledFilter`
+
+Compile filters to PostgreSQL-safe parameterized SQL.
+
+```typescript
+import { compileFilter, createFilterSchema } from '@aifabrix/miso-client';
+
+const schema = createFilterSchema('applications', {
+  name: { column: 'name', type: 'string' },
+  status: { column: 'status', type: 'string' },
+  priority: { column: 'priority', type: 'number' },
+  deletedAt: { column: 'deleted_at', type: 'timestamp', nullable: true }
+});
+
+// Single filter
+const result1 = compileFilter([
+  { field: 'status', op: 'eq', value: 'active' }
+], schema);
+// Returns: { sql: 'status = $1', params: ['active'] }
+
+// Multiple filters with AND (default)
+const result2 = compileFilter([
+  { field: 'status', op: 'eq', value: 'active' },
+  { field: 'priority', op: 'gte', value: 5 },
+  { field: 'name', op: 'ilike', value: '%test%' }
+], schema);
+// Returns: { 
+//   sql: 'status = $1 AND priority >= $2 AND name ILIKE $3', 
+//   params: ['active', 5, '%test%'] 
+// }
+
+// Multiple filters with OR
+const result3 = compileFilter([
+  { field: 'status', op: 'eq', value: 'active' },
+  { field: 'status', op: 'eq', value: 'pending' }
+], schema, 'or');
+// Returns: { sql: 'status = $1 OR status = $2', params: ['active', 'pending'] }
+
+// Array operators (in/nin)
+const result4 = compileFilter([
+  { field: 'status', op: 'in', value: ['active', 'pending'] }
+], schema);
+// Returns: { sql: 'status = ANY($1)', params: [['active', 'pending']] }
+
+// Null checks (no params)
+const result5 = compileFilter([
+  { field: 'deletedAt', op: 'isNull', value: null }
+], schema);
+// Returns: { sql: 'deleted_at IS NULL', params: [] }
+```
+
+### Filter Error Codes
+
+| Code | Description |
+|------|-------------|
+| UNKNOWN_FIELD | Field is not defined in the schema |
+| INVALID_OPERATOR | Operator is not allowed for the field type |
+| INVALID_TYPE | Value type does not match field type |
+| INVALID_UUID | Value is not a valid UUID |
+| INVALID_DATE | Value is not a valid timestamp/date |
+| INVALID_ENUM | Value is not in the allowed enum values |
+| INVALID_IN | 'in' or 'nin' operator requires a non-empty array |
+| INVALID_FORMAT | Filter format parsing failed |
+
+### `coerceValue(value, fieldDef): unknown`
+
+Coerce a value to the appropriate type based on field definition.
+
+```typescript
+import { coerceValue } from '@aifabrix/miso-client';
+
+// String to number
+const num = coerceValue('42', { column: 'priority', type: 'number', operators: ['eq'] });
+// Returns: 42
+
+// String to boolean
+const bool = coerceValue('true', { column: 'is_public', type: 'boolean', operators: ['eq'] });
+// Returns: true
+
+// Timestamp validation
+const timestamp = coerceValue('2024-01-01', { column: 'created_at', type: 'timestamp', operators: ['gte'] });
+// Returns: '2024-01-01T00:00:00.000Z' (ISO format)
+```
+
+### `loadFilterSchema(json): FilterSchema`
+
+Load a filter schema from a JSON object (e.g., from a JSON file).
+
+```typescript
+import { loadFilterSchema } from '@aifabrix/miso-client';
+
+const schema = loadFilterSchema({
+  resource: 'applications',
+  version: '1.0',
+  fields: {
+    name: { column: 'name', type: 'string', operators: ['eq', 'ilike'] },
+    status: { 
+      column: 'status', 
+      type: 'enum', 
+      operators: ['eq', 'in'],
+      enumValues: ['active', 'disabled']
+    }
+  }
+});
 ```
 
 ## Sort Utilities
