@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.0] - 2026-01-14
+
+### Added
+
+- **Enhanced Filter System** - Comprehensive filter parsing, validation, and SQL compilation
+  - **Dual format parsing**: Support for both colon format (`status:eq:active`) and JSON format (`{"status":{"eq":"active"}}`)
+  - **Schema-based validation**: Define filterable fields, allowed operators, and value types per resource
+  - **Type coercion**: Automatic value validation and conversion for string, number, boolean, uuid, timestamp, and enum types
+  - **SQL compilation**: Generate PostgreSQL-safe parameterized WHERE clauses with `compileFilter()`
+  - **Human-readable errors**: RFC 7807 compliant structured error responses with error codes (UNKNOWN_FIELD, INVALID_OPERATOR, INVALID_TYPE, etc.)
+  - New `ilike` operator for case-insensitive pattern matching
+  - New types: `FilterSchema`, `FilterFieldDefinition`, `FilterError`, `CompiledFilter`
+  - New utilities: `validateFilter()`, `coerceValue()`, `compileFilter()`, `createFilterSchema()`
+  - Filter meta-schema for validating custom filter schemas (`src/schemas/filter.schema.json`)
+
+### Changed
+
+- **Code Size Compliance** - Refactored large files to comply with 500-line guideline
+  - `data-client.ts`: 995 → 416 lines (extracted to helper modules)
+  - `data-client-request.ts`: 683 → 280 lines
+  - `data-client-auth.ts`: 654 → 290 lines
+  - `internal-http-client.ts`: 741 → 496 lines
+  - `auth.service.ts`: 825 → 462 lines
+  - `index.ts`: 681 → 472 lines
+  - `logger.service.ts`: 597 → 480 lines
+
+- **Console Logging Audit** - Cleaned up debug logging
+  - Removed 10 debug `console.log` statements from `token-utils.ts` that could expose sensitive token data
+  - All remaining console calls are appropriate error/warning logs or guarded by debug checks
+
+### Technical
+
+- **New filter utilities**: `src/utils/filter-schema.utils.ts` (497 lines), `src/utils/filter-colon.utils.ts` (119 lines)
+- **New filter types**: `src/types/filter-schema.types.ts` (148 lines)
+- **New helper modules** for DataClient refactoring:
+  - `data-client-init.ts` - Initialization logic
+  - `data-client-permissions.ts` - Permission helpers
+  - `data-client-roles.ts` - Role helpers
+  - `data-client-response.ts` - Response processing
+  - `data-client-oauth.ts` - OAuth callback handling
+- **New HTTP helpers**: `http-error-handler.ts`, `http-response-validator.ts`
+- **New auth helper**: `auth-error-handler.ts` - Centralized auth error formatting
+- **New tests**: `filter-colon-format.test.ts` (178 lines), `filter-schema.utils.test.ts` (545 lines)
+- **Documentation**: Updated `docs/reference-utilities.md` with filter system examples
+
 ## [3.8.2] - 2026-01-12
 
 ### Added
