@@ -189,9 +189,12 @@ export async function executeHttpRequest<T>(
             }
           } catch (refreshError) {
             console.warn("Token refresh failed, redirecting to login:", refreshError);
+            // If refresh fails, mark as auth error and don't retry
+            authErrorDetected = true;
           }
         }
 
+        // Always mark auth errors to prevent retries
         authErrorDetected = true;
         const authError = responseStatus === 401
           ? new AuthenticationError("Authentication required", response)
@@ -210,6 +213,12 @@ export async function executeHttpRequest<T>(
         misoClient, hasAnyToken, getToken, interceptors, metrics, options,
       );
     } catch (error) {
+      // If we already attempted token refresh and still got auth error, don't retry
+      if (tokenRefreshAttempted && (responseStatus === 401 || responseStatus === 403)) {
+        authErrorDetected = true;
+        throw error;
+      }
+
       if (error instanceof AuthenticationError) {
         authErrorDetected = true;
         throw error;

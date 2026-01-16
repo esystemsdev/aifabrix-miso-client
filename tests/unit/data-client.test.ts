@@ -138,6 +138,7 @@ describe("DataClient", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetch.mockClear(); // Explicitly clear fetch mock
     mockLocalStorage = {};
     mockWindow.location.href = "";
     mockWindow.location.hash = ""; // Clear hash to prevent OAuth callback from triggering
@@ -2418,6 +2419,10 @@ describe("DataClient", () => {
     });
 
     it("should only attempt refresh once per request", async () => {
+      // Reset mockFetch completely to ensure clean state
+      mockFetch.mockReset();
+      mockFetch.mockClear();
+
       const onTokenRefresh = jest.fn().mockResolvedValue({
         token: "new-token-123",
         expiresIn: 3600,
@@ -2427,6 +2432,9 @@ describe("DataClient", () => {
         ...config,
         onTokenRefresh,
       });
+
+      // Clear fetch calls after DataClient initialization (in case constructor makes calls)
+      mockFetch.mockClear();
 
       // First request returns 401, second also returns 401 (refresh didn't help)
       mockFetch
