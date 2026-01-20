@@ -17,6 +17,7 @@ import { MisoClientConfig, UserInfo, AuthStrategy } from "./types/config.types";
 import { validateOrigin as validateOriginUtil, OriginValidationResult } from "./utils/origin-validator";
 import { Request } from "express";
 import { TokenValidationService } from "./services/token-validation.service";
+import { EncryptionService } from "./services/encryption.service";
 import {
   TokenValidationOptions,
   TokenValidationResult,
@@ -34,6 +35,7 @@ export class MisoClient {
   private logger: LoggerService;
   private cacheService: CacheService;
   private tokenValidation: TokenValidationService;
+  private encryptionService: EncryptionService;
   private initialized = false;
 
   constructor(config: MisoClientConfig) {
@@ -93,6 +95,9 @@ export class MisoClient {
 
     // Initialize token validation service
     this.tokenValidation = new TokenValidationService(config.keycloak);
+
+    // Initialize encryption service
+    this.encryptionService = new EncryptionService(this.apiClient);
   }
 
   /**
@@ -295,8 +300,14 @@ export class MisoClient {
   }
 
   // ==================== ENCRYPTION METHODS ====================
-  // Note: EncryptionUtil is now available as a static class from the express module
-  // Use: import { EncryptionUtil } from '@aifabrix/miso-client'
+
+  /**
+   * Get encryption service for security parameter management
+   * Provides encrypt/decrypt methods that call the controller
+   */
+  get encryption(): EncryptionService {
+    return this.encryptionService;
+  }
 
   // ==================== CACHE METHODS ====================
 
@@ -402,6 +413,19 @@ export {
   handleApiError,
 } from "./utils/errors";
 
+// Export encryption service and types
+export { EncryptionService } from "./services/encryption.service";
+export type { EncryptResult } from "./services/encryption.service";
+export { EncryptionError } from "./utils/encryption-error";
+export type { EncryptionErrorCode } from "./utils/encryption-error";
+export type {
+  EncryptRequest,
+  EncryptResponse,
+  DecryptRequest,
+  DecryptResponse,
+  EncryptionStorage,
+} from "./api/types/encryption.types";
+
 // Express utilities (v2.1.0+)
 // Export everything except ErrorResponse to avoid conflict with config.types ErrorResponse
 export {
@@ -424,7 +448,6 @@ export {
   getErrorTypeUri,
   getErrorTitle,
   sendErrorResponse,
-  EncryptionUtil,
   createClientTokenEndpoint,
   hasConfig,
   loggerContextMiddleware,

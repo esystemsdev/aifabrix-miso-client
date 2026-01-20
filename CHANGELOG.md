@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0] - 2026-01-20
+
+### Breaking Changes
+
+- **Removed `EncryptionUtil` class** - Local encryption via `EncryptionUtil.encrypt()`/`decrypt()` is no longer supported. Use the new controller-based `client.encryption` service instead.
+- **Removed `encryptionKey` config option** - The `encryptionKey` property has been removed from `MisoClientConfig`. Encryption keys are now managed by the miso-controller.
+
+### Migration Guide
+
+**Before (v3.x) - Local encryption:**
+
+```typescript
+import { EncryptionUtil } from '@aifabrix/miso-client';
+
+EncryptionUtil.initialize(); // Required ENCRYPTION_KEY env var
+const encrypted = EncryptionUtil.encrypt('my-secret');
+const decrypted = EncryptionUtil.decrypt(encrypted);
+```
+
+**After (v4.0) - Controller-based encryption:**
+
+```typescript
+import { MisoClient } from '@aifabrix/miso-client';
+
+const client = new MisoClient({
+  controllerUrl: 'https://miso-controller.example.com',
+  clientId: 'my-app',
+  clientSecret: 'secret',
+});
+
+const result = await client.encryption.encrypt('my-secret', 'param-name');
+// result.value: 'kv://param-name' (Key Vault) or 'enc://v1:...' (local)
+// result.storage: 'keyvault' or 'local'
+
+const decrypted = await client.encryption.decrypt(result.value, 'param-name');
+```
+
+### Why This Change?
+
+- **Centralized key management** - Encryption keys are managed by the controller, not distributed to each application
+- **Azure Key Vault support** - Production environments can use Azure Key Vault for secure secret storage
+- **Application isolation** - Each application can only access its own encrypted parameters
+- **Audit logging** - All encryption/decryption operations are logged by the controller
+
+### Added
+
+- `client.encryption.encrypt(plaintext, parameterName)` - Encrypt a value via controller
+- `client.encryption.decrypt(value, parameterName)` - Decrypt a value via controller
+- `EncryptionService` class - Service layer with parameter validation
+- `EncryptionError` class - Error class with codes: `ENCRYPTION_FAILED`, `DECRYPTION_FAILED`, `INVALID_PARAMETER_NAME`, `ACCESS_DENIED`, `PARAMETER_NOT_FOUND`
+- `EncryptResult` type - Return type for encrypt operations
+- `EncryptionApi` class - API layer for controller communication
+
+### Removed
+
+- `EncryptionUtil` class - Use `client.encryption` instead
+- `encryptionKey` config option - No longer needed
+
+### Technical
+
+- **New files**: `src/api/encryption.api.ts`, `src/api/types/encryption.types.ts`, `src/services/encryption.service.ts`, `src/utils/encryption-error.ts`
+- **Deleted files**: `src/express/encryption.ts`
+- **Tests**: `tests/unit/api/encryption.api.test.ts`, `tests/unit/services/encryption.service.test.ts`
+
 ## [3.9.0] - 2026-01-14
 
 ### Added

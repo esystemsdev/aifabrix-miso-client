@@ -76,9 +76,6 @@ export interface MisoClientConfig {
   // Optional: Logging
   logLevel?: "debug" | "info" | "warn" | "error";
 
-  // Optional: Encryption key (for EncryptionService)
-  encryptionKey?: string;
-
   // Optional: API key for testing (bypasses OAuth2 authentication)
   apiKey?: string;
 

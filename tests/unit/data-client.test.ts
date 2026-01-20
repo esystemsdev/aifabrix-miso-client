@@ -2449,6 +2449,13 @@ describe("DataClient", () => {
           status: 401,
           headers: new Headers({ "content-type": "application/json" }),
           json: jest.fn().mockResolvedValue({ error: "Still unauthorized" }),
+        } as unknown as Response)
+        // Third call is for getEnvironmentToken during redirectToLogin (error handling)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ token: "client-token", expiresIn: 3600 }),
         } as unknown as Response);
 
       mockLocalStorage["token"] = "old-token";
@@ -2457,7 +2464,8 @@ describe("DataClient", () => {
 
       // Should only call refresh once, not retry again
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
-      expect(mockFetch).toHaveBeenCalledTimes(2); // Original + one retry
+      // Original + one retry + one for client token fetch during login redirect
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
 
     it("should not store refresh token in localStorage", async () => {

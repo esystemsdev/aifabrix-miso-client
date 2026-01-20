@@ -9,6 +9,7 @@ import { AuthApi } from './auth.api';
 import { RolesApi } from './roles.api';
 import { PermissionsApi } from './permissions.api';
 import { LogsApi } from './logs.api';
+import { EncryptionApi } from './encryption.api';
 
 /**
  * API Client class
@@ -37,6 +38,11 @@ export class ApiClient {
   readonly logs: LogsApi;
 
   /**
+   * Encryption API - Security parameter encryption/decryption
+   */
+  readonly encryption: EncryptionApi;
+
+  /**
    * Create API client instance
    * @param httpClient - HttpClient instance to wrap
    */
@@ -45,6 +51,7 @@ export class ApiClient {
     this.roles = new RolesApi(httpClient);
     this.permissions = new PermissionsApi(httpClient);
     this.logs = new LogsApi(httpClient);
+    this.encryption = new EncryptionApi(httpClient);
   }
 }
 

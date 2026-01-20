@@ -72,11 +72,6 @@ export function loadConfig(): MisoClientConfig {
     config.redis = redisConfig;
   }
 
-  // Optional encryption key
-  if (process.env.ENCRYPTION_KEY) {
-    config.encryptionKey = process.env.ENCRYPTION_KEY;
-  }
-
   // Optional API key for testing (bypasses OAuth2 authentication)
   if (process.env.API_KEY) {
     config.apiKey = process.env.API_KEY;

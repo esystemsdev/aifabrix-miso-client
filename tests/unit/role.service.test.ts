@@ -22,9 +22,10 @@ const MockedCacheService = CacheService as jest.MockedClass<
   typeof CacheService
 >;
 
-// Mock jsonwebtoken
-jest.mock("jsonwebtoken");
-const jwt = require("jsonwebtoken");
+// Mock browser-jwt-decoder
+jest.mock("../../src/utils/browser-jwt-decoder");
+import * as browserJwtDecoder from "../../src/utils/browser-jwt-decoder";
+const mockExtractUserIdFromToken = browserJwtDecoder.extractUserIdFromToken as jest.MockedFunction<typeof browserJwtDecoder.extractUserIdFromToken>;
 
 describe("RoleService", () => {
   let roleService: RoleService;
@@ -86,8 +87,8 @@ describe("RoleService", () => {
     it("should return cached roles from cache", async () => {
       const cachedRoles = { roles: ["admin", "user"], timestamp: Date.now() };
       mockCacheService.get.mockResolvedValue(cachedRoles);
-      // Mock JWT decode to return userId - avoids validate API call
-      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
+      // Mock extractUserIdFromToken to return userId - avoids validate API call
+      mockExtractUserIdFromToken.mockReturnValue("123");
 
       const result = await roleService.getRoles("token");
 
@@ -99,8 +100,8 @@ describe("RoleService", () => {
 
     it("should fetch roles from controller when cache miss", async () => {
       mockCacheService.get.mockResolvedValue(null);
-      // Mock JWT decode to return userId - avoids validate API call
-      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
+      // Mock extractUserIdFromToken to return userId - avoids validate API call
+      mockExtractUserIdFromToken.mockReturnValue("123");
       mockApiClient.roles.getRoles.mockResolvedValue({
         success: true,
         data: {
@@ -131,8 +132,8 @@ describe("RoleService", () => {
 
     it("should handle cache failure gracefully", async () => {
       mockCacheService.get.mockResolvedValue(null);
-      // Mock JWT decode to return userId
-      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
+      // Mock extractUserIdFromToken to return userId
+      mockExtractUserIdFromToken.mockReturnValue("123");
       mockApiClient.roles.getRoles.mockResolvedValue({
         success: true,
         data: {
@@ -156,8 +157,8 @@ describe("RoleService", () => {
     it("should handle invalid cached data", async () => {
       // CacheService returns null for invalid data or cache miss
       mockCacheService.get.mockResolvedValue(null);
-      // Mock JWT decode to return userId
-      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
+      // Mock extractUserIdFromToken to return userId
+      mockExtractUserIdFromToken.mockReturnValue("123");
       mockApiClient.roles.getRoles.mockResolvedValue({
         success: true,
         data: {
@@ -172,8 +173,8 @@ describe("RoleService", () => {
     });
 
     it("should return empty array on error", async () => {
-      // Mock JWT decode to return userId
-      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
+      // Mock extractUserIdFromToken to return userId
+      mockExtractUserIdFromToken.mockReturnValue("123");
       mockApiClient.roles.getRoles.mockRejectedValue(
         new Error("Network error"),
       );
@@ -184,9 +185,16 @@ describe("RoleService", () => {
     });
 
     it("should handle JWT decode failure gracefully", async () => {
-      // Mock JWT decode to throw error
-      jwt.decode.mockImplementation(() => {
-        throw new Error("Invalid token");
+      // Mock extractUserIdFromToken to return null (decode failed)
+      mockExtractUserIdFromToken.mockReturnValue(null);
+      // When userId cannot be extracted, it falls back to validate API
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: {}, // No id field
+        },
+        timestamp: new Date().toISOString(),
       });
 
       const result = await roleService.getRoles("invalid-token");
@@ -195,8 +203,8 @@ describe("RoleService", () => {
     });
 
     it("should extract userId from different JWT claim fields", async () => {
-      // Test with user_id field (alternative to sub)
-      jwt.decode.mockReturnValue({ user_id: "456", userId: null });
+      // Test that extractUserIdFromToken returns userId from token
+      mockExtractUserIdFromToken.mockReturnValue("456");
       mockCacheService.get.mockResolvedValue(null);
       mockApiClient.roles.getRoles.mockResolvedValue({
         success: true,
@@ -213,8 +221,8 @@ describe("RoleService", () => {
     });
 
     it("should return empty array when validate returns no userId", async () => {
-      // JWT decode returns null
-      jwt.decode.mockReturnValue(null);
+      // extractUserIdFromToken returns null
+      mockExtractUserIdFromToken.mockReturnValue(null);
       mockApiClient.auth.validateToken.mockResolvedValue({
         success: true,
         data: {
@@ -294,8 +302,8 @@ describe("RoleService", () => {
 
   describe("refreshRoles", () => {
     it("should force refresh roles from controller", async () => {
-      // Mock JWT decode to return userId
-      jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
+      // Mock extractUserIdFromToken to return userId
+      mockExtractUserIdFromToken.mockReturnValue("123");
       mockApiClient.auth.validateToken.mockResolvedValueOnce({
         success: true,
         data: {

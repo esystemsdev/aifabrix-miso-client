@@ -10,7 +10,7 @@ import {
   AuthStrategy,
   AuthMethod,
 } from "../types/config.types";
-import jwt from "jsonwebtoken";
+import { extractUserIdFromToken } from "../utils/browser-jwt-decoder";
 import { ApplicationContextService } from "./application-context.service";
 
 interface RoleCacheData {
@@ -36,25 +36,6 @@ export class RoleService {
   }
 
   /**
-   * Extract userId from JWT token without making API call
-   */
-  private extractUserIdFromToken(token: string): string | null {
-    try {
-      const decoded = jwt.decode(token) as Record<string, unknown> | null;
-      if (!decoded) return null;
-
-      // Try common JWT claim fields for user ID
-      return (decoded.sub ||
-        decoded.userId ||
-        decoded.user_id ||
-        decoded.id) as string | null;
-    } catch (error) {
-      return null;
-    }
-  }
-
-
-  /**
    * Get user roles with Redis caching
    * Optimized to extract userId from token first to check cache before API call
    * @param token - User authentication token
@@ -66,7 +47,7 @@ export class RoleService {
   ): Promise<string[]> {
     try {
       // Extract userId from token to check cache first (avoids API call on cache hit)
-      let userId = this.extractUserIdFromToken(token);
+      let userId = extractUserIdFromToken(token);
       const cacheKey = userId ? `roles:${userId}` : null;
 
       // Check cache first if we have userId

@@ -223,20 +223,6 @@ describe("ConfigLoader", () => {
         process.env.MISO_CLIENTSECRET = "test-secret";
       });
 
-      it("should include encryptionKey when ENCRYPTION_KEY is set", () => {
-        process.env.ENCRYPTION_KEY = "encryption-key-123";
-
-        const config = loadConfig();
-        expect(config.encryptionKey).toBe("encryption-key-123");
-      });
-
-      it("should not include encryptionKey when ENCRYPTION_KEY is not set", () => {
-        delete process.env.ENCRYPTION_KEY;
-
-        const config = loadConfig();
-        expect(config.encryptionKey).toBeUndefined();
-      });
-
       it("should include apiKey when API_KEY is set", () => {
         process.env.API_KEY = "api-key-123";
 

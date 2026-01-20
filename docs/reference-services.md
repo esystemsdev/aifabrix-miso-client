@@ -876,55 +876,73 @@ await client.log
 
 ## Encryption Methods
 
-### `encryption: EncryptionService | undefined`
+The SDK provides an encryption service accessible via `client.encryption`. This service calls the miso-controller to encrypt/decrypt security parameters using Azure Key Vault (production) or local AES-256-GCM encryption (development).
 
-Gets the encryption service for data encryption/decryption. Returns `undefined` if encryption key is not configured.
+### `encryption.encrypt(plaintext, parameterName): Promise<EncryptResult>`
 
-**Note:** Encryption service requires an encryption key to be configured via `ENCRYPTION_KEY` environment variable or `encryptionKey` in config.
+Encrypts a plaintext value and stores it as a security parameter.
+
+**Parameters:**
+
+- `plaintext` - The value to encrypt (max 32KB)
+- `parameterName` - Name identifier (1-128 chars, alphanumeric with dots, underscores, hyphens)
+
+**Returns:** `Promise<{ value: string, storage: 'keyvault' | 'local' }>`
 
 **Example:**
 
 ```typescript
-if (client.encryption) {
-  const encrypted = client.encryption.encrypt('sensitive-data');
-  const decrypted = client.encryption.decrypt(encrypted);
-  console.log('Decrypted:', decrypted);
+const result = await client.encryption.encrypt('my-api-key', 'external-api-key');
+// result.value: 'kv://external-api-key' (Key Vault) or 'enc://v1:base64...' (local)
+// result.storage: 'keyvault' or 'local'
+
+// Store result.value in your database (never store plaintext)
+await db.settings.update({ apiKeyRef: result.value });
+```
+
+### `encryption.decrypt(value, parameterName): Promise<string>`
+
+Decrypts a security parameter reference to plaintext.
+
+**Parameters:**
+
+- `value` - Encrypted reference (`kv://...` or `enc://v1:...`)
+- `parameterName` - Name identifier (must match encryption)
+
+**Returns:** `Promise<string>` - Decrypted plaintext value
+
+**Example:**
+
+```typescript
+const setting = await db.settings.findOne();
+const apiKey = await client.encryption.decrypt(setting.apiKeyRef, 'external-api-key');
+// Use apiKey for external API call
+```
+
+### Error Handling
+
+```typescript
+import { EncryptionError } from '@aifabrix/miso-client';
+
+try {
+  await client.encryption.encrypt('secret', 'invalid name!');
+} catch (error) {
+  if (error instanceof EncryptionError) {
+    console.error(`Code: ${error.code}, Parameter: ${error.parameterName}`);
+    // Code: INVALID_PARAMETER_NAME, Parameter: invalid name!
+  }
 }
 ```
 
-### `encryption.encrypt(plaintext: string): string`
+**Error Codes:**
 
-Encrypts plaintext using AES-256-GCM encryption.
-
-**Parameters:**
-
-- `plaintext` - The plaintext string to encrypt
-
-**Returns:** Base64-encoded encrypted string
-
-**Example:**
-
-```typescript
-const encrypted = client.encryption!.encrypt('my-secret-data');
-console.log('Encrypted:', encrypted);
-```
-
-### `encryption.decrypt(encryptedText: string): string`
-
-Decrypts a base64-encoded encrypted string.
-
-**Parameters:**
-
-- `encryptedText` - Base64-encoded encrypted string
-
-**Returns:** Decrypted plaintext string
-
-**Example:**
-
-```typescript
-const decrypted = client.encryption!.decrypt(encrypted);
-console.log('Decrypted:', decrypted);
-```
+| Code | Description |
+|------|-------------|
+| `INVALID_PARAMETER_NAME` | Parameter name doesn't match pattern (1-128 chars, alphanumeric, dots, underscores, hyphens) |
+| `ENCRYPTION_FAILED` | Controller encryption failed |
+| `DECRYPTION_FAILED` | Controller decryption failed |
+| `ACCESS_DENIED` | App doesn't have access to parameter |
+| `PARAMETER_NOT_FOUND` | Parameter doesn't exist (Key Vault mode) |
 
 ## Cache Methods
 
@@ -1107,24 +1125,28 @@ const httpClient = new HttpClient(config);
 
 ### EncryptionService
 
-```typescript
-import { EncryptionService } from '@aifabrix/miso-client';
+> **Note (v4.0.0+):** EncryptionService now uses controller-based encryption. Access via `client.encryption` property.
 
-const encryptionService = new EncryptionService('your-encryption-key');
-const encrypted = encryptionService.encrypt('sensitive-data');
-const decrypted = encryptionService.decrypt(encrypted);
+```typescript
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+
+const client = new MisoClient(loadConfig());
+
+// Encrypt via controller
+const result = await client.encryption.encrypt('sensitive-data', 'param-name');
+// result.value: 'kv://param-name' (Key Vault) or 'enc://v1:...' (local)
+// result.storage: 'keyvault' or 'local'
+
+// Decrypt via controller
+const plaintext = await client.encryption.decrypt(result.value, 'param-name');
 ```
 
 **Methods:**
 
-- `encrypt(plaintext: string): string` - Encrypts plaintext using AES-256-GCM
-- `decrypt(encryptedText: string): string` - Decrypts encrypted text
+- `encrypt(plaintext: string, parameterName: string): Promise<EncryptResult>` - Encrypts via controller
+- `decrypt(value: string, parameterName: string): Promise<string>` - Decrypts via controller
 
-**Key Formats Supported:**
-
-- Raw string (will be hashed with SHA-256 to derive 32-byte key)
-- Hex string (64 hex characters = 32 bytes)
-- Base64 string (must decode to exactly 32 bytes)
+**See Also:** [Encryption Methods](#encryption-methods) for full API documentation
 
 ### CacheService
 

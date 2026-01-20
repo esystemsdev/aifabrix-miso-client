@@ -35,9 +35,6 @@ export {
   sendErrorResponse,
 } from "./error-response";
 
-// Encryption
-export { EncryptionUtil } from "./encryption";
-
 // Origin validation and environment token utilities
 export { validateOrigin } from "../utils/origin-validator";
 export { getEnvironmentToken } from "../utils/environment-token";
