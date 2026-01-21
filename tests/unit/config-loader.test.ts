@@ -372,5 +372,46 @@ describe("ConfigLoader", () => {
         expect(config.controllerUrl).toBe("http://private-controller:3010");
       });
     });
+
+    describe("encryption key configuration", () => {
+      beforeEach(() => {
+        // Set required fields for all encryption key tests
+        process.env.MISO_CLIENTID = "test-client-id";
+        process.env.MISO_CLIENTSECRET = "test-secret";
+      });
+
+      it("should load encryptionKey from MISO_ENCRYPTION_KEY", () => {
+        process.env.MISO_ENCRYPTION_KEY = "test-encryption-key-12345";
+
+        const config = loadConfig();
+
+        expect(config.encryptionKey).toBe("test-encryption-key-12345");
+      });
+
+      it("should not set encryptionKey when MISO_ENCRYPTION_KEY is not provided", () => {
+        delete process.env.MISO_ENCRYPTION_KEY;
+
+        const config = loadConfig();
+
+        expect(config.encryptionKey).toBeUndefined();
+      });
+
+      it("should load encryptionKey with special characters", () => {
+        process.env.MISO_ENCRYPTION_KEY = "key-with-special_chars.123!@#";
+
+        const config = loadConfig();
+
+        expect(config.encryptionKey).toBe("key-with-special_chars.123!@#");
+      });
+
+      it("should load long encryptionKey", () => {
+        const longKey = "a".repeat(256);
+        process.env.MISO_ENCRYPTION_KEY = longKey;
+
+        const config = loadConfig();
+
+        expect(config.encryptionKey).toBe(longKey);
+      });
+    });
   });
 });

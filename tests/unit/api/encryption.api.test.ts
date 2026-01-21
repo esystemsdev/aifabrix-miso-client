@@ -39,6 +39,7 @@ describe('EncryptionApi', () => {
       const params: EncryptRequest = {
         plaintext: 'secret-value',
         parameterName: 'my-param',
+        encryptionKey: 'test-encryption-key',
       };
 
       const result = await encryptionApi.encrypt(params);
@@ -61,6 +62,7 @@ describe('EncryptionApi', () => {
       const result = await encryptionApi.encrypt({
         plaintext: 'secret',
         parameterName: 'my-param',
+        encryptionKey: 'test-encryption-key',
       });
 
       expect(result.storage).toBe('keyvault');
@@ -74,6 +76,7 @@ describe('EncryptionApi', () => {
       await expect(encryptionApi.encrypt({
         plaintext: 'secret',
         parameterName: 'param',
+        encryptionKey: 'test-encryption-key',
       })).rejects.toThrow('Encryption failed');
 
       expect(console.error).toHaveBeenCalled();
@@ -86,6 +89,7 @@ describe('EncryptionApi', () => {
       await expect(encryptionApi.encrypt({
         plaintext: 'test',
         parameterName: 'test-param',
+        encryptionKey: 'test-encryption-key',
       })).rejects.toThrow('Network error');
     });
   });
@@ -100,6 +104,7 @@ describe('EncryptionApi', () => {
       const params: DecryptRequest = {
         value: 'enc://v1:abc123',
         parameterName: 'my-param',
+        encryptionKey: 'test-encryption-key',
       };
 
       const result = await encryptionApi.decrypt(params);
@@ -121,6 +126,7 @@ describe('EncryptionApi', () => {
       const result = await encryptionApi.decrypt({
         value: 'kv://my-param',
         parameterName: 'my-param',
+        encryptionKey: 'test-encryption-key',
       });
 
       expect(result.plaintext).toBe('my-secret-value');
@@ -133,6 +139,7 @@ describe('EncryptionApi', () => {
       await expect(encryptionApi.decrypt({
         value: 'enc://v1:abc',
         parameterName: 'param',
+        encryptionKey: 'test-encryption-key',
       })).rejects.toThrow('Decryption failed');
 
       expect(console.error).toHaveBeenCalled();
@@ -145,6 +152,7 @@ describe('EncryptionApi', () => {
       await expect(encryptionApi.decrypt({
         value: 'kv://nonexistent',
         parameterName: 'nonexistent',
+        encryptionKey: 'test-encryption-key',
       })).rejects.toThrow('Parameter not found');
     });
   });

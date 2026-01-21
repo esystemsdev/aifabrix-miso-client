@@ -96,8 +96,8 @@ export class MisoClient {
     // Initialize token validation service
     this.tokenValidation = new TokenValidationService(config.keycloak);
 
-    // Initialize encryption service
-    this.encryptionService = new EncryptionService(this.apiClient);
+    // Initialize encryption service with encryption key from config
+    this.encryptionService = new EncryptionService(this.apiClient, this.config.encryptionKey);
   }
 
   /**

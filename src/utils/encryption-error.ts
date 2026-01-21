@@ -13,25 +13,26 @@ export type EncryptionErrorCode =
   | 'DECRYPTION_FAILED'
   | 'INVALID_PARAMETER_NAME'
   | 'ACCESS_DENIED'
-  | 'PARAMETER_NOT_FOUND';
+  | 'PARAMETER_NOT_FOUND'
+  | 'ENCRYPTION_KEY_REQUIRED';
 
 /**
- * Encryption error class with error code and parameter name
+ * Encryption error class with error code and optional parameter name
  */
 export class EncryptionError extends MisoClientError {
   public readonly code: EncryptionErrorCode;
-  public readonly parameterName: string;
+  public readonly parameterName?: string;
 
   /**
    * Create encryption error
    * @param message - Error message
    * @param code - Error code for programmatic handling
-   * @param parameterName - The parameter name that caused the error
+   * @param parameterName - The parameter name that caused the error (optional for ENCRYPTION_KEY_REQUIRED)
    */
   constructor(
     message: string,
     code: EncryptionErrorCode,
-    parameterName: string,
+    parameterName?: string,
   ) {
     super(message);
     this.name = 'EncryptionError';

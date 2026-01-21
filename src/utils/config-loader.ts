@@ -152,5 +152,10 @@ export function loadConfig(): MisoClientConfig {
     };
   }
 
+  // Optional encryption key for security parameter operations
+  if (process.env.MISO_ENCRYPTION_KEY) {
+    config.encryptionKey = process.env.MISO_ENCRYPTION_KEY;
+  }
+
   return config;
 }

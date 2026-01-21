@@ -123,6 +123,11 @@ export interface MisoClientConfig {
   // When enabled, validates that API responses match expected structure
   // Default: true in development (NODE_ENV !== 'production'), false in production
   validateResponses?: boolean;
+
+  // Optional: Encryption key for security parameter operations
+  // Required if using client.encryption.encrypt() or decrypt()
+  // Loaded from MISO_ENCRYPTION_KEY environment variable
+  encryptionKey?: string;
 }
 
 export interface AuditConfig {

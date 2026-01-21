@@ -11,7 +11,9 @@ jest.mock('../../../src/api');
 
 describe('EncryptionService', () => {
   let encryptionService: EncryptionService;
+  let encryptionServiceWithoutKey: EncryptionService;
   let mockApiClient: jest.Mocked<ApiClient>;
+  const testEncryptionKey = 'test-encryption-key-12345';
 
   beforeEach(() => {
     mockApiClient = {
@@ -21,11 +23,46 @@ describe('EncryptionService', () => {
       },
     } as unknown as jest.Mocked<ApiClient>;
 
-    encryptionService = new EncryptionService(mockApiClient);
+    // Service with encryption key
+    encryptionService = new EncryptionService(mockApiClient, testEncryptionKey);
+    // Service without encryption key (for testing ENCRYPTION_KEY_REQUIRED)
+    encryptionServiceWithoutKey = new EncryptionService(mockApiClient);
   });
 
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('encryption key validation', () => {
+    it('should throw ENCRYPTION_KEY_REQUIRED when encrypting without key', async () => {
+      await expect(
+        encryptionServiceWithoutKey.encrypt('secret', 'my-param'),
+      ).rejects.toThrow(EncryptionError);
+
+      await expect(
+        encryptionServiceWithoutKey.encrypt('secret', 'my-param'),
+      ).rejects.toMatchObject({
+        code: 'ENCRYPTION_KEY_REQUIRED',
+      });
+    });
+
+    it('should throw ENCRYPTION_KEY_REQUIRED when decrypting without key', async () => {
+      await expect(
+        encryptionServiceWithoutKey.decrypt('kv://my-param', 'my-param'),
+      ).rejects.toThrow(EncryptionError);
+
+      await expect(
+        encryptionServiceWithoutKey.decrypt('kv://my-param', 'my-param'),
+      ).rejects.toMatchObject({
+        code: 'ENCRYPTION_KEY_REQUIRED',
+      });
+    });
+
+    it('should include helpful error message for missing key', async () => {
+      await expect(
+        encryptionServiceWithoutKey.encrypt('secret', 'my-param'),
+      ).rejects.toThrow('Encryption key is required. Set MISO_ENCRYPTION_KEY environment variable or provide encryptionKey in config.');
+    });
   });
 
   describe('encrypt', () => {
@@ -41,6 +78,7 @@ describe('EncryptionService', () => {
       expect(mockApiClient.encryption.encrypt).toHaveBeenCalledWith({
         plaintext: 'secret',
         parameterName: 'my-param',
+        encryptionKey: testEncryptionKey,
       });
     });
 
@@ -53,6 +91,21 @@ describe('EncryptionService', () => {
       const result = await encryptionService.encrypt('secret', 'my-param');
 
       expect(result).toEqual({ value: 'enc://v1:base64data', storage: 'local' });
+    });
+
+    it('should include encryptionKey in API call', async () => {
+      mockApiClient.encryption.encrypt.mockResolvedValue({
+        value: 'enc://v1:test',
+        storage: 'local',
+      });
+
+      await encryptionService.encrypt('secret', 'test-param');
+
+      expect(mockApiClient.encryption.encrypt).toHaveBeenCalledWith(
+        expect.objectContaining({
+          encryptionKey: testEncryptionKey,
+        }),
+      );
     });
 
     it('should throw EncryptionError for invalid parameter name with spaces', async () => {
@@ -96,6 +149,7 @@ describe('EncryptionService', () => {
       expect(mockApiClient.encryption.decrypt).toHaveBeenCalledWith({
         value: 'kv://my-param',
         parameterName: 'my-param',
+        encryptionKey: testEncryptionKey,
       });
     });
 
@@ -107,6 +161,20 @@ describe('EncryptionService', () => {
       const result = await encryptionService.decrypt('enc://v1:base64', 'my-param');
 
       expect(result).toBe('my-secret');
+    });
+
+    it('should include encryptionKey in API call', async () => {
+      mockApiClient.encryption.decrypt.mockResolvedValue({
+        plaintext: 'test',
+      });
+
+      await encryptionService.decrypt('kv://test-param', 'test-param');
+
+      expect(mockApiClient.encryption.decrypt).toHaveBeenCalledWith(
+        expect.objectContaining({
+          encryptionKey: testEncryptionKey,
+        }),
+      );
     });
 
     it('should throw EncryptionError for invalid parameter name', async () => {
@@ -176,6 +244,7 @@ describe('EncryptionService', () => {
             storage: 'local',
           });
 
+          // Use encryptionService which has the encryption key set
           await expect(
             encryptionService.encrypt('secret', name),
           ).resolves.toBeDefined();
@@ -186,6 +255,8 @@ describe('EncryptionService', () => {
     describe('invalid names', () => {
       invalidNames.forEach((name) => {
         it(`should reject invalid name: "${name.substring(0, 30)}${name.length > 30 ? '...' : ''}"`, async () => {
+          // Use encryptionService which has the encryption key set
+          // Invalid parameter name check happens before encryption key check
           await expect(
             encryptionService.encrypt('secret', name),
           ).rejects.toThrow(EncryptionError);

@@ -24,21 +24,33 @@ export class EncryptionService {
   /** Parameter name validation regex (matches controller validation) */
   private static readonly PARAMETER_NAME_REGEX = /^[a-zA-Z0-9._-]{1,128}$/;
 
-  constructor(private apiClient: ApiClient) {}
+  /** Encryption key for server-side validation */
+  private encryptionKey: string | undefined;
+
+  /**
+   * Create encryption service
+   * @param apiClient - API client for controller communication
+   * @param encryptionKey - Encryption key for server-side validation (from MISO_ENCRYPTION_KEY)
+   */
+  constructor(private apiClient: ApiClient, encryptionKey?: string) {
+    this.encryptionKey = encryptionKey;
+  }
 
   /**
    * Encrypt a plaintext value and store as security parameter
    * @param plaintext - The value to encrypt (max 32KB)
    * @param parameterName - Name identifier (alphanumeric, dots, underscores, hyphens, 1-128 chars)
    * @returns Encrypt result with value reference and storage type
-   * @throws EncryptionError if parameter name is invalid or encryption fails
+   * @throws EncryptionError if encryption key is missing, parameter name is invalid, or encryption fails
    */
   async encrypt(plaintext: string, parameterName: string): Promise<EncryptResult> {
+    this.validateEncryptionKey();
     this.validateParameterName(parameterName);
 
     const response = await this.apiClient.encryption.encrypt({
       plaintext,
       parameterName,
+      encryptionKey: this.encryptionKey!,
     });
 
     return {
@@ -52,17 +64,32 @@ export class EncryptionService {
    * @param value - Encrypted reference (kv:// or enc://v1:)
    * @param parameterName - Name identifier (must match encryption)
    * @returns Decrypted plaintext value
-   * @throws EncryptionError if parameter name is invalid or decryption fails
+   * @throws EncryptionError if encryption key is missing, parameter name is invalid, or decryption fails
    */
   async decrypt(value: string, parameterName: string): Promise<string> {
+    this.validateEncryptionKey();
     this.validateParameterName(parameterName);
 
     const response = await this.apiClient.encryption.decrypt({
       value,
       parameterName,
+      encryptionKey: this.encryptionKey!,
     });
 
     return response.plaintext;
+  }
+
+  /**
+   * Validate that encryption key is configured
+   * @throws EncryptionError if encryption key is not set
+   */
+  private validateEncryptionKey(): void {
+    if (!this.encryptionKey) {
+      throw new EncryptionError(
+        'Encryption key is required. Set MISO_ENCRYPTION_KEY environment variable or provide encryptionKey in config.',
+        'ENCRYPTION_KEY_REQUIRED',
+      );
+    }
   }
 
   /**

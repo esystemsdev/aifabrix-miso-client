@@ -5,12 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-01-21
+
+### Changed
+
+- **Encryption Key Parameter** - `encryptionKey` is now sent to the controller for server-side validation
+  - Added `encryptionKey` field to `EncryptRequest` and `DecryptRequest` interfaces
+  - `EncryptionService` validates encryption key is configured before API calls
+  - Throws `ENCRYPTION_KEY_REQUIRED` error with helpful message if key is missing
+
+### Added
+
+- `ENCRYPTION_KEY_REQUIRED` error code in `EncryptionError` class
+- Tests for encryption key validation in `EncryptionService`
+- Tests for `MISO_ENCRYPTION_KEY` environment variable loading in `config-loader`
+
+### Technical
+
+- `EncryptionError.parameterName` is now optional (not applicable for `ENCRYPTION_KEY_REQUIRED` errors)
+- `EncryptionService` constructor accepts optional `encryptionKey` parameter
+- `MisoClient` passes `config.encryptionKey` to `EncryptionService`
+
 ## [4.0.0] - 2026-01-20
 
 ### Breaking Changes
 
 - **Removed `EncryptionUtil` class** - Local encryption via `EncryptionUtil.encrypt()`/`decrypt()` is no longer supported. Use the new controller-based `client.encryption` service instead.
-- **Removed `encryptionKey` config option** - The `encryptionKey` property has been removed from `MisoClientConfig`. Encryption keys are now managed by the miso-controller.
+- **Encryption Key Required** - The `encryptionKey` config option is now required for encryption operations
+  - Load from `MISO_ENCRYPTION_KEY` environment variable
+  - Or provide `encryptionKey` in `MisoClientConfig`
+  - Throws `ENCRYPTION_KEY_REQUIRED` error if not configured when using encrypt/decrypt
 
 ### Migration Guide
 
@@ -27,12 +51,18 @@ const decrypted = EncryptionUtil.decrypt(encrypted);
 **After (v4.0) - Controller-based encryption:**
 
 ```typescript
-import { MisoClient } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from '@aifabrix/miso-client';
 
+// Option 1: Use environment variable (recommended)
+// Set MISO_ENCRYPTION_KEY in your .env file
+const client = new MisoClient(loadConfig());
+
+// Option 2: Provide in config
 const client = new MisoClient({
   controllerUrl: 'https://miso-controller.example.com',
   clientId: 'my-app',
   clientSecret: 'secret',
+  encryptionKey: 'your-encryption-key', // Required for encryption operations
 });
 
 const result = await client.encryption.encrypt('my-secret', 'param-name');
@@ -44,24 +74,26 @@ const decrypted = await client.encryption.decrypt(result.value, 'param-name');
 
 ### Why This Change?
 
-- **Centralized key management** - Encryption keys are managed by the controller, not distributed to each application
+- **Centralized key management** - Encryption keys are managed by the controller, validated server-side
 - **Azure Key Vault support** - Production environments can use Azure Key Vault for secure secret storage
 - **Application isolation** - Each application can only access its own encrypted parameters
 - **Audit logging** - All encryption/decryption operations are logged by the controller
+- **Security** - Encryption key prevents misuse of rotated or leaked application credentials
 
 ### Added
 
 - `client.encryption.encrypt(plaintext, parameterName)` - Encrypt a value via controller
 - `client.encryption.decrypt(value, parameterName)` - Decrypt a value via controller
-- `EncryptionService` class - Service layer with parameter validation
-- `EncryptionError` class - Error class with codes: `ENCRYPTION_FAILED`, `DECRYPTION_FAILED`, `INVALID_PARAMETER_NAME`, `ACCESS_DENIED`, `PARAMETER_NOT_FOUND`
+- `EncryptionService` class - Service layer with parameter and encryption key validation
+- `EncryptionError` class - Error class with codes: `ENCRYPTION_FAILED`, `DECRYPTION_FAILED`, `INVALID_PARAMETER_NAME`, `ACCESS_DENIED`, `PARAMETER_NOT_FOUND`, `ENCRYPTION_KEY_REQUIRED`
 - `EncryptResult` type - Return type for encrypt operations
 - `EncryptionApi` class - API layer for controller communication
+- `encryptionKey` config option - For server-side encryption key validation
+- `MISO_ENCRYPTION_KEY` environment variable support in `loadConfig()`
 
 ### Removed
 
 - `EncryptionUtil` class - Use `client.encryption` instead
-- `encryptionKey` config option - No longer needed
 
 ### Technical
 
