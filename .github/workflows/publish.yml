@@ -1,8 +1,9 @@
-name: Manual Publish To NPM
+name: Publish to npm
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'   # Trigger on version tag push (e.g., v4.1.0)
   workflow_dispatch:
     inputs:
       version:
@@ -13,9 +14,6 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     
     steps:
       - name: Checkout code
@@ -27,6 +25,14 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
           scope: '@aifabrix'
+
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
       
       - name: Get version
         id: get_version
@@ -44,16 +50,21 @@ jobs:
           PACKAGE_NAME=$(node -p "require('./package.json').name")
           VERSION="${{ steps.get_version.outputs.VERSION }}"
           
+          # Check if version exists on npm
           if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
-            echo "⚠️  Version $VERSION already published!"
+            echo "⚠️  Version $VERSION already published on npm!"
             exit 1
           fi
+          echo "✅ Version $VERSION not yet published, proceeding..."
       
       - name: Install dependencies
         run: npm ci
       
       - name: Run linting
         run: npm run lint
+
+      - name: Run tests
+        run: npm test
       
       - name: Build package
         run: npm run build
@@ -106,27 +117,4 @@ jobs:
           echo "🌐 Registry: https://registry.npmjs.org"
           echo ""
           echo "Installation: npm install $PACKAGE_NAME@$VERSION"
-      
-      - name: Update GitHub Release
-        if: github.event_name == 'release'
-        run: |
-          VERSION="${{ steps.get_version.outputs.VERSION }}"
-          PACKAGE_NAME=$(node -p "require('./package.json').name")
-          
-          gh release edit "v$VERSION" \
-            --notes "## @aifabrix/miso-client v$VERSION
-          
-          ✅ **Published to npm**: \`$PACKAGE_NAME@$VERSION\`
-          
-          ### Installation
-          \`\`\`bash
-          npm install $PACKAGE_NAME@$VERSION
-          \`\`\`
-          
-          ### Package Information
-          - **Registry**: https://registry.npmjs.org
-          - **Access**: Public
-          - **Package URL**: https://www.npmjs.com/package/$PACKAGE_NAME/v/$VERSION"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
