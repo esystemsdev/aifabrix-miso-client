@@ -21,10 +21,10 @@ npm install -g @aifabrix/builder
 aifabrix doctor
 
 # Login to controller
-aifabrix login --method device --environment miso --controller http://localhost:3110 --offline
+aifabrix login --method device --environment dev --controller http://localhost:3110
 
 # Register your application (gets you credentials automatically)
-aifabrix app register miso-test --environment miso
+aifabrix app register miso-test
 ```
 
 ### 3. Build & Run Locally
@@ -103,13 +103,13 @@ aifabrix push miso-test --registry myacr.azurecr.io # Push to ACR
 aifabrix deploy miso-test --controller <url>    # Deploy to Azure
 
 # Management
-aifabrix app register miso-test --environment dev
-aifabrix app list --environment dev
-aifabrix app rotate-secret miso-test --environment dev
+aifabrix app register miso-test
+aifabrix app list
+aifabrix app rotate-secret miso-test
 
 # Utilities
 aifabrix doctor                                   # Check environment
-aifabrix login --method device --environment dev  # Login
+aifabrix login --method device  # Login
 aifabrix --help                                   # Get help
 ```
 
@@ -138,21 +138,21 @@ aifabrix push miso-test --registry myacr.azurecr.io --tag "v1.0.0,latest,stable"
 ### Deploy Options
 
 ```bash
-aifabrix deploy miso-test --controller <url> --environment dev
-aifabrix deploy miso-test --controller <url> --environment dev --no-poll
+aifabrix deploy miso-test --controller <url>
+aifabrix deploy miso-test --controller <url> --no-poll
 ```
 
 ### Login Methods
 
 ```bash
 # Device code flow
-aifabrix login --method device --environment dev
+aifabrix login --method device
 
 # Credentials (reads from secrets.local.yaml)
-aifabrix login --method credentials --app miso-test --environment dev
+aifabrix login --method credentials --app miso-test
 
 # Explicit credentials
-aifabrix login --method credentials --app miso-test --client-id $CLIENT_ID --client-secret $CLIENT_SECRET --environment dev
+aifabrix login --method credentials --app miso-test --client-id $CLIENT_ID --client-secret $CLIENT_SECRET
 ```
 
 ### Configuration
