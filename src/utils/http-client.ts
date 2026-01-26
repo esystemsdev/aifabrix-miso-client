@@ -133,10 +133,23 @@ export class HttpClient {
     }
   }
 
+  /**
+   * Send GET request using client credentials
+   * @param url - Request URL
+   * @param config - Optional Axios request configuration
+   * @returns Response data of type T
+   */
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     return this.internalClient.get<T>(url, config);
   }
 
+  /**
+   * Send POST request using client credentials
+   * @param url - Request URL
+   * @param data - Optional request body data
+   * @param config - Optional Axios request configuration
+   * @returns Response data of type T
+   */
   async post<T>(
     url: string,
     data?: unknown,
@@ -145,6 +158,13 @@ export class HttpClient {
     return this.internalClient.post<T>(url, data, config);
   }
 
+  /**
+   * Send PUT request using client credentials
+   * @param url - Request URL
+   * @param data - Optional request body data
+   * @param config - Optional Axios request configuration
+   * @returns Response data of type T
+   */
   async put<T>(
     url: string,
     data?: unknown,
@@ -153,11 +173,24 @@ export class HttpClient {
     return this.internalClient.put<T>(url, data, config);
   }
 
+  /**
+   * Send DELETE request using client credentials
+   * @param url - Request URL
+   * @param config - Optional Axios request configuration
+   * @returns Response data of type T
+   */
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     return this.internalClient.delete<T>(url, config);
   }
 
-  // Generic method for all requests (uses client credentials)
+  /**
+   * Generic method for all HTTP requests using client credentials
+   * @param method - HTTP method (GET, POST, PUT, DELETE)
+   * @param url - Request URL
+   * @param data - Optional request body data
+   * @param config - Optional Axios request configuration
+   * @returns Response data of type T
+   */
   async request<T>(
     method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
@@ -167,17 +200,25 @@ export class HttpClient {
     return this.internalClient.request<T>(method, url, data, config);
   }
 
-  // For requests that need Bearer token (user auth)
-  // IMPORTANT: Client token is sent as x-client-token header (via interceptor)
-  // User token is sent as Authorization: Bearer header (this method parameter)
-  // These are two separate tokens for different purposes
+  /**
+   * Send authenticated request with user Bearer token
+   * Client token is sent as x-client-token header (via interceptor)
+   * User token is sent as Authorization: Bearer header
+   * @param method - HTTP method (GET, POST, PUT, DELETE)
+   * @param url - Request URL
+   * @param token - User authentication token (sent as Bearer token)
+   * @param data - Optional request body data
+   * @param config - Optional Axios request configuration
+   * @param authStrategy - Optional authentication strategy override
+   * @returns Response data of type T
+   */
   async authenticatedRequest<T>(
     method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
-    token: string, // User authentication token (sent as Bearer token)
+    token: string,
     data?: unknown,
     config?: AxiosRequestConfig,
-    authStrategy?: AuthStrategy, // Optional auth strategy override
+    authStrategy?: AuthStrategy,
   ): Promise<T> {
     return this.internalClient.authenticatedRequest<T>(
       method,

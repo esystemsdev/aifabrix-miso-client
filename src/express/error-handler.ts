@@ -33,66 +33,34 @@ export function setErrorLogger(logger: ErrorLogger | null): void {
   customErrorLogger = logger;
 }
 
-/**
- * Map error to appropriate HTTP status code
- */
+/** Prisma error code to HTTP status mapping */
+const PRISMA_ERROR_MAP: Record<string, number> = { P2002: 409, P2025: 404, P2003: 400 };
+
+/** Error message patterns to HTTP status mapping */
+const MESSAGE_PATTERN_MAP: Array<{ pattern: RegExp; status: number }> = [
+  { pattern: /not found/i, status: 404 },
+  { pattern: /already exists|duplicate/i, status: 409 },
+  { pattern: /validation|invalid/i, status: 400 },
+  { pattern: /unauthorized|authentication/i, status: 401 },
+  { pattern: /forbidden|permission/i, status: 403 },
+];
+
+/** Map error to appropriate HTTP status code */
 function mapErrorToStatusCode(error: unknown): number {
-  // AppError uses its statusCode
-  if (error instanceof AppError) {
-    return error.statusCode;
-  }
+  if (error instanceof AppError) return error.statusCode;
 
-  // Prisma errors (duck typing - no import needed)
+  // Prisma errors
   if (error && typeof error === "object" && "code" in error) {
-    const code = (error as { code: string }).code;
-    // Support Prisma error codes without importing Prisma
-    if (code === "P2002") {
-      // Unique constraint violation
-      return 409;
-    }
-    if (code === "P2025") {
-      // Record not found
-      return 404;
-    }
-    if (code === "P2003") {
-      // Foreign key constraint violation
-      return 400;
-    }
+    const status = PRISMA_ERROR_MAP[(error as { code: string }).code];
+    if (status) return status;
   }
 
-  // Error message patterns
-  const errorMessage =
-    error instanceof Error ? error.message : String(error || "Unknown error");
-
-  if (errorMessage.toLowerCase().includes("not found")) {
-    return 404;
-  }
-  if (
-    errorMessage.toLowerCase().includes("already exists") ||
-    errorMessage.toLowerCase().includes("duplicate")
-  ) {
-    return 409;
-  }
-  if (
-    errorMessage.toLowerCase().includes("validation") ||
-    errorMessage.toLowerCase().includes("invalid")
-  ) {
-    return 400;
-  }
-  if (
-    errorMessage.toLowerCase().includes("unauthorized") ||
-    errorMessage.toLowerCase().includes("authentication")
-  ) {
-    return 401;
-  }
-  if (
-    errorMessage.toLowerCase().includes("forbidden") ||
-    errorMessage.toLowerCase().includes("permission")
-  ) {
-    return 403;
+  // Message pattern matching
+  const msg = error instanceof Error ? error.message : String(error || "");
+  for (const { pattern, status } of MESSAGE_PATTERN_MAP) {
+    if (pattern.test(msg)) return status;
   }
 
-  // Default to 500
   return 500;
 }
 
@@ -142,83 +110,40 @@ function createErrorResponseFromError(
   );
 }
 
-/**
- * Generic route error handler
- * Logs error and sends RFC 7807 compliant error response
- */
-export async function handleRouteError(
-  error: unknown,
-  req: Request,
-  res: Response,
-  operation?: string,
-): Promise<void> {
-  // Extract request context (includes correlation ID from headers)
-  const requestContext = extractRequestContext(req);
-  
-  // Get correlation ID from request property, context, or generate one
-  const correlationId =
-    (req as Request & { correlationId?: string }).correlationId ||
-    requestContext.correlationId ||
-    generateCorrelationId();
-  
-  const statusCode = mapErrorToStatusCode(error);
-  const errorMessage = extractErrorMessage(error);
-
-  // Extract structured error info with endpoint and method context
-  const errorInfo = extractErrorInfo(error, {
-    endpoint: req.originalUrl || req.path,
-    method: req.method,
-    correlationId,
-  });
-
-  // Log error using custom logger or stderr
-  const operationName = operation || "unknown operation";
-  const logMessage = `${operationName} failed: ${errorMessage}`;
-
-  // Enhance console logging with structured format
+/** Log error using custom logger or stderr */
+async function logError(error: unknown, errorInfo: ReturnType<typeof extractErrorInfo>, logMessage: string, req: Request, correlationId: string, statusCode: number, operationName: string): Promise<void> {
   logErrorWithContext(errorInfo, "[Express]");
 
   if (customErrorLogger) {
     try {
       await customErrorLogger.logError(logMessage, {
-        req, // Include request object so logger can use withRequest()
-        correlationId: errorInfo.correlationId || correlationId,
-        operation: operationName,
-        statusCode: errorInfo.statusCode || statusCode,
-        url: req.originalUrl,
-        method: req.method,
-        errorMessage: errorInfo.message,
-        errorName: errorInfo.errorName,
-        errorType: errorInfo.errorType,
-        stack: errorInfo.stackTrace,
+        req, correlationId: errorInfo.correlationId || correlationId, operation: operationName,
+        statusCode: errorInfo.statusCode || statusCode, url: req.originalUrl, method: req.method,
+        errorMessage: errorInfo.message, errorName: errorInfo.errorName, errorType: errorInfo.errorType, stack: errorInfo.stackTrace,
       });
     } catch (logError) {
-      // If logging itself fails, fall back to stderr
-      const logErr =
-        logError instanceof Error ? logError : new Error(String(logError));
+      const logErr = logError instanceof Error ? logError : new Error(String(logError));
       process.stderr.write(`[ERROR] Failed to log error: ${logErr.message}\n`);
-      process.stderr.write(`[ERROR] Original error: ${errorMessage}\n`);
+      process.stderr.write(`[ERROR] Original error: ${extractErrorMessage(error)}\n`);
     }
   } else {
-    // Fallback to stderr if no logger configured
     process.stderr.write(`[ERROR] ${logMessage}\n`);
-    if (error instanceof Error && error.stack) {
-      process.stderr.write(`[ERROR] Stack: ${error.stack}\n`);
-    }
+    if (error instanceof Error && error.stack) process.stderr.write(`[ERROR] Stack: ${error.stack}\n`);
   }
+}
 
-  // Create and send error response
-  const errorResponse = createErrorResponseFromError(
-    error,
-    statusCode,
-    req,
-    correlationId,
-  );
+/** Generic route error handler - logs error and sends RFC 7807 compliant response */
+export async function handleRouteError(error: unknown, req: Request, res: Response, operation?: string): Promise<void> {
+  const requestContext = extractRequestContext(req);
+  const correlationId = (req as Request & { correlationId?: string }).correlationId || requestContext.correlationId || generateCorrelationId();
+  const statusCode = mapErrorToStatusCode(error);
+  const errorMessage = extractErrorMessage(error);
+  const operationName = operation || "unknown operation";
 
-  // If error is AppError with correlationId, use it
-  if (error instanceof AppError && error.correlationId) {
-    errorResponse.correlationId = error.correlationId;
-  }
+  const errorInfo = extractErrorInfo(error, { endpoint: req.originalUrl || req.path, method: req.method, correlationId });
+  await logError(error, errorInfo, `${operationName} failed: ${errorMessage}`, req, correlationId, statusCode, operationName);
 
+  const errorResponse = createErrorResponseFromError(error, statusCode, req, correlationId);
+  if (error instanceof AppError && error.correlationId) errorResponse.correlationId = error.correlationId;
   sendErrorResponse(res, errorResponse);
 }

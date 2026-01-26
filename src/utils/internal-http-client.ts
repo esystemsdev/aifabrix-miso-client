@@ -233,140 +233,138 @@ export class InternalHttpClient {
     return `${clientPrefix}-${timestamp}-${random}`;
   }
 
+  /** Create HTTP agent for IPv4 with timeout */
+  private async createHttpAgent(isHttps: boolean, timeout: number): Promise<import("http").Agent> {
+    const http = await import("http");
+    const https = await import("https");
+    return isHttps ? new https.Agent({ family: 4, timeout }) : new http.Agent({ family: 4, timeout });
+  }
+
+  /** Extract token from response (handles nested and flat formats) */
+  private extractTokenFromResponse(response: { data: ClientTokenResponse; status: number }): string | null {
+    const token = response.data.data?.token || response.data.token;
+    const expiresIn = response.data.data?.expiresIn || response.data.expiresIn;
+    const hasSuccess = response.data.success === true;
+    const hasValidStatus = response.status >= 200 && response.status < 300;
+
+    if (token && (hasSuccess || hasValidStatus)) {
+      this.clientToken = token;
+      if (expiresIn) this.tokenExpiresAt = new Date(Date.now() + (expiresIn - 30) * 1000);
+      return this.clientToken;
+    }
+    return null;
+  }
+
+  /** Format error for client token fetch failure */
+  private formatTokenFetchError(error: unknown, correlationId: string, clientId: string): Error {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const details = isAxiosError(error) && error.response
+      ? `status: ${error.response.status}, data: ${JSON.stringify(error.response.data)}`
+      : isAxiosError(error) && error.request ? `code: ${error.code || "N/A"}` : "";
+    return new Error(`Failed to get client token: ${errorMessage}${details ? `. ${details}` : ""} [correlationId: ${correlationId}, clientId: ${clientId}]`);
+  }
+
   /**
    * Fetch client token from controller using clientSecret (server-side only)
    */
   private async fetchClientToken(): Promise<string> {
-    if (!this.config.clientSecret) {
-      throw new Error(
-        "Cannot fetch client token: clientSecret is required but not provided",
-      );
-    }
+    if (!this.config.clientSecret) throw new Error("Cannot fetch client token: clientSecret is required but not provided");
 
     const correlationId = this.generateCorrelationId();
     const clientId = this.config.clientId;
+    const requestTimeout = 30000;
 
     try {
-      // Use default timeout of 30 seconds
-      const requestTimeout = 30000;
-      
-      // Create AbortController for connection timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        controller.abort();
-      }, requestTimeout);
-
-      // Force IPv4 to avoid IPv6 connection issues and set connection timeout
-      const http = await import("http");
-      const https = await import("https");
+      const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
       const controllerUrl = resolveControllerUrl(this.config);
       const isHttps = controllerUrl.startsWith("https://");
-      const httpAgent = isHttps
-        ? new https.Agent({ family: 4, timeout: requestTimeout })
-        : new http.Agent({ family: 4, timeout: requestTimeout });
+      const httpAgent = await this.createHttpAgent(isHttps, requestTimeout);
 
-      // Create a temporary axios instance without interceptors to avoid recursion
       const tempAxios = axios.create({
-        baseURL: controllerUrl,
-        timeout: requestTimeout,
-        signal: controller.signal, // Abort signal for connection timeout
-        httpAgent: !isHttps ? httpAgent : undefined,
-        httpsAgent: isHttps ? httpAgent : undefined,
-        headers: {
-          "Content-Type": "application/json",
-          "x-client-id": this.config.clientId,
-          "x-client-secret": this.config.clientSecret,
-        },
+        baseURL: controllerUrl, timeout: requestTimeout, signal: controller.signal,
+        httpAgent: !isHttps ? httpAgent : undefined, httpsAgent: isHttps ? httpAgent : undefined,
+        headers: { "Content-Type": "application/json", "x-client-id": this.config.clientId, "x-client-secret": this.config.clientSecret },
       });
 
-      // Wrap in Promise.race to ensure timeout even if axios hangs
-      const axiosPromise = tempAxios.post<ClientTokenResponse>("/api/v1/auth/token");
-      
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Request timeout after ${requestTimeout}ms`));
-        }, requestTimeout);
-      });
-      
+      const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`Request timeout after ${requestTimeout}ms`)), requestTimeout));
       let response;
       try {
-        response = await Promise.race([axiosPromise, timeoutPromise]);
-        clearTimeout(timeoutId); // Clear timeout on success
+        response = await Promise.race([tempAxios.post<ClientTokenResponse>("/api/v1/auth/token"), timeoutPromise]);
+        clearTimeout(timeoutId);
       } catch (requestError) {
-        clearTimeout(timeoutId); // Clear timeout on error
-        throw requestError; // Re-throw to be handled by outer catch
+        clearTimeout(timeoutId);
+        throw requestError;
       }
 
-      // Handle both nested (new) and flat (old) response formats
-      const token = response.data.data?.token || response.data.token;
-      const expiresIn =
-        response.data.data?.expiresIn || response.data.expiresIn;
+      const token = this.extractTokenFromResponse(response);
+      if (token) return token;
 
-      // Accept response if:
-      // 1. Has success: true AND token (old format)
-      // 2. Has token AND status is 2xx (new format without success field)
-      const hasSuccess = response.data.success === true;
-      const hasValidStatus = response.status >= 200 && response.status < 300;
-      
-      if (token && (hasSuccess || hasValidStatus)) {
-        this.clientToken = token;
-        // Set expiration with 30 second buffer before actual expiration
-        if (expiresIn) {
-          const bufferExpiresIn = expiresIn - 30;
-          this.tokenExpiresAt = new Date(Date.now() + bufferExpiresIn * 1000);
-        }
-        return this.clientToken;
-      }
-
-      // Invalid response format - include full response details
-      const responseDetails = JSON.stringify({
-        status: response.status,
-        statusText: response.statusText,
-        data: response.data,
-        headers: response.headers,
-      });
-      throw new Error(
-        `Failed to get client token: Invalid response format. Expected {success: true, token: string}. ` +
-          `Full response: ${responseDetails} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-      );
+      throw new Error(`Failed to get client token: Invalid response format. Full response: ${JSON.stringify({ status: response.status, data: response.data })} [correlationId: ${correlationId}, clientId: ${clientId}]`);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      const details = isAxiosError(error) && error.response
-        ? `status: ${error.response.status}, data: ${JSON.stringify(error.response.data)}`
-        : isAxiosError(error) && error.request
-          ? `code: ${error.code || "N/A"}`
-          : "";
-      throw new Error(
-        `Failed to get client token: ${errorMessage}${details ? `. ${details}` : ""} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-      );
+      throw this.formatTokenFetchError(error, correlationId, clientId);
     }
   }
 
 
   /**
    * Get access to internal axios instance (for interceptors)
+   * @returns The underlying Axios instance
    */
   getAxiosInstance(): AxiosInstance {
     return this.axios;
   }
 
+  /**
+   * Send GET request using client credentials
+   * @param url - Request URL
+   * @param config - Optional Axios request configuration
+   * @returns Response data of type T
+   */
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     return this.executeWithTimeout<T>((cfg) => this.axios.get<T>(url, cfg), config);
   }
 
+  /**
+   * Send POST request using client credentials
+   * @param url - Request URL
+   * @param data - Optional request body data
+   * @param config - Optional Axios request configuration
+   * @returns Response data of type T
+   */
   async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     return this.executeWithTimeout<T>((cfg) => this.axios.post<T>(url, data, cfg), config);
   }
 
+  /**
+   * Send PUT request using client credentials
+   * @param url - Request URL
+   * @param data - Optional request body data
+   * @param config - Optional Axios request configuration
+   * @returns Response data of type T
+   */
   async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
     return this.executeWithTimeout<T>((cfg) => this.axios.put<T>(url, data, cfg), config);
   }
 
+  /**
+   * Send DELETE request using client credentials
+   * @param url - Request URL
+   * @param config - Optional Axios request configuration
+   * @returns Response data of type T
+   */
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
     return this.executeWithTimeout<T>((cfg) => this.axios.delete<T>(url, cfg), config);
   }
 
-  // Generic method for all requests (uses client credentials)
+  /**
+   * Generic method for all HTTP requests using client credentials
+   * @param method - HTTP method (GET, POST, PUT, DELETE)
+   * @param url - Request URL
+   * @param data - Optional request body data
+   * @param config - Optional Axios request configuration
+   * @returns Response data of type T
+   */
   async request<T>(
     method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
@@ -387,17 +385,25 @@ export class InternalHttpClient {
     }
   }
 
-  // For requests that need Bearer token (user auth)
-  // IMPORTANT: Client token is sent as x-client-token header (via interceptor)
-  // User token is sent as Authorization: Bearer header (this method parameter)
-  // These are two separate tokens for different purposes
+  /**
+   * Send authenticated request with user Bearer token
+   * Client token is sent as x-client-token header (via interceptor)
+   * User token is sent as Authorization: Bearer header
+   * @param method - HTTP method (GET, POST, PUT, DELETE)
+   * @param url - Request URL
+   * @param token - User authentication token (sent as Bearer token)
+   * @param data - Optional request body data
+   * @param config - Optional Axios request configuration
+   * @param authStrategy - Optional authentication strategy override
+   * @returns Response data of type T
+   */
   async authenticatedRequest<T>(
     method: "GET" | "POST" | "PUT" | "DELETE",
     url: string,
-    token: string, // User authentication token (sent as Bearer token)
+    token: string,
     data?: unknown,
     config?: AxiosRequestConfig,
-    authStrategy?: AuthStrategy, // Optional auth strategy override
+    authStrategy?: AuthStrategy,
   ): Promise<T> {
     // Use auth strategy if provided, otherwise use default bearer token behavior
     let requestConfig: AxiosRequestConfig;

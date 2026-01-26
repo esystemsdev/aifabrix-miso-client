@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-01-26
+
+### Added
+
+- **User Info Caching** - Added caching for `getUserInfo()` to reduce redundant controller API calls
+  - Cache key format: `user:{userId}` with configurable TTL (default 300 seconds / 5 minutes)
+  - Automatically extracts userId from JWT token for cache key generation
+  - Falls back to controller when cache miss or Redis unavailable
+  - New `clearUserCache(token)` method to invalidate cached user info
+  - `logout()` now clears user cache in addition to token cache
+  - New `userTTL` configuration option in `cache` settings
+
+### Changed
+
+- **RFC 7807 Compliance** - Improved error responses in `client-token-endpoint.ts`
+  - All 11 error responses now use RFC 7807 Problem Details format
+  - Added 504 Gateway Timeout to error type mappings
+  - Error responses include `type`, `title`, `status`, `detail`, and `instance` fields
+
+### Technical
+
+- **Code Quality Refactoring** - Refactored 13 methods across 11 files to comply with 30-line method limit
+  - `auth.service.ts`: Extracted `extractTokenFromEnvResponse()` helper
+  - `internal-http-client.ts`: Extracted `createHttpAgent()`, `extractTokenFromResponse()`, `formatTokenFetchError()`
+  - `client-token-endpoint.ts`: Extracted `extractHttpStatus()`, `isNetworkOrTimeoutError()`, `handleTokenError()`, `buildConfigResponse()`
+  - `role.service.ts`: Extracted `buildAuthStrategy()`, `getEnvironmentParams()`, `resolveUserId()`, `fetchRolesFromController()`
+  - `permission.service.ts`: Similar helper extraction pattern
+  - `config-loader.ts`: Extracted `loadRedisConfig()`, `loadAuthStrategy()`, `loadKeycloakConfig()`, `loadAllowedOrigins()`
+  - `errors.ts`: Extracted `transformErrorEnvelope()`, `transformDirectError()`
+  - `error-handler.ts`: Added lookup tables `PRISMA_ERROR_MAP`, `MESSAGE_PATTERN_MAP`, extracted `logError()`
+  - `error-types.ts`: Extracted `ERROR_TYPE_MAP`, `ERROR_TITLE_MAP` lookup tables
+  - `data-client.ts`: Extracted `checkCircuitBreaker()`, `recordFailure()`, `executeRequest()`
+  - `logger-context.middleware.ts`: Extracted `buildLoggerContext()`
+- File size reduction in `auth.service.ts` from 515 to 500 lines via JSDoc consolidation
+
 ## [4.1.0] - 2026-01-21
 
 ### Changed

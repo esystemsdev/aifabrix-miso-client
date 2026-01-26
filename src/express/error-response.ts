@@ -55,6 +55,7 @@ const ERROR_TYPE_URI_MAP: Record<number, string> = {
   429: "/Errors/TooManyRequests",
   500: "/Errors/InternalServerError",
   503: "/Errors/ServiceUnavailable",
+  504: "/Errors/GatewayTimeout",
 };
 
 /**
@@ -79,6 +80,7 @@ export function getErrorTitle(statusCode: number): string {
     429: "Too Many Requests",
     500: "Internal Server Error",
     503: "Service Unavailable",
+    504: "Gateway Timeout",
   };
   return titles[statusCode] || "Internal Server Error";
 }

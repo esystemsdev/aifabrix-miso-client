@@ -207,13 +207,11 @@ describe('Client Token Endpoint Integration Tests', () => {
 
       expect(response.status).toBe(504);
       expect(response.body).toMatchObject({
-        error: 'Gateway Timeout',
-        message: expect.stringContaining('Controller'),
-        details: {
-          controllerUrl: expect.any(String),
-          timeout: expect.any(String),
-          suggestion: expect.any(String),
-        },
+        type: '/Errors/GatewayTimeout',
+        title: 'Gateway Timeout',
+        status: 504,
+        detail: expect.stringContaining('Controller'),
+        instance: '/api/v1/auth/client-token',
       });
 
       // Restart controller server for other tests
@@ -270,9 +268,10 @@ describe('Client Token Endpoint Integration Tests', () => {
         .timeout(10000);
 
       expect(response.status).toBe(504);
-      expect(response.body).toHaveProperty('error');
-      expect(response.body).toHaveProperty('message');
-      expect(response.body).toHaveProperty('details');
+      expect(response.body).toHaveProperty('type');
+      expect(response.body).toHaveProperty('title');
+      expect(response.body).toHaveProperty('status');
+      expect(response.body).toHaveProperty('detail');
 
       // Restart controller
       await new Promise<void>((resolve) => {

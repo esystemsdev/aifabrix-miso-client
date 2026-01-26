@@ -1161,6 +1161,217 @@ describe("AuthService", () => {
 
       expect(result).toEqual({});
     });
+
+    describe("getUserInfo caching", () => {
+      beforeEach(() => {
+        jest.clearAllMocks();
+      });
+
+      it("should return cached user info on cache hit", async () => {
+        const cachedUser = {
+          id: "cached-123",
+          username: "cacheduser",
+          email: "cached@example.com",
+        };
+        jwt.decode.mockReturnValue({ sub: "cached-123" });
+        mockCacheService.get.mockResolvedValue({
+          user: cachedUser,
+          timestamp: Date.now(),
+        });
+
+        const result = await authService.getUserInfo("valid-token");
+
+        expect(result).toEqual(cachedUser);
+        expect(mockCacheService.get).toHaveBeenCalledWith("user:cached-123");
+        expect(mockApiClient.auth.getUser).not.toHaveBeenCalled();
+      });
+
+      it("should fetch from API and cache on cache miss", async () => {
+        const userInfo = {
+          id: "123",
+          username: "testuser",
+          email: "test@example.com",
+        };
+        jwt.decode.mockReturnValue({ sub: "123" });
+        mockCacheService.get.mockResolvedValue(null);
+        mockCacheService.set.mockResolvedValue(true);
+        mockApiClient.auth.getUser.mockResolvedValue({
+          success: true,
+          data: {
+            authenticated: true,
+            user: userInfo,
+          },
+          timestamp: new Date().toISOString(),
+        });
+
+        const result = await authService.getUserInfo("valid-token");
+
+        expect(result).toEqual(userInfo);
+        expect(mockCacheService.get).toHaveBeenCalledWith("user:123");
+        expect(mockApiClient.auth.getUser).toHaveBeenCalled();
+        expect(mockCacheService.set).toHaveBeenCalledWith(
+          "user:123",
+          expect.objectContaining({
+            user: userInfo,
+            timestamp: expect.any(Number),
+          }),
+          300, // default userTTL
+        );
+      });
+
+      it("should use custom userTTL from config", async () => {
+        // Create new service with custom TTL
+        const customConfig = {
+          ...config,
+          cache: { userTTL: 600 }, // 10 minutes
+        };
+        (mockHttpClient as unknown as { config: typeof customConfig }).config = customConfig;
+        const customAuthService = new AuthService(mockHttpClient, mockApiClient as unknown as ApiClient, mockCacheService);
+
+        const userInfo = {
+          id: "123",
+          username: "testuser",
+          email: "test@example.com",
+        };
+        jwt.decode.mockReturnValue({ sub: "123" });
+        mockCacheService.get.mockResolvedValue(null);
+        mockCacheService.set.mockResolvedValue(true);
+        mockApiClient.auth.getUser.mockResolvedValue({
+          success: true,
+          data: {
+            authenticated: true,
+            user: userInfo,
+          },
+          timestamp: new Date().toISOString(),
+        });
+
+        await customAuthService.getUserInfo("valid-token");
+
+        expect(mockCacheService.set).toHaveBeenCalledWith(
+          "user:123",
+          expect.objectContaining({ user: userInfo }),
+          600, // custom userTTL
+        );
+
+        // Restore original config
+        (mockHttpClient as unknown as { config: typeof config }).config = config;
+      });
+
+      it("should not cache when userId cannot be extracted from token", async () => {
+        const userInfo = {
+          id: "123",
+          username: "testuser",
+          email: "test@example.com",
+        };
+        jwt.decode.mockReturnValue(null); // No userId in token
+        mockApiClient.auth.getUser.mockResolvedValue({
+          success: true,
+          data: {
+            authenticated: true,
+            user: userInfo,
+          },
+          timestamp: new Date().toISOString(),
+        });
+
+        const result = await authService.getUserInfo("valid-token");
+
+        expect(result).toEqual(userInfo);
+        expect(mockCacheService.get).not.toHaveBeenCalled();
+        expect(mockCacheService.set).not.toHaveBeenCalled();
+      });
+
+      it("should return null on error even with cache miss", async () => {
+        jwt.decode.mockReturnValue({ sub: "123" });
+        mockCacheService.get.mockResolvedValue(null);
+        mockApiClient.auth.getUser.mockRejectedValue(new Error("Network error"));
+
+        const result = await authService.getUserInfo("valid-token");
+
+        expect(result).toBeNull();
+      });
+    });
+  });
+
+  describe("clearUserCache", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it("should clear user cache when userId can be extracted", () => {
+      jwt.decode.mockReturnValue({ sub: "user-123" });
+      mockCacheService.delete.mockResolvedValue(true);
+
+      authService.clearUserCache("valid-token");
+
+      expect(mockCacheService.delete).toHaveBeenCalledWith("user:user-123");
+    });
+
+    it("should not attempt cache delete when userId cannot be extracted", () => {
+      jwt.decode.mockReturnValue(null);
+
+      authService.clearUserCache("invalid-token");
+
+      expect(mockCacheService.delete).not.toHaveBeenCalled();
+    });
+
+    it("should handle cache delete errors gracefully", () => {
+      jwt.decode.mockReturnValue({ sub: "user-123" });
+      mockCacheService.delete.mockRejectedValue(new Error("Redis error"));
+
+      // Should not throw
+      expect(() => authService.clearUserCache("valid-token")).not.toThrow();
+    });
+  });
+
+  describe("logout clears user cache", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it("should clear both token and user cache on successful logout", async () => {
+      jwt.decode.mockReturnValue({ sub: "user-123" });
+      mockApiClient.auth.logoutWithToken.mockResolvedValue({
+        success: true,
+        message: "Logout successful",
+        timestamp: new Date().toISOString(),
+      });
+      mockCacheService.delete.mockResolvedValue(true);
+
+      await authService.logout({ token: "valid-token" });
+
+      // Should clear token cache (using token hash)
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        expect.stringContaining("token_validation:"),
+      );
+      // Should clear user cache
+      expect(mockCacheService.delete).toHaveBeenCalledWith("user:user-123");
+    });
+
+    it("should clear both caches on 400 error (no active session)", async () => {
+      jwt.decode.mockReturnValue({ sub: "user-123" });
+      const axiosError = {
+        isAxiosError: true,
+        message: "Bad Request",
+        response: {
+          status: 400,
+          statusText: "Bad Request",
+          data: { error: "No active session" },
+          headers: {},
+        },
+      };
+      mockApiClient.auth.logoutWithToken.mockRejectedValue(axiosError);
+      mockCacheService.delete.mockResolvedValue(true);
+
+      const result = await authService.logout({ token: "valid-token" });
+
+      expect(result.success).toBe(true);
+      // Should clear token cache
+      expect(mockCacheService.delete).toHaveBeenCalledWith(
+        expect.stringContaining("token_validation:"),
+      );
+      // Should clear user cache
+      expect(mockCacheService.delete).toHaveBeenCalledWith("user:user-123");
+    });
   });
 
   describe("API_KEY support for testing", () => {

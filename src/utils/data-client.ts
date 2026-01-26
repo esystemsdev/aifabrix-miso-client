@@ -184,73 +184,55 @@ export class DataClient {
 
   // ==================== HTTP REQUEST CORE ====================
 
+  /** Check circuit breaker and throw if request should be blocked */
+  private checkCircuitBreaker(cacheKey: string): void {
+    const failedRequest = this.failedRequests.get(cacheKey);
+    if (!failedRequest) return;
+    const timeSinceFailure = Date.now() - failedRequest.timestamp;
+    const failureCount = failedRequest.count || 1;
+    const cooldownPeriod = failureCount === 1 ? 5000 : failureCount === 2 ? 15000 : 30000;
+    if (timeSinceFailure < cooldownPeriod) throw failedRequest.error;
+    this.failedRequests.delete(cacheKey);
+  }
+
+  /** Record failed request for circuit breaker */
+  private recordFailure(cacheKey: string, error: Error): void {
+    const existingFailure = this.failedRequests.get(cacheKey);
+    const failureCount = existingFailure ? (existingFailure.count || 1) + 1 : 1;
+    this.failedRequests.set(cacheKey, { timestamp: Date.now(), error, count: failureCount });
+    setTimeout(() => this.failedRequests.delete(cacheKey), 30000);
+  }
+
+  /** Execute HTTP request with all middleware */
+  private executeRequest<T>(method: string, fullUrl: string, endpoint: string, cacheKey: string, cacheEnabled: boolean, startTime: number, options?: ApiRequestOptions): Promise<T> {
+    return executeHttpRequest<T>(
+      method, fullUrl, endpoint, this.config, this.cache, cacheKey, cacheEnabled, startTime,
+      this.misoClient, () => this.hasAnyToken(), () => this.getToken(),
+      () => this.handleAuthError(), () => this.refreshUserToken(), this.interceptors, this.metrics, options,
+    );
+  }
+
   private async request<T>(method: string, endpoint: string, options?: ApiRequestOptions): Promise<T> {
     const startTime = Date.now();
     const fullUrl = `${this.config.baseUrl}${endpoint}`;
-    const cacheKeyOptions = { ...options, method: method.toUpperCase() };
-    const cacheKey = getCacheKeyForRequest(endpoint, cacheKeyOptions);
+    const cacheKey = getCacheKeyForRequest(endpoint, { ...options, method: method.toUpperCase() });
     const isGetRequest = method.toUpperCase() === "GET";
     const cacheEnabled = isCacheEnabled(method, this.config.cache, options);
 
-    // Circuit breaker check
-    const failedRequest = this.failedRequests.get(cacheKey);
-    if (failedRequest) {
-      const timeSinceFailure = Date.now() - failedRequest.timestamp;
-      const failureCount = failedRequest.count || 1;
-      const cooldownPeriod = failureCount === 1 ? 5000 : failureCount === 2 ? 15000 : 30000;
-      if (timeSinceFailure < cooldownPeriod) {
-        throw failedRequest.error;
-      } else {
-        this.failedRequests.delete(cacheKey);
-      }
-    }
+    this.checkCircuitBreaker(cacheKey);
 
-    // Check cache for GET requests
-    if (cacheEnabled) {
-      const cached = getCachedEntry<T>(this.cache, cacheKey, this.metrics);
-      if (cached !== null) return cached;
-    }
+    // Check cache and pending requests for GET
+    if (cacheEnabled) { const cached = getCachedEntry<T>(this.cache, cacheKey, this.metrics); if (cached !== null) return cached; }
+    if (isGetRequest) { const pending = this.pendingRequests.get(cacheKey); if (pending) return pending as Promise<T>; }
 
-    // Check for duplicate concurrent requests
-    if (isGetRequest) {
-      const pendingRequest = this.pendingRequests.get(cacheKey);
-      if (pendingRequest) return pendingRequest as Promise<T>;
-    }
+    // Execute request (with deduplication for GET)
+    const requestPromise = isGetRequest
+      ? (async () => { try { return await this.executeRequest<T>(method, fullUrl, endpoint, cacheKey, cacheEnabled, startTime, options); } finally { this.pendingRequests.delete(cacheKey); } })()
+      : this.executeRequest<T>(method, fullUrl, endpoint, cacheKey, cacheEnabled, startTime, options);
+    if (isGetRequest) this.pendingRequests.set(cacheKey, requestPromise);
 
-    // Execute request
-    let requestPromise: Promise<T>;
-    if (isGetRequest) {
-      requestPromise = (async (): Promise<T> => {
-        try {
-          return await executeHttpRequest<T>(
-            method, fullUrl, endpoint, this.config, this.cache, cacheKey, cacheEnabled, startTime,
-            this.misoClient, () => this.hasAnyToken(), () => this.getToken(),
-            () => this.handleAuthError(), () => this.refreshUserToken(), this.interceptors, this.metrics, options,
-          );
-        } finally {
-          this.pendingRequests.delete(cacheKey);
-        }
-      })();
-      this.pendingRequests.set(cacheKey, requestPromise);
-    } else {
-      requestPromise = executeHttpRequest<T>(
-        method, fullUrl, endpoint, this.config, this.cache, cacheKey, cacheEnabled, startTime,
-        this.misoClient, () => this.hasAnyToken(), () => this.getToken(),
-        () => this.handleAuthError(), () => this.refreshUserToken(), this.interceptors, this.metrics, options,
-      );
-    }
-
-    try {
-      const result = await requestPromise;
-      this.failedRequests.delete(cacheKey);
-      return result;
-    } catch (error) {
-      const existingFailure = this.failedRequests.get(cacheKey);
-      const failureCount = existingFailure ? (existingFailure.count || 1) + 1 : 1;
-      this.failedRequests.set(cacheKey, { timestamp: Date.now(), error: error as Error, count: failureCount });
-      setTimeout(() => this.failedRequests.delete(cacheKey), 30000);
-      throw error;
-    }
+    try { const result = await requestPromise; this.failedRequests.delete(cacheKey); return result; }
+    catch (error) { this.recordFailure(cacheKey, error as Error); throw error; }
   }
 
   private async refreshUserToken(): Promise<{ token: string; expiresIn: number } | null> {

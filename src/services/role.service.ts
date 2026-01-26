@@ -35,78 +35,67 @@ export class RoleService {
     this.applicationContextService = new ApplicationContextService(httpClient);
   }
 
+  /** Build auth strategy with bearer token */
+  private buildAuthStrategy(token: string, authStrategy?: AuthStrategy): AuthStrategy {
+    const base = authStrategy || this.config.authStrategy;
+    return base ? { ...base, bearerToken: token } : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+  }
+
+  /** Get environment query params from application context */
+  private getEnvironmentParams(): { environment: string } | undefined {
+    const context = this.applicationContextService.getApplicationContext();
+    return context.environment ? { environment: context.environment } : undefined;
+  }
+
+  /** Get userId from token, validating via API if not in JWT */
+  private async resolveUserId(token: string, authStrategy?: AuthStrategy): Promise<string | null> {
+    const userId = extractUserIdFromToken(token);
+    if (userId) return userId;
+    const authStrategyWithToken = this.buildAuthStrategy(token, authStrategy);
+    const userInfo = await this.apiClient.auth.validateToken({ token }, authStrategyWithToken);
+    return userInfo.data?.user?.id || null;
+  }
+
   /**
    * Get user roles with Redis caching
-   * Optimized to extract userId from token first to check cache before API call
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async getRoles(
-    token: string,
-    authStrategy?: AuthStrategy,
-  ): Promise<string[]> {
+  async getRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     try {
-      // Extract userId from token to check cache first (avoids API call on cache hit)
       let userId = extractUserIdFromToken(token);
       const cacheKey = userId ? `roles:${userId}` : null;
 
-      // Check cache first if we have userId
+      // Check cache first
       if (cacheKey) {
         const cached = await this.cache.get<RoleCacheData>(cacheKey);
-        if (cached) {
-          return cached.roles || [];
-        }
+        if (cached) return cached.roles || [];
       }
 
-      // Cache miss or no userId in token - fetch from controller
-      // If we don't have userId, get it from validate endpoint
+      // Resolve userId if not in token
       if (!userId) {
-        const authStrategyToUse = authStrategy || this.config.authStrategy;
-        const authStrategyWithToken: AuthStrategy = authStrategyToUse 
-          ? { ...authStrategyToUse, bearerToken: token }
-          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-        
-        const userInfo = await this.apiClient.auth.validateToken(
-          { token },
-          authStrategyWithToken,
-        );
-        userId = userInfo.data?.user?.id || null;
-        if (!userId) {
-          return [];
-        }
+        userId = await this.resolveUserId(token, authStrategy);
+        if (!userId) return [];
       }
 
-      // Cache miss - fetch from controller using ApiClient
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
-      const authStrategyWithToken = authStrategyToUse 
-        ? { ...authStrategyToUse, bearerToken: token }
-          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-      
-      // Extract environment from application context service
-      const context = this.applicationContextService.getApplicationContext();
-      const queryParams = context.environment ? { environment: context.environment } : undefined;
-      
-      const roleResult = await this.apiClient.roles.getRoles(
-        queryParams,
-        authStrategyWithToken,
-      );
+      // Fetch from controller
+      const roles = await this.fetchRolesFromController(token, authStrategy);
 
-      const roles = roleResult.data?.roles || [];
-
-      // Cache the result (use userId-based key)
-      const finalCacheKey = `roles:${userId}`;
-      await this.cache.set<RoleCacheData>(
-        finalCacheKey,
-        { roles, timestamp: Date.now() },
-        this.roleTTL,
-      );
-
+      // Cache result
+      await this.cache.set<RoleCacheData>(`roles:${userId}`, { roles, timestamp: Date.now() }, this.roleTTL);
       return roles;
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Failed to get roles:", error);
+      console.error("Failed to get roles:", error); // eslint-disable-line no-console
       return [];
     }
+  }
+
+  /** Fetch roles from controller API */
+  private async fetchRolesFromController(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+    const authStrategyWithToken = this.buildAuthStrategy(token, authStrategy);
+    const queryParams = this.getEnvironmentParams();
+    const roleResult = await this.apiClient.roles.getRoles(queryParams, authStrategyWithToken);
+    return roleResult.data?.roles || [];
   }
 
   /**
@@ -159,52 +148,23 @@ export class RoleService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async refreshRoles(
-    token: string,
-    authStrategy?: AuthStrategy,
-  ): Promise<string[]> {
+  async refreshRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     try {
-      // Get user info to extract userId
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
-      const authStrategyWithToken = authStrategyToUse 
-        ? { ...authStrategyToUse, bearerToken: token }
-          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-      
-      const userInfo = await this.apiClient.auth.validateToken(
-        { token },
-        authStrategyWithToken,
-      );
+      const authStrategyWithToken = this.buildAuthStrategy(token, authStrategy);
+      const userInfo = await this.apiClient.auth.validateToken({ token }, authStrategyWithToken);
+      const userId = userInfo.data?.user?.id;
+      if (!userId) return [];
 
-      if (!userInfo.data?.user?.id) {
-        return [];
-      }
-
-      const userId = userInfo.data.user.id;
-      const cacheKey = `roles:${userId}`;
-
-      // Extract environment from application context service
-      const context = this.applicationContextService.getApplicationContext();
-      const queryParams = context.environment ? { environment: context.environment } : undefined;
-
-      // Fetch fresh roles from controller using refresh endpoint via ApiClient
-      const roleResult = await this.apiClient.roles.refreshRoles(
-        queryParams,
-        authStrategyWithToken,
-      );
-
+      // Fetch fresh roles
+      const queryParams = this.getEnvironmentParams();
+      const roleResult = await this.apiClient.roles.refreshRoles(queryParams, authStrategyWithToken);
       const roles = roleResult.data?.roles || [];
 
-      // Update cache with fresh data
-      await this.cache.set<RoleCacheData>(
-        cacheKey,
-        { roles, timestamp: Date.now() },
-        this.roleTTL,
-      );
-
+      // Update cache
+      await this.cache.set<RoleCacheData>(`roles:${userId}`, { roles, timestamp: Date.now() }, this.roleTTL);
       return roles;
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error("Failed to refresh roles:", error);
+      console.error("Failed to refresh roles:", error); // eslint-disable-line no-console
       return [];
     }
   }

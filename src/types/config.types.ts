@@ -85,6 +85,7 @@ export interface MisoClientConfig {
     permissionTTL?: number; // Default 15 minutes
     tokenValidationTTL?: number; // Max TTL (default 900s / 15 minutes)
     minValidationTTL?: number; // Min TTL (default 60s) - used for smart TTL calculation
+    userTTL?: number; // Default 300s (5 minutes) - user info cache TTL
   };
 
   // Optional: Sensitive fields configuration file path

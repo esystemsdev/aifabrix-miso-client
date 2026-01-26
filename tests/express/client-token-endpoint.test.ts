@@ -52,11 +52,13 @@ describe("client-token-endpoint", () => {
       headers: {
         origin: "http://localhost:3000",
       },
+      originalUrl: "/api/v1/auth/client-token",
     } as any;
 
     mockResponse = {
       json: jsonSpy,
       status: statusSpy,
+      setHeader: jest.fn(),
     } as any;
   });
 
@@ -137,10 +139,12 @@ describe("client-token-endpoint", () => {
       await handler(mockRequest as Request, mockResponse as Response);
 
       expect(statusSpy).toHaveBeenCalledWith(503);
-      expect(jsonSpy).toHaveBeenCalledWith({
-        error: "Service Unavailable",
-        message: "MisoClient is not initialized",
-      });
+      expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
+        type: "/Errors/ServiceUnavailable",
+        title: "Service Unavailable",
+        status: 503,
+        detail: "MisoClient is not initialized",
+      }));
       expect(mockGetEnvironmentToken).not.toHaveBeenCalled();
     });
 
@@ -153,10 +157,12 @@ describe("client-token-endpoint", () => {
       await handler(mockRequest as Request, mockResponse as Response);
 
       expect(statusSpy).toHaveBeenCalledWith(403);
-      expect(jsonSpy).toHaveBeenCalledWith({
-        error: "Forbidden",
-        message: "Origin validation failed: Origin not allowed",
-      });
+      expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
+        type: "/Errors/Forbidden",
+        title: "Forbidden",
+        status: 403,
+        detail: "Origin validation failed: Origin not allowed",
+      }));
     });
 
     it("should return 500 if controller URL is not configured", async () => {
@@ -170,10 +176,12 @@ describe("client-token-endpoint", () => {
       await handler(mockRequest as Request, mockResponse as Response);
 
       expect(statusSpy).toHaveBeenCalledWith(500);
-      expect(jsonSpy).toHaveBeenCalledWith({
-        error: "Internal Server Error",
-        message: "Controller URL not configured",
-      });
+      expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
+        type: "/Errors/InternalServerError",
+        title: "Internal Server Error",
+        status: 500,
+        detail: "Controller URL not configured",
+      }));
     });
 
     it("should use controllerPublicUrl when available", async () => {
@@ -233,10 +241,12 @@ describe("client-token-endpoint", () => {
       await handler(mockRequest as Request, mockResponse as Response);
 
       expect(statusSpy).toHaveBeenCalledWith(500);
-      expect(jsonSpy).toHaveBeenCalledWith({
-        error: "Internal Server Error",
-        message: "Token fetch failed",
-      });
+      expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
+        type: "/Errors/InternalServerError",
+        title: "Internal Server Error",
+        status: 500,
+        detail: "Token fetch failed",
+      }));
     });
   });
 
