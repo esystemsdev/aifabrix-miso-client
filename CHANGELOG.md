@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-01-27
+
+### Added
+
+- **Authentication Method Detection** - Enhanced 401 error responses with `authMethod` field to identify which authentication mechanism failed
+  - New `AuthErrorMethod` type: `'bearer' | 'api-key' | 'client-token' | 'client-credentials' | null`
+  - `MisoClientError.authMethod` property indicates which auth method caused the failure
+  - `ErrorResponse.authMethod` field included in structured error responses
+  - New `detectAuthMethodFromHeaders()` helper for client-side auth method detection when controller doesn't return it
+  - Exported `AuthErrorMethod` type and `detectAuthMethodFromHeaders` helper from SDK
+  - Unit tests for auth method detection and error handling
+
+### Technical
+
+- **Code Size Compliance** - Refactored `internal-http-client.ts` to comply with 500-line file limit
+  - Extracted client token management into new `client-token-manager.ts` (226 lines)
+  - Reduced `internal-http-client.ts` from 541 to 366 lines
+  - New helper functions: `generateCorrelationId()`, `createHttpAgent()`, `extractTokenFromResponse()`, `formatTokenFetchError()`, `fetchClientToken()`, `refreshClientTokenFromCallback()`, `isTokenValid()`
+
 ## [4.2.0] - 2026-01-26
 
 ### Added
