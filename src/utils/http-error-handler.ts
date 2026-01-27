@@ -4,8 +4,22 @@
  */
 
 import { AxiosError } from "axios";
-import { ErrorResponse, isErrorResponse } from "../types/config.types";
+import { ErrorResponse, isErrorResponse, AuthMethod } from "../types/config.types";
 import { MisoClientError } from "./errors";
+
+/**
+ * Detect auth method from request headers (fallback when controller doesn't return authMethod).
+ * This provides client-side detection when the controller doesn't include authMethod in the error response.
+ * @param headers - Request headers object
+ * @returns The detected auth method or null if no auth headers found
+ */
+export function detectAuthMethodFromHeaders(headers?: Record<string, unknown>): AuthMethod | null {
+  if (!headers) return null;
+  if (headers["Authorization"]) return "bearer";
+  if (headers["x-client-token"]) return "client-token";
+  if (headers["x-client-id"]) return "client-credentials";
+  return null;
+}
 
 /**
  * Parse error response from AxiosError
@@ -22,12 +36,15 @@ export function parseErrorResponse(
 
     // If data is already an object, check if it matches ErrorResponse structure
     if (typeof data === "object" && data !== null && isErrorResponse(data)) {
+      // Cast to unknown first, then to Record for authMethod extraction
+      const dataRecord = data as unknown as Record<string, unknown>;
       return {
         errors: (data as ErrorResponse).errors,
         type: (data as ErrorResponse).type,
         title: (data as ErrorResponse).title,
         statusCode: (data as ErrorResponse).statusCode,
         instance: (data as ErrorResponse).instance || requestUrl,
+        authMethod: dataRecord.authMethod as AuthMethod | undefined,
       };
     }
 
@@ -36,12 +53,15 @@ export function parseErrorResponse(
       try {
         const parsed = JSON.parse(data);
         if (isErrorResponse(parsed)) {
+          // Cast to unknown first, then to Record for authMethod extraction
+          const parsedRecord = parsed as unknown as Record<string, unknown>;
           return {
             errors: parsed.errors,
             type: parsed.type,
             title: parsed.title,
             statusCode: parsed.statusCode,
             instance: parsed.instance || requestUrl,
+            authMethod: parsedRecord.authMethod as AuthMethod | undefined,
           };
         }
       } catch {
@@ -58,6 +78,7 @@ export function parseErrorResponse(
 /**
  * Create MisoClientError from AxiosError
  * Parses structured error response if available, falls back to errorBody
+ * For 401 errors, detects auth method from response or request headers
  */
 export function createMisoClientError(
   error: AxiosError,
@@ -65,6 +86,13 @@ export function createMisoClientError(
 ): MisoClientError {
   const statusCode = error.response?.status;
   const errorResponse = parseErrorResponse(error, requestUrl);
+
+  // For 401 errors, detect auth method if not in response
+  let authMethod: AuthMethod | null = null;
+  if (statusCode === 401) {
+    authMethod = errorResponse?.authMethod ??
+                 detectAuthMethodFromHeaders(error.config?.headers as Record<string, unknown>);
+  }
 
   let errorBody: Record<string, unknown> | undefined;
   if (error.response?.data && typeof error.response.data === "object") {
@@ -76,7 +104,7 @@ export function createMisoClientError(
     message = error.response.statusText || `Request failed with status code ${statusCode}`;
   }
 
-  return new MisoClientError(message, errorResponse || undefined, errorBody, statusCode);
+  return new MisoClientError(message, errorResponse || undefined, errorBody, statusCode, authMethod);
 }
 
 /**

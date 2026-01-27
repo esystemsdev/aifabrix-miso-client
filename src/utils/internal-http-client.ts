@@ -10,39 +10,52 @@ import axios, {
   AxiosError,
   InternalAxiosRequestConfig,
 } from "axios";
-import { MisoClientConfig, ClientTokenResponse, AuthStrategy } from "../types/config.types";
+import { MisoClientConfig, AuthStrategy } from "../types/config.types";
 import { AuthStrategyHandler } from "./auth-strategy";
 import { resolveControllerUrl } from "./controller-url-resolver";
 import { validateHttpResponse } from "./http-response-validator";
 import { createMisoClientError, isAxiosError } from "./http-error-handler";
+import {
+  TokenState,
+  isTokenValid,
+  fetchClientToken,
+  refreshClientTokenFromCallback,
+} from "./client-token-manager";
 
 export class InternalHttpClient {
   private axios: AxiosInstance;
   public readonly config: MisoClientConfig;
-  private clientToken: string | null = null;
-  private tokenExpiresAt: Date | null = null;
+  private tokenState: TokenState = { token: null, expiresAt: null };
   private tokenRefreshPromise: Promise<string> | null = null;
 
   constructor(config: MisoClientConfig) {
     this.config = config;
+    this.initializeTokenFromConfig(config);
+    this.axios = this.createAxiosInstance(config);
+    this.setupInterceptors();
+  }
 
-    // Initialize client token from config if provided
+  /** Initialize client token from config if provided */
+  private initializeTokenFromConfig(config: MisoClientConfig): void {
     if (config.clientToken) {
-      this.clientToken = config.clientToken;
+      this.tokenState.token = config.clientToken;
       if (config.clientTokenExpiresAt) {
-        this.tokenExpiresAt =
+        this.tokenState.expiresAt =
           typeof config.clientTokenExpiresAt === "string"
             ? new Date(config.clientTokenExpiresAt)
             : config.clientTokenExpiresAt;
       }
     }
+  }
 
-    // Force IPv4 and set connection timeout for main axios instance
+  /** Create and configure axios instance */
+  private createAxiosInstance(config: MisoClientConfig): AxiosInstance {
     const controllerUrl = resolveControllerUrl(config);
     const isHttps = controllerUrl.startsWith("https://");
     let httpAgent: import("http").Agent | undefined;
     let httpsAgent: import("https").Agent | undefined;
-    
+
+    // Force IPv4 and set connection timeout (Node.js only)
     if (typeof (globalThis as { window?: unknown }).window === "undefined") {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const http = require("http");
@@ -53,16 +66,17 @@ export class InternalHttpClient {
       httpsAgent = isHttps ? new https.Agent(agentOpts) : undefined;
     }
 
-    this.axios = axios.create({
+    return axios.create({
       baseURL: controllerUrl,
-      timeout: 30000, // Default timeout
+      timeout: 30000,
       httpAgent,
       httpsAgent,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     });
+  }
 
+  /** Setup request and response interceptors */
+  private setupInterceptors(): void {
     // Request interceptor: adds client token
     this.axios.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
@@ -80,35 +94,45 @@ export class InternalHttpClient {
       (error: AxiosError) => Promise.reject(error),
     );
 
-    // Response interceptor: handle 401 errors
+    // Response interceptor: handle 401 errors with auth-specific messages
     this.axios.interceptors.response.use(
       (response: AxiosResponse) => response,
       (error: AxiosError) => {
         if (error.response?.status === 401) {
-          error.message = "Authentication failed - token may be invalid";
-          this.clientToken = null;
-          this.tokenExpiresAt = null;
+          this.handle401Error(error);
         }
         return Promise.reject(error);
       },
     );
   }
 
+  /** Handle 401 error by setting helpful message and clearing token */
+  private handle401Error(error: AxiosError): void {
+    const requestHeaders = error.config?.headers;
+    const hasUserToken = !!requestHeaders?.["Authorization"];
+    const hasClientToken = !!requestHeaders?.["x-client-token"];
+
+    if (hasUserToken) {
+      error.message = "Bearer token authentication failed - token may be invalid or expired";
+    } else if (hasClientToken) {
+      error.message = "Client token authentication failed - x-client-token may be invalid or expired";
+    } else {
+      error.message = "Authentication failed - token may be invalid";
+    }
+
+    // Clear client token on any 401
+    this.tokenState.token = null;
+    this.tokenState.expiresAt = null;
+  }
+
   /**
    * Get client token, fetching if needed
    * Proactively refreshes if token will expire within 60 seconds
-   * Supports client token refresh callback pattern for browser usage
    */
   private async getClientToken(): Promise<string | null> {
-    const now = new Date();
-
-    // If token exists and not expired (with 60s buffer for proactive refresh), return it
-    if (
-      this.clientToken &&
-      this.tokenExpiresAt &&
-      this.tokenExpiresAt > new Date(now.getTime() + 60000)
-    ) {
-      return this.clientToken;
+    // If token exists and not expired (with 60s buffer), return it
+    if (isTokenValid(this.tokenState)) {
+      return this.tokenState.token;
     }
 
     // If refresh is already in progress, wait for it
@@ -118,66 +142,32 @@ export class InternalHttpClient {
 
     // Check if we have a refresh callback (browser pattern)
     if (this.config.onClientTokenRefresh) {
-      this.tokenRefreshPromise = this.refreshClientTokenFromCallback();
-      try {
-        const token = await this.tokenRefreshPromise;
-        return token;
-      } finally {
-        this.tokenRefreshPromise = null;
-      }
+      return this.executeTokenRefresh(() =>
+        refreshClientTokenFromCallback(this.config, this.tokenState),
+      );
     }
 
     // Fallback: Fetch new token using clientSecret (server-side only)
     if (this.config.clientSecret) {
-      this.tokenRefreshPromise = this.fetchClientToken();
-      try {
-        const token = await this.tokenRefreshPromise;
-        return token;
-      } finally {
-        this.tokenRefreshPromise = null;
-      }
-    }
-
-    // No clientSecret and no refresh callback - return null
-    return null;
-  }
-
-  /**
-   * Refresh client token using callback (for browser usage)
-   */
-  private async refreshClientTokenFromCallback(): Promise<string> {
-    if (!this.config.onClientTokenRefresh) {
-      throw new Error(
-        "Client token expired and no refresh callback provided",
+      return this.executeTokenRefresh(() =>
+        fetchClientToken(this.config, this.tokenState),
       );
     }
 
+    return null;
+  }
+
+  /** Execute token refresh with promise deduplication */
+  private async executeTokenRefresh(refreshFn: () => Promise<string>): Promise<string> {
+    this.tokenRefreshPromise = refreshFn();
     try {
-      const result = await this.config.onClientTokenRefresh();
-
-      // Update token and expiration
-      this.clientToken = result.token;
-
-      if (result.expiresIn) {
-        // Set expiration with 30 second buffer before actual expiration
-        const bufferExpiresIn = result.expiresIn - 30;
-        this.tokenExpiresAt = new Date(
-          Date.now() + bufferExpiresIn * 1000,
-        );
-      }
-
-      return this.clientToken;
-    } catch (error) {
-      // Clear token on refresh failure
-      this.clientToken = null;
-      this.tokenExpiresAt = null;
-      throw error;
+      return await this.tokenRefreshPromise;
+    } finally {
+      this.tokenRefreshPromise = null;
     }
   }
 
-  /**
-   * Merge two AbortSignals into one
-   */
+  /** Merge two AbortSignals into one */
   private mergeAbortSignals(signal1: AbortSignal, signal2: AbortSignal): AbortSignal {
     const controller = new AbortController();
     const abort = () => controller.abort();
@@ -186,9 +176,7 @@ export class InternalHttpClient {
     return controller.signal;
   }
 
-  /**
-   * Execute axios request with timeout wrapper
-   */
+  /** Execute axios request with timeout wrapper */
   private async executeWithTimeout<T>(
     axiosFn: (config: AxiosRequestConfig) => Promise<AxiosResponse<T>>,
     config?: AxiosRequestConfig,
@@ -211,8 +199,7 @@ export class InternalHttpClient {
         ),
       ]);
       clearTimeout(timeoutId);
-      const url = response.config?.url || "";
-      validateHttpResponse(response.data, url, this.config);
+      validateHttpResponse(response.data, response.config?.url || "", this.config);
       return response.data;
     } catch (error) {
       clearTimeout(timeoutId);
@@ -223,89 +210,44 @@ export class InternalHttpClient {
     }
   }
 
-  /**
-   * Generate unique correlation ID for request tracking
-   */
-  private generateCorrelationId(): string {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
-    const clientPrefix = this.config.clientId.substring(0, 10);
-    return `${clientPrefix}-${timestamp}-${random}`;
+  /** Build request config with auth strategy headers */
+  private async buildAuthStrategyConfig(
+    authStrategy: AuthStrategy,
+    baseConfig?: AxiosRequestConfig,
+  ): Promise<AxiosRequestConfig> {
+    const clientToken = await this.getClientToken();
+    const authHeaders = AuthStrategyHandler.buildAuthHeaders(
+      authStrategy,
+      clientToken,
+      this.config.clientId,
+      this.config.clientSecret,
+    );
+    return {
+      ...baseConfig,
+      headers: { ...baseConfig?.headers, ...authHeaders },
+    };
   }
 
-  /** Create HTTP agent for IPv4 with timeout */
-  private async createHttpAgent(isHttps: boolean, timeout: number): Promise<import("http").Agent> {
-    const http = await import("http");
-    const https = await import("https");
-    return isHttps ? new https.Agent({ family: 4, timeout }) : new http.Agent({ family: 4, timeout });
-  }
-
-  /** Extract token from response (handles nested and flat formats) */
-  private extractTokenFromResponse(response: { data: ClientTokenResponse; status: number }): string | null {
-    const token = response.data.data?.token || response.data.token;
-    const expiresIn = response.data.data?.expiresIn || response.data.expiresIn;
-    const hasSuccess = response.data.success === true;
-    const hasValidStatus = response.status >= 200 && response.status < 300;
-
-    if (token && (hasSuccess || hasValidStatus)) {
-      this.clientToken = token;
-      if (expiresIn) this.tokenExpiresAt = new Date(Date.now() + (expiresIn - 30) * 1000);
-      return this.clientToken;
-    }
-    return null;
-  }
-
-  /** Format error for client token fetch failure */
-  private formatTokenFetchError(error: unknown, correlationId: string, clientId: string): Error {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    const details = isAxiosError(error) && error.response
-      ? `status: ${error.response.status}, data: ${JSON.stringify(error.response.data)}`
-      : isAxiosError(error) && error.request ? `code: ${error.code || "N/A"}` : "";
-    return new Error(`Failed to get client token: ${errorMessage}${details ? `. ${details}` : ""} [correlationId: ${correlationId}, clientId: ${clientId}]`);
-  }
-
-  /**
-   * Fetch client token from controller using clientSecret (server-side only)
-   */
-  private async fetchClientToken(): Promise<string> {
-    if (!this.config.clientSecret) throw new Error("Cannot fetch client token: clientSecret is required but not provided");
-
-    const correlationId = this.generateCorrelationId();
-    const clientId = this.config.clientId;
-    const requestTimeout = 30000;
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
-      const controllerUrl = resolveControllerUrl(this.config);
-      const isHttps = controllerUrl.startsWith("https://");
-      const httpAgent = await this.createHttpAgent(isHttps, requestTimeout);
-
-      const tempAxios = axios.create({
-        baseURL: controllerUrl, timeout: requestTimeout, signal: controller.signal,
-        httpAgent: !isHttps ? httpAgent : undefined, httpsAgent: isHttps ? httpAgent : undefined,
-        headers: { "Content-Type": "application/json", "x-client-id": this.config.clientId, "x-client-secret": this.config.clientSecret },
-      });
-
-      const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`Request timeout after ${requestTimeout}ms`)), requestTimeout));
-      let response;
-      try {
-        response = await Promise.race([tempAxios.post<ClientTokenResponse>("/api/v1/auth/token"), timeoutPromise]);
-        clearTimeout(timeoutId);
-      } catch (requestError) {
-        clearTimeout(timeoutId);
-        throw requestError;
-      }
-
-      const token = this.extractTokenFromResponse(response);
-      if (token) return token;
-
-      throw new Error(`Failed to get client token: Invalid response format. Full response: ${JSON.stringify({ status: response.status, data: response.data })} [correlationId: ${correlationId}, clientId: ${clientId}]`);
-    } catch (error) {
-      throw this.formatTokenFetchError(error, correlationId, clientId);
+  /** Execute request based on HTTP method */
+  private async executeMethod<T>(
+    method: "GET" | "POST" | "PUT" | "DELETE",
+    url: string,
+    data: unknown,
+    config: AxiosRequestConfig,
+  ): Promise<T> {
+    switch (method) {
+      case "GET":
+        return this.get<T>(url, config);
+      case "POST":
+        return this.post<T>(url, data, config);
+      case "PUT":
+        return this.put<T>(url, data, config);
+      case "DELETE":
+        return this.delete<T>(url, config);
+      default:
+        throw new Error(`Unsupported HTTP method: ${method}`);
     }
   }
-
 
   /**
    * Get access to internal axios instance (for interceptors)
@@ -371,18 +313,7 @@ export class InternalHttpClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
-    switch (method) {
-      case "GET":
-        return this.get<T>(url, config);
-      case "POST":
-        return this.post<T>(url, data, config);
-      case "PUT":
-        return this.put<T>(url, data, config);
-      case "DELETE":
-        return this.delete<T>(url, config);
-      default:
-        throw new Error(`Unsupported HTTP method: ${method}`);
-    }
+    return this.executeMethod<T>(method, url, data, config || {});
   }
 
   /**
@@ -405,51 +336,11 @@ export class InternalHttpClient {
     config?: AxiosRequestConfig,
     authStrategy?: AuthStrategy,
   ): Promise<T> {
-    // Use auth strategy if provided, otherwise use default bearer token behavior
-    let requestConfig: AxiosRequestConfig;
+    const requestConfig = authStrategy
+      ? await this.buildAuthStrategyConfig(authStrategy, config)
+      : { ...config, headers: { ...config?.headers, Authorization: `Bearer ${token}` } };
 
-    if (authStrategy) {
-      // Build headers based on auth strategy
-      const clientToken = await this.getClientToken();
-      const authHeaders = AuthStrategyHandler.buildAuthHeaders(
-        authStrategy,
-        clientToken,
-        this.config.clientId,
-        this.config.clientSecret,
-      );
-
-      requestConfig = {
-        ...config,
-        headers: {
-          ...config?.headers,
-          ...authHeaders,
-        },
-      };
-    } else {
-      // Default behavior: Bearer token + client token
-      requestConfig = {
-        ...config,
-        headers: {
-          ...config?.headers,
-          // Add Bearer token for user authentication
-          // x-client-token is automatically added by interceptor (not a Bearer token)
-          Authorization: `Bearer ${token}`,
-        },
-      };
-    }
-
-    switch (method) {
-      case "GET":
-        return this.get<T>(url, requestConfig);
-      case "POST":
-        return this.post<T>(url, data, requestConfig);
-      case "PUT":
-        return this.put<T>(url, data, requestConfig);
-      case "DELETE":
-        return this.delete<T>(url, requestConfig);
-      default:
-        throw new Error(`Unsupported HTTP method: ${method}`);
-    }
+    return this.executeMethod<T>(method, url, data, requestConfig);
   }
 
   /**
@@ -469,34 +360,7 @@ export class InternalHttpClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
-    // Build headers based on auth strategy
-    const clientToken = await this.getClientToken();
-    const authHeaders = AuthStrategyHandler.buildAuthHeaders(
-      authStrategy,
-      clientToken,
-      this.config.clientId,
-      this.config.clientSecret,
-    );
-
-    const requestConfig: AxiosRequestConfig = {
-      ...config,
-      headers: {
-        ...config?.headers,
-        ...authHeaders,
-      },
-    };
-
-    switch (method) {
-      case "GET":
-        return this.get<T>(url, requestConfig);
-      case "POST":
-        return this.post<T>(url, data, requestConfig);
-      case "PUT":
-        return this.put<T>(url, data, requestConfig);
-      case "DELETE":
-        return this.delete<T>(url, requestConfig);
-      default:
-        throw new Error(`Unsupported HTTP method: ${method}`);
-    }
+    const requestConfig = await this.buildAuthStrategyConfig(authStrategy, config);
+    return this.executeMethod<T>(method, url, data, requestConfig);
   }
 }

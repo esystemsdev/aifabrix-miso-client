@@ -4,6 +4,12 @@
  */
 
 /**
+ * Authentication method that failed (from controller 401 response).
+ * Used to identify which authentication mechanism caused a 401 error.
+ */
+export type AuthErrorMethod = "bearer" | "api-key" | "client-token" | "client-credentials" | null;
+
+/**
  * Canonical error response for AIFabrix Miso APIs.
  * Follows RFC 7807-style structured error format.
  */
@@ -25,6 +31,9 @@ export interface ErrorResponse {
 
   /** Request correlation key for debugging/audit. */
   correlationId?: string;
+
+  /** Authentication method that was attempted and failed (401 errors only). */
+  authMethod?: AuthErrorMethod;
 }
 
 /**

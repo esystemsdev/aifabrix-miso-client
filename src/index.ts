@@ -361,7 +361,11 @@ export * from "./types/sort.types";
 export type {
   ErrorResponse as ErrorResponseFromErrors,
   ErrorEnvelope,
+  AuthErrorMethod,
 } from "./types/errors.types";
+
+// Export detectAuthMethodFromHeaders helper for advanced usage
+export { detectAuthMethodFromHeaders } from "./utils/http-error-handler";
 
 // Export services for advanced usage
 export { AuthService } from "./services/auth.service";

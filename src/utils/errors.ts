@@ -3,7 +3,7 @@
  * Supports structured error responses and backward compatibility
  */
 
-import { ErrorResponse } from "../types/config.types";
+import { ErrorResponse, AuthMethod } from "../types/config.types";
 import {
   ErrorResponse as ErrorResponseFromErrors,
   ErrorEnvelope,
@@ -17,12 +17,15 @@ export class MisoClientError extends Error {
   public readonly errorResponse?: ErrorResponse;
   public readonly errorBody?: Record<string, unknown>;
   public readonly statusCode?: number;
+  /** Authentication method that failed (for 401 errors). */
+  public readonly authMethod?: AuthMethod | null;
 
   constructor(
     message: string,
     errorResponse?: ErrorResponse,
     errorBody?: Record<string, unknown>,
     statusCode?: number,
+    authMethod?: AuthMethod | null,
   ) {
     // Generate message prioritizing structured errors when available
     let finalMessage = message;
@@ -42,6 +45,7 @@ export class MisoClientError extends Error {
     this.errorResponse = errorResponse;
     this.errorBody = errorBody;
     this.statusCode = statusCode ?? errorResponse?.statusCode;
+    this.authMethod = authMethod ?? errorResponse?.authMethod ?? null;
 
     // Maintain proper stack trace for V8
     if (Error.captureStackTrace) {

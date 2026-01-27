@@ -258,6 +258,8 @@ export interface ErrorResponse {
   title: string;
   statusCode: number;
   instance?: string;
+  /** Authentication method that was attempted and failed (401 errors only). */
+  authMethod?: AuthMethod | null;
 }
 
 /**
