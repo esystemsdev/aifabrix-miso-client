@@ -595,6 +595,24 @@ describe("HttpClient", () => {
       );
       expect(result).toEqual(mockData);
     });
+
+    it("should accept config containing data (body is second arg; InternalHttpClient strips config.data)", async () => {
+      const requestData = { name: "test" };
+      const requestConfig = { data: { wrong: "body" }, timeout: 60000 };
+      const mockData = { id: "123" };
+      mockInternalClient.post.mockResolvedValue(mockData);
+
+      const result = await httpClient.post("/test", requestData, requestConfig);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(mockInternalClient.post).toHaveBeenCalledWith(
+        "/test",
+        requestData,
+        requestConfig,
+      );
+      expect(result).toEqual(mockData);
+    });
   });
 
   describe("put", () => {

@@ -155,9 +155,10 @@ export interface DataClientConfig {
 }
 
 /**
- * Extended RequestInit with DataClient-specific options
+ * Extended RequestInit with DataClient-specific options.
+ * Omit RequestInit's 'cache' so we can use our own cache options object.
  */
-export interface ApiRequestOptions extends RequestInit {
+export interface ApiRequestOptions extends Omit<RequestInit, "cache"> {
   /**
    * Skip authentication for this request
    */
@@ -179,7 +180,7 @@ export interface ApiRequestOptions extends RequestInit {
   timeout?: number;
   
   /**
-   * Cache options
+   * Cache options (DataClient-specific; overrides RequestInit.cache)
    */
   cache?: {
     /**

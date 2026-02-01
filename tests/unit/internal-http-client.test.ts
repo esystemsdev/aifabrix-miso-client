@@ -1394,6 +1394,39 @@ describe("InternalHttpClient", () => {
       expect(result).toEqual({ id: "123" });
     });
 
+    it("should not pass config.data to axios.post (body only as second arg)", async () => {
+      const mockAxiosInstance = axios.create();
+      const body = { key: "value" };
+      const configWithData = {
+        data: { wrong: "body" },
+        timeout: 60000,
+        headers: { "X-Custom": "header" },
+      };
+      const response: AxiosResponse = {
+        data: { id: "123" },
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        config: {} as any,
+      };
+
+      (mockAxiosInstance.post as jest.Mock).mockResolvedValue(response);
+
+      await httpClient.post("/test", body, configWithData);
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        "/test",
+        body,
+        expect.objectContaining({
+          timeout: 60000,
+          headers: expect.objectContaining({ "X-Custom": "header" }),
+          signal: expect.anything(),
+        }),
+      );
+      const callConfig = (mockAxiosInstance.post as jest.Mock).mock.calls[0][2];
+      expect(callConfig).not.toHaveProperty("data");
+    });
+
     it("should convert AxiosError to MisoClientError", async () => {
       const error: AxiosError = {
         config: { url: "/test" },
@@ -1451,6 +1484,37 @@ describe("InternalHttpClient", () => {
         }),
       );
       expect(result).toEqual({ updated: true });
+    });
+
+    it("should not pass config.data to axios.put (body only as second arg)", async () => {
+      const mockAxiosInstance = axios.create();
+      const body = { name: "updated" };
+      const configWithData = {
+        data: { wrong: "body" },
+        timeout: 60000,
+      };
+      const response: AxiosResponse = {
+        data: { updated: true },
+        status: 200,
+        statusText: "OK",
+        headers: {},
+        config: {} as any,
+      };
+
+      (mockAxiosInstance.put as jest.Mock).mockResolvedValue(response);
+
+      await httpClient.put("/test", body, configWithData);
+
+      expect(mockAxiosInstance.put).toHaveBeenCalledWith(
+        "/test",
+        body,
+        expect.objectContaining({
+          timeout: 60000,
+          signal: expect.anything(),
+        }),
+      );
+      const callConfig = (mockAxiosInstance.put as jest.Mock).mock.calls[0][2];
+      expect(callConfig).not.toHaveProperty("data");
     });
 
     it("should convert AxiosError to MisoClientError in put", async () => {

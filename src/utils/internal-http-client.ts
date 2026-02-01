@@ -268,25 +268,37 @@ export class InternalHttpClient {
   }
 
   /**
-   * Send POST request using client credentials
+   * Send POST request using client credentials.
+   * Body is passed only as the second argument; any config.data is omitted to avoid
+   * passing the body twice to axios (which would cause duplicate/conflicting body).
    * @param url - Request URL
    * @param data - Optional request body data
-   * @param config - Optional Axios request configuration
+   * @param config - Optional Axios request configuration (data in config is ignored; use second arg)
    * @returns Response data of type T
    */
   async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    return this.executeWithTimeout<T>((cfg) => this.axios.post<T>(url, data, cfg), config);
+    const { data: _omit, ...restConfig } = config ?? {};
+    return this.executeWithTimeout<T>(
+      (cfg) => this.axios.post<T>(url, data, cfg),
+      restConfig as AxiosRequestConfig,
+    );
   }
 
   /**
-   * Send PUT request using client credentials
+   * Send PUT request using client credentials.
+   * Body is passed only as the second argument; any config.data is omitted to avoid
+   * passing the body twice to axios (which would cause duplicate/conflicting body).
    * @param url - Request URL
    * @param data - Optional request body data
-   * @param config - Optional Axios request configuration
+   * @param config - Optional Axios request configuration (data in config is ignored; use second arg)
    * @returns Response data of type T
    */
   async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
-    return this.executeWithTimeout<T>((cfg) => this.axios.put<T>(url, data, cfg), config);
+    const { data: _omit, ...restConfig } = config ?? {};
+    return this.executeWithTimeout<T>(
+      (cfg) => this.axios.put<T>(url, data, cfg),
+      restConfig as AxiosRequestConfig,
+    );
   }
 
   /**

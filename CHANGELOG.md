@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.1] - 2026-02-01
+
+### Fixed
+
+- **DataClient ApiRequestOptions** - Resolved type conflict between DataClient's `cache` option and `RequestInit.cache`
+  - `ApiRequestOptions` now extends `Omit<RequestInit, "cache">` so the DataClient-specific cache options object does not conflict with the standard fetch cache type
+- **InternalHttpClient post/put** - Prevented duplicate or conflicting request body when `config.data` was passed together with the body argument
+  - `post()` and `put()` now omit `data` from the config object before calling axios so the body is only passed via the second argument
+
+### Technical
+
+- **TypeScript config** - Added `DOM` to `lib` for fetch/RequestInit types, `preserveSymlinks: true`; Jest types limited to test config via `tsconfig.test.json`
+
 ## [4.3.0] - 2026-01-27
 
 ### Added
