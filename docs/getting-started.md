@@ -326,8 +326,7 @@ const logContext = extractLoggingContext({
 
 await client.log
   .withIndexedContext(logContext)
-  .addCorrelation(correlationId)
-  .addUser(userId)
+  .withContext({ correlationId, userId })
   .error('Sync failed');
 ```
 

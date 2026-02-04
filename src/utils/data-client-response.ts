@@ -17,6 +17,7 @@ import { MisoClient } from "../index";
 import { extractErrorInfo } from "./error-extractor";
 import { logErrorWithContext } from "./console-logger";
 import { extractHeaders } from "./data-client-request";
+import { LoggerContextStorage } from "../services/logger/logger-context-storage";
 
 /**
  * Generate correlation ID helper
@@ -277,21 +278,26 @@ async function logFailureToClient(
   httpStatusCategory: string,
 ): Promise<void> {
   try {
-    await misoClient.log.error(
-      `Request failed: ${errorInfo.message}`,
-      {
-        errorType: errorInfo.errorType,
-        errorName: errorInfo.errorName,
-        statusCode: errorInfo.statusCode,
-        endpoint: errorInfo.endpoint,
-        method: errorInfo.method,
-        responseBody: errorInfo.responseBody,
-      },
-      errorInfo.stackTrace,
-      {
-        errorCategory: errorInfo.errorType.toLowerCase().replace("error", ""),
-        httpStatusCategory,
-        correlationId: errorInfo.correlationId,
+    const contextStorage = LoggerContextStorage.getInstance();
+    await contextStorage.runWithContextAsync(
+      { correlationId: errorInfo.correlationId },
+      async () => {
+        await misoClient.log.error(
+          `Request failed: ${errorInfo.message}`,
+          {
+            errorType: errorInfo.errorType,
+            errorName: errorInfo.errorName,
+            statusCode: errorInfo.statusCode,
+            endpoint: errorInfo.endpoint,
+            method: errorInfo.method,
+            responseBody: errorInfo.responseBody,
+          },
+          errorInfo.stackTrace,
+          {
+            errorCategory: errorInfo.errorType.toLowerCase().replace("error", ""),
+            httpStatusCategory,
+          },
+        );
       },
     );
   } catch {
@@ -306,25 +312,27 @@ function logAuthFailureToClient(
   if (!misoClient?.log) {
     return;
   }
-  misoClient.log
-    .error(
-      `Authentication error: ${errorInfo.message}`,
-      {
-        authFlow: "token_validation_failed",
-        errorType: errorInfo.errorType,
-        errorName: errorInfo.errorName,
-        statusCode: errorInfo.statusCode,
-        endpoint: errorInfo.endpoint,
-        method: errorInfo.method,
-        responseBody: errorInfo.responseBody,
-      },
-      errorInfo.stackTrace,
-      {
-        errorCategory: "authentication",
-        httpStatusCategory: "client-error",
-        correlationId: errorInfo.correlationId,
-      },
-    )
+  const contextStorage = LoggerContextStorage.getInstance();
+  contextStorage
+    .runWithContextAsync({ correlationId: errorInfo.correlationId }, async () => {
+      await misoClient.log.error(
+        `Authentication error: ${errorInfo.message}`,
+        {
+          authFlow: "token_validation_failed",
+          errorType: errorInfo.errorType,
+          errorName: errorInfo.errorName,
+          statusCode: errorInfo.statusCode,
+          endpoint: errorInfo.endpoint,
+          method: errorInfo.method,
+          responseBody: errorInfo.responseBody,
+        },
+        errorInfo.stackTrace,
+        {
+          errorCategory: "authentication",
+          httpStatusCategory: "client-error",
+        },
+      );
+    })
     .catch(() => {
       // Ignore logging errors
     });

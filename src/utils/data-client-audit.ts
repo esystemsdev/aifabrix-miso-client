@@ -5,6 +5,7 @@
 
 import { MisoClient } from "../index";
 import { AuditConfig } from "../types/data-client.types";
+import { LoggerContextStorage } from "../services/logger/logger-context-storage";
 import { DataMasker } from "./data-masker";
 import { truncatePayload, extractUserIdFromToken } from "./data-client-utils";
 
@@ -80,12 +81,13 @@ export async function logDataClientAudit(
 
     // Minimal level: only basic info
     if (auditLevel === "minimal") {
-      await misoClient.log.audit(
-        `http.request.${method.toLowerCase()}`,
-        url,
-        auditContext,
-        { token: token || undefined },
-      );
+      await runWithTokenContext(token, async () => {
+        await misoClient.log.audit(
+          `http.request.${method.toLowerCase()}`,
+          url,
+          auditContext,
+        );
+      });
       return;
     }
 
@@ -150,12 +152,13 @@ export async function logDataClientAudit(
       auditContext.error = maskedError;
     }
 
-    await misoClient.log.audit(
-      `http.request.${method.toLowerCase()}`,
-      url,
-      auditContext,
-      { token: token || undefined },
-    );
+    await runWithTokenContext(token, async () => {
+      await misoClient.log.audit(
+        `http.request.${method.toLowerCase()}`,
+        url,
+        auditContext,
+      );
+    });
   } catch (auditError) {
     // Handle audit logging errors gracefully
     // Don't fail main request if audit logging fails
@@ -191,5 +194,17 @@ export async function logDataClientAudit(
     // Other unexpected errors - log warning but don't fail request
     console.warn("Failed to log audit event:", auditError);
   }
+}
+
+async function runWithTokenContext(
+  token: string | null,
+  handler: () => Promise<void>,
+): Promise<void> {
+  if (!token) {
+    await handler();
+    return;
+  }
+  const contextStorage = LoggerContextStorage.getInstance();
+  await contextStorage.runWithContextAsync({ token }, handler);
 }
 

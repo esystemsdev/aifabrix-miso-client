@@ -200,7 +200,13 @@ export class DataClient {
     const existingFailure = this.failedRequests.get(cacheKey);
     const failureCount = existingFailure ? (existingFailure.count || 1) + 1 : 1;
     this.failedRequests.set(cacheKey, { timestamp: Date.now(), error, count: failureCount });
-    setTimeout(() => this.failedRequests.delete(cacheKey), 30000);
+    const cleanupTimer = setTimeout(
+      () => this.failedRequests.delete(cacheKey),
+      30000,
+    );
+    if (typeof cleanupTimer.unref === "function") {
+      cleanupTimer.unref();
+    }
   }
 
   /** Execute HTTP request with all middleware */

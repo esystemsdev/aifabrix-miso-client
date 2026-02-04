@@ -127,6 +127,9 @@ export async function fetchClientToken(
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
+    if (typeof timeoutId.unref === "function") {
+      timeoutId.unref();
+    }
     const controllerUrl = resolveControllerUrl(config);
     const isHttps = controllerUrl.startsWith("https://");
     const httpAgent = await createHttpAgent(isHttps, requestTimeout);
@@ -144,9 +147,15 @@ export async function fetchClientToken(
       },
     });
 
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Request timeout after ${requestTimeout}ms`)), requestTimeout),
-    );
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      const rejectTimeout = setTimeout(
+        () => reject(new Error(`Request timeout after ${requestTimeout}ms`)),
+        requestTimeout,
+      );
+      if (typeof rejectTimeout.unref === "function") {
+        rejectTimeout.unref();
+      }
+    });
 
     let response;
     try {

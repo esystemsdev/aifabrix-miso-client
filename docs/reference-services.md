@@ -15,6 +15,16 @@ Complete API reference for service classes and methods in the MisoClient SDK: lo
 
 The SDK provides a logger service accessible via `client.log`. The logger extends `EventEmitter` and supports event emission mode for direct SDK embedding in your own application.
 
+### Public Interface Simplification Report
+
+This release removes public setters for auto-computable request fields to keep the logging API minimal and consistent.
+
+- Removed `log.withToken(...)` and `log.getWithToken(...)` in favor of `log.withRequest(req)` or request middleware.
+- Removed `LoggerChain.addUser(...)`, `addApplication(...)`, and `addCorrelation(...)` (use `withRequest(req)` or `withContext(...)` for business context).
+- Replaced `withRequestMetrics(requestSize, responseSize, durationMs)` with `withResponseMetrics(responseSize, durationMs)`.
+- `setLoggerContext`, `mergeLoggerContext`, and `clearLoggerContext` are no longer exported from the root package API.
+- `ClientLoggingOptions` no longer accepts request-derived fields (IP, userAgent, correlationId, requestId, referer, requestSize, userId, sessionId, applicationId, token).
+
 **Event Emission Mode:**
 When `emitEvents = true` in config, logs are emitted as Node.js events instead of being sent via HTTP/Redis. See [Event Emission Mode Guide](./configuration.md#event-emission-mode) for details.
 
@@ -53,9 +63,8 @@ Logs an audit event.
 
 ```typescript
 await client.log.audit('user.login', 'authentication', {
-  userId: user.id,
-  ip: '192.168.1.1',
-  userAgent: 'Mozilla/5.0...'
+  action: 'login',
+  authProvider: 'keycloak'
 });
 ```
 
@@ -90,8 +99,7 @@ Logs a debug message (only if log level is set to 'debug').
 
 ```typescript
 await client.log.debug('Processing user request', {
-  userId: user.id,
-  requestId: 'req-123',
+  operationId: 'req-123',
   processingTime: '150ms'
 });
 ```
@@ -118,13 +126,14 @@ await client.log
   .info('Sync started');
 ```
 
-#### `log.withToken(token: string): LoggerChain`
+#### `log.withResponseMetrics(responseSize?: number, durationMs?: number): LoggerChain`
 
-Creates a logger chain with JWT token for automatic user context extraction.
+Adds response metrics to logs for performance tracking.
 
 **Parameters:**
 
-- `token` - JWT token to extract user context from
+- `responseSize` - Optional response size in bytes
+- `durationMs` - Optional request duration in milliseconds
 
 **Returns:** `LoggerChain` instance for method chaining
 
@@ -132,8 +141,8 @@ Creates a logger chain with JWT token for automatic user context extraction.
 
 ```typescript
 await client.log
-  .withToken(userToken)
-  .info('User action performed');
+  .withResponseMetrics(2048, 150)
+  .info('Upstream API call completed');
 ```
 
 #### `log.forRequest(req: Request): LoggerChain`
@@ -167,7 +176,7 @@ The SDK provides a unified logging interface with a minimal API (1-3 parameters 
 **Key Benefits:**
 
 - **Minimal API**: Maximum 1-3 parameters per logging call
-- **Automatic Context**: Context extracted automatically from AsyncLocalStorage (set by Express middleware or manually)
+- **Automatic Context**: Context extracted automatically from AsyncLocalStorage (set by Express middleware or `forRequest`)
 - **Simple Usage**: `logger.info(message)`, `logger.error(message, error?)`, `logger.audit(action, resource, entityId?, oldValues?, newValues?)`
 - **Framework Agnostic**: Works in Express routes, service layers, background jobs
 - **Zero Configuration**: Context automatically available when middleware is used
@@ -207,53 +216,9 @@ const logger = getLogger();
 await logger.info('Message'); // Auto-extracts context from AsyncLocalStorage
 ```
 
-#### `setLoggerContext(context: Partial<LoggerContext>): void`
+#### Request Context Helpers
 
-Set logger context for current async execution context. Context is automatically available to all code in the same async context.
-
-**Parameters:**
-
-- `context` - Context to set (partial, will be merged with existing)
-
-**Example:**
-
-```typescript
-import { setLoggerContext } from '@aifabrix/miso-client';
-
-setLoggerContext({
-  userId: 'user-123',
-  correlationId: 'req-456',
-  ipAddress: '192.168.1.1',
-});
-```
-
-#### `clearLoggerContext(): void`
-
-Clear logger context for current async execution context.
-
-**Example:**
-
-```typescript
-import { clearLoggerContext } from '@aifabrix/miso-client';
-
-clearLoggerContext();
-```
-
-#### `mergeLoggerContext(additional: Partial<LoggerContext>): void`
-
-Merge additional fields into existing logger context.
-
-**Parameters:**
-
-- `additional` - Additional context fields to merge
-
-**Example:**
-
-```typescript
-import { mergeLoggerContext } from '@aifabrix/miso-client';
-
-mergeLoggerContext({ userId: 'user-123' });
-```
+Use `log.forRequest(req)` to pre-populate request context in Express handlers, and `log.withContext(...)` for custom business context in non-Express flows.
 
 #### UnifiedLogger Methods
 
@@ -465,41 +430,6 @@ const logEntry = client.log.getWithContext(
 await myCustomLogger.save(logEntry);
 ```
 
-#### `log.getWithToken(token: string, message: string, level?: LogEntry["level"], context?: Record<string, unknown>): LogEntry`
-
-Returns a `LogEntry` object with token context extracted. Extracts userId, sessionId, applicationId from JWT token and generates correlation ID automatically.
-
-**Parameters:**
-
-- `token` - JWT token to extract user context from
-- `message` - Log message
-- `level` - Optional log level (defaults to 'info')
-- `context` - Optional additional context object
-
-**Returns:** Complete `LogEntry` object with user context
-
-**Extracted from Token:**
-
-- `userId` - From `sub`, `userId`, or `user_id` fields
-- `sessionId` - From `sessionId` or `sid` fields
-- `applicationId` - From `applicationId` or `app_id` fields
-
-**Example:**
-
-```typescript
-const token = req.headers.authorization?.replace('Bearer ', '');
-
-const logEntry = client.log.getWithToken(
-  token,
-  'Token validated',
-  'audit',
-  { action: 'validate' }
-);
-
-// Save to your own logger table
-await myCustomLogger.save(logEntry);
-```
-
 #### `log.getForRequest(req: Request, message: string, level?: LogEntry["level"], context?: Record<string, unknown>): LogEntry`
 
 Alias for `getLogWithRequest()`. Returns a `LogEntry` object with request context extracted.
@@ -566,10 +496,9 @@ app.post('/api/users', async (req: Request, res) => {
     // Perform operation
     const user = await createUser(req.body);
 
-    // Log success with token context
-    const token = req.headers.authorization?.replace('Bearer ', '');
-    const successLog = client.log.getWithToken(
-      token,
+    // Log success with request context
+    const successLog = client.log.getLogWithRequest(
+      req,
       'User created successfully',
       'audit',
       { userId: user.id, action: 'user.created' }
@@ -655,8 +584,7 @@ const logContext = extractLoggingContext({
 
 await client.log
   .withIndexedContext(logContext)
-  .addCorrelation(correlationId)
-  .addUser(userId)
+  .withContext({ correlationId, userId })
   .error('Sync failed');
 ```
 
@@ -679,13 +607,12 @@ await client.log
   .info('API call completed');
 ```
 
-#### `withRequestMetrics(requestSize?: number, responseSize?: number, durationMs?: number): LoggerChain`
+#### `withResponseMetrics(responseSize?: number, durationMs?: number): LoggerChain`
 
-Adds request/response metrics for performance logging.
+Adds response metrics for performance logging.
 
 **Parameters:**
 
-- `requestSize` - Optional request size in bytes
 - `responseSize` - Optional response size in bytes
 - `durationMs` - Optional request duration in milliseconds
 
@@ -699,8 +626,7 @@ const response = await fetch('/api/data');
 const duration = Date.now() - startTime;
 
 await client.log
-  .withRequestMetrics(
-    JSON.stringify(requestBody).length,
+  .withResponseMetrics(
     JSON.stringify(response).length,
     duration
   )
@@ -740,72 +666,7 @@ app.post('/api/users', async (req: Request, res) => {
   await client.log
     .withRequest(req)
     .info('User created');
-  
-  // Equivalent to manually extracting:
-  // await client.log
-  //   .addUser(userId)
-  //   .addCorrelation(req.headers['x-correlation-id'])
-  //   .info('User created', {
-  //     ipAddress: req.ip,
-  //     method: req.method,
-  //     path: req.path,
-  //     userAgent: req.headers['user-agent']
-  //   });
 });
-```
-
-#### `addUser(userId: string): LoggerChain`
-
-Adds user ID to logging context.
-
-**Parameters:**
-
-- `userId` - User identifier
-
-**Returns:** `LoggerChain` instance for method chaining
-
-**Example:**
-
-```typescript
-await client.log
-  .addUser('user-123')
-  .info('User action');
-```
-
-#### `addCorrelation(correlationId: string): LoggerChain`
-
-Adds correlation ID to logging context.
-
-**Parameters:**
-
-- `correlationId` - Correlation identifier for request tracing
-
-**Returns:** `LoggerChain` instance for method chaining
-
-**Example:**
-
-```typescript
-await client.log
-  .addCorrelation('req-123')
-  .info('Request processed');
-```
-
-#### `addSession(sessionId: string): LoggerChain`
-
-Adds session ID to logging context.
-
-**Parameters:**
-
-- `sessionId` - Session identifier
-
-**Returns:** `LoggerChain` instance for method chaining
-
-**Example:**
-
-```typescript
-await client.log
-  .addSession('session-123')
-  .info('Session activity');
 ```
 
 #### `withoutMasking(): LoggerChain`
@@ -836,7 +697,6 @@ Logs an error message with accumulated context.
 ```typescript
 await client.log
   .withRequest(req)
-  .addUser(userId)
   .error('Operation failed', error.stack);
 ```
 
@@ -870,7 +730,6 @@ Logs an audit event with accumulated context.
 ```typescript
 await client.log
   .withRequest(req)
-  .addUser(userId)
   .audit('user.login', 'authentication');
 ```
 

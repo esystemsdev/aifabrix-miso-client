@@ -11,6 +11,7 @@ import jwt from "jsonwebtoken";
 import { shouldSkipAudit } from "./data-client-audit";
 import { extractErrorInfo } from "./error-extractor";
 import { logErrorWithContext } from "./console-logger";
+import { LoggerContextStorage } from "../services/logger/logger-context-storage";
 
 // Re-export OAuth callback from dedicated module
 export { handleOAuthCallback } from "./data-client-oauth";
@@ -261,15 +262,20 @@ export async function getEnvironmentToken(
 
     if (misoClient && !shouldSkipAudit(clientTokenUri, config.audit)) {
       try {
-        await misoClient.log.audit("client.token.request.failed", clientTokenUri, {
-          method: "POST", url: clientTokenUri, statusCode: errorInfo.statusCode || 0,
-          error: error instanceof Error ? error.message : "Unknown error",
-          cached: false, errorType: errorInfo.errorType, errorName: errorInfo.errorName,
-        }, {
-          errorCategory: "authentication",
-          httpStatusCategory: errorInfo.statusCode && errorInfo.statusCode >= 500 ? "server-error" : "client-error",
-          correlationId: errorInfo.correlationId,
-        });
+        const contextStorage = LoggerContextStorage.getInstance();
+        await contextStorage.runWithContextAsync(
+          { correlationId: errorInfo.correlationId },
+          async () => {
+            await misoClient.log.audit("client.token.request.failed", clientTokenUri, {
+              method: "POST", url: clientTokenUri, statusCode: errorInfo.statusCode || 0,
+              error: error instanceof Error ? error.message : "Unknown error",
+              cached: false, errorType: errorInfo.errorType, errorName: errorInfo.errorName,
+            }, {
+              errorCategory: "authentication",
+              httpStatusCategory: errorInfo.statusCode && errorInfo.statusCode >= 500 ? "server-error" : "client-error",
+            });
+          },
+        );
       } catch {
         // Silently fail audit logging
       }

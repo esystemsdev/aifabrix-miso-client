@@ -126,6 +126,9 @@ function createTimeoutController(timeout: number): {
 } {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
+  if (typeof timeoutId.unref === "function") {
+    timeoutId.unref();
+  }
   return { controller, timeoutId };
 }
 

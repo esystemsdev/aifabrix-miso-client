@@ -54,12 +54,6 @@ app.post('/api/posts', async (req: Request, res) => {
       postTitle: req.body.title
     });
   
-  // Or combine with other chain methods
-  await client.log
-    .withRequest(req)
-    .addUser(userId)
-    .audit('user.login', 'authentication');
-  
   res.status(201).json({ message: 'Post created' });
 });
 ```
@@ -69,7 +63,7 @@ app.post('/api/posts', async (req: Request, res) => {
 - Automatically captures all request context (IP, method, path, userAgent, correlationId, userId)
 - No need to manually extract and pass context fields
 - Consistent audit logging across your application
-- Works seamlessly with other chain methods like `addUser()`, `addCorrelation()`, etc.
+- Works seamlessly with other chain methods like `withContext()` and `withIndexedContext()`
 
 ## Logging with Indexed Context
 
@@ -93,8 +87,7 @@ const logContext = extractLoggingContext({
 // Use in logging
 await client.log
   .withIndexedContext(logContext)
-  .addCorrelation(correlationId)
-  .addUser(userId)
+  .withContext({ correlationId, userId })
   .error('Sync failed');
 ```
 
@@ -119,11 +112,11 @@ await client.log
   .info('API call completed');
 ```
 
-## Logging with Request Metrics
+## Logging with Response Metrics
 
-**You need to:** Add request/response metrics for performance logging.
+**You need to:** Add response metrics for performance logging.
 
-**Here's how:** Use `withRequestMetrics()` method.
+**Here's how:** Use `withResponseMetrics()` method.
 
 ```typescript
 const startTime = Date.now();
@@ -131,8 +124,7 @@ const response = await fetch('/api/data');
 const duration = Date.now() - startTime;
 
 await client.log
-  .withRequestMetrics(
-    JSON.stringify(requestBody).length,
+  .withResponseMetrics(
     JSON.stringify(response).length,
     duration
   )

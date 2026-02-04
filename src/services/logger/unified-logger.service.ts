@@ -6,7 +6,6 @@
 
 import { LoggerService, ClientLoggingOptions } from "./logger.service";
 import { LoggerContextStorage, LoggerContext } from "./logger-context-storage";
-import { extractJwtContext } from "./logger-context";
 
 /**
  * Unified Logger Interface
@@ -77,47 +76,10 @@ export class UnifiedLoggerService implements UnifiedLogger {
    * Build ClientLoggingOptions from context
    * Extracts all relevant fields from LoggerContext
    */
-  private buildLoggingOptions(context: LoggerContext): ClientLoggingOptions {
-    const options: ClientLoggingOptions = {
-      ipAddress: context.ipAddress,
-      userAgent: context.userAgent,
-      referer: context.referer,
-      correlationId: context.correlationId,
-      userId: context.userId,
-      sessionId: context.sessionId,
-      requestId: context.requestId,
-      applicationId: context.applicationId,
-      token: context.token,
-      requestSize: context.requestSize,
+  private buildLoggingOptions(_context: LoggerContext): ClientLoggingOptions {
+    return {
       maskSensitiveData: true, // Default: mask sensitive data
     };
-
-    // Get application context service from logger service
-    const applicationContextService = this.loggerService.getApplicationContextService();
-    const appContext = applicationContextService.getApplicationContext();
-
-    // Extract JWT context if token is available
-    if (context.token) {
-      const jwtContext = extractJwtContext(context.token);
-      // Merge JWT context, but don't override explicit values
-      if (!options.userId && jwtContext.userId) {
-        options.userId = jwtContext.userId;
-      }
-      if (!options.sessionId && jwtContext.sessionId) {
-        options.sessionId = jwtContext.sessionId;
-      }
-      // applicationId priority: explicit > user JWT > client token
-      if (!options.applicationId && jwtContext.applicationId) {
-        options.applicationId = jwtContext.applicationId;
-      }
-    }
-
-    // If still no applicationId, try client token
-    if (!options.applicationId && appContext.applicationId) {
-      options.applicationId = appContext.applicationId;
-    }
-
-    return options;
   }
 
   /**

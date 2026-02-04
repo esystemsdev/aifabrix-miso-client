@@ -5,11 +5,11 @@
  * 
  * The unified logging interface provides a minimal API (1-3 parameters) with automatic
  * context extraction from AsyncLocalStorage. Context is automatically extracted when using
- * Express middleware or can be set manually with setLoggerContext().
+ * Express middleware or can be attached to logs via LoggerChain.
  */
 
 // For development: import from '../src/index'
-import { MisoClient, loadConfig, getLogger, setLoggerContext } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, getLogger } from '@aifabrix/miso-client';
 
 async function loggingExample() {
   // Create client - loads from .env automatically
@@ -25,20 +25,14 @@ async function loggingExample() {
 
     const user = await client.getUser(token);
 
-    // Set logger context manually (for non-Express environments)
-    // In Express apps, use loggerContextMiddleware instead
-    setLoggerContext({
-      userId: user?.id,
-      correlationId: 'req-123',
-      ipAddress: '192.168.1.1',
-      token: token,
-    });
-
     // Get logger instance - context is automatically extracted from AsyncLocalStorage
     const logger = getLogger();
 
     // NEW: Log informational messages (no context object needed - auto-extracted)
     await logger.info('User accessed dashboard');
+
+    // For non-Express usage, attach context via LoggerChain
+    await client.log.withContext({ userId: user?.id }).info('User accessed dashboard');
 
     // NEW: Log errors (error object is optional - auto-extracts stack trace)
     try {

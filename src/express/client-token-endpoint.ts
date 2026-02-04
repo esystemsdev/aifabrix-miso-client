@@ -5,7 +5,7 @@
  * Provides zero-config server-side setup for DataClient initialization
  */
 
-import { Request, Response } from "express";
+import { Request, Response, RequestHandler } from "express";
 import { MisoClient } from "../index";
 import { getEnvironmentToken } from "../utils/environment-token";
 import { resolveControllerUrl } from "../utils/controller-url-resolver";
@@ -149,7 +149,7 @@ function buildConfigResponse(req: Request, misoClient: MisoClient, clientTokenUr
 export function createClientTokenEndpoint(
   misoClient: MisoClient,
   options?: ClientTokenEndpointOptions,
-): (req: Request, res: Response) => Promise<void> {
+): RequestHandler {
   const opts = { clientTokenUri: "/api/v1/auth/client-token", expiresIn: 1800, includeConfig: true, ...options };
 
   const handler = async (req: Request, res: Response): Promise<void> => {
@@ -162,13 +162,31 @@ export function createClientTokenEndpoint(
       }
 
       // Fetch token with timeout
-      const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Request timeout: Failed to get environment token within 5 seconds")), 5000));
+      let timeoutId: ReturnType<typeof setTimeout> | null = null;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(
+          () =>
+            reject(
+              new Error(
+                "Request timeout: Failed to get environment token within 5 seconds",
+              ),
+            ),
+          5000,
+        );
+      });
       let token: string;
       try {
-        token = await Promise.race([getEnvironmentToken(misoClient, req), timeoutPromise]);
+        token = await Promise.race([
+          getEnvironmentToken(misoClient, req),
+          timeoutPromise,
+        ]);
       } catch (tokenError) {
         if (!isResponseSent()) handleTokenError(tokenError, req, res, misoClient);
         return;
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
       }
 
       if (!token) {

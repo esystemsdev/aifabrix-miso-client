@@ -84,6 +84,9 @@ export class AuditLogQueue {
           // Silently swallow flush errors
         });
       }, this.batchInterval);
+      if (this.flushTimer && typeof this.flushTimer.unref === "function") {
+        this.flushTimer.unref();
+      }
     }
   }
 

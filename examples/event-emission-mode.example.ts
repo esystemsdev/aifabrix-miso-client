@@ -9,7 +9,7 @@
  */
 
 // For development: import from '../src/index'
-import { MisoClient, loadConfig, LogEntry, getLogger, setLoggerContext } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, LogEntry, getLogger } from '@aifabrix/miso-client';
 
 async function eventEmissionExample() {
   // Create client with emitEvents enabled
@@ -21,12 +21,6 @@ async function eventEmissionExample() {
 
   try {
     await client.initialize();
-
-    // Set logger context (for non-Express environments)
-    setLoggerContext({
-      userId: 'user-123',
-      correlationId: 'req-456',
-    });
 
     // Get logger instance - context is automatically extracted
     const logger = getLogger();
@@ -57,6 +51,9 @@ async function eventEmissionExample() {
     // Use unified logging interface - events will be emitted instead of HTTP calls
     // Context is automatically extracted from AsyncLocalStorage
     await logger.info('Application started');
+    await client.log
+      .withContext({ userId: 'user-123', correlationId: 'req-456' })
+      .info('User session started');
     await logger.error('Error occurred', new Error('test error'));
     await logger.audit('user.created', 'users', 'user-123');
 
@@ -137,17 +134,14 @@ async function directEmbeddingSetupExample() {
     }
   });
 
-  // Set logger context
-  setLoggerContext({
-    userId: 'user-123',
-    correlationId: 'req-456',
-  });
-
   // Get logger instance - context is automatically extracted
   const logger = getLogger();
 
   // Use unified logging interface - events will be emitted
   await logger.info('Application started');
+  await client.log
+    .withContext({ userId: 'user-123', correlationId: 'req-456' })
+    .info('User session started');
   await logger.error('Operation failed', new Error('details'));
 }
 

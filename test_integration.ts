@@ -532,31 +532,28 @@ async function runIntegrationTests(): Promise<void> {
     config.logLevel !== 'debug' // Skip if log level is not debug
   );
 
-  await runner.runTest('LoggerChain withContext', async () => {
+  await runner.runTest('LoggerChain withContext user', async () => {
     await client.log
       .withContext({ action: 'test' })
       .info('LoggerChain test message');
   });
 
-  await runner.runTest('LoggerChain withToken', async () => {
+  await runner.runTest('LoggerChain withResponseMetrics', async () => {
     await client.log
-      .withToken(apiKey)
-      .info('LoggerChain with token test');
+      .withResponseMetrics(2048, 120)
+      .info('LoggerChain with response metrics test');
   });
 
-  await runner.runTest('LoggerChain addUser', async () => {
+  await runner.runTest('LoggerChain withContext', async () => {
     await client.log
-      .withContext({})
-      .addUser('test-user-123')
-      .info('LoggerChain with user test');
+      .withContext({ userId: 'test-user-123' })
+      .info('LoggerChain with context test');
   });
 
   await runner.runTest('LoggerChain fluent API', async () => {
     await client.log
-      .withContext({ action: 'test' })
-      .withToken(apiKey)
-      .addUser('test-user-123')
-      .addCorrelation('test-correlation-123')
+      .withContext({ action: 'test', correlationId: 'test-correlation-123' })
+      .withResponseMetrics(1024, 200)
       .info('Fluent API test message');
   });
 

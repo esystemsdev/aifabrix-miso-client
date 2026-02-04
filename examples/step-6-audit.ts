@@ -9,7 +9,7 @@
  */
 
 // For development: import from '../src/index'
-import { MisoClient, loadConfig, getLogger, setLoggerContext } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, getLogger } from '@aifabrix/miso-client';
 
 async function completeExample() {
   // Create client - loads from .env automatically
@@ -21,16 +21,6 @@ async function completeExample() {
     console.log('✅ Client fully configured');
 
     const token = 'your-jwt-token-here';
-
-    // Set logger context manually (for non-Express environments)
-    // In Express apps, use loggerContextMiddleware instead (auto-fills IP, method, path,
-    // userAgent, correlationId, requestId, referer, requestSize, userId, sessionId).
-    setLoggerContext({
-      correlationId: 'req-123',
-      ipAddress: '192.168.1.1',
-      userAgent: 'Mozilla/5.0...',
-      token: token,
-    });
 
     // Get logger instance - context is automatically extracted from AsyncLocalStorage
     const logger = getLogger();
@@ -45,8 +35,10 @@ async function completeExample() {
 
     const user = await client.getUser(token);
 
-    // Update context with user ID
-    setLoggerContext({ userId: user?.id });
+    // Attach context for non-Express usage
+    await client.log
+      .withContext({ userId: user?.id })
+      .info('User context attached');
 
     // Step 4: RBAC
     const canEdit = await client.hasPermission(token, 'edit:content');

@@ -3,11 +3,13 @@
  */
 
 import { LoggerService } from "../../src/services/logger";
+import { LoggerContextStorage } from "../../src/services/logger/logger-context-storage";
 import { HttpClient } from "../../src/utils/http-client";
 import { RedisService } from "../../src/services/redis.service";
 import { MisoClientConfig } from "../../src/types/config.types";
 import { Request } from "express";
 import { ApiClient } from "../../src/api";
+import { LoggerContextStorage } from "../../src/services/logger/logger-context-storage";
 
 // Mock HttpClient
 jest.mock("../../src/utils/http-client");
@@ -65,6 +67,7 @@ describe("LoggerService", () => {
   });
 
   afterEach(() => {
+    LoggerContextStorage.getInstance().clearContext();
     jest.clearAllMocks();
   });
 
@@ -215,8 +218,6 @@ describe("LoggerService", () => {
 
       const beforeTime = new Date().toISOString();
       await loggerService.info("Test message");
-      const afterTime = new Date().toISOString();
-
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
         "logs:ctrl-dev-test-app",
         expect.stringMatching(
@@ -325,11 +326,6 @@ describe("LoggerService", () => {
       expect(chain).toBeDefined();
     });
 
-    it("should support withToken method", () => {
-      const chain = loggerService.withToken("test-token");
-      expect(chain).toBeDefined();
-    });
-
     it("should support withoutMasking method", () => {
       const chain = loggerService.withoutMasking();
       expect(chain).toBeDefined();
@@ -350,24 +346,6 @@ describe("LoggerService", () => {
         "logs:ctrl-dev-test-app",
         expect.stringContaining('"userKey":"value"'),
       );
-    });
-
-    it("should support addUser method", () => {
-      const chain = loggerService.withContext({});
-      chain.addUser("user-123");
-      expect(chain["options"].userId).toBe("user-123");
-    });
-
-    it("should support addApplication method", () => {
-      const chain = loggerService.withContext({});
-      chain.addApplication("app-123");
-      expect(chain["options"].applicationId).toBe("app-123");
-    });
-
-    it("should support addCorrelation method", () => {
-      const chain = loggerService.withContext({});
-      chain.addCorrelation("corr-123");
-      expect(chain["options"].correlationId).toBe("corr-123");
     });
 
     it("should execute error with chain context", async () => {
@@ -396,7 +374,7 @@ describe("LoggerService", () => {
       );
     });
 
-    it("should support withToken method and extract JWT context", async () => {
+    it("should extract JWT context from request token", async () => {
       jwt.decode.mockReturnValue({
         sub: "user-123",
         applicationId: "app-456",
@@ -407,7 +385,16 @@ describe("LoggerService", () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      const chain = loggerService.withToken("valid-jwt-token");
+      const req = {
+        method: "GET",
+        path: "/api/test",
+        headers: {
+          authorization: "Bearer valid-jwt-token",
+        },
+        ip: "192.168.1.1",
+      } as unknown as Request;
+
+      const chain = loggerService.forRequest(req);
       await chain.info("Test with token");
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
@@ -420,7 +407,7 @@ describe("LoggerService", () => {
       );
     });
 
-    it("should handle JWT decode failure in withToken", async () => {
+    it("should handle JWT decode failure in request token", async () => {
       jwt.decode.mockImplementation(() => {
         throw new Error("Invalid token");
       });
@@ -428,7 +415,16 @@ describe("LoggerService", () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      const chain = loggerService.withToken("invalid-token");
+      const req = {
+        method: "GET",
+        path: "/api/test",
+        headers: {
+          authorization: "Bearer invalid-token",
+        },
+        ip: "192.168.1.1",
+      } as unknown as Request;
+
+      const chain = loggerService.forRequest(req);
       await chain.info("Test with invalid token");
 
       // Should still log without JWT context
@@ -447,7 +443,16 @@ describe("LoggerService", () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      const chain = loggerService.withToken("token-with-user_id");
+      const req = {
+        method: "GET",
+        path: "/api/test",
+        headers: {
+          authorization: "Bearer token-with-user_id",
+        },
+        ip: "192.168.1.1",
+      } as unknown as Request;
+
+      const chain = loggerService.forRequest(req);
       await chain.info("Test");
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
@@ -467,7 +472,16 @@ describe("LoggerService", () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      const chain = loggerService.withToken("token-with-realm-access");
+      const req = {
+        method: "GET",
+        path: "/api/test",
+        headers: {
+          authorization: "Bearer token-with-realm-access",
+        },
+        ip: "192.168.1.1",
+      } as unknown as Request;
+
+      const chain = loggerService.forRequest(req);
       await chain.info("Test");
 
       // JWT roles/permissions are extracted but not directly added to log entry
@@ -487,7 +501,16 @@ describe("LoggerService", () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      const chain = loggerService.withToken("token-with-scope");
+      const req = {
+        method: "GET",
+        path: "/api/test",
+        headers: {
+          authorization: "Bearer token-with-scope",
+        },
+        ip: "192.168.1.1",
+      } as unknown as Request;
+
+      const chain = loggerService.forRequest(req);
       await chain.info("Test");
 
       // JWT permissions from scope are extracted but not directly in log entry
@@ -504,7 +527,16 @@ describe("LoggerService", () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      const chain = loggerService.withToken("token-returns-null");
+      const req = {
+        method: "GET",
+        path: "/api/test",
+        headers: {
+          authorization: "Bearer token-returns-null",
+        },
+        ip: "192.168.1.1",
+      } as unknown as Request;
+
+      const chain = loggerService.forRequest(req);
       await chain.info("Test");
 
       expect(mockRedisService.rpush).toHaveBeenCalled();
@@ -519,7 +551,16 @@ describe("LoggerService", () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      const chain = loggerService.withToken("token-with-sid");
+      const req = {
+        method: "GET",
+        path: "/api/test",
+        headers: {
+          authorization: "Bearer token-with-sid",
+        },
+        ip: "192.168.1.1",
+      } as unknown as Request;
+
+      const chain = loggerService.forRequest(req);
       await chain.info("Test");
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
@@ -538,7 +579,16 @@ describe("LoggerService", () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      const chain = loggerService.withToken("token-empty-arrays");
+      const req = {
+        method: "GET",
+        path: "/api/test",
+        headers: {
+          authorization: "Bearer token-empty-arrays",
+        },
+        ip: "192.168.1.1",
+      } as unknown as Request;
+
+      const chain = loggerService.forRequest(req);
       await chain.info("Test");
 
       expect(mockRedisService.rpush).toHaveBeenCalled();
@@ -611,11 +661,17 @@ describe("LoggerService", () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      const chain = loggerService
-        .withContext({ action: "test" })
-        .withToken("token-123")
-        .addUser("user-456")
-        .addCorrelation("corr-789");
+      const req = {
+        method: "GET",
+        path: "/api/test",
+        headers: {
+          authorization: "Bearer token-123",
+        },
+        ip: "192.168.1.1",
+      } as unknown as Request;
+
+      const chain = loggerService.forRequest(req);
+      chain.addContext("action", "test");
       await chain.info("Test with multiple chain methods");
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
@@ -707,15 +763,13 @@ describe("LoggerService", () => {
       loggerService.on("log", eventSpy);
 
       jwt.decode.mockReturnValue({ sub: "user-123", sessionId: "session-456" });
-      await loggerService.info(
-        "Test",
-        { key: "value" },
-        {
-          token: "jwt-token",
-          applicationId: "app-123",
-          requestId: "req-789",
-        },
-      );
+      const contextStorage = LoggerContextStorage.getInstance();
+      contextStorage.setContext({
+        token: "jwt-token",
+        applicationId: "app-123",
+        requestId: "req-789",
+      });
+      await loggerService.info("Test", { key: "value" });
 
       expect(eventSpy).toHaveBeenCalledTimes(1);
       const emittedLog = eventSpy.mock.calls[0][0];
@@ -808,7 +862,8 @@ describe("LoggerService", () => {
     });
 
     it("should handle request without Authorization header", async () => {
-      const { authorization, ...headersWithoutAuth } = mockRequest.headers || {};
+      const { authorization: _authorization, ...headersWithoutAuth } =
+        mockRequest.headers || {};
       mockRequest.headers = headersWithoutAuth;
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
@@ -872,13 +927,16 @@ describe("LoggerService", () => {
 
     it("should support method chaining with withRequest", async () => {
       jwt.decode.mockReturnValue({ sub: "user-123" });
+      mockRequest.headers = {
+        ...mockRequest.headers,
+        authorization: "Bearer valid-token",
+      };
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
       const chain = loggerService
         .withContext({ action: "test" })
-        .withRequest(mockRequest as Request)
-        .addUser("user-456");
+        .withRequest(mockRequest as Request);
       await chain.info("Test chaining");
 
       const rpushCall = mockRedisService.rpush.mock.calls[0];
@@ -887,8 +945,7 @@ describe("LoggerService", () => {
         const logEntry = JSON.parse(rpushCall[1] as string);
         expect(logEntry.context.action).toBe("test");
         expect(logEntry.ipAddress).toBe("192.168.1.1");
-        // addUser should override userId from JWT
-        expect(logEntry.userId).toBe("user-456");
+        expect(logEntry.userId).toBe("user-123");
       }
     });
 
@@ -1080,37 +1137,35 @@ describe("LoggerService", () => {
       }
     });
 
-    it("should support withRequestMetrics method", async () => {
+    it("should support withResponseMetrics method", async () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
       const chain = loggerService.withContext({});
-      chain.withRequestMetrics(1024, 2048, 150);
-      await chain.info("Test with request metrics");
+      chain.withResponseMetrics(2048, 150);
+      await chain.info("Test with response metrics");
 
       const rpushCall = mockRedisService.rpush.mock.calls[0];
       expect(rpushCall).toBeDefined();
       if (rpushCall && rpushCall[1]) {
         const logEntry = JSON.parse(rpushCall[1] as string);
-        expect(logEntry.requestSize).toBe(1024);
         expect(logEntry.responseSize).toBe(2048);
         expect(logEntry.durationMs).toBe(150);
       }
     });
 
-    it("should support withRequestMetrics with partial metrics", async () => {
+    it("should support withResponseMetrics with partial metrics", async () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
       const chain = loggerService.withContext({});
-      chain.withRequestMetrics(undefined, 2048, 150);
+      chain.withResponseMetrics(2048, 150);
       await chain.info("Test with partial metrics");
 
       const rpushCall = mockRedisService.rpush.mock.calls[0];
       expect(rpushCall).toBeDefined();
       if (rpushCall && rpushCall[1]) {
         const logEntry = JSON.parse(rpushCall[1] as string);
-        expect(logEntry.requestSize).toBeUndefined();
         expect(logEntry.responseSize).toBe(2048);
         expect(logEntry.durationMs).toBe(150);
       }
@@ -1127,7 +1182,7 @@ describe("LoggerService", () => {
           externalSystemKey: "system-1",
         })
         .withCredentialContext("cred-123", "oauth2")
-        .withRequestMetrics(1024, 2048, 150);
+        .withResponseMetrics(2048, 150);
       await chain.info("Test with all indexed fields");
 
       const rpushCall = mockRedisService.rpush.mock.calls[0];
@@ -1139,7 +1194,6 @@ describe("LoggerService", () => {
         expect(logEntry.externalSystemKey).toBe("system-1");
         expect(logEntry.credentialId).toBe("cred-123");
         expect(logEntry.credentialType).toBe("oauth2");
-        expect(logEntry.requestSize).toBe(1024);
         expect(logEntry.responseSize).toBe(2048);
         expect(logEntry.durationMs).toBe(150);
       }
@@ -1180,7 +1234,7 @@ describe("LoggerService", () => {
           sourceKey: "datasource-1",
           externalSystemKey: "system-1",
         })
-        .withRequestMetrics(1024, 0, 5000);
+        .withResponseMetrics(0, 5000);
       await chain.error("Sync failed", "Error stack trace");
 
       const rpushCall = mockRedisService.rpush.mock.calls[0];
@@ -1190,7 +1244,6 @@ describe("LoggerService", () => {
         expect(logEntry.level).toBe("error");
         expect(logEntry.sourceKey).toBe("datasource-1");
         expect(logEntry.externalSystemKey).toBe("system-1");
-        expect(logEntry.requestSize).toBe(1024);
         expect(logEntry.responseSize).toBe(0);
         expect(logEntry.durationMs).toBe(5000);
         expect(logEntry.stackTrace).toBe("Error stack trace");

@@ -20,6 +20,6 @@ module.exports = {
   },
   // Increase timeout for slow endpoint tests
   testTimeout: 10000,
-  // Force exit after tests to prevent hanging on open handles
-  forceExit: true,
+  // Avoid force exit so Jest can report open handles
+  forceExit: false,
 };

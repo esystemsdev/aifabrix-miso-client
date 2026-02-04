@@ -3,6 +3,7 @@
  */
 
 import { LoggerContextStorage, LoggerContext } from "../../src/services/logger/logger-context-storage";
+import jwt from "jsonwebtoken";
 import {
   UnifiedLoggerService,
   UnifiedLogger,
@@ -23,21 +24,15 @@ import { ApiClient } from "../../src/api";
 
 // Mock HttpClient
 jest.mock("../../src/utils/http-client");
-const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 
 // Mock RedisService
 jest.mock("../../src/services/redis.service");
-const MockedRedisService = RedisService as jest.MockedClass<
-  typeof RedisService
->;
 
 // Mock ApiClient
 jest.mock("../../src/api");
-const MockedApiClient = ApiClient as jest.MockedClass<typeof ApiClient>;
 
 // Mock jsonwebtoken
 jest.mock("jsonwebtoken");
-const jwt = require("jsonwebtoken");
 
 describe("LoggerContextStorage", () => {
   let storage: LoggerContextStorage;
@@ -229,9 +224,7 @@ describe("UnifiedLoggerService", () => {
         "Test message",
         undefined,
         expect.objectContaining({
-          userId: "user-123",
-          correlationId: "corr-456",
-          ipAddress: "192.168.1.1",
+          maskSensitiveData: true,
         }),
       );
     });
@@ -245,7 +238,6 @@ describe("UnifiedLoggerService", () => {
       });
 
       // Mock jwt.decode to return test data
-      const jwt = require("jsonwebtoken");
       jwt.decode.mockReturnValue({
         sub: "user-jwt",
         sessionId: "sess-123",
@@ -258,9 +250,7 @@ describe("UnifiedLoggerService", () => {
         "Test message",
         undefined,
         expect.objectContaining({
-          userId: "user-jwt",
-          sessionId: "sess-123",
-          applicationId: "app-456",
+          maskSensitiveData: true,
         }),
       );
     });

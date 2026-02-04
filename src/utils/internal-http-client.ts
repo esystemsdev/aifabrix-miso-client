@@ -183,7 +183,13 @@ export class InternalHttpClient {
   ): Promise<T> {
     const timeout = 30000;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        controller.abort();
+        reject(new Error(`Request timeout after ${timeout}ms`));
+      }, timeout);
+    });
     const requestConfig: AxiosRequestConfig = {
       ...config,
       signal: config?.signal
@@ -192,21 +198,18 @@ export class InternalHttpClient {
     };
 
     try {
-      const response = await Promise.race([
-        axiosFn(requestConfig),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Request timeout after ${timeout}ms`)), timeout),
-        ),
-      ]);
-      clearTimeout(timeoutId);
+      const response = await Promise.race([axiosFn(requestConfig), timeoutPromise]);
       validateHttpResponse(response.data, response.config?.url || "", this.config);
       return response.data;
     } catch (error) {
-      clearTimeout(timeoutId);
       if (isAxiosError(error)) {
         throw createMisoClientError(error, error.config?.url);
       }
       throw error;
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 

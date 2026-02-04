@@ -12,26 +12,16 @@ import { LogEntry } from "../../types/config.types";
 import { AuditLogQueue } from "../../utils/audit-log-queue";
 import { LoggerChain } from "./logger-chain";
 import { ApplicationContextService } from "../application-context.service";
+import { LoggerContextStorage } from "./logger-context-storage";
 import {
   extractJwtContext,
   extractEnvironmentMetadata,
   getLogWithRequest,
   getWithContext,
-  getWithToken,
 } from "./logger-context";
 
 export interface ClientLoggingOptions {
-  applicationId?: string;
-  userId?: string;
-  correlationId?: string;
-  requestId?: string;
-  sessionId?: string;
-  token?: string; // JWT token for context extraction
   maskSensitiveData?: boolean;
-  // Request metadata (top-level LogEntry fields)
-  ipAddress?: string;
-  userAgent?: string;
-  referer?: string;
 
   // Indexed context fields
   sourceKey?: string;
@@ -45,8 +35,7 @@ export interface ClientLoggingOptions {
   credentialId?: string;
   credentialType?: string;
 
-  // Request metrics
-  requestSize?: number;
+  // Response metrics
   responseSize?: number;
   durationMs?: number;
 
@@ -63,6 +52,7 @@ export class LoggerService extends EventEmitter {
   private correlationCounter = 0;
   private auditLogQueue: AuditLogQueue | null = null;
   private applicationContextService: ApplicationContextService;
+  private loggerContextStorage = LoggerContextStorage.getInstance();
   // Circuit breaker for HTTP logging - skip attempts after repeated failures
   private httpLoggingFailures = 0;
   private httpLoggingDisabledUntil: number | null = null;
@@ -207,12 +197,13 @@ export class LoggerService extends EventEmitter {
     stackTrace?: string,
     options?: ClientLoggingOptions,
   ): Promise<void> {
-    const jwtContext = options?.token
-      ? extractJwtContext(options.token)
+    const loggerContext = this.loggerContextStorage.getContext() || {};
+    const jwtContext = loggerContext.token
+      ? extractJwtContext(loggerContext.token)
       : {};
     const metadata = extractEnvironmentMetadata();
     const correlationId =
-      options?.correlationId || this.generateCorrelationId();
+      loggerContext.correlationId || this.generateCorrelationId();
     const maskedContext = this.maskContext(context, options);
     const appContext = this.applicationContextService.getApplicationContext();
     const logEntry = this.buildLogEntry(
@@ -224,6 +215,7 @@ export class LoggerService extends EventEmitter {
       jwtContext,
       metadata,
       appContext,
+      loggerContext,
       correlationId,
     );
 
@@ -275,12 +267,13 @@ export class LoggerService extends EventEmitter {
     jwtContext: ReturnType<typeof extractJwtContext>,
     metadata: ReturnType<typeof extractEnvironmentMetadata>,
     appContext: ReturnType<ApplicationContextService["getApplicationContext"]>,
+    loggerContext: ReturnType<LoggerContextStorage["getContext"]> | null,
     correlationId: string,
   ): LogEntry {
     const applicationId = this.resolveApplicationId(
-      options,
       jwtContext,
       appContext,
+      loggerContext,
     );
 
     return {
@@ -293,12 +286,12 @@ export class LoggerService extends EventEmitter {
       context: maskedContext,
       stackTrace,
       correlationId,
-      userId: options?.userId || jwtContext.userId,
-      sessionId: options?.sessionId || jwtContext.sessionId,
-      requestId: options?.requestId,
-      ipAddress: options?.ipAddress || metadata.ipAddress,
-      userAgent: options?.userAgent || metadata.userAgent,
-      referer: options?.referer,
+      userId: loggerContext?.userId || jwtContext.userId,
+      sessionId: loggerContext?.sessionId || jwtContext.sessionId,
+      requestId: loggerContext?.requestId,
+      ipAddress: loggerContext?.ipAddress || metadata.ipAddress,
+      userAgent: loggerContext?.userAgent || metadata.userAgent,
+      referer: loggerContext?.referer,
       ...metadata,
       sourceKey: options?.sourceKey,
       sourceDisplayName: options?.sourceDisplayName,
@@ -308,7 +301,7 @@ export class LoggerService extends EventEmitter {
       recordDisplayName: options?.recordDisplayName,
       credentialId: options?.credentialId,
       credentialType: options?.credentialType,
-      requestSize: options?.requestSize,
+      requestSize: loggerContext?.requestSize,
       responseSize: options?.responseSize,
       durationMs: options?.durationMs,
       errorCategory: options?.errorCategory,
@@ -320,13 +313,11 @@ export class LoggerService extends EventEmitter {
    * Resolve applicationId from options, app context, or JWT context.
    */
   private resolveApplicationId(
-    options: ClientLoggingOptions | undefined,
     jwtContext: ReturnType<typeof extractJwtContext>,
     appContext: ReturnType<ApplicationContextService["getApplicationContext"]>,
+    loggerContext: ReturnType<LoggerContextStorage["getContext"]> | null,
   ): string {
-    if (options?.applicationId) {
-      return options.applicationId;
-    }
+    if (loggerContext?.applicationId) return loggerContext.applicationId;
     if (appContext.applicationId) {
       return appContext.applicationId;
     }
@@ -518,11 +509,6 @@ export class LoggerService extends EventEmitter {
     return new LoggerChain(this, context);
   }
 
-  /** Method chaining with token */
-  withToken(token: string): LoggerChain {
-    return new LoggerChain(this, {}, { token });
-  }
-
   /** Method chaining without sensitive data masking */
   withoutMasking(): LoggerChain {
     return new LoggerChain(this, {}, { maskSensitiveData: false });
@@ -538,10 +524,6 @@ export class LoggerService extends EventEmitter {
     return getWithContext(context, message, level, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.httpClient.config.clientId);
   }
 
-  /** Get LogEntry with token context extracted */
-  getWithToken(token: string, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
-    return getWithToken(token, message, level, context, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.httpClient.config.clientId);
-  }
 
   /** Get LogEntry with request context (alias) */
   getForRequest(req: Request, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {

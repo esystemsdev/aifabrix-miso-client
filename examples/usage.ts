@@ -6,7 +6,7 @@
  */
 
 // For development: import from '../src/index'
-import { MisoClient, loadConfig, getLogger, setLoggerContext } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, getLogger } from '@aifabrix/miso-client';
 
 async function example() {
   // Initialize the client with auto-loaded configuration
@@ -21,14 +21,6 @@ async function example() {
     // Example token (in real usage, this would come from request headers)
     const token = 'your-jwt-token-here';
 
-    // Set logger context manually (for non-Express environments)
-    // In Express apps, use loggerContextMiddleware instead
-    setLoggerContext({
-      correlationId: 'req-123',
-      ipAddress: '192.168.1.1',
-      token: token,
-    });
-
     // Get logger instance - context is automatically extracted from AsyncLocalStorage
     const logger = getLogger();
 
@@ -41,9 +33,6 @@ async function example() {
       const user = await client.getUser(token);
       console.log('User:', user);
 
-      // Update context with user ID
-      setLoggerContext({ userId: user?.id });
-
       // Get user roles
       const roles = await client.getRoles(token);
       console.log('User roles:', roles);
@@ -54,6 +43,11 @@ async function example() {
 
       // Log some events (no context object needed - auto-extracted)
       await logger.info('User accessed application');
+
+      // For non-Express usage, attach context via LoggerChain
+      await client.log
+        .withContext({ userId: user?.id })
+        .info('User accessed application');
 
       // Audit: User login (no oldValues/newValues needed for login)
       await logger.audit('user.login', 'authentication', user?.id || 'unknown');

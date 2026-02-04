@@ -16,7 +16,7 @@
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\" \"*.{ts,js,json}\"",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
-    "test": "node --unhandled-rejections=warn -r ../tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --maxWorkers=100% --no-coverage",
+    "test": "node --unhandled-rejections=warn -r ../tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --runInBand --detectOpenHandles --no-coverage",
     "test:coverage": "node --unhandled-rejections=warn -r ../tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --coverage",
     "test:stubs": "node frontend/scripts/test-stubs.cjs",
     "test:before-browser": "node frontend/scripts/test-before-browser.cjs",

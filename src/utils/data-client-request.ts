@@ -114,6 +114,9 @@ export async function makeFetchRequest(
   const timeout = options?.timeout || config.timeout || 30000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
+  if (typeof timeoutId.unref === "function") {
+    timeoutId.unref();
+  }
 
   const signal = options?.signal
     ? mergeSignals(controller.signal, options.signal)

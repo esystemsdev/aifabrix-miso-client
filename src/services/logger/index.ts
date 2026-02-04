@@ -9,11 +9,7 @@ export { LoggerChain } from "./logger-chain";
 export { UnifiedLoggerService } from "./unified-logger.service";
 export type { UnifiedLogger } from "./unified-logger.service";
 export { LoggerContextStorage } from "./logger-context-storage";
-export type { LoggerContext } from "./logger-context-storage";
 export {
   getLogger,
-  setLoggerContext,
-  clearLoggerContext,
-  mergeLoggerContext,
   registerLoggerService,
 } from "./unified-logger.factory";

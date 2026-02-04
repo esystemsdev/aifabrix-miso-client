@@ -88,20 +88,13 @@ app.listen(3000);
 
 ### Basic Error Handling (Non-Express)
 
-**For non-Express contexts, use `setLoggerContext()` to provide context:**
+**For non-Express contexts, attach business context per log call:**
 
 ```typescript
-import { MisoClient, loadConfig, MisoClientError, getLogger, setLoggerContext } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, MisoClientError } from '@aifabrix/miso-client';
 
 const client = new MisoClient(loadConfig());
 await client.initialize();
-
-// Set context for this async execution context (if not in Express route)
-setLoggerContext({
-  userId: 'system',
-  correlationId: 'req-123',
-  ipAddress: '127.0.0.1',
-});
 
 try {
   const user = await client.getUser(token);
@@ -116,9 +109,10 @@ try {
       console.error('Correlation ID:', error.errorResponse.correlationId);
     }
     
-    // Log error with unified logging interface (uses context from AsyncLocalStorage)
-    const logger = getLogger();
-    await logger.error('User fetch failed', error);
+    // Log error with attached context for non-Express flows
+    await client.log
+      .withContext({ jobId: 'sync-123' })
+      .error('User fetch failed', error instanceof Error ? error.stack : undefined);
   }
 }
 ```
@@ -393,24 +387,16 @@ app.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<
 
 ### ✅ Good: Manual Context (Non-Express)
 
-**For background jobs or non-Express contexts, use `setLoggerContext()`:**
+**For background jobs or non-Express contexts, attach context per log call:**
 
 ```typescript
-import { getLogger, setLoggerContext } from '@aifabrix/miso-client';
-
-// Set context for this async execution context
-setLoggerContext({
-  userId: 'system',
-  correlationId: 'job-123',
-  ipAddress: '127.0.0.1',
-});
-
+// Log with explicit context for non-Express flows
 try {
   const result = await client.getUser(token);
 } catch (error) {
-  // Log with automatic context extraction (from AsyncLocalStorage)
-  const logger = getLogger(); // Uses context set above
-  await logger.error('User fetch failed', error);
+  await client.log
+    .withContext({ jobId: 'job-123' })
+    .error('User fetch failed', error instanceof Error ? error.stack : undefined);
 }
 ```
 
@@ -433,6 +419,10 @@ export class UserService {
   }
 }
 ```
+
+### Async Context Propagation
+
+`loggerContextMiddleware` stores context in `AsyncLocalStorage`, which flows through normal `await`/Promise chains within a request. Context can be lost if work is detached (timers, background jobs, queue workers) after the request ends. For detached work, use `withContext(...)` per log call or pass the request into `withRequest(req)` before branching.
 
 ### ❌ Bad: Minimal Logging (Missing Context)
 

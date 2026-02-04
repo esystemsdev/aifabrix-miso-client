@@ -6,6 +6,7 @@ import { Request } from "express";
 import { LoggerService, ClientLoggingOptions } from "./logger.service";
 import { IndexedLoggingContext } from "../../utils/logging-helpers";
 import { extractRequestContext } from "../../utils/request-context";
+import { LoggerContextStorage } from "./logger-context-storage";
 
 /**
  * Method chaining class for fluent logging API
@@ -14,6 +15,7 @@ export class LoggerChain {
   private logger: LoggerService;
   private context: Record<string, unknown>;
   private options: ClientLoggingOptions;
+  private contextStorage = LoggerContextStorage.getInstance();
 
   constructor(
     logger: LoggerService,
@@ -27,26 +29,6 @@ export class LoggerChain {
 
   addContext(key: string, value: unknown): LoggerChain {
     this.context[key] = value;
-    return this;
-  }
-
-  addUser(userId: string): LoggerChain {
-    this.options.userId = userId;
-    return this;
-  }
-
-  addApplication(applicationId: string): LoggerChain {
-    this.options.applicationId = applicationId;
-    return this;
-  }
-
-  addCorrelation(correlationId: string): LoggerChain {
-    this.options.correlationId = correlationId;
-    return this;
-  }
-
-  withToken(token: string): LoggerChain {
-    this.options.token = token;
     return this;
   }
 
@@ -104,9 +86,8 @@ export class LoggerChain {
   }
 
   /**
-   * Add request/response metrics for performance logging
+   * Add response metrics for performance logging
    * 
-   * @param requestSize - Optional request size in bytes
    * @param responseSize - Optional response size in bytes
    * @param durationMs - Optional request duration in milliseconds
    * @returns LoggerChain instance for method chaining
@@ -114,12 +95,11 @@ export class LoggerChain {
    * @example
    * ```typescript
    * await logger
-   *   .withRequestMetrics(1024, 2048, 150)
+   *   .withResponseMetrics(2048, 150)
    *   .info('Upstream API call completed');
    * ```
    */
-  withRequestMetrics(requestSize?: number, responseSize?: number, durationMs?: number): LoggerChain {
-    this.options.requestSize = requestSize;
+  withResponseMetrics(responseSize?: number, durationMs?: number): LoggerChain {
     this.options.responseSize = responseSize;
     this.options.durationMs = durationMs;
     return this;
@@ -141,28 +121,24 @@ export class LoggerChain {
    */
   withRequest(req: Request): LoggerChain {
     const ctx = extractRequestContext(req);
+    const token = req.headers.authorization?.replace("Bearer ", "");
 
-    // Merge into options (these become top-level LogEntry fields)
-    if (ctx.userId) {
-      this.options.userId = ctx.userId;
-    }
-    if (ctx.sessionId) {
-      this.options.sessionId = ctx.sessionId;
-    }
-    if (ctx.correlationId) {
-      this.options.correlationId = ctx.correlationId;
-    }
-    if (ctx.requestId) {
-      this.options.requestId = ctx.requestId;
-    }
-    if (ctx.ipAddress) {
-      this.options.ipAddress = ctx.ipAddress;
-    }
-    if (ctx.userAgent) {
-      this.options.userAgent = ctx.userAgent;
-    }
+    // Merge auto-extracted request context into AsyncLocalStorage
+    this.contextStorage.mergeContext({
+      ipAddress: ctx.ipAddress,
+      method: ctx.method,
+      path: ctx.path,
+      userAgent: ctx.userAgent,
+      correlationId: ctx.correlationId,
+      referer: ctx.referer,
+      userId: ctx.userId,
+      sessionId: ctx.sessionId,
+      requestId: ctx.requestId,
+      requestSize: ctx.requestSize,
+      token,
+    });
 
-    // Merge into context (additional request info, not top-level LogEntry fields)
+    // Merge into context (additional request info)
     if (ctx.method) {
       this.context.method = ctx.method;
     }

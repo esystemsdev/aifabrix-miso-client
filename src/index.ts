@@ -514,16 +514,10 @@ export { CacheService } from "./services/cache.service";
 export { HttpClient } from "./utils/http-client";
 
 // Export unified logging interface
-export {
-  getLogger,
-  setLoggerContext,
-  clearLoggerContext,
-  mergeLoggerContext,
-} from "./services/logger/unified-logger.factory";
+export { getLogger } from "./services/logger/unified-logger.factory";
 export type {
   UnifiedLogger,
 } from "./services/logger/unified-logger.service";
-export type { LoggerContext } from "./services/logger/logger-context-storage";
 
 // Export utilities
 export { loadConfig } from "./utils/config-loader";

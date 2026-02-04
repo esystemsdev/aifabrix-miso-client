@@ -6,6 +6,7 @@
 import { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { MisoClientConfig } from "../types/config.types";
 import { LoggerService } from "../services/logger";
+import { LoggerContextStorage } from "../services/logger/logger-context-storage";
 import { ExtractedMetadata } from "./http-client-metadata";
 import { applyMaskingStrategy } from "./http-client-masking";
 
@@ -62,23 +63,23 @@ async function handleMinimalAudit(
   error: AxiosError | null,
   logger: LoggerService,
 ): Promise<void> {
-  await logger.audit(
-    `http.request.${metadata.method}`,
-    metadata.url,
-    {
-      method: metadata.method,
-      url: metadata.fullUrl,
-      statusCode: metadata.statusCode,
-      duration: metadata.duration,
-      userId: metadata.userId || undefined,
-      error: error?.message || undefined,
-    },
-    {
-      token: metadata.userId
-        ? undefined
-        : metadata.authHeader?.replace("Bearer ", ""),
-    },
-  );
+  const token = metadata.userId
+    ? undefined
+    : metadata.authHeader?.replace("Bearer ", "");
+  await runWithTokenContext(token, async () => {
+    await logger.audit(
+      `http.request.${metadata.method}`,
+      metadata.url,
+      {
+        method: metadata.method,
+        url: metadata.fullUrl,
+        statusCode: metadata.statusCode,
+        duration: metadata.duration,
+        userId: metadata.userId || undefined,
+        error: error?.message || undefined,
+      },
+    );
+  });
 }
 
 /**
@@ -137,16 +138,16 @@ async function handleStandardOrDetailedAudit(
     error,
   );
 
-  await logger.audit(
-    `http.request.${metadata.method}`,
-    metadata.url,
-    auditContext,
-    {
-      token: metadata.userId
-        ? undefined
-        : metadata.authHeader?.replace("Bearer ", ""),
-    },
-  );
+  const token = metadata.userId
+    ? undefined
+    : metadata.authHeader?.replace("Bearer ", "");
+  await runWithTokenContext(token, async () => {
+    await logger.audit(
+      `http.request.${metadata.method}`,
+      metadata.url,
+      auditContext,
+    );
+  });
 
   // Log debug event if debug mode enabled
   if (config.logLevel === "debug") {
@@ -156,6 +157,18 @@ async function handleStandardOrDetailedAudit(
       // Silently swallow debug logging errors to not break audit logging
     }
   }
+}
+
+async function runWithTokenContext(
+  token: string | undefined,
+  handler: () => Promise<void>,
+): Promise<void> {
+  if (!token) {
+    await handler();
+    return;
+  }
+  const contextStorage = LoggerContextStorage.getInstance();
+  await contextStorage.runWithContextAsync({ token }, handler);
 }
 
 /**
@@ -266,10 +279,11 @@ async function logDebugEvent(
     error,
   );
 
-  await logger.debug(`HTTP ${metadata.method} ${metadata.url}`, debugContext, {
-    token: metadata.userId
-      ? undefined
-      : metadata.authHeader?.replace("Bearer ", ""),
+  const token = metadata.userId
+    ? undefined
+    : metadata.authHeader?.replace("Bearer ", "");
+  await runWithTokenContext(token, async () => {
+    await logger.debug(`HTTP ${metadata.method} ${metadata.url}`, debugContext);
   });
 }
 
