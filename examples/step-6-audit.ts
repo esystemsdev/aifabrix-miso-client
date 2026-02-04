@@ -23,7 +23,8 @@ async function completeExample() {
     const token = 'your-jwt-token-here';
 
     // Set logger context manually (for non-Express environments)
-    // In Express apps, use loggerContextMiddleware instead
+    // In Express apps, use loggerContextMiddleware instead (auto-fills IP, method, path,
+    // userAgent, correlationId, requestId, referer, requestSize, userId, sessionId).
     setLoggerContext({
       correlationId: 'req-123',
       ipAddress: '192.168.1.1',

@@ -384,6 +384,9 @@ app.post('/api/data', asyncHandler(async (req: Request, res: Response): Promise<
 - `path` - Request path - from server request object
 - `userAgent` - Browser/client user agent - from request headers
 - `correlationId` - Server-generated if not provided (ISO 27001 compliant)
+- `requestId` - From common request ID headers if present
+- `referer` - From request headers (client-provided, logging only)
+- `requestSize` - From `content-length` header when available
 - `userId` - Extracted from validated JWT token
 - `sessionId` - Extracted from validated JWT token
 - `applicationId` - Extracted from validated JWT token

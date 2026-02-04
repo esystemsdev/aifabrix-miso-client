@@ -198,6 +198,7 @@ interface LogEntry {
   // ISO 27001 Security Metadata (auto-extracted)
   ipAddress?: string; // Client IP address
   userAgent?: string; // Browser/client user agent
+  referer?: string; // HTTP referer header (if provided)
   hostname?: string; // Server hostname
   requestId?: string; // Request identifier
   sessionId?: string; // Session identifier

@@ -7,8 +7,8 @@
  *
  * ISO 27001 Compliance:
  * - Server-trustworthy fields: IP address (from connection), method, path (from server request object)
- * - Server-validated fields: userId, sessionId (from validated JWT token)
- * - Client-provided fields: correlationId, userAgent (for logging/tracing only, not used for security decisions)
+ * - Server-validated fields: userId, sessionId, applicationId (from validated JWT token)
+ * - Client-provided fields: correlationId, userAgent, referer, requestSize (for logging/tracing only, not used for security decisions)
  * - Correlation IDs: If client doesn't provide one, server generates a secure server-side correlation ID
  */
 
@@ -33,6 +33,7 @@ function buildLoggerContext(req: Request): Parameters<typeof setLoggerContext>[0
     ipAddress: requestContext.ipAddress, method: requestContext.method, path: requestContext.path,
     userId: requestContext.userId || jwtContext.userId, sessionId: requestContext.sessionId || jwtContext.sessionId,
     applicationId: jwtContext.applicationId, userAgent: requestContext.userAgent,
+    referer: requestContext.referer, requestSize: requestContext.requestSize,
     correlationId, requestId: requestContext.requestId, token,
   };
 }
@@ -43,8 +44,8 @@ function buildLoggerContext(req: Request): Parameters<typeof setLoggerContext>[0
  * 
  * ⚠️ SECURITY: SERVER-SIDE ONLY middleware. ISO 27001 compliant:
  * - Trustworthy: IP, method, path (from server request)
- * - Validated: userId, sessionId (from server-validated JWT)
- * - Client-provided (logging only): correlationId, userAgent
+ * - Validated: userId, sessionId, applicationId (from server-validated JWT)
+ * - Client-provided (logging only): correlationId, userAgent, referer, requestSize
  * 
  * @example
  * app.use(loggerContextMiddleware);

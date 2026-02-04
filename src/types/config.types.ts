@@ -169,6 +169,7 @@ export interface LogEntry {
   // ISO 27001 Security Metadata (auto-extracted)
   ipAddress?: string;
   userAgent?: string;
+  referer?: string;
   hostname?: string;
   requestId?: string;
   sessionId?: string;

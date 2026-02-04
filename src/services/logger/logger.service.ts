@@ -31,6 +31,7 @@ export interface ClientLoggingOptions {
   // Request metadata (top-level LogEntry fields)
   ipAddress?: string;
   userAgent?: string;
+  referer?: string;
 
   // Indexed context fields
   sourceKey?: string;
@@ -255,6 +256,7 @@ export class LoggerService extends EventEmitter {
       requestId: options?.requestId,
       ipAddress: options?.ipAddress || metadata.ipAddress,
       userAgent: options?.userAgent || metadata.userAgent,
+      referer: options?.referer,
       ...metadata,
       // Indexed context fields
       sourceKey: options?.sourceKey,
@@ -329,6 +331,7 @@ export class LoggerService extends EventEmitter {
         requestId: logEntry.requestId,
         ipAddress: logEntry.ipAddress,
         userAgent: logEntry.userAgent,
+        referer: logEntry.referer,
         hostname: logEntry.hostname,
         applicationId: logEntry.applicationId,
         sourceKey: logEntry.sourceKey,

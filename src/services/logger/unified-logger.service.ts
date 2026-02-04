@@ -81,12 +81,14 @@ export class UnifiedLoggerService implements UnifiedLogger {
     const options: ClientLoggingOptions = {
       ipAddress: context.ipAddress,
       userAgent: context.userAgent,
+      referer: context.referer,
       correlationId: context.correlationId,
       userId: context.userId,
       sessionId: context.sessionId,
       requestId: context.requestId,
       applicationId: context.applicationId,
       token: context.token,
+      requestSize: context.requestSize,
       maskSensitiveData: true, // Default: mask sensitive data
     };
 

@@ -13,6 +13,7 @@ import { AsyncLocalStorage } from "async_hooks";
 export interface LoggerContext {
   ipAddress?: string;
   userAgent?: string;
+  referer?: string;
   correlationId?: string;
   userId?: string;
   sessionId?: string;
@@ -21,6 +22,7 @@ export interface LoggerContext {
   hostname?: string;
   applicationId?: string;
   requestId?: string;
+  requestSize?: number;
   token?: string; // JWT token for extraction
 }
 

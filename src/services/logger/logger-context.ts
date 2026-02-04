@@ -145,6 +145,8 @@ export function getLogWithRequest(
     requestId: requestContext.requestId,
     ipAddress: requestContext.ipAddress || metadata.ipAddress,
     userAgent: requestContext.userAgent || metadata.userAgent,
+    referer: requestContext.referer,
+    requestSize: requestContext.requestSize,
     ...metadata,
   };
 }
