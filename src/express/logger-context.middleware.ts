@@ -53,6 +53,10 @@ function buildLoggerContext(req: Request): Parameters<typeof setLoggerContext>[0
  *   const logger = getLogger();
  *   await logger.info('Users list accessed'); // Auto-extracts context
  * });
+ *
+ * @param req - Express request object.
+ * @param res - Express response object.
+ * @param next - Express next function.
  */
 export function loggerContextMiddleware(req: Request, res: Response, next: NextFunction): void {
   try { setLoggerContext(buildLoggerContext(req)); next(); }

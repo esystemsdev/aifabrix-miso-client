@@ -96,82 +96,16 @@ export function parseFilterParams(query: Record<string, unknown>): FilterOption[
   }
 
   try {
-    // Handle object filter (JSON format)
     if (typeof filterParam === "object" && !Array.isArray(filterParam) && filterParam !== null) {
       return _parseJsonFilter(filterParam as Record<string, unknown>);
     }
 
-    // Handle string filter (could be JSON or colon format)
     if (typeof filterParam === "string") {
-      if (isColonFormat(filterParam)) {
-        return [parseColonFilter(filterParam)];
-      }
-      // Try JSON format
-      try {
-        const decoded = decodeURIComponent(filterParam);
-        const jsonFilter = JSON.parse(decoded);
-        if (Array.isArray(jsonFilter)) {
-          const result: FilterOption[] = [];
-          for (const item of jsonFilter) {
-            if (typeof item === "object" && item !== null) {
-              result.push(..._parseJsonFilter(item as Record<string, unknown>));
-            }
-          }
-          return result;
-        }
-        return _parseJsonFilter(jsonFilter);
-      } catch {
-        try {
-          const jsonFilter = JSON.parse(filterParam);
-          if (Array.isArray(jsonFilter)) {
-            const result: FilterOption[] = [];
-            for (const item of jsonFilter) {
-              if (typeof item === "object" && item !== null) {
-                result.push(..._parseJsonFilter(item as Record<string, unknown>));
-              }
-            }
-            return result;
-          }
-          return _parseJsonFilter(jsonFilter);
-        } catch {
-          if (filterParam.includes(":")) {
-            return [parseColonFilter(filterParam)];
-          }
-          throw new Error(`Could not parse filter string: "${filterParam}"`);
-        }
-      }
+      return parseFilterString(filterParam);
     }
 
-    // Handle array of filters (can be mixed JSON and colon format)
     if (Array.isArray(filterParam)) {
-      const result: FilterOption[] = [];
-      for (const item of filterParam) {
-        if (typeof item === "string") {
-          if (isColonFormat(item)) {
-            result.push(parseColonFilter(item));
-          } else {
-            try {
-              const decoded = decodeURIComponent(item);
-              const parsed = JSON.parse(decoded);
-              result.push(..._parseJsonFilter(parsed));
-            } catch {
-              try {
-                const parsed = JSON.parse(item);
-                result.push(..._parseJsonFilter(parsed));
-              } catch {
-                if (item.includes(":")) {
-                  result.push(parseColonFilter(item));
-                } else {
-                  throw new Error(`Could not parse filter item: "${item}"`);
-                }
-              }
-            }
-          }
-        } else if (typeof item === "object" && item !== null) {
-          result.push(..._parseJsonFilter(item as Record<string, unknown>));
-        }
-      }
-      return result;
+      return parseFilterArray(filterParam);
     }
 
     throw new Error(
@@ -183,6 +117,73 @@ export function parseFilterParams(query: Record<string, unknown>): FilterOption[
     }
     throw new Error(`Invalid filter format. Got: ${typeof filterParam}`);
   }
+}
+
+function parseFilterString(filterParam: string): FilterOption[] {
+  if (isColonFormat(filterParam)) {
+    return [parseColonFilter(filterParam)];
+  }
+
+  const parsed = tryParseJsonFilter(filterParam);
+  if (parsed !== null) {
+    return normalizeJsonFilter(parsed);
+  }
+
+  if (filterParam.includes(":")) {
+    return [parseColonFilter(filterParam)];
+  }
+
+  throw new Error(`Could not parse filter string: "${filterParam}"`);
+}
+
+function parseFilterArray(filterParam: unknown[]): FilterOption[] {
+  const result: FilterOption[] = [];
+  for (const item of filterParam) {
+    result.push(...parseFilterItem(item));
+  }
+  return result;
+}
+
+function parseFilterItem(item: unknown): FilterOption[] {
+  if (typeof item === "string") {
+    return parseFilterString(item);
+  }
+
+  if (typeof item === "object" && item !== null) {
+    return _parseJsonFilter(item as Record<string, unknown>);
+  }
+
+  throw new Error(`Invalid filter item: ${typeof item}`);
+}
+
+function tryParseJsonFilter(value: string): unknown | null {
+  try {
+    return JSON.parse(decodeURIComponent(value));
+  } catch {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function normalizeJsonFilter(parsed: unknown): FilterOption[] {
+  if (Array.isArray(parsed)) {
+    const result: FilterOption[] = [];
+    for (const item of parsed) {
+      if (typeof item === "object" && item !== null) {
+        result.push(..._parseJsonFilter(item as Record<string, unknown>));
+      }
+    }
+    return result;
+  }
+
+  if (typeof parsed === "object" && parsed !== null) {
+    return _parseJsonFilter(parsed as Record<string, unknown>);
+  }
+
+  throw new Error("Invalid JSON filter format");
 }
 
 /**

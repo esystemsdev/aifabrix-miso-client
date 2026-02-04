@@ -1,6 +1,6 @@
 # validate-code
 
-This command analyzes all core code (src/services, src/utils, src/types, src/express) against development rules and creates or updates detailed improvement plans for each module category.
+This command analyzes all core code (src/services, src/utils, src/types, src/express) against development rules and creates or updates a single consolidated improvement plan.
 
 ## Purpose
 
@@ -13,10 +13,10 @@ The command:
    - `src/express/` (Express.js utilities and middleware)
    - `src/index.ts` (Main MisoClient class exports)
 3. Groups code by module category (e.g., "Services - Authentication", "Services - Authorization", "Utils - HTTP", "Express - Middleware")
-4. For each category, checks if a plan file already exists with pattern `*-fix-and-improve-code.<category>.plan.md`
-5. If a plan exists, updates the existing plan file
-6. If no plan exists, creates a new plan file with format: `<next-number>-fix-and-improve-code.<category>.plan.md`
-7. Documents all violations and required improvements based on cursor rules
+4. Checks if a consolidated plan file already exists with pattern `*-fix-and-improve-code.full.plan.md`
+5. If the consolidated plan exists, updates it
+6. If no consolidated plan exists, creates a new plan file with format: `<next-number>-fix-and-improve-code.full.plan.md`
+7. Documents all violations and required improvements based on cursor rules (grouped by module category inside the single plan)
 
 ## Usage
 
@@ -141,32 +141,32 @@ For each module category, the command:
 
 ## Output
 
-Creates or updates plan files in `.cursor/plans/` with:
-- Overview of the module category
-- List of all files/modules in the category
+Creates or updates a single plan file in `.cursor/plans/` with:
+- Overview of each module category
+- List of all files/modules in each category
 - Detailed violation analysis
-- Specific improvement tasks
+- Specific improvement tasks (grouped by category)
 - Code examples for fixes
 - Testing requirements
 - Priority recommendations
 
-**Important**: If a plan file with pattern `*-fix-and-improve-code.<category>.plan.md` already exists (e.g., `70-fix-and-improve-code.services-authentication.plan.md`), the command will **update** the existing plan instead of creating a new one. This ensures that progress on existing plans is preserved and updated with the latest analysis.
+**Important**: If a plan file with pattern `*-fix-and-improve-code.full.plan.md` already exists, the command will **update** the existing plan instead of creating a new one. This ensures that progress on the consolidated plan is preserved and updated with the latest analysis.
 
-**Execution Behavior**: When generating a new plan, it should be clearly identified as a "code improvement plan and execution". The command should execute improvements automatically without asking for user input or showing progress details, unless there are breaking changes or other critical reasons that require user confirmation. The focus is on silent, automated execution of code improvements based on the analysis.
+**Execution Behavior**: When generating or updating the consolidated plan, immediately proceed to implement the fixes in the plan. Do not ask for user input or show progress details unless there are breaking changes or other critical reasons that require user confirmation. The focus is on silent, automated execution of code improvements based on the analysis.
 
 ## Example Plan Structure
 
 ```markdown
-# Fix and Improve Code - Services - Authentication
+# Fix and Improve Code - Full
 
 ## Overview
-[Description of the module category and its purpose]
+[Description of the consolidated plan and its scope]
 
 ## Modules Analyzed
-[List of all files in this category]
+[Grouped list of files per category]
 
 ## Key Issues Identified
-[Summary of main violations]
+[Summary of main violations, grouped by category]
 
 ## Implementation Tasks
 
@@ -196,7 +196,7 @@ Creates or updates plan files in `.cursor/plans/` with:
 
 ## Module Categories
 
-The command groups code into the following categories:
+The command groups code into the following categories (all captured in one plan):
 
 ### Services - Authentication
 - **Services - Authentication**: `src/services/auth.service.ts`, authentication-related services
@@ -236,10 +236,10 @@ The command groups code into the following categories:
 
 ## Notes
 
-- **Existing Plans**: If a plan file matching pattern `*-fix-and-improve-code.<category>.plan.md` already exists, it will be updated rather than creating a new one
-- **New Plans**: If no existing plan is found, a new plan is created with sequential numbering (starting from biggest number in plan folder plus 1). New plans are **code improvement plans and execution** - they should be executed automatically without user input or progress updates, unless breaking changes or other critical reasons require user confirmation
+- **Existing Plans**: If a plan file matching pattern `*-fix-and-improve-code.full.plan.md` already exists, it will be updated rather than creating a new one
+- **New Plans**: If no existing plan is found, a new consolidated plan is created with sequential numbering (starting from biggest number in plan folder plus 1). New plans are **code improvement plans and execution** - they should be executed automatically without user input or progress updates, unless breaking changes or other critical reasons require user confirmation
 - **Execution**: Do NOT ask the user for input or show what's being done unless necessary for breaking changes or other critical reasons. The command should execute improvements silently and automatically
-- Each category gets its own plan file
+- A single plan file includes all categories
 - Plans include actionable tasks with specific file locations and line numbers where applicable
 - Plans reference specific cursor rules that are violated
 - Focus is on `src/services/` and `src/utils/` as the primary targets, but all core code is analyzed

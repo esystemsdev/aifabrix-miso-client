@@ -78,6 +78,13 @@ export class AppError extends Error implements ApiError {
   }
 }
 
+/**
+ * Create a success response envelope.
+ * @param data - Response data.
+ * @param message - Optional success message.
+ * @param correlationId - Optional correlation ID.
+ * @returns Success response object.
+ */
 export const createSuccessResponse = <T>(
   data: T,
   message?: string,
@@ -100,6 +107,12 @@ export const createSuccessResponse = <T>(
   return response;
 };
 
+/**
+ * Create an error response envelope.
+ * @param error - Error message.
+ * @param correlationId - Optional correlation ID.
+ * @returns Error response object.
+ */
 export const createErrorResponse = (
   error: string,
   correlationId?: string,

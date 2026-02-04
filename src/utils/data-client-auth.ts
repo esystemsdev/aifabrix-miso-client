@@ -163,7 +163,12 @@ export async function getClientToken(
     if (isDebug) console.log("[getClientToken] Got new token, length:", newToken?.length);
     return newToken;
   } catch (error) {
-    console.error("[getClientToken] Failed to get environment token:", error);
+    console.error("[getClientToken] Failed to get environment token:", {
+      method: "POST",
+      path: "/api/v1/auth/token",
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stackTrace: error instanceof Error ? error.stack : undefined,
+    });
     return null;
   }
 }

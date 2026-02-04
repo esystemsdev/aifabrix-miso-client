@@ -51,31 +51,35 @@ export async function processSuccessfulResponse<T>(
   options?: ApiRequestOptions,
 ): Promise<T> {
   const duration = Date.now() - startTime;
-  metrics.totalRequests++;
-  metrics.responseTimes.push(duration);
+  recordRequestMetrics(metrics, duration);
 
-  // Cache successful GET responses
-  if (cacheEnabled && response.ok) {
-    const ttl = options?.cache?.ttl || config.cache?.defaultTTL || 300;
-    setCacheEntry(cache, cacheKey, data, ttl, config.cache?.maxSize || 100);
-  }
+  cacheSuccessfulResponse(
+    cacheEnabled,
+    response,
+    data,
+    options,
+    config,
+    cache,
+    cacheKey,
+  );
 
   // Apply response interceptor
   if (interceptors.onResponse) {
     return await interceptors.onResponse<T>(response, data);
   }
 
-  // Audit logging
-  if (!options?.skipAudit) {
-    const requestSize = options?.body ? calculateSize(options.body) : undefined;
-    const responseSize = calculateSize(data);
-    await logDataClientAudit(
-      method, endpoint, response.status, duration, misoClient, config.audit,
-      hasAnyToken, getToken, requestSize, responseSize, undefined,
-      extractHeaders(options?.headers), extractHeaders(response.headers),
-      options?.body, data,
-    );
-  }
+  await auditSuccessResponse(
+    response,
+    data,
+    method,
+    endpoint,
+    duration,
+    config,
+    misoClient,
+    hasAnyToken,
+    getToken,
+    options,
+  );
 
   // Handle error responses
   if (!response.ok) {
@@ -103,55 +107,25 @@ export async function handleNonRetryableError(
   options?: ApiRequestOptions,
 ): Promise<never> {
   const duration = Date.now() - startTime;
-  metrics.totalFailures++;
+  recordFailure(metrics);
 
-  const errorInfo = extractErrorInfo(error, {
-    endpoint,
-    method,
-    correlationId: generateCorrelationId(misoClient),
-  });
-
+  const errorInfo = buildErrorInfo(error, endpoint, method, misoClient);
   logErrorWithContext(errorInfo, "[DataClient]");
 
-  if (!options?.skipAudit && misoClient?.log) {
-    const httpStatusCategory =
-      statusCode || responseStatus
-        ? statusCode && statusCode >= 500
-          ? "server-error"
-          : statusCode && statusCode >= 400
-            ? "client-error"
-            : "success"
-        : "unknown";
-
-    await logDataClientAudit(
-      method, endpoint, statusCode || responseStatus || 401, duration,
-      misoClient, config.audit, hasAnyToken, getToken,
-      options?.body ? calculateSize(options.body) : undefined, undefined, error,
-      extractHeaders(options?.headers), undefined, options?.body, undefined,
-    );
-
-    try {
-      await misoClient.log.error(
-        `Request failed: ${errorInfo.message}`,
-        {
-          errorType: errorInfo.errorType,
-          errorName: errorInfo.errorName,
-          statusCode: errorInfo.statusCode,
-          endpoint: errorInfo.endpoint,
-          method: errorInfo.method,
-          responseBody: errorInfo.responseBody,
-        },
-        errorInfo.stackTrace,
-        {
-          errorCategory: errorInfo.errorType.toLowerCase().replace("error", ""),
-          httpStatusCategory,
-          correlationId: errorInfo.correlationId,
-        },
-      );
-    } catch {
-      // Ignore logging errors
-    }
-  }
+  await auditFailureResponse(
+    error,
+    statusCode || responseStatus || 401,
+    duration,
+    method,
+    endpoint,
+    config,
+    misoClient,
+    hasAnyToken,
+    getToken,
+    options,
+    errorInfo,
+    responseStatus,
+  );
 
   throw error;
 }
@@ -174,14 +148,9 @@ export function handleAuthErrorCleanup(
   options?: ApiRequestOptions,
 ): void {
   handleAuthError();
-  metrics.totalFailures++;
+  recordFailure(metrics);
 
-  const errorInfo = extractErrorInfo(error, {
-    endpoint,
-    method,
-    correlationId: generateCorrelationId(misoClient),
-  });
-
+  const errorInfo = buildErrorInfo(error, endpoint, method, misoClient);
   logErrorWithContext(errorInfo, "[DataClient] [AUTH]");
 
   if (!options?.skipAudit) {
@@ -194,32 +163,171 @@ export function handleAuthErrorCleanup(
     ).catch(() => {
       // Ignore audit logging errors
     });
-
-    if (misoClient?.log) {
-      misoClient.log
-        .error(
-          `Authentication error: ${errorInfo.message}`,
-          {
-            authFlow: "token_validation_failed",
-            errorType: errorInfo.errorType,
-            errorName: errorInfo.errorName,
-            statusCode: errorInfo.statusCode,
-            endpoint: errorInfo.endpoint,
-            method: errorInfo.method,
-            responseBody: errorInfo.responseBody,
-          },
-          errorInfo.stackTrace,
-          {
-            errorCategory: "authentication",
-            httpStatusCategory: "client-error",
-            correlationId: errorInfo.correlationId,
-          },
-        )
-        .catch(() => {
-          // Ignore logging errors
-        });
-    }
   }
+
+  logAuthFailureToClient(misoClient, errorInfo);
+}
+
+function recordRequestMetrics(
+  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] },
+  duration: number,
+): void {
+  metrics.totalRequests++;
+  metrics.responseTimes.push(duration);
+}
+
+function recordFailure(
+  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] },
+): void {
+  metrics.totalFailures++;
+}
+
+function cacheSuccessfulResponse<T>(
+  cacheEnabled: boolean,
+  response: Response,
+  data: T,
+  options: ApiRequestOptions | undefined,
+  config: DataClientConfig,
+  cache: Map<string, CacheEntry>,
+  cacheKey: string,
+): void {
+  if (!cacheEnabled || !response.ok) {
+    return;
+  }
+  const ttl = options?.cache?.ttl || config.cache?.defaultTTL || 300;
+  setCacheEntry(cache, cacheKey, data, ttl, config.cache?.maxSize || 100);
+}
+
+async function auditSuccessResponse<T>(
+  response: Response,
+  data: T,
+  method: string,
+  endpoint: string,
+  duration: number,
+  config: DataClientConfig,
+  misoClient: MisoClient | null,
+  hasAnyToken: HasAnyTokenFn,
+  getToken: GetTokenFn,
+  options?: ApiRequestOptions,
+): Promise<void> {
+  if (options?.skipAudit) {
+    return;
+  }
+  const requestSize = options?.body ? calculateSize(options.body) : undefined;
+  const responseSize = calculateSize(data);
+  await logDataClientAudit(
+    method, endpoint, response.status, duration, misoClient, config.audit,
+    hasAnyToken, getToken, requestSize, responseSize, undefined,
+    extractHeaders(options?.headers), extractHeaders(response.headers),
+    options?.body, data,
+  );
+}
+
+function buildErrorInfo(
+  error: Error,
+  endpoint: string,
+  method: string,
+  misoClient: MisoClient | null,
+): ReturnType<typeof extractErrorInfo> {
+  return extractErrorInfo(error, {
+    endpoint,
+    method,
+    correlationId: generateCorrelationId(misoClient),
+  });
+}
+
+function getHttpStatusCategory(statusCode?: number): string {
+  if (!statusCode) return "unknown";
+  if (statusCode >= 500) return "server-error";
+  if (statusCode >= 400) return "client-error";
+  return "success";
+}
+
+async function auditFailureResponse(
+  error: Error,
+  statusCode: number,
+  duration: number,
+  method: string,
+  endpoint: string,
+  config: DataClientConfig,
+  misoClient: MisoClient | null,
+  hasAnyToken: HasAnyTokenFn,
+  getToken: GetTokenFn,
+  options: ApiRequestOptions | undefined,
+  errorInfo: ReturnType<typeof extractErrorInfo>,
+  responseStatus: number | undefined,
+): Promise<void> {
+  if (options?.skipAudit || !misoClient?.log) {
+    return;
+  }
+  await logDataClientAudit(
+    method, endpoint, statusCode || responseStatus || 401, duration,
+    misoClient, config.audit, hasAnyToken, getToken,
+    options?.body ? calculateSize(options.body) : undefined, undefined, error,
+    extractHeaders(options?.headers), undefined, options?.body, undefined,
+  );
+
+  const httpStatusCategory = getHttpStatusCategory(statusCode || responseStatus);
+  await logFailureToClient(misoClient, errorInfo, httpStatusCategory);
+}
+
+async function logFailureToClient(
+  misoClient: MisoClient,
+  errorInfo: ReturnType<typeof extractErrorInfo>,
+  httpStatusCategory: string,
+): Promise<void> {
+  try {
+    await misoClient.log.error(
+      `Request failed: ${errorInfo.message}`,
+      {
+        errorType: errorInfo.errorType,
+        errorName: errorInfo.errorName,
+        statusCode: errorInfo.statusCode,
+        endpoint: errorInfo.endpoint,
+        method: errorInfo.method,
+        responseBody: errorInfo.responseBody,
+      },
+      errorInfo.stackTrace,
+      {
+        errorCategory: errorInfo.errorType.toLowerCase().replace("error", ""),
+        httpStatusCategory,
+        correlationId: errorInfo.correlationId,
+      },
+    );
+  } catch {
+    // Ignore logging errors
+  }
+}
+
+function logAuthFailureToClient(
+  misoClient: MisoClient | null,
+  errorInfo: ReturnType<typeof extractErrorInfo>,
+): void {
+  if (!misoClient?.log) {
+    return;
+  }
+  misoClient.log
+    .error(
+      `Authentication error: ${errorInfo.message}`,
+      {
+        authFlow: "token_validation_failed",
+        errorType: errorInfo.errorType,
+        errorName: errorInfo.errorName,
+        statusCode: errorInfo.statusCode,
+        endpoint: errorInfo.endpoint,
+        method: errorInfo.method,
+        responseBody: errorInfo.responseBody,
+      },
+      errorInfo.stackTrace,
+      {
+        errorCategory: "authentication",
+        httpStatusCategory: "client-error",
+        correlationId: errorInfo.correlationId,
+      },
+    )
+    .catch(() => {
+      // Ignore logging errors
+    });
 }
 
 /**

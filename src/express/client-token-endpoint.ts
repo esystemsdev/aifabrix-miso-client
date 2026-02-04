@@ -9,6 +9,7 @@ import { Request, Response } from "express";
 import { MisoClient } from "../index";
 import { getEnvironmentToken } from "../utils/environment-token";
 import { resolveControllerUrl } from "../utils/controller-url-resolver";
+import { asyncHandler } from "./async-handler";
 import { createErrorResponse, sendErrorResponse } from "./error-response";
 
 /**
@@ -151,7 +152,7 @@ export function createClientTokenEndpoint(
 ): (req: Request, res: Response) => Promise<void> {
   const opts = { clientTokenUri: "/api/v1/auth/client-token", expiresIn: 1800, includeConfig: true, ...options };
 
-  return async (req: Request, res: Response): Promise<void> => {
+  const handler = async (req: Request, res: Response): Promise<void> => {
     const isResponseSent = () => res.headersSent || res.writableEnded;
 
     try {
@@ -168,6 +169,10 @@ export function createClientTokenEndpoint(
       } catch (tokenError) {
         if (!isResponseSent()) handleTokenError(tokenError, req, res, misoClient);
         return;
+      }
+
+      if (!token) {
+        throw new Error("Request timeout: Failed to get environment token");
       }
 
       // Build response
@@ -190,5 +195,12 @@ export function createClientTokenEndpoint(
       sendErrorResponse(res, createErrorResponse(errorMessage, 500, req));
     }
   };
+
+  return asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      await handler(req, res);
+    },
+    "createClientTokenEndpoint",
+  );
 }
 

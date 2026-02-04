@@ -179,14 +179,28 @@ export class LoggerChain {
     return this;
   }
 
+  /**
+   * Log error with optional stack trace.
+   * @param message - Error message.
+   * @param stackTrace - Optional stack trace.
+   */
   async error(message: string, stackTrace?: string): Promise<void> {
     await this.logger.error(message, this.context, stackTrace, this.options);
   }
 
+  /**
+   * Log informational message.
+   * @param message - Log message.
+   */
   async info(message: string): Promise<void> {
     await this.logger.info(message, this.context, this.options);
   }
 
+  /**
+   * Log audit event.
+   * @param action - Audit action.
+   * @param resource - Resource type.
+   */
   async audit(action: string, resource: string): Promise<void> {
     await this.logger.audit(action, resource, this.context, this.options);
   }

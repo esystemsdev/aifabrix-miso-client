@@ -371,33 +371,9 @@ export function compileFilter(
   const clauses: string[] = [];
 
   for (const filter of filters) {
-    const fieldDef = schema.fields[filter.field];
-    if (!fieldDef) {
-      throw new Error(`Unknown field '${filter.field}' in schema '${schema.resource}'`);
-    }
-
-    const column = fieldDef.column;
-    let value: unknown = filter.value;
-
-    // Coerce value based on field type
-    try {
-      value = coerceValue(value, fieldDef);
-    } catch {
-      // If coercion fails, use original value (validation should catch type errors)
-    }
-
-    // Handle contains operator - wrap value with %
-    if (filter.op === "contains" && typeof value === "string") {
-      value = `%${value}%`;
-    }
-
-    const paramIndex = params.length + 1;
-    const { sql, hasParam } = operatorToSql(filter.op, column, paramIndex);
-
+    const { sql, hasParam, value } = buildFilterClause(filter, schema, params.length + 1);
     clauses.push(sql);
-    if (hasParam) {
-      params.push(value);
-    }
+    if (hasParam) params.push(value);
   }
 
   const joinOperator = logic === "or" ? " OR " : " AND ";
@@ -405,6 +381,41 @@ export function compileFilter(
     sql: clauses.join(joinOperator),
     params,
   };
+}
+
+function buildFilterClause(
+  filter: FilterOption,
+  schema: FilterSchema,
+  paramIndex: number,
+): { sql: string; hasParam: boolean; value: unknown } {
+  const fieldDef = schema.fields[filter.field];
+  if (!fieldDef) {
+    throw new Error(`Unknown field '${filter.field}' in schema '${schema.resource}'`);
+  }
+
+  const column = fieldDef.column;
+  const value = resolveFilterValue(filter, fieldDef);
+  const { sql, hasParam } = operatorToSql(filter.op, column, paramIndex);
+
+  return { sql, hasParam, value };
+}
+
+function resolveFilterValue(
+  filter: FilterOption,
+  fieldDef: FilterFieldDefinition,
+): unknown {
+  let value: unknown = filter.value;
+  try {
+    value = coerceValue(value, fieldDef);
+  } catch {
+    // If coercion fails, use original value (validation should catch type errors)
+  }
+
+  if (filter.op === "contains" && typeof value === "string") {
+    value = `%${value}%`;
+  }
+
+  return value;
 }
 
 /**
@@ -443,55 +454,77 @@ export function createFilterSchema(
  * @throws Error if schema format is invalid
  */
 export function loadFilterSchema(json: unknown): FilterSchema {
-  if (typeof json !== "object" || json === null) {
-    throw new Error("Invalid filter schema: expected object");
-  }
-
-  const obj = json as Record<string, unknown>;
-
-  if (typeof obj.resource !== "string") {
-    throw new Error("Invalid filter schema: missing 'resource' field");
-  }
-
-  if (typeof obj.fields !== "object" || obj.fields === null) {
-    throw new Error("Invalid filter schema: missing 'fields' object");
-  }
-
-  const fields = obj.fields as Record<string, unknown>;
-  const parsedFields: Record<string, FilterFieldDefinition> = {};
-
-  for (const [fieldName, fieldDef] of Object.entries(fields)) {
-    if (typeof fieldDef !== "object" || fieldDef === null) {
-      throw new Error(`Invalid filter schema: field '${fieldName}' must be an object`);
-    }
-
-    const def = fieldDef as Record<string, unknown>;
-
-    if (typeof def.column !== "string") {
-      throw new Error(`Invalid filter schema: field '${fieldName}' missing 'column'`);
-    }
-
-    if (typeof def.type !== "string") {
-      throw new Error(`Invalid filter schema: field '${fieldName}' missing 'type'`);
-    }
-
-    if (!Array.isArray(def.operators)) {
-      throw new Error(`Invalid filter schema: field '${fieldName}' missing 'operators' array`);
-    }
-
-    parsedFields[fieldName] = {
-      column: def.column,
-      type: def.type as FilterFieldDefinition["type"],
-      operators: def.operators as FilterOperator[],
-      enumValues: Array.isArray(def.enumValues) ? (def.enumValues as string[]) : undefined,
-      nullable: typeof def.nullable === "boolean" ? def.nullable : undefined,
-      description: typeof def.description === "string" ? def.description : undefined,
-    };
-  }
+  const obj = getFilterSchemaObject(json);
+  const parsedFields = parseFilterFields(obj.fields);
 
   return {
     resource: obj.resource,
     version: typeof obj.version === "string" ? obj.version : undefined,
     fields: parsedFields,
+  };
+}
+
+function getFilterSchemaObject(json: unknown): {
+  resource: string;
+  version?: string;
+  fields: Record<string, unknown>;
+} {
+  if (typeof json !== "object" || json === null) {
+    throw new Error("Invalid filter schema: expected object");
+  }
+
+  const obj = json as Record<string, unknown>;
+  if (typeof obj.resource !== "string") {
+    throw new Error("Invalid filter schema: missing 'resource' field");
+  }
+  if (typeof obj.fields !== "object" || obj.fields === null) {
+    throw new Error("Invalid filter schema: missing 'fields' object");
+  }
+
+  return {
+    resource: obj.resource,
+    version: typeof obj.version === "string" ? obj.version : undefined,
+    fields: obj.fields as Record<string, unknown>,
+  };
+}
+
+function parseFilterFields(
+  fields: Record<string, unknown>,
+): Record<string, FilterFieldDefinition> {
+  const parsedFields: Record<string, FilterFieldDefinition> = {};
+
+  for (const [fieldName, fieldDef] of Object.entries(fields)) {
+    parsedFields[fieldName] = parseFilterField(fieldName, fieldDef);
+  }
+
+  return parsedFields;
+}
+
+function parseFilterField(
+  fieldName: string,
+  fieldDef: unknown,
+): FilterFieldDefinition {
+  if (typeof fieldDef !== "object" || fieldDef === null) {
+    throw new Error(`Invalid filter schema: field '${fieldName}' must be an object`);
+  }
+
+  const def = fieldDef as Record<string, unknown>;
+  if (typeof def.column !== "string") {
+    throw new Error(`Invalid filter schema: field '${fieldName}' missing 'column'`);
+  }
+  if (typeof def.type !== "string") {
+    throw new Error(`Invalid filter schema: field '${fieldName}' missing 'type'`);
+  }
+  if (!Array.isArray(def.operators)) {
+    throw new Error(`Invalid filter schema: field '${fieldName}' missing 'operators' array`);
+  }
+
+  return {
+    column: def.column,
+    type: def.type as FilterFieldDefinition["type"],
+    operators: def.operators as FilterOperator[],
+    enumValues: Array.isArray(def.enumValues) ? (def.enumValues as string[]) : undefined,
+    nullable: typeof def.nullable === "boolean" ? def.nullable : undefined,
+    description: typeof def.description === "string" ? def.description : undefined,
   };
 }

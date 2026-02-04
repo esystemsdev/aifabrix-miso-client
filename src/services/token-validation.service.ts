@@ -114,6 +114,9 @@ export class TokenValidationService {
 
   // ==================== PRIVATE METHODS ====================
 
+  /**
+   * Perform token validation by resolving issuer and validation flow.
+   */
   private async performValidation(
     token: string,
     options?: TokenValidationOptions,
@@ -139,6 +142,9 @@ export class TokenValidationService {
     }
   }
 
+  /**
+   * Determine token type based on issuer and optional hint.
+   */
   private determineTokenType(issuer: string, hint?: TokenType): TokenType {
     if (hint && hint !== "auto") return hint;
 
@@ -152,6 +158,9 @@ export class TokenValidationService {
     return "delegated";
   }
 
+  /**
+   * Validate Keycloak tokens using JWKS and issuer validation.
+   */
   private async validateKeycloakToken(
     token: string,
     options?: TokenValidationOptions,
@@ -206,6 +215,9 @@ export class TokenValidationService {
     }
   }
 
+  /**
+   * Validate delegated tokens using provider-specific JWKS.
+   */
   private async validateDelegatedToken(
     token: string,
     issuer: string,
@@ -258,6 +270,9 @@ export class TokenValidationService {
     }
   }
 
+  /**
+   * Normalize JWT payload to TokenPayload structure.
+   */
   private mapPayload(payload: Record<string, unknown>): TokenPayload {
     return {
       ...payload,
@@ -273,6 +288,9 @@ export class TokenValidationService {
     };
   }
 
+  /**
+   * Fetch or reuse cached JWKS for a given URI.
+   */
   private async getJWKS(jwksUri: string): Promise<JWTVerifyGetKey> {
     const cached = this.jwksCache.get(jwksUri);
     if (cached && cached.expiresAt > Date.now()) {
@@ -288,12 +306,18 @@ export class TokenValidationService {
     return keySet;
   }
 
+  /**
+   * Create a short hash for caching token validation results.
+   */
   private getTokenHash(token: string): string {
     // Use first 16 + last 16 chars as pseudo-hash for cache key
     if (token.length <= 32) return token;
     return `${token.slice(0, 16)}...${token.slice(-16)}`;
   }
 
+  /**
+   * Read cached validation result for a token if still valid.
+   */
   private getCachedResult(token: string): TokenValidationResult | null {
     const hash = this.getTokenHash(token);
     const entry = this.resultCache.get(hash);
@@ -310,6 +334,9 @@ export class TokenValidationService {
     return null;
   }
 
+  /**
+   * Cache validation result for a token.
+   */
   private cacheResult(token: string, result: TokenValidationResult): void {
     const hash = this.getTokenHash(token);
     this.resultCache.set(hash, {
@@ -318,6 +345,9 @@ export class TokenValidationService {
     });
   }
 
+  /**
+   * Decide whether a validation result should be cached.
+   */
   private shouldCacheResult(result: TokenValidationResult): boolean {
     // Cache valid results and definitive invalid results
     // Don't cache config errors (provider not found, etc.)

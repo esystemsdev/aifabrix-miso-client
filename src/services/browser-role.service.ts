@@ -7,7 +7,6 @@ import { HttpClient } from "../utils/http-client";
 import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
 import {
-  MisoClientConfig,
   AuthStrategy,
   AuthMethod,
 } from "../types/config.types";
@@ -23,22 +22,23 @@ export class BrowserRoleService {
   private httpClient: HttpClient;
   private apiClient: ApiClient;
   private cache: CacheService;
-  private config: MisoClientConfig;
   private roleTTL: number;
   private applicationContextService: ApplicationContextService;
 
   constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
-    this.config = httpClient.config;
     this.cache = cache;
     this.httpClient = httpClient;
     this.apiClient = apiClient;
-    this.roleTTL = this.config.cache?.roleTTL || 900; // 15 minutes default
+    this.roleTTL = this.httpClient.config.cache?.roleTTL || 900; // 15 minutes default
     this.applicationContextService = new ApplicationContextService(httpClient);
   }
 
   /**
    * Extract userId from JWT token without making API call
    * Uses browser-compatible JWT decoder
+   */
+  /**
+   * Extract userId from JWT token without verification.
    */
   private extractUserIdFromToken(token: string): string | null {
     try {
@@ -86,7 +86,7 @@ export class BrowserRoleService {
       // Cache miss or no userId in token - fetch from controller
       // If we don't have userId, get it from validate endpoint
       if (!userId) {
-        const authStrategyToUse = authStrategy || this.config.authStrategy;
+    const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
         const authStrategyWithToken: AuthStrategy = authStrategyToUse 
           ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
@@ -102,7 +102,7 @@ export class BrowserRoleService {
       }
 
       // Cache miss - fetch from controller using ApiClient
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
+    const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
       const authStrategyWithToken = authStrategyToUse 
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
@@ -129,7 +129,19 @@ export class BrowserRoleService {
       return roles;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Failed to get roles:", error);
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to get roles:", {
+        method: "GET",
+        path: "/api/auth/roles",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: this.extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      });
       return [];
     }
   }
@@ -190,7 +202,7 @@ export class BrowserRoleService {
   ): Promise<string[]> {
     try {
       // Get user info to extract userId
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
       const authStrategyWithToken = authStrategyToUse 
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
@@ -229,7 +241,19 @@ export class BrowserRoleService {
       return roles;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Failed to refresh roles:", error);
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to refresh roles:", {
+        method: "POST",
+        path: "/api/auth/roles/refresh",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: this.extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      });
       return [];
     }
   }
@@ -245,7 +269,7 @@ export class BrowserRoleService {
   ): Promise<void> {
     try {
       // Get user info to extract userId
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
       const authStrategyWithToken = authStrategyToUse 
         ? { ...authStrategyToUse, bearerToken: token }
         : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
@@ -266,7 +290,19 @@ export class BrowserRoleService {
       await this.cache.delete(cacheKey);
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Failed to clear roles cache:", error);
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to clear roles cache:", {
+        method: "DELETE",
+        path: "/cache/roles",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: this.extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      });
     }
   }
 }

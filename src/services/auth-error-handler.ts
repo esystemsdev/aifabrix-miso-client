@@ -69,7 +69,10 @@ export function handleAuthErrorSilent(
   correlationId: string,
   clientId: string,
 ): null {
-  console.error(formatAuthError(error, operation, correlationId, clientId));
+  console.error(
+    formatAuthError(error, operation, correlationId, clientId),
+    { correlationId, clientId, operation },
+  );
   return null;
 }
 

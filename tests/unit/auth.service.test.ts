@@ -146,14 +146,34 @@ describe("AuthService", () => {
       );
     });
 
-    it("should throw error on failure", async () => {
+    it("should return failure response on error", async () => {
       mockApiClient.auth.login.mockRejectedValue(
         new Error("Login failed: Network error"),
       );
 
-      await expect(
-        authService.login({ redirect: "http://localhost:3000/callback" }),
-      ).rejects.toThrow("Login failed");
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const result = await authService.login({
+        redirect: "http://localhost:3000/callback",
+      });
+
+      expect(result).toEqual({
+        success: false,
+        data: { loginUrl: "", state: "" },
+        timestamp: expect.any(String),
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Login failed"),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+          clientId: expect.any(String),
+          operation: "Login",
+        }),
+      );
+
+      consoleErrorSpy.mockRestore();
     });
   });
 
@@ -741,15 +761,16 @@ describe("AuthService", () => {
 
       // Verify warning was logged
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining(
-          "Logout: No active session (400)",
-        ),
+        expect.stringContaining("Logout: No active session (400)"),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+        }),
       );
 
       consoleWarnSpy.mockRestore();
     });
 
-    it("should throw error on other failures", async () => {
+    it("should return failure response on other failures", async () => {
       const error = new MisoClientError(
         "Internal server error",
         undefined,
@@ -759,17 +780,25 @@ describe("AuthService", () => {
 
       mockApiClient.auth.logoutWithToken.mockRejectedValue(error);
 
-      await expect(
-        authService.logout({ token: "test-token-123" }),
-      ).rejects.toThrow("Logout failed");
+      const result = await authService.logout({ token: "test-token-123" });
+
+      expect(result).toEqual({
+        success: false,
+        message: "Logout failed",
+        timestamp: expect.any(String),
+      });
     });
 
     it("should handle non-Error thrown values", async () => {
       mockApiClient.auth.logoutWithToken.mockRejectedValue("String error");
 
-      await expect(
-        authService.logout({ token: "test-token-123" }),
-      ).rejects.toThrow("Logout failed: Unknown error");
+      const result = await authService.logout({ token: "test-token-123" });
+
+      expect(result).toEqual({
+        success: false,
+        message: "Logout failed",
+        timestamp: expect.any(String),
+      });
     });
 
     it("should clear cache even when userId not found in token", async () => {
@@ -1055,25 +1084,64 @@ describe("AuthService", () => {
         },
       });
 
-      await expect(authService.getEnvironmentToken()).rejects.toThrow(
-        "Get environment token failed",
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const result = await authService.getEnvironmentToken();
+
+      expect(result).toBe("");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Get environment token failed"),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+          clientId: expect.any(String),
+        }),
       );
+
+      consoleErrorSpy.mockRestore();
     });
 
-    it("should throw error on network failure", async () => {
+    it("should return empty string on network failure", async () => {
       mockTempAxios.post.mockRejectedValue(new Error("Network error"));
 
-      await expect(authService.getEnvironmentToken()).rejects.toThrow(
-        "Get environment token failed",
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const result = await authService.getEnvironmentToken();
+
+      expect(result).toBe("");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Get environment token failed"),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+          clientId: expect.any(String),
+        }),
       );
+
+      consoleErrorSpy.mockRestore();
     });
 
     it("should handle non-Error thrown values", async () => {
       mockTempAxios.post.mockRejectedValue("String error");
 
-      await expect(authService.getEnvironmentToken()).rejects.toThrow(
-        "Get environment token failed: Unknown error",
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const result = await authService.getEnvironmentToken();
+
+      expect(result).toBe("");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Get environment token failed: Unknown error"),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+          clientId: expect.any(String),
+        }),
       );
+
+      consoleErrorSpy.mockRestore();
     });
   });
 
@@ -1901,7 +1969,7 @@ describe("AuthService", () => {
         {},
         401,
       );
-      mockHttpClient.request.mockRejectedValue(error);
+      mockApiClient.auth.refreshToken.mockRejectedValue(error);
 
       // Mock console.error to suppress expected error in test output
       const consoleErrorSpy = jest
@@ -1913,6 +1981,11 @@ describe("AuthService", () => {
       expect(result).toBeNull();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining("Refresh token failed"),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+          clientId: "ctrl-dev-test-app",
+          operation: "Refresh token",
+        }),
       );
 
       consoleErrorSpy.mockRestore();
@@ -1920,7 +1993,7 @@ describe("AuthService", () => {
 
     it("should return null on network error", async () => {
       const error = new Error("Network error");
-      mockHttpClient.request.mockRejectedValue(error);
+      mockApiClient.auth.refreshToken.mockRejectedValue(error);
 
       // Mock console.error to suppress expected error in test output
       const consoleErrorSpy = jest
@@ -1932,6 +2005,11 @@ describe("AuthService", () => {
       expect(result).toBeNull();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining("Refresh token failed"),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+          clientId: "ctrl-dev-test-app",
+          operation: "Refresh token",
+        }),
       );
 
       consoleErrorSpy.mockRestore();
@@ -1948,7 +2026,7 @@ describe("AuthService", () => {
           headers: {},
         },
       };
-      mockHttpClient.request.mockRejectedValue(axiosError);
+      mockApiClient.auth.refreshToken.mockRejectedValue(axiosError);
 
       // Mock console.error to suppress expected error in test output
       const consoleErrorSpy = jest
@@ -1960,6 +2038,11 @@ describe("AuthService", () => {
       expect(result).toBeNull();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining("Refresh token failed"),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+          clientId: "ctrl-dev-test-app",
+          operation: "Refresh token",
+        }),
       );
 
       consoleErrorSpy.mockRestore();
@@ -1971,7 +2054,7 @@ describe("AuthService", () => {
         message: "Network timeout",
         request: {},
       };
-      mockHttpClient.request.mockRejectedValue(axiosError);
+      mockApiClient.auth.refreshToken.mockRejectedValue(axiosError);
 
       // Mock console.error to suppress expected error in test output
       const consoleErrorSpy = jest
@@ -1983,6 +2066,11 @@ describe("AuthService", () => {
       expect(result).toBeNull();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining("Refresh token failed"),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+          clientId: "ctrl-dev-test-app",
+          operation: "Refresh token",
+        }),
       );
 
       consoleErrorSpy.mockRestore();
@@ -1995,7 +2083,7 @@ describe("AuthService", () => {
         {},
         401,
       );
-      mockHttpClient.request.mockRejectedValue(error);
+      mockApiClient.auth.refreshToken.mockRejectedValue(error);
 
       // Mock console.error to capture error message
       const consoleErrorSpy = jest
@@ -2006,6 +2094,11 @@ describe("AuthService", () => {
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringMatching(/\[correlationId: .+, clientId: ctrl-dev-test-app\]/),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+          clientId: "ctrl-dev-test-app",
+          operation: "Refresh token",
+        }),
       );
 
       consoleErrorSpy.mockRestore();
@@ -2018,7 +2111,7 @@ describe("AuthService", () => {
         {},
         403,
       );
-      mockHttpClient.request.mockRejectedValue(error);
+      mockApiClient.auth.refreshToken.mockRejectedValue(error);
 
       const consoleErrorSpy = jest
         .spyOn(console, "error")
@@ -2039,7 +2132,7 @@ describe("AuthService", () => {
         {},
         404,
       );
-      mockHttpClient.request.mockRejectedValue(error);
+      mockApiClient.auth.refreshToken.mockRejectedValue(error);
 
       const consoleErrorSpy = jest
         .spyOn(console, "error")

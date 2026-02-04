@@ -26,6 +26,19 @@ describe('Client Token Endpoint Integration Tests', () => {
   let controllerUrl: string;
   let misoClient: MisoClient | null = null;
 
+  const clearClientTokenCache = (): void => {
+    const clientWithHttp = misoClient as unknown as {
+      httpClient?: {
+        internalClient?: { tokenState?: { token: string | null; expiresAt: Date | null } };
+      };
+    };
+    const tokenState = clientWithHttp.httpClient?.internalClient?.tokenState;
+    if (tokenState) {
+      tokenState.token = null;
+      tokenState.expiresAt = null;
+    }
+  };
+
   beforeAll(async () => {
     // Create a mock controller server
     mockControllerApp = express();
@@ -198,6 +211,7 @@ describe('Client Token Endpoint Integration Tests', () => {
           controllerServer!.close(() => resolve());
         });
       }
+      clearClientTokenCache();
 
       const response = await request(app)
         .post('/api/v1/auth/client-token')
@@ -210,7 +224,7 @@ describe('Client Token Endpoint Integration Tests', () => {
         type: '/Errors/GatewayTimeout',
         title: 'Gateway Timeout',
         status: 504,
-        detail: expect.stringContaining('Controller'),
+        detail: expect.stringMatching(/Controller|Request timed out/),
         instance: '/api/v1/auth/client-token',
       });
 
@@ -261,6 +275,7 @@ describe('Client Token Endpoint Integration Tests', () => {
           controllerServer!.close(() => resolve());
         });
       }
+      clearClientTokenCache();
 
       const response = await request(app)
         .post('/api/v1/auth/client-token')

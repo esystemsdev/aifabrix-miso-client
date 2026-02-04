@@ -7,7 +7,6 @@ import { HttpClient } from "../utils/http-client";
 import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
 import {
-  MisoClientConfig,
   AuthStrategy,
   AuthMethod,
 } from "../types/config.types";
@@ -23,22 +22,23 @@ export class BrowserPermissionService {
   private httpClient: HttpClient;
   private apiClient: ApiClient;
   private cache: CacheService;
-  private config: MisoClientConfig;
   private permissionTTL: number;
   private applicationContextService: ApplicationContextService;
 
   constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
-    this.config = httpClient.config;
     this.cache = cache;
     this.httpClient = httpClient;
     this.apiClient = apiClient;
-    this.permissionTTL = this.config.cache?.permissionTTL || 900; // 15 minutes default
+    this.permissionTTL = this.httpClient.config.cache?.permissionTTL || 900; // 15 minutes default
     this.applicationContextService = new ApplicationContextService(httpClient);
   }
 
   /**
    * Extract userId from JWT token without making API call
    * Uses browser-compatible JWT decoder
+   */
+  /**
+   * Extract userId from JWT token without verification.
    */
   private extractUserIdFromToken(token: string): string | null {
     try {
@@ -86,7 +86,7 @@ export class BrowserPermissionService {
       // Cache miss or no userId in token - fetch from controller
       // If we don't have userId, get it from validate endpoint
       if (!userId) {
-        const authStrategyToUse = authStrategy || this.config.authStrategy;
+    const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
         const authStrategyWithToken: AuthStrategy = authStrategyToUse 
           ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
@@ -102,7 +102,7 @@ export class BrowserPermissionService {
       }
 
       // Cache miss - fetch from controller using ApiClient
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
+    const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
       const authStrategyWithToken = authStrategyToUse 
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
@@ -129,7 +129,19 @@ export class BrowserPermissionService {
       return permissions;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Failed to get permissions:", error);
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to get permissions:", {
+        method: "GET",
+        path: "/api/auth/permissions",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: this.extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      });
       return [];
     }
   }
@@ -194,7 +206,7 @@ export class BrowserPermissionService {
   ): Promise<string[]> {
     try {
       // Get user info to extract userId
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
       const authStrategyWithToken = authStrategyToUse 
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
@@ -233,7 +245,19 @@ export class BrowserPermissionService {
       return permissions;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Failed to refresh permissions:", error);
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to refresh permissions:", {
+        method: "POST",
+        path: "/api/auth/permissions/refresh",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: this.extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      });
       return [];
     }
   }
@@ -249,7 +273,7 @@ export class BrowserPermissionService {
   ): Promise<void> {
     try {
       // Get user info to extract userId
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
       const authStrategyWithToken = authStrategyToUse 
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
@@ -270,7 +294,19 @@ export class BrowserPermissionService {
       await this.cache.delete(cacheKey);
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Failed to clear permissions cache:", error);
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to clear permissions cache:", {
+        method: "DELETE",
+        path: "/cache/permissions",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: this.extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      });
     }
   }
 }

@@ -114,6 +114,151 @@ function cacheConfig(config: DataClientConfigResponse, expiresIn: number): void 
   }
 }
 
+function buildConfigUrl(baseUrl: string, clientTokenUri: string): string {
+  return /^https?:\/\//i.test(clientTokenUri)
+    ? clientTokenUri
+    : `${baseUrl}${clientTokenUri}`;
+}
+
+function createTimeoutController(timeout: number): {
+  controller: AbortController;
+  timeoutId: ReturnType<typeof setTimeout>;
+} {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  return { controller, timeoutId };
+}
+
+function buildFetchError(
+  fetchError: unknown,
+  fullUrl: string,
+  timeout: number,
+): Error {
+  const errorMessage =
+    fetchError instanceof Error ? fetchError.message : String(fetchError);
+  const errorName = fetchError instanceof Error ? fetchError.name : "Unknown";
+
+  if (errorName === "AbortError" || errorMessage.includes("aborted")) {
+    return new Error(
+      `Request timeout: The client token endpoint did not respond within ${timeout}ms. ` +
+        `Please check if the server is running and accessible at ${fullUrl}`,
+    );
+  }
+
+  if (
+    errorMessage.includes("ERR_EMPTY_RESPONSE") ||
+    errorMessage.includes("empty response")
+  ) {
+    return new Error(
+      `Connection error: The server closed the connection without sending a response. ` +
+        `Please check if the server is running and accessible at ${fullUrl}`,
+    );
+  }
+
+  if (
+    errorMessage.includes("Failed to fetch") ||
+    errorMessage.includes("network")
+  ) {
+    return new Error(
+      `Network error: Cannot connect to ${fullUrl}. ` +
+        `Please check your network connection and ensure the server is running.`,
+    );
+  }
+
+  return new Error(`Failed to fetch config: ${errorMessage}`);
+}
+
+async function fetchWithTimeout(
+  fullUrl: string,
+  method: "GET" | "POST",
+  timeout: number,
+  headers?: Record<string, string>,
+): Promise<Response> {
+  const { controller, timeoutId } = createTimeoutController(timeout);
+  try {
+    const response = await fetch(fullUrl, {
+      method,
+      headers,
+      credentials: "include",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (fetchError) {
+    clearTimeout(timeoutId);
+    throw buildFetchError(fetchError, fullUrl, timeout);
+  }
+}
+
+async function fetchConfigResponse(
+  fullUrl: string,
+  timeout: number,
+): Promise<Response> {
+  const response = await fetchWithTimeout(fullUrl, "POST", timeout, {
+    "Content-Type": "application/json",
+  });
+
+  if (response.status !== 405) {
+    return response;
+  }
+
+  return fetchWithTimeout(fullUrl, "GET", timeout);
+}
+
+async function buildHttpErrorMessage(response: Response): Promise<string> {
+  let errorMessage = `Failed to fetch config: ${response.status} ${response.statusText}`;
+  let errorDetails: string | undefined;
+
+  try {
+    const contentType = response.headers.get("content-type");
+    if (contentType && contentType.includes("application/json")) {
+      const errorData =
+        (await response.json().catch(() => null)) as Record<string, unknown> | null;
+      if (errorData) {
+        if (typeof errorData.message === "string") {
+          errorMessage = errorData.message;
+        } else if (typeof errorData.error === "string") {
+          errorMessage = errorData.error;
+        }
+
+        if (errorData.details) {
+          if (typeof errorData.details === "string") {
+            errorDetails = errorData.details;
+          } else if (
+            typeof errorData.details === "object" &&
+            errorData.details !== null
+          ) {
+            const details = errorData.details as Record<string, unknown>;
+            if (typeof details.suggestion === "string") {
+              errorDetails = details.suggestion;
+            } else if (typeof details.controllerUrl === "string") {
+              errorDetails = `Controller URL: ${details.controllerUrl}`;
+            }
+          }
+        }
+      }
+    } else {
+      const errorText = await response.text().catch(
+        () => "Unable to read error response",
+      );
+      if (errorText && errorText !== "Unable to read error response") {
+        errorMessage = `${errorMessage}. ${errorText}`;
+      }
+    }
+  } catch {
+    try {
+      const errorText = await response.text().catch(() => "");
+      if (errorText) {
+        errorMessage = `${errorMessage}. ${errorText}`;
+      }
+    } catch {
+      // Ignore errors reading response
+    }
+  }
+
+  return errorDetails ? `${errorMessage}. ${errorDetails}` : errorMessage;
+}
+
 /**
  * Fetch config from server endpoint
  * 
@@ -125,153 +270,20 @@ async function fetchConfig(
   baseUrl: string,
   clientTokenUri: string,
 ): Promise<DataClientConfigResponse> {
-  // Build full URL
-  const fullUrl = /^https?:\/\//i.test(clientTokenUri)
-    ? clientTokenUri
-    : `${baseUrl}${clientTokenUri}`;
-
-  // Add timeout to prevent hanging (30 seconds)
+  const fullUrl = buildConfigUrl(baseUrl, clientTokenUri);
   const timeout = 30000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    // Try POST first (standard), fallback to GET
-    let response: Response;
-    try {
-      response = await fetch(fullUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        signal: controller.signal,
-      });
-    } catch (fetchError) {
-      clearTimeout(timeoutId);
-      
-      // Handle timeout and network errors
-      const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
-      const errorName = fetchError instanceof Error ? fetchError.name : "Unknown";
-      
-      if (errorName === "AbortError" || errorMessage.includes("aborted")) {
-        throw new Error(
-          `Request timeout: The client token endpoint did not respond within ${timeout}ms. ` +
-          `Please check if the server is running and accessible at ${fullUrl}`
-        );
-      }
-      
-      if (errorMessage.includes("ERR_EMPTY_RESPONSE") || errorMessage.includes("empty response")) {
-        throw new Error(
-          `Connection error: The server closed the connection without sending a response. ` +
-          `Please check if the server is running and accessible at ${fullUrl}`
-        );
-      }
-      
-      if (errorMessage.includes("Failed to fetch") || errorMessage.includes("network")) {
-        throw new Error(
-          `Network error: Cannot connect to ${fullUrl}. ` +
-          `Please check your network connection and ensure the server is running.`
-        );
-      }
-      
-      throw new Error(`Failed to fetch config: ${errorMessage}`);
-    }
-
-    clearTimeout(timeoutId);
-
-    // If POST fails with 405 (Method Not Allowed), try GET as fallback
-    // This provides backward compatibility for servers that only support GET
-    if (response.status === 405) {
-      const getController = new AbortController();
-      const getTimeoutId = setTimeout(() => getController.abort(), timeout);
-      try {
-        response = await fetch(fullUrl, {
-          method: "GET",
-          credentials: "include",
-          signal: getController.signal,
-        });
-        clearTimeout(getTimeoutId);
-      } catch (fetchError) {
-        clearTimeout(getTimeoutId);
-        const errorMessage = fetchError instanceof Error ? fetchError.message : String(fetchError);
-        const errorName = fetchError instanceof Error ? fetchError.name : "Unknown";
-        
-        if (errorName === "AbortError" || errorMessage.includes("aborted")) {
-          throw new Error(
-            `Request timeout: The client token endpoint did not respond within ${timeout}ms. ` +
-            `Please check if the server is running and accessible at ${fullUrl}`
-          );
-        }
-        throw new Error(`Failed to fetch config: ${errorMessage}`);
-      }
-    }
-
+    const response = await fetchConfigResponse(fullUrl, timeout);
     if (!response.ok) {
-      // Try to parse JSON error response first
-      let errorMessage = `Failed to fetch config: ${response.status} ${response.statusText}`;
-      let errorDetails: string | undefined;
-      
-      try {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const errorData = await response.json().catch(() => null) as Record<string, unknown> | null;
-          if (errorData) {
-            // Extract error message from structured error response
-            if (typeof errorData.message === "string") {
-              errorMessage = errorData.message;
-            } else if (typeof errorData.error === "string") {
-              errorMessage = errorData.error;
-            }
-            
-            // Extract details if available
-            if (errorData.details) {
-              if (typeof errorData.details === "string") {
-                errorDetails = errorData.details;
-              } else if (typeof errorData.details === "object" && errorData.details !== null) {
-                const details = errorData.details as Record<string, unknown>;
-                if (typeof details.suggestion === "string") {
-                  errorDetails = details.suggestion;
-                } else if (typeof details.controllerUrl === "string") {
-                  errorDetails = `Controller URL: ${details.controllerUrl}`;
-                }
-              }
-            }
-          }
-        } else {
-          // Try to read as text if not JSON
-          const errorText = await response.text().catch(() => "Unable to read error response");
-          if (errorText && errorText !== "Unable to read error response") {
-            errorMessage = `${errorMessage}. ${errorText}`;
-          }
-        }
-      } catch (parseError) {
-        // If JSON parsing fails, try to read as text
-        try {
-          const errorText = await response.text().catch(() => "");
-          if (errorText) {
-            errorMessage = `${errorMessage}. ${errorText}`;
-          }
-        } catch {
-          // Ignore errors reading response
-        }
-      }
-      
-      // Build final error message
-      const finalMessage = errorDetails 
-        ? `${errorMessage}. ${errorDetails}`
-        : errorMessage;
-      
-      throw new Error(finalMessage);
+      throw new Error(await buildHttpErrorMessage(response));
     }
 
     const data = (await response.json()) as ClientTokenResponse;
-
-    // Check if response has config
     if (!hasConfig(data)) {
       throw new Error(
         "Invalid response format: config not found in response. " +
-        "Make sure your server endpoint uses createClientTokenEndpoint() helper.",
+          "Make sure your server endpoint uses createClientTokenEndpoint() helper.",
       );
     }
 

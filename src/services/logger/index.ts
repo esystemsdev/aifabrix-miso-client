@@ -3,10 +3,13 @@
  * Provides LoggerService and LoggerChain for application logging
  */
 
-export { LoggerService, ClientLoggingOptions } from "./logger.service";
+export { LoggerService } from "./logger.service";
+export type { ClientLoggingOptions } from "./logger.service";
 export { LoggerChain } from "./logger-chain";
-export { UnifiedLoggerService, UnifiedLogger } from "./unified-logger.service";
-export { LoggerContextStorage, LoggerContext } from "./logger-context-storage";
+export { UnifiedLoggerService } from "./unified-logger.service";
+export type { UnifiedLogger } from "./unified-logger.service";
+export { LoggerContextStorage } from "./logger-context-storage";
+export type { LoggerContext } from "./logger-context-storage";
 export {
   getLogger,
   setLoggerContext,

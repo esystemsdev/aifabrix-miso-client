@@ -8,7 +8,7 @@ import { HttpClient } from "../../utils/http-client";
 import { ApiClient } from "../../api";
 import { RedisService } from "../redis.service";
 import { DataMasker } from "../../utils/data-masker";
-import { MisoClientConfig, LogEntry } from "../../types/config.types";
+import { LogEntry } from "../../types/config.types";
 import { AuditLogQueue } from "../../utils/audit-log-queue";
 import { LoggerChain } from "./logger-chain";
 import { ApplicationContextService } from "../application-context.service";
@@ -59,7 +59,6 @@ export class LoggerService extends EventEmitter {
   private httpClient: HttpClient;
   private apiClient?: ApiClient;
   private redis: RedisService;
-  private config: MisoClientConfig;
   private maskSensitiveData = true; // Default: mask sensitive data
   private correlationCounter = 0;
   private auditLogQueue: AuditLogQueue | null = null;
@@ -72,13 +71,12 @@ export class LoggerService extends EventEmitter {
 
   constructor(httpClient: HttpClient, redis: RedisService) {
     super(); // Initialize EventEmitter
-    this.config = httpClient.config;
     this.redis = redis;
     this.httpClient = httpClient;
     this.applicationContextService = new ApplicationContextService(httpClient);
 
     // Initialize audit log queue if batch logging is enabled
-    const auditConfig = this.config.audit || {};
+    const auditConfig = this.httpClient.config.audit || {};
     if (
       auditConfig.batchSize !== undefined ||
       auditConfig.batchInterval !== undefined
@@ -86,7 +84,7 @@ export class LoggerService extends EventEmitter {
       this.auditLogQueue = new AuditLogQueue(
         httpClient,
         redis,
-        this.config,
+        this.httpClient.config,
         this,
       );
     }
@@ -136,7 +134,7 @@ export class LoggerService extends EventEmitter {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     // Use clientId instead of applicationKey
-    const clientPrefix = this.config.clientId.substring(0, 10);
+    const clientPrefix = this.httpClient.config.clientId.substring(0, 10);
     return `${clientPrefix}-${timestamp}-${this.correlationCounter}-${random}`;
   }
 
@@ -194,7 +192,7 @@ export class LoggerService extends EventEmitter {
     context?: Record<string, unknown>,
     options?: ClientLoggingOptions,
   ): Promise<void> {
-    if (this.config.logLevel === "debug") {
+    if (this.httpClient.config.logLevel === "debug") {
       await this.log("debug", message, context, undefined, options);
     }
   }
@@ -209,43 +207,87 @@ export class LoggerService extends EventEmitter {
     stackTrace?: string,
     options?: ClientLoggingOptions,
   ): Promise<void> {
-    // Extract JWT context if token provided
     const jwtContext = options?.token
       ? extractJwtContext(options.token)
       : {};
-
-    // Extract environment metadata
     const metadata = extractEnvironmentMetadata();
-
-    // Generate correlation ID if not provided
     const correlationId =
       options?.correlationId || this.generateCorrelationId();
+    const maskedContext = this.maskContext(context, options);
+    const appContext = this.applicationContextService.getApplicationContext();
+    const logEntry = this.buildLogEntry(
+      level,
+      message,
+      maskedContext,
+      stackTrace,
+      options,
+      jwtContext,
+      metadata,
+      appContext,
+      correlationId,
+    );
 
-    // Mask sensitive data in context if enabled
+    if (this.httpClient.config.emitEvents) {
+      this.emit("log", logEntry);
+      return;
+    }
+
+    if (level === "audit" && this.auditLogQueue) {
+      await this.auditLogQueue.add(logEntry);
+      return;
+    }
+
+    if (await this.sendToRedis(logEntry)) {
+      return;
+    }
+
+    if (this.isCircuitOpen()) {
+      return;
+    }
+
+    await this.sendToHttp(level, logEntry);
+  }
+
+  /**
+   * Mask sensitive data in log context if enabled.
+   */
+  private maskContext(
+    context?: Record<string, unknown>,
+    options?: ClientLoggingOptions,
+  ): Record<string, unknown> | undefined {
     const maskSensitive =
       options?.maskSensitiveData !== false && this.maskSensitiveData;
-    const maskedContext =
-      maskSensitive && context
-        ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
-        : context;
-
-    // Get application context
-    const appContext = this.applicationContextService.getApplicationContext();
-    
-    // Extract applicationId from options, then try client token, then user JWT
-    let applicationId = options?.applicationId || "";
-    if (!applicationId && appContext.applicationId) {
-      applicationId = appContext.applicationId;
+    if (!maskSensitive || !context) {
+      return context;
     }
-    if (!applicationId && jwtContext.applicationId) {
-      applicationId = jwtContext.applicationId;
-    }
+    return DataMasker.maskSensitiveData(context) as Record<string, unknown>;
+  }
 
-    const logEntry: LogEntry = {
+  /**
+   * Build LogEntry from inputs and context.
+   */
+  private buildLogEntry(
+    level: LogEntry["level"],
+    message: string,
+    maskedContext: Record<string, unknown> | undefined,
+    stackTrace: string | undefined,
+    options: ClientLoggingOptions | undefined,
+    jwtContext: ReturnType<typeof extractJwtContext>,
+    metadata: ReturnType<typeof extractEnvironmentMetadata>,
+    appContext: ReturnType<ApplicationContextService["getApplicationContext"]>,
+    correlationId: string,
+  ): LogEntry {
+    const applicationId = this.resolveApplicationId(
+      options,
+      jwtContext,
+      appContext,
+    );
+
+    return {
       timestamp: new Date().toISOString(),
       level,
       environment: appContext.environment || "unknown",
-      application: appContext.application || this.config.clientId,
+      application: appContext.application || this.httpClient.config.clientId,
       applicationId,
       message,
       context: maskedContext,
@@ -258,138 +300,180 @@ export class LoggerService extends EventEmitter {
       userAgent: options?.userAgent || metadata.userAgent,
       referer: options?.referer,
       ...metadata,
-      // Indexed context fields
       sourceKey: options?.sourceKey,
       sourceDisplayName: options?.sourceDisplayName,
       externalSystemKey: options?.externalSystemKey,
       externalSystemDisplayName: options?.externalSystemDisplayName,
       recordKey: options?.recordKey,
       recordDisplayName: options?.recordDisplayName,
-      // Credential context
       credentialId: options?.credentialId,
       credentialType: options?.credentialType,
-      // Request metrics
       requestSize: options?.requestSize,
       responseSize: options?.responseSize,
       durationMs: options?.durationMs,
-      // Error classification
       errorCategory: options?.errorCategory,
       httpStatusCategory: options?.httpStatusCategory,
     };
+  }
 
-    // If emitEvents is enabled, emit event and skip HTTP/Redis
-    if (this.config.emitEvents) {
-      // Emit log event - same payload structure as REST API
-      // Listener can check logEntry.level to filter by log level if needed
-      this.emit("log", logEntry);
-      return;
+  /**
+   * Resolve applicationId from options, app context, or JWT context.
+   */
+  private resolveApplicationId(
+    options: ClientLoggingOptions | undefined,
+    jwtContext: ReturnType<typeof extractJwtContext>,
+    appContext: ReturnType<ApplicationContextService["getApplicationContext"]>,
+  ): string {
+    if (options?.applicationId) {
+      return options.applicationId;
     }
-
-    // Use batch queue for audit logs if available
-    if (level === "audit" && this.auditLogQueue) {
-      await this.auditLogQueue.add(logEntry);
-      return;
+    if (appContext.applicationId) {
+      return appContext.applicationId;
     }
+    return jwtContext.applicationId || "";
+  }
 
-    // Try Redis first (if available)
-    if (this.redis.isConnected()) {
-      const queueName = `logs:${this.config.clientId}`;
-      const success = await this.redis.rpush(
-        queueName,
-        JSON.stringify(logEntry),
-      );
-
-      if (success) {
-        return; // Successfully queued in Redis
-      }
+  /**
+   * Attempt to enqueue log entry in Redis.
+   */
+  private async sendToRedis(logEntry: LogEntry): Promise<boolean> {
+    if (!this.redis.isConnected()) {
+      return false;
     }
+    const queueName = `logs:${this.httpClient.config.clientId}`;
+    const success = await this.redis.rpush(
+      queueName,
+      JSON.stringify(logEntry),
+    );
+    return Boolean(success);
+  }
 
-    // Check circuit breaker - skip HTTP logging if we've had too many failures
+  /**
+   * Check if HTTP logging circuit breaker is open.
+   */
+  private isCircuitOpen(): boolean {
     const now = Date.now();
-    if (this.httpLoggingDisabledUntil && now < this.httpLoggingDisabledUntil) {
-      // Circuit breaker is open - skip HTTP logging attempt
-      return;
+    return Boolean(
+      this.httpLoggingDisabledUntil && now < this.httpLoggingDisabledUntil,
+    );
+  }
+
+  /**
+   * Map internal log level to API log type/level.
+   */
+  private mapLogType(level: LogEntry["level"]): {
+    logType: "audit" | "error" | "general";
+    logLevel: "info" | "error" | "debug";
+  } {
+    const logType =
+      level === "audit" ? "audit" : level === "error" ? "error" : "general";
+    const logLevel =
+      level === "audit"
+        ? "info"
+        : level === "error"
+          ? "error"
+          : level === "info"
+            ? "info"
+            : "debug";
+    return { logType, logLevel };
+  }
+
+  /**
+   * Build enriched context for API payload.
+   */
+  private buildEnrichedContext(logEntry: LogEntry): Record<string, unknown> {
+    const enrichedContext: Record<string, unknown> = {
+      ...logEntry.context,
+      userId: logEntry.userId,
+      sessionId: logEntry.sessionId,
+      requestId: logEntry.requestId,
+      ipAddress: logEntry.ipAddress,
+      userAgent: logEntry.userAgent,
+      referer: logEntry.referer,
+      hostname: logEntry.hostname,
+      applicationId: logEntry.applicationId,
+      sourceKey: logEntry.sourceKey,
+      sourceDisplayName: logEntry.sourceDisplayName,
+      externalSystemKey: logEntry.externalSystemKey,
+      externalSystemDisplayName: logEntry.externalSystemDisplayName,
+      recordKey: logEntry.recordKey,
+      recordDisplayName: logEntry.recordDisplayName,
+      credentialId: logEntry.credentialId,
+      credentialType: logEntry.credentialType,
+      requestSize: logEntry.requestSize,
+      responseSize: logEntry.responseSize,
+      durationMs: logEntry.durationMs,
+      errorCategory: logEntry.errorCategory,
+      httpStatusCategory: logEntry.httpStatusCategory,
+    };
+
+    Object.keys(enrichedContext).forEach((key) => {
+      if (enrichedContext[key] === undefined) {
+        delete enrichedContext[key];
+      }
+    });
+
+    if (logEntry.stackTrace) {
+      enrichedContext.stackTrace = logEntry.stackTrace;
     }
 
-    // Send to unified logging endpoint with client credentials
+    return enrichedContext;
+  }
+
+  /**
+   * Detect auth-related HTTP errors for circuit breaker logic.
+   */
+  private isAuthError(error: unknown): boolean {
+    if (!(error instanceof Error)) {
+      return false;
+    }
+    if (error.message.includes("401") || error.message.includes("Unauthorized")) {
+      return true;
+    }
+    return (error as { statusCode?: number }).statusCode === 401;
+  }
+
+  /**
+   * Send log entry to controller via API client.
+   */
+  private async sendToHttp(
+    level: LogEntry["level"],
+    logEntry: LogEntry,
+  ): Promise<void> {
+    const now = Date.now();
     try {
       if (!this.apiClient) {
-        throw new Error('ApiClient not initialized. Call setApiClient() before logging.');
+        throw new Error(
+          "ApiClient not initialized. Call setApiClient() before logging.",
+        );
       }
 
-      // Map LogEntry to CreateLogRequest format
-      const logType = level === 'audit' ? 'audit' : level === 'error' ? 'error' : 'general';
-      // Map level: 'audit' -> 'info', others map directly (CreateLogRequest.data.level doesn't accept 'audit')
-      const logLevel = level === 'audit' ? 'info' : level === 'error' ? 'error' : level === 'info' ? 'info' : 'debug';
-      
-      // Build context with all LogEntry fields (backend extracts environment/application from credentials)
-      const enrichedContext: Record<string, unknown> = {
-        ...logEntry.context,
-        // Include additional LogEntry fields in context
-        userId: logEntry.userId,
-        sessionId: logEntry.sessionId,
-        requestId: logEntry.requestId,
-        ipAddress: logEntry.ipAddress,
-        userAgent: logEntry.userAgent,
-        referer: logEntry.referer,
-        hostname: logEntry.hostname,
-        applicationId: logEntry.applicationId,
-        sourceKey: logEntry.sourceKey,
-        sourceDisplayName: logEntry.sourceDisplayName,
-        externalSystemKey: logEntry.externalSystemKey,
-        externalSystemDisplayName: logEntry.externalSystemDisplayName,
-        recordKey: logEntry.recordKey,
-        recordDisplayName: logEntry.recordDisplayName,
-        credentialId: logEntry.credentialId,
-        credentialType: logEntry.credentialType,
-        requestSize: logEntry.requestSize,
-        responseSize: logEntry.responseSize,
-        durationMs: logEntry.durationMs,
-        errorCategory: logEntry.errorCategory,
-        httpStatusCategory: logEntry.httpStatusCategory,
-      };
-      
-      // Remove undefined values to keep payload clean
-      Object.keys(enrichedContext).forEach(key => {
-        if (enrichedContext[key] === undefined) {
-          delete enrichedContext[key];
-        }
-      });
-      
-      // Include stackTrace in context if present
-      if (logEntry.stackTrace) {
-        enrichedContext.stackTrace = logEntry.stackTrace;
-      }
-      
-      // For audit logs, extract required fields from context
-      if (level === 'audit') {
-        // Extract action and resource from context (set by audit() method)
+      const { logType, logLevel } = this.mapLogType(level);
+      const enrichedContext = this.buildEnrichedContext(logEntry);
+
+      if (level === "audit") {
         const auditAction = enrichedContext.action as string | undefined;
         const auditResource = enrichedContext.resource as string | undefined;
-        
-        // Extract entityType and entityId if already provided in context
         const providedEntityType = enrichedContext.entityType as string | undefined;
         const providedEntityId = enrichedContext.entityId as string | undefined;
         const providedOldValues = enrichedContext.oldValues as Record<string, unknown> | undefined;
         const providedNewValues = enrichedContext.newValues as Record<string, unknown> | undefined;
-        
-        // Remove fields that will be moved to data object (not in context)
+
         delete enrichedContext.action;
         delete enrichedContext.resource;
         delete enrichedContext.entityType;
         delete enrichedContext.entityId;
         delete enrichedContext.oldValues;
         delete enrichedContext.newValues;
-        
-        // Map to required audit log fields
-        // entityType: Type of entity (use provided, or default to "HTTP Request" for HTTP requests, or "API Endpoint" for API paths)
-        // entityId: The resource/URL being acted upon (use provided, or default to resource/URL)
-        // action: The action being performed (use provided action from audit() call)
-        const entityType = providedEntityType || 
-                          (auditResource && auditResource.startsWith('/api/') ? 'API Endpoint' : 'HTTP Request');
-        const entityId = providedEntityId || auditResource || 'unknown';
-        const action = auditAction || 'unknown';
-        
+
+        const entityType =
+          providedEntityType ||
+          (auditResource && auditResource.startsWith("/api/")
+            ? "API Endpoint"
+            : "HTTP Request");
+        const entityId = providedEntityId || auditResource || "unknown";
+        const action = auditAction || "unknown";
+
         await this.apiClient.logs.createLog({
           type: logType,
           data: {
@@ -400,7 +484,6 @@ export class LoggerService extends EventEmitter {
             entityType,
             entityId,
             action,
-            // Include oldValues and newValues if present
             oldValues: providedOldValues,
             newValues: providedNewValues,
           },
@@ -416,28 +499,17 @@ export class LoggerService extends EventEmitter {
           },
         });
       }
-      // Success - reset failure counter
+
       this.httpLoggingFailures = 0;
       this.httpLoggingDisabledUntil = null;
     } catch (error) {
-      // Failed to send log to controller
-      // Check if it's a 401 (token expired) - don't count towards failure threshold
-      const isAuthError = error instanceof Error && 
-        (error.message.includes('401') || 
-         error.message.includes('Unauthorized') ||
-         (error as { statusCode?: number }).statusCode === 401);
-      
-      if (!isAuthError) {
-        // Only increment failure counter for non-auth errors
+      if (!this.isAuthError(error)) {
         this.httpLoggingFailures++;
         if (this.httpLoggingFailures >= LoggerService.MAX_FAILURES) {
-          // Open circuit breaker - disable HTTP logging for a period
           this.httpLoggingDisabledUntil = now + LoggerService.DISABLE_DURATION_MS;
-          this.httpLoggingFailures = 0; // Reset counter for next attempt after cooldown
+          this.httpLoggingFailures = 0;
         }
       }
-      // Silently fail to avoid infinite logging loops
-      // Application should implement retry or buffer strategy if needed
     }
   }
 
@@ -458,17 +530,17 @@ export class LoggerService extends EventEmitter {
 
   /** Get LogEntry with request context extracted */
   getLogWithRequest(req: Request, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
-    return getLogWithRequest(req, message, level, context, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.config.clientId);
+    return getLogWithRequest(req, message, level, context, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.httpClient.config.clientId);
   }
 
   /** Get LogEntry with provided context */
   getWithContext(context: Record<string, unknown>, message: string, level: LogEntry["level"] = "info"): LogEntry {
-    return getWithContext(context, message, level, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.config.clientId);
+    return getWithContext(context, message, level, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.httpClient.config.clientId);
   }
 
   /** Get LogEntry with token context extracted */
   getWithToken(token: string, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
-    return getWithToken(token, message, level, context, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.config.clientId);
+    return getWithToken(token, message, level, context, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.httpClient.config.clientId);
   }
 
   /** Get LogEntry with request context (alias) */

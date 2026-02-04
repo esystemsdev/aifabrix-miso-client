@@ -2,6 +2,9 @@
  * Configuration types for MisoClient
  */
 
+/**
+ * Redis configuration for caching.
+ */
 export interface RedisConfig {
   host: string;
   port: number;
@@ -43,6 +46,9 @@ export interface AuthStrategy {
   apiKey?: string;
 }
 
+/**
+ * MisoClient configuration.
+ */
 export interface MisoClientConfig {
   // REQUIRED: clientId is always required
   clientId: string;
@@ -131,6 +137,9 @@ export interface MisoClientConfig {
   encryptionKey?: string;
 }
 
+/**
+ * Audit logging configuration.
+ */
 export interface AuditConfig {
   enabled?: boolean; // Enable/disable audit logging (default: true)
   level?: "minimal" | "standard" | "detailed" | "full"; // Audit detail level (default: 'detailed')
@@ -141,6 +150,9 @@ export interface AuditConfig {
   skipEndpoints?: string[]; // Endpoints to skip audit logging
 }
 
+/**
+ * User information returned by the controller.
+ */
 export interface UserInfo {
   id: string;
   username: string;
@@ -150,12 +162,18 @@ export interface UserInfo {
   roles?: string[];
 }
 
+/**
+ * Authentication result.
+ */
 export interface AuthResult {
   authenticated: boolean;
   user?: UserInfo;
   error?: string;
 }
 
+/**
+ * Log entry structure for logging and audit.
+ */
 export interface LogEntry {
   timestamp: string;
   level: "error" | "audit" | "info" | "debug";
@@ -198,6 +216,9 @@ export interface LogEntry {
   httpStatusCategory?: string;
 }
 
+/**
+ * Role lookup result.
+ */
 export interface RoleResult {
   userId: string;
   roles: string[];
@@ -205,6 +226,9 @@ export interface RoleResult {
   application: string;
 }
 
+/**
+ * Permission lookup result.
+ */
 export interface PermissionResult {
   userId: string;
   permissions: string[];
@@ -212,6 +236,9 @@ export interface PermissionResult {
   application: string;
 }
 
+/**
+ * Client token response from controller.
+ */
 export interface ClientTokenResponse {
   success: boolean;
   // Support both nested (new) and flat (old) response formats
@@ -226,6 +253,9 @@ export interface ClientTokenResponse {
   timestamp?: string;
 }
 
+/**
+ * Login response containing login URL and state.
+ */
 export interface LoginResponse {
   success: boolean;
   data: {
@@ -235,12 +265,18 @@ export interface LoginResponse {
   timestamp: string;
 }
 
+/**
+ * Logout response.
+ */
 export interface LogoutResponse {
   success: boolean;
   message: string;
   timestamp: string;
 }
 
+/**
+ * Refresh token response.
+ */
 export interface RefreshTokenResponse {
   success: boolean;
   accessToken: string;
@@ -251,7 +287,7 @@ export interface RefreshTokenResponse {
 }
 
 /**
- * RFC 7807-style structured error response
+ * RFC 7807-style structured error response.
  */
 export interface ErrorResponse {
   errors: string[];

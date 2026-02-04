@@ -140,6 +140,259 @@ export async function makeFetchRequest(
 /**
  * Execute HTTP request with retry logic
  */
+interface RetryConfig {
+  maxRetries: number;
+  retryEnabled: boolean;
+  baseDelay: number;
+  maxDelay: number;
+}
+
+interface RequestRetryState {
+  authErrorDetected: boolean;
+  tokenRefreshAttempted: boolean;
+}
+
+interface AttemptRequestParams {
+  attempt: number;
+  method: string;
+  fullUrl: string;
+  endpoint: string;
+  config: DataClientConfig;
+  cache: Map<string, CacheEntry>;
+  cacheKey: string;
+  cacheEnabled: boolean;
+  startTime: number;
+  misoClient: MisoClient | null;
+  hasAnyToken: HasAnyTokenFn;
+  getToken: GetTokenFn;
+  handleAuthError: () => void;
+  refreshUserToken: RefreshUserTokenFn;
+  interceptors: InterceptorConfig;
+  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] };
+  options?: ApiRequestOptions;
+  retryConfig: RetryConfig;
+  state: RequestRetryState;
+}
+
+function resolveRetryConfig(
+  config: DataClientConfig,
+  options?: ApiRequestOptions,
+): RetryConfig {
+  return {
+    maxRetries:
+      options?.retries !== undefined
+        ? options.retries
+        : config.retry?.maxRetries || 3,
+    retryEnabled: config.retry?.enabled !== false,
+    baseDelay: config.retry?.baseDelay || 1000,
+    maxDelay: config.retry?.maxDelay || 10000,
+  };
+}
+
+function isAuthStatus(status?: number): boolean {
+  return status === 401 || status === 403;
+}
+
+function isAuthErrorInstance(error: unknown): boolean {
+  const errorObj = error as ApiError;
+  return (
+    error instanceof AuthenticationError ||
+    errorObj.name === "AuthenticationError" ||
+    errorObj.statusCode === 401 ||
+    errorObj.statusCode === 403
+  );
+}
+
+function resolveStatusCode(
+  error: ApiError,
+  responseStatus?: number,
+): number | undefined {
+  const errorResponseStatus = (error.response as Response | undefined)?.status;
+  return error.statusCode ?? errorResponseStatus ?? responseStatus ?? undefined;
+}
+
+function shouldRetryError(
+  statusCode: number | undefined,
+  retryConfig: RetryConfig,
+  attempt: number,
+  error: Error,
+): boolean {
+  const is500Error = statusCode !== undefined && statusCode >= 500 && statusCode < 600;
+  const effectiveMaxRetries = is500Error ? 0 : retryConfig.maxRetries;
+  return (
+    retryConfig.retryEnabled &&
+    !is500Error &&
+    attempt < effectiveMaxRetries &&
+    isRetryableError(statusCode, error)
+  );
+}
+
+async function handleAuthResponse<T>(
+  params: AttemptRequestParams & { response: Response; responseStatus: number },
+): Promise<T | null> {
+  const { responseStatus, config, refreshUserToken, attempt, state } = params;
+  if (!isAuthStatus(responseStatus)) {
+    return null;
+  }
+
+  if (
+    responseStatus === 401 &&
+    config.onTokenRefresh &&
+    refreshUserToken &&
+    attempt === 0 &&
+    !state.tokenRefreshAttempted
+  ) {
+    state.tokenRefreshAttempted = true;
+    try {
+      const refreshResult = await refreshUserToken();
+      if (refreshResult?.token) {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return attemptRequest<T>({ ...params, attempt: attempt + 1 });
+      }
+    } catch (refreshError) {
+      console.warn("Token refresh failed, redirecting to login:", refreshError);
+      state.authErrorDetected = true;
+    }
+  }
+
+  state.authErrorDetected = true;
+  const authError =
+    responseStatus === 401
+      ? new AuthenticationError("Authentication required", params.response)
+      : new ApiError("Forbidden", 403, params.response);
+
+  handleAuthErrorCleanup(
+    authError,
+    responseStatus,
+    params.method,
+    params.endpoint,
+    params.startTime,
+    params.config,
+    params.misoClient,
+    params.hasAnyToken,
+    params.getToken,
+    params.handleAuthError,
+    params.metrics,
+    params.options,
+  );
+  throw authError;
+}
+
+async function handleAttemptError<T>(
+  params: AttemptRequestParams & {
+    error: unknown;
+    responseStatus?: number;
+  },
+): Promise<T> {
+  const { error, responseStatus, state, attempt, retryConfig } = params;
+
+  if (state.tokenRefreshAttempted && isAuthStatus(responseStatus)) {
+    state.authErrorDetected = true;
+    throw error;
+  }
+
+  if (error instanceof AuthenticationError || isAuthStatus(responseStatus) || isAuthErrorInstance(error)) {
+    state.authErrorDetected = true;
+    throw error;
+  }
+
+  const errorObj = error as ApiError;
+  const statusCode = resolveStatusCode(errorObj, responseStatus);
+  const isRetryable = shouldRetryError(statusCode, retryConfig, attempt, error as Error);
+
+  if (!isRetryable) {
+    if (isAuthStatus(statusCode)) {
+      state.authErrorDetected = true;
+      throw error;
+    }
+
+    params.metrics.totalFailures++;
+    await handleNonRetryableError(
+      error as Error,
+      params.method,
+      params.endpoint,
+      params.startTime,
+      statusCode,
+      responseStatus,
+      params.config,
+      params.misoClient,
+      params.hasAnyToken,
+      params.getToken,
+      params.metrics,
+      params.options,
+    );
+  }
+
+  if (state.authErrorDetected) {
+    throw error;
+  }
+
+  await waitForRetry(attempt, retryConfig.baseDelay, retryConfig.maxDelay, calculateBackoffDelay);
+  return attemptRequest<T>({ ...params, attempt: attempt + 1 });
+}
+
+async function attemptRequest<T>(params: AttemptRequestParams): Promise<T> {
+  if (params.state.authErrorDetected) {
+    throw new AuthenticationError("Authentication error detected - should not retry");
+  }
+
+  let responseStatus: number | undefined;
+  let response: Response | undefined;
+
+  try {
+    response = await makeFetchRequest(params.method, params.fullUrl, params.config, params.getToken, params.options);
+    responseStatus = response.status;
+
+    const authResult = await handleAuthResponse<T>({
+      ...params,
+      response,
+      responseStatus,
+    });
+    if (authResult) {
+      return authResult;
+    }
+
+    const data = await parseResponse<T>(response);
+    return await processSuccessfulResponse<T>(
+      response,
+      data,
+      params.method,
+      params.endpoint,
+      params.startTime,
+      params.config,
+      params.cache,
+      params.cacheKey,
+      params.cacheEnabled,
+      params.misoClient,
+      params.hasAnyToken,
+      params.getToken,
+      params.interceptors,
+      params.metrics,
+      params.options,
+    );
+  } catch (error) {
+    return handleAttemptError<T>({
+      ...params,
+      error,
+      responseStatus,
+    });
+  }
+}
+
+async function handleFinalError(
+  error: unknown,
+  interceptors: InterceptorConfig,
+  metrics: { totalFailures: number },
+): Promise<never> {
+  const isAuthError = isAuthErrorInstance(error);
+  metrics.totalFailures++;
+
+  if (interceptors.onError && !isAuthError) {
+    throw await interceptors.onError(error as Error);
+  }
+  throw error;
+}
+
 export async function executeHttpRequest<T>(
   method: string,
   fullUrl: string,
@@ -158,132 +411,32 @@ export async function executeHttpRequest<T>(
   metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] },
   options?: ApiRequestOptions,
 ): Promise<T> {
-  const maxRetries = options?.retries !== undefined ? options.retries : config.retry?.maxRetries || 3;
-  const retryEnabled = config.retry?.enabled !== false;
-  const baseDelay = config.retry?.baseDelay || 1000;
-  const maxDelay = config.retry?.maxDelay || 10000;
-  let authErrorDetected = false;
-  let tokenRefreshAttempted = false;
-
-  async function attemptRequest(attempt: number): Promise<T> {
-    if (authErrorDetected) {
-      throw new AuthenticationError("Authentication error detected - should not retry");
-    }
-
-    let responseStatus: number | undefined;
-    let response: Response | undefined;
-
-    try {
-      response = await makeFetchRequest(method, fullUrl, config, getToken, options);
-      responseStatus = response.status;
-
-      // Handle 401/403 errors
-      if (responseStatus === 401 || responseStatus === 403) {
-        if (responseStatus === 401 && config.onTokenRefresh && refreshUserToken && attempt === 0 && !tokenRefreshAttempted) {
-          tokenRefreshAttempted = true;
-          try {
-            const refreshResult = await refreshUserToken();
-            if (refreshResult?.token) {
-              await new Promise((resolve) => setTimeout(resolve, 10));
-              return attemptRequest(attempt + 1);
-            }
-          } catch (refreshError) {
-            console.warn("Token refresh failed, redirecting to login:", refreshError);
-            // If refresh fails, mark as auth error and don't retry
-            authErrorDetected = true;
-          }
-        }
-
-        // Always mark auth errors to prevent retries
-        authErrorDetected = true;
-        const authError = responseStatus === 401
-          ? new AuthenticationError("Authentication required", response)
-          : new ApiError("Forbidden", 403, response);
-
-        handleAuthErrorCleanup(
-          authError, responseStatus, method, endpoint, startTime, config,
-          misoClient, hasAnyToken, getToken, handleAuthError, metrics, options,
-        );
-        throw authError;
-      }
-
-      const data = await parseResponse<T>(response);
-      return await processSuccessfulResponse<T>(
-        response, data, method, endpoint, startTime, config, cache, cacheKey, cacheEnabled,
-        misoClient, hasAnyToken, getToken, interceptors, metrics, options,
-      );
-    } catch (error) {
-      // If we already attempted token refresh and still got auth error, don't retry
-      if (tokenRefreshAttempted && (responseStatus === 401 || responseStatus === 403)) {
-        authErrorDetected = true;
-        throw error;
-      }
-
-      if (error instanceof AuthenticationError) {
-        authErrorDetected = true;
-        throw error;
-      }
-
-      if (responseStatus === 401 || responseStatus === 403) {
-        authErrorDetected = true;
-        throw error;
-      }
-
-      const errorObj = error as ApiError;
-      if (errorObj.name === "AuthenticationError" || errorObj.statusCode === 401 || errorObj.statusCode === 403) {
-        authErrorDetected = true;
-        throw error;
-      }
-
-      const errorResponseStatus = (errorObj.response as Response | undefined)?.status;
-      const statusCode: number | undefined = error instanceof AuthenticationError
-        ? 401
-        : (errorObj.statusCode ?? errorResponseStatus ?? responseStatus ?? undefined);
-
-      const is500Error = statusCode && statusCode >= 500 && statusCode < 600;
-      const effectiveMaxRetries = is500Error ? 0 : maxRetries;
-      const isRetryable = retryEnabled && !is500Error && attempt < effectiveMaxRetries && isRetryableError(statusCode, error as Error);
-
-      if (!isRetryable) {
-        const isAuthError = error instanceof AuthenticationError ||
-          (error as ApiError).name === "AuthenticationError" ||
-          statusCode === 401 || statusCode === 403 ||
-          responseStatus === 401 || responseStatus === 403;
-
-        if (isAuthError) {
-          authErrorDetected = true;
-          throw error;
-        }
-
-        metrics.totalFailures++;
-        await handleNonRetryableError(
-          error as Error, method, endpoint, startTime, statusCode, responseStatus,
-          config, misoClient, hasAnyToken, getToken, metrics, options,
-        );
-      }
-
-      if (authErrorDetected) {
-        throw error;
-      }
-
-      await waitForRetry(attempt, baseDelay, maxDelay, calculateBackoffDelay);
-      return attemptRequest(attempt + 1);
-    }
-  }
+  const retryConfig = resolveRetryConfig(config, options);
+  const state: RequestRetryState = { authErrorDetected: false, tokenRefreshAttempted: false };
 
   try {
-    return await attemptRequest(0);
+    return await attemptRequest<T>({
+      attempt: 0,
+      method,
+      fullUrl,
+      endpoint,
+      config,
+      cache,
+      cacheKey,
+      cacheEnabled,
+      startTime,
+      misoClient,
+      hasAnyToken,
+      getToken,
+      handleAuthError,
+      refreshUserToken,
+      interceptors,
+      metrics,
+      options,
+      retryConfig,
+      state,
+    });
   } catch (error) {
-    const isAuthError = error instanceof AuthenticationError ||
-      (error as ApiError).name === "AuthenticationError" ||
-      (error as ApiError).statusCode === 401 ||
-      (error as ApiError).statusCode === 403;
-
-    metrics.totalFailures++;
-
-    if (interceptors.onError && !isAuthError) {
-      throw await interceptors.onError(error as Error);
-    }
-    throw error;
+    return handleFinalError(error, interceptors, metrics);
   }
 }

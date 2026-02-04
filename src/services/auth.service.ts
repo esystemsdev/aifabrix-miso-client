@@ -2,21 +2,29 @@
  * Authentication service for token validation and user management
  */
 
-import crypto from "crypto";
 import { HttpClient } from "../utils/http-client";
 import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
 import {
-  MisoClientConfig,
   UserInfo,
   AuthStrategy,
   LoginResponse,
   LogoutResponse,
   RefreshTokenResponse,
 } from "../types/config.types";
-import { resolveControllerUrl } from "../utils/controller-url-resolver";
-import jwt from "jsonwebtoken";
-import { handleAuthError, handleAuthErrorSilent, isHttpStatus } from "./auth-error-handler";
+import { handleAuthErrorSilent, isHttpStatus } from "./auth-error-handler";
+import {
+  createEnvTokenClient,
+  extractTokenFromEnvResponse,
+  fetchEnvironmentTokenResponse,
+} from "./auth-environment-token";
+import {
+  clearTokenCache as clearTokenCacheHelper,
+  clearUserCache as clearUserCacheHelper,
+  extractUserIdFromToken,
+  getCacheTtlFromToken,
+  getTokenCacheKey,
+} from "./auth-cache-helpers";
 
 /** Cache data structure for token validation results */
 interface TokenCacheData { authenticated: boolean; timestamp: number; }
@@ -28,19 +36,18 @@ export class AuthService {
   private httpClient: HttpClient;
   private apiClient: ApiClient;
   private cache: CacheService;
-  private config: MisoClientConfig;
   private tokenValidationTTL: number;
   private minValidationTTL: number;
   private userTTL: number;
 
   constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
-    this.config = httpClient.config;
     this.cache = cache;
     this.httpClient = httpClient;
     this.apiClient = apiClient;
-    this.tokenValidationTTL = this.config.cache?.tokenValidationTTL || 900; // 15 minutes default
-    this.minValidationTTL = this.config.cache?.minValidationTTL || 60; // 60 seconds default
-    this.userTTL = this.config.cache?.userTTL || 300; // 5 minutes default
+    const config = this.httpClient.config;
+    this.tokenValidationTTL = config.cache?.tokenValidationTTL || 900; // 15 minutes default
+    this.minValidationTTL = config.cache?.minValidationTTL || 60; // 60 seconds default
+    this.userTTL = config.cache?.userTTL || 300; // 5 minutes default
   }
 
   /**
@@ -48,66 +55,59 @@ export class AuthService {
    * @private
    */
   private isApiKeyToken(token: string): boolean {
-    return this.config.apiKey !== undefined && token === this.config.apiKey;
+    const config = this.httpClient.config;
+    return config.apiKey !== undefined && token === config.apiKey;
   }
 
-  /**
-   * Extract userId from JWT token without making API call
-   * @private
-   */
-  private extractUserIdFromToken(token: string): string | null {
-    try {
-      const decoded = jwt.decode(token) as Record<string, unknown> | null;
-      if (!decoded) return null;
-
-      // Try common JWT claim fields for user ID
-      return (decoded.sub ||
-        decoded.userId ||
-        decoded.user_id ||
-        decoded.id) as string | null;
-    } catch (error) {
-      return null;
-    }
+  private buildAuthStrategyWithToken(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): AuthStrategy {
+    const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
+    return authStrategyToUse
+      ? { ...authStrategyToUse, bearerToken: token }
+      : { methods: ["bearer"], bearerToken: token };
   }
 
-  /**
-   * Generate cache key using SHA-256 hash of token (security)
-   * Uses token hash instead of userId to avoid exposing user information in cache keys
-   * @param token - JWT token
-   * @returns Cache key in format token_validation:{hash}
-   */
-  private getTokenCacheKey(token: string): string {
-    const hash = crypto.createHash("sha256").update(token).digest("hex");
-    return `token_validation:${hash}`;
+  private async getCachedUserInfo(cacheKey: string | null): Promise<UserInfo | null> {
+    if (!cacheKey) return null;
+    const cached = await this.cache.get<UserInfoCacheData>(cacheKey);
+    return cached ? cached.user : null;
   }
 
-  /**
-   * Calculate smart TTL based on token expiration
-   * Uses min(token_exp - now - 30s buffer, tokenValidationTTL)
-   * with minimum minValidationTTL (default 60s), maximum tokenValidationTTL
-   * @param token - JWT token
-   * @returns TTL in seconds
-   */
-  private getCacheTtlFromToken(token: string): number {
-    const BUFFER_SECONDS = 30; // 30 second safety buffer
+  private async cacheUserInfo(cacheKey: string | null, user: UserInfo): Promise<void> {
+    if (!cacheKey) return;
+    await this.cache.set<UserInfoCacheData>(
+      cacheKey,
+      { user, timestamp: Date.now() },
+      this.userTTL,
+    );
+  }
 
-    try {
-      const decoded = jwt.decode(token) as Record<string, unknown> | null;
-      if (!decoded || typeof decoded.exp !== "number") {
-        return this.tokenValidationTTL; // Fallback to configured TTL
-      }
+  private async getCachedTokenValidation(cacheKey: string): Promise<boolean | null> {
+    const cached = await this.cache.get<TokenCacheData>(cacheKey);
+    return cached ? cached.authenticated : null;
+  }
 
-      const now = Math.floor(Date.now() / 1000);
-      const tokenTtl = decoded.exp - now - BUFFER_SECONDS;
+  private async cacheTokenValidation(cacheKey: string, token: string, authenticated: boolean): Promise<void> {
+    const ttl = getCacheTtlFromToken(
+      token,
+      this.tokenValidationTTL,
+      this.minValidationTTL,
+    );
+    await this.cache.set<TokenCacheData>(
+      cacheKey,
+      { authenticated, timestamp: Date.now() },
+      ttl,
+    );
+  }
 
-      // Clamp between minValidationTTL and tokenValidationTTL
-      return Math.max(
-        this.minValidationTTL,
-        Math.min(tokenTtl, this.tokenValidationTTL),
-      );
-    } catch {
-      return this.tokenValidationTTL;
-    }
+  private mapUserInfo(user: { id: string; username: string; email: string }): UserInfo {
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+    };
   }
 
   /**
@@ -116,53 +116,46 @@ export class AuthService {
   private generateCorrelationId(): string {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
-    const clientPrefix = this.config.clientId.substring(0, 10);
+    const clientPrefix = this.httpClient.config.clientId.substring(0, 10);
     return `${clientPrefix}-${timestamp}-${random}`;
   }
 
-  /** Extract token from response (handles nested and flat formats) */
-  private extractTokenFromEnvResponse(data: unknown): string | undefined {
-    const rd = data as Record<string, unknown>;
-    const dataObj = rd?.data as Record<string, unknown> | undefined;
-    const nestedData = dataObj?.data as Record<string, unknown> | undefined;
-    return (nestedData?.token || dataObj?.token || rd?.token) as string | undefined;
-  }
-
-  /** Get environment token using client credentials */
+  /**
+   * Get environment token using client credentials.
+   * @returns Environment token string or empty string on error.
+   */
   async getEnvironmentToken(): Promise<string> {
     const correlationId = this.generateCorrelationId();
-    const clientId = this.config.clientId;
+    const clientId = this.httpClient.config.clientId;
     const axiosTimeout = 4000;
 
     try {
-      const axios = (await import("axios")).default;
-      const http = await import("http");
-      const https = await import("https");
-      const controllerUrl = resolveControllerUrl(this.config);
-      const isHttps = controllerUrl.startsWith("https://");
-      const agentOpts = { family: 4, timeout: axiosTimeout };
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), axiosTimeout);
-
-      const tempAxios = axios.create({
-        baseURL: controllerUrl, timeout: axiosTimeout, signal: controller.signal,
-        httpAgent: !isHttps ? new http.Agent(agentOpts) : undefined,
-        httpsAgent: isHttps ? new https.Agent(agentOpts) : undefined,
-        headers: { "Content-Type": "application/json", "x-client-id": clientId, "x-client-secret": this.config.clientSecret },
-      });
-
-      const timeoutPromise = new Promise<never>((_, reject) => setTimeout(() => reject(new Error(`Request timeout after ${axiosTimeout}ms`)), axiosTimeout));
-      let response;
-      try {
-        response = await Promise.race([tempAxios.post<import("../types/config.types").ClientTokenResponse>(this.config.clientTokenUri || "/api/v1/auth/token"), timeoutPromise]);
-        clearTimeout(timeoutId);
-      } catch (e) { clearTimeout(timeoutId); throw e; }
-
-      const token = this.extractTokenFromEnvResponse(response.data);
-      if (response.status >= 200 && response.status < 300 && token) return token;
-      throw new Error(`Invalid response format. Status: ${response.status}`);
+      const { tempAxios, timeoutId, controller } = await createEnvTokenClient(
+        this.httpClient.config,
+        axiosTimeout,
+        clientId,
+      );
+      const response = await fetchEnvironmentTokenResponse(
+        tempAxios,
+        timeoutId,
+        controller,
+        this.httpClient.config.clientTokenUri || "/api/v1/auth/token",
+        axiosTimeout,
+      );
+      const token = extractTokenFromEnvResponse(response.data);
+      if (response.status >= 200 && response.status < 300 && token) {
+        return token;
+      }
+      handleAuthErrorSilent(
+        new Error(`Invalid response format. Status: ${response.status}`),
+        "Get environment token",
+        correlationId,
+        clientId,
+      );
+      return "";
     } catch (error) {
-      handleAuthError(error, "Get environment token", correlationId, clientId);
+      handleAuthErrorSilent(error, "Get environment token", correlationId, clientId);
+      return "";
     }
   }
 
@@ -179,7 +172,7 @@ export class AuthService {
     state?: string;
   }): Promise<LoginResponse> {
     const correlationId = this.generateCorrelationId();
-    const clientId = this.config.clientId;
+    const clientId = this.httpClient.config.clientId;
 
     try {
       // Build query parameters
@@ -193,7 +186,7 @@ export class AuthService {
       }
 
       // Use ApiClient for typed API call
-      const authStrategy = this.config.authStrategy;
+      const authStrategy = this.httpClient.config.authStrategy;
       const response = await this.apiClient.auth.login(
         { redirect: params.redirect, state: params.state },
         authStrategy,
@@ -209,7 +202,12 @@ export class AuthService {
         timestamp: response.timestamp,
       };
     } catch (error) {
-      handleAuthError(error, "Login", correlationId, clientId);
+      handleAuthErrorSilent(error, "Login", correlationId, clientId);
+      return {
+        success: false,
+        data: { loginUrl: "", state: params.state || "" },
+        timestamp: new Date().toISOString(),
+      };
     }
   }
 
@@ -232,19 +230,13 @@ export class AuthService {
 
     try {
       // Generate cache key using token hash (security - no userId exposure)
-      const cacheKey = this.getTokenCacheKey(token);
+      const cacheKey = getTokenCacheKey(token);
 
-      // Check cache first
-      const cached = await this.cache.get<TokenCacheData>(cacheKey);
-      if (cached) {
-        return cached.authenticated;
-      }
+      const cached = await this.getCachedTokenValidation(cacheKey);
+      if (cached !== null) return cached;
 
       // Cache miss - fetch from controller using ApiClient
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
-      const authStrategyWithToken: AuthStrategy = authStrategyToUse
-        ? { ...authStrategyToUse, bearerToken: token }
-        : { methods: ["bearer"], bearerToken: token };
+      const authStrategyWithToken = this.buildAuthStrategyWithToken(token, authStrategy);
 
       const result = await this.apiClient.auth.validateToken(
         { token },
@@ -253,26 +245,21 @@ export class AuthService {
 
       const authenticated = result.data?.authenticated || false;
 
-      // Cache the result with smart TTL based on token expiration
-      const ttl = this.getCacheTtlFromToken(token);
-      await this.cache.set<TokenCacheData>(
-        cacheKey,
-        { authenticated, timestamp: Date.now() },
-        ttl,
-      );
+      await this.cacheTokenValidation(cacheKey, token, authenticated);
 
       return authenticated;
     } catch (error) {
-      // Token validation failed, return false
+      this.logAuthServiceError("Validate token", error, token, "/api/auth/validate");
       return false;
     }
   }
 
   /**
-   * Get user information from token
-   * If API_KEY is configured and token matches, returns null (by design for testing)
-   * @param token - User authentication token
-   * @param authStrategy - Optional authentication strategy override
+   * Get user information from token.
+   * If API_KEY is configured and token matches, returns null (by design for testing).
+   * @param token - User authentication token.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns User info or null when not available.
    */
   async getUser(
     token: string,
@@ -284,10 +271,7 @@ export class AuthService {
     }
 
     try {
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
-      const authStrategyWithToken: AuthStrategy = authStrategyToUse 
-        ? { ...authStrategyToUse, bearerToken: token }
-        : { methods: ['bearer'], bearerToken: token };
+      const authStrategyWithToken = this.buildAuthStrategyWithToken(token, authStrategy);
       
       const result = await this.apiClient.auth.validateToken(
         { token },
@@ -295,18 +279,38 @@ export class AuthService {
       );
 
       if (result.data?.authenticated && result.data.user) {
-        return {
-          id: result.data.user.id,
-          username: result.data.user.username,
-          email: result.data.user.email,
-        };
+        return this.mapUserInfo(result.data.user);
       }
 
       return null;
     } catch (error) {
-      // Failed to get user info, return null
+      this.logAuthServiceError("Get user", error, token, "/api/auth/validate");
       return null;
     }
+  }
+
+  private logAuthServiceError(
+    operation: string,
+    error: unknown,
+    token: string,
+    path: string,
+    method: "GET" | "POST" = "POST",
+  ): void {
+    const userId = extractUserIdFromToken(token);
+    const statusCode =
+      (error as { statusCode?: number })?.statusCode ||
+      (error as { response?: { status?: number } })?.response?.status;
+    console.error(`${operation} failed`, {
+      operation,
+      path,
+      method,
+      ipAddress: "unknown",
+      userId: userId || undefined,
+      statusCode,
+      correlationId: (error as { correlationId?: string })?.correlationId,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      stackTrace: error instanceof Error ? error.stack : undefined,
+    });
   }
 
   /**
@@ -327,47 +331,25 @@ export class AuthService {
 
     try {
       // Extract userId from token to check cache first (avoids API call on cache hit)
-      const userId = this.extractUserIdFromToken(token);
+      const userId = extractUserIdFromToken(token);
       const cacheKey = userId ? `user:${userId}` : null;
-
-      // Check cache first if we have userId
-      if (cacheKey) {
-        const cached = await this.cache.get<UserInfoCacheData>(cacheKey);
-        if (cached) {
-          return cached.user;
-        }
-      }
+      const cached = await this.getCachedUserInfo(cacheKey);
+      if (cached) return cached;
 
       // Cache miss - fetch from controller
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
-      const authStrategyWithToken: AuthStrategy = authStrategyToUse 
-        ? { ...authStrategyToUse, bearerToken: token }
-        : { methods: ['bearer'], bearerToken: token };
+      const authStrategyWithToken = this.buildAuthStrategyWithToken(token, authStrategy);
       
       const result = await this.apiClient.auth.getUser(authStrategyWithToken);
 
       if (result.data?.authenticated && result.data.user) {
-        const user: UserInfo = {
-          id: result.data.user.id,
-          username: result.data.user.username,
-          email: result.data.user.email,
-        };
-
-        // Cache the result if we have userId
-        if (cacheKey) {
-          await this.cache.set<UserInfoCacheData>(
-            cacheKey,
-            { user, timestamp: Date.now() },
-            this.userTTL,
-          );
-        }
-
+        const user = this.mapUserInfo(result.data.user);
+        await this.cacheUserInfo(cacheKey, user);
         return user;
       }
 
       return null;
     } catch (error) {
-      // Failed to get user info, return null
+      this.logAuthServiceError("Get user info", error, token, "/api/auth/user", "GET");
       return null;
     }
   }
@@ -378,14 +360,7 @@ export class AuthService {
    * @param token - User authentication token
    */
   clearTokenCache(token: string): void {
-    try {
-      const cacheKey = this.getTokenCacheKey(token);
-      // Use void to ignore promise result - cache clearing should not block
-      void this.cache.delete(cacheKey);
-    } catch (error) {
-      // Log but don't throw - cache clearing failures should not break flow
-      console.warn("Failed to clear token cache:", error);
-    }
+    clearTokenCacheHelper(this.cache, token);
   }
 
   /**
@@ -394,16 +369,7 @@ export class AuthService {
    * @param token - User authentication token
    */
   clearUserCache(token: string): void {
-    try {
-      const userId = this.extractUserIdFromToken(token);
-      if (userId) {
-        // Use void to ignore promise result - cache clearing should not block
-        void this.cache.delete(`user:${userId}`);
-      }
-    } catch (error) {
-      // Log but don't throw - cache clearing failures should not break flow
-      console.warn("Failed to clear user cache:", error);
-    }
+    clearUserCacheHelper(this.cache, token);
   }
 
   /**
@@ -413,7 +379,7 @@ export class AuthService {
    */
   async logout(params: { token: string }): Promise<LogoutResponse> {
     const correlationId = this.generateCorrelationId();
-    const clientId = this.config.clientId;
+    const clientId = this.httpClient.config.clientId;
 
     try {
       // Use ApiClient for typed API call
@@ -427,12 +393,19 @@ export class AuthService {
     } catch (error) {
       // Gracefully handle 400 Bad Request (no session, already logged out, etc.)
       if (isHttpStatus(error, 400)) {
-        console.warn(`Logout: No active session (400) [correlationId: ${correlationId}]`);
+        console.warn("Logout: No active session (400)", {
+          correlationId,
+        });
         this.clearTokenCache(params.token);
         this.clearUserCache(params.token);
         return { success: true, message: "Logout successful (no active session)", timestamp: new Date().toISOString() };
       }
-      handleAuthError(error, "Logout", correlationId, clientId);
+      handleAuthErrorSilent(error, "Logout", correlationId, clientId);
+      return {
+        success: false,
+        message: "Logout failed",
+        timestamp: new Date().toISOString(),
+      };
     }
   }
 
@@ -446,11 +419,11 @@ export class AuthService {
     authStrategy?: AuthStrategy,
   ): Promise<RefreshTokenResponse | null> {
     const correlationId = this.generateCorrelationId();
-    const clientId = this.config.clientId;
+    const clientId = this.httpClient.config.clientId;
 
     try {
       // Use ApiClient for typed API call
-      const authStrategyToUse = authStrategy || this.config.authStrategy;
+      const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
       const response = await this.apiClient.auth.refreshToken(
         { refreshToken },
         authStrategyToUse,

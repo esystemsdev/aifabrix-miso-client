@@ -5,7 +5,6 @@
  */
 
 import { HttpClient } from "../utils/http-client";
-import { MisoClientConfig } from "../types/config.types";
 import { extractClientTokenInfo } from "../utils/token-utils";
 import { isBrowser, getLocalStorage } from "../utils/data-client-utils";
 
@@ -24,11 +23,9 @@ export interface ApplicationContext {
  */
 export class ApplicationContextService {
   private httpClient: HttpClient;
-  private config: MisoClientConfig;
   private cachedContext: ApplicationContext | null = null;
 
   constructor(httpClient: HttpClient) {
-    this.config = httpClient.config;
     this.httpClient = httpClient;
   }
 
@@ -63,7 +60,9 @@ export class ApplicationContextService {
 
       return { environment, application };
     } catch (error) {
-      console.warn("[ApplicationContextService] Failed to parse clientId format:", error);
+      console.warn("[ApplicationContextService] Failed to parse clientId format:", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       return { environment: null, application: null };
     }
   }
@@ -75,8 +74,8 @@ export class ApplicationContextService {
   private getClientToken(): string | null {
     try {
       // Try to get client token from config first (if provided)
-      if (this.config.clientToken) {
-        return this.config.clientToken;
+      if (this.httpClient.config.clientToken) {
+        return this.httpClient.config.clientToken;
       }
 
       // Try browser localStorage (for browser environments)
@@ -101,7 +100,9 @@ export class ApplicationContextService {
 
       return null;
     } catch (error) {
-      console.warn("[ApplicationContextService] Failed to get client token:", error);
+      console.warn("[ApplicationContextService] Failed to get client token:", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }
@@ -143,14 +144,16 @@ export class ApplicationContextService {
           application = tokenInfo.application;
         }
       } catch (error) {
-        console.warn("[ApplicationContextService] Failed to extract from client token:", error);
+        console.warn("[ApplicationContextService] Failed to extract from client token:", {
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
     // Step 2: Fall back to parsing clientId format
     // Only use parsed values if not already set from client token
     if (!environment || !application) {
-      const parsed = this.parseClientIdFormat(this.config.clientId);
+      const parsed = this.parseClientIdFormat(this.httpClient.config.clientId);
       
       if (!environment && parsed.environment) {
         environment = parsed.environment;

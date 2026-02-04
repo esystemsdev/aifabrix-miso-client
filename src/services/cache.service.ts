@@ -73,7 +73,10 @@ export class CacheService {
             return parsed;
           } catch (error) {
             // Invalid JSON, remove from cache
-            console.warn(`Failed to parse cached data for key ${key}:`, error);
+            console.warn("Failed to parse cached data:", {
+              key,
+              errorMessage: error instanceof Error ? error.message : String(error),
+            });
             await this.delete(key);
             return null;
           }
@@ -132,7 +135,10 @@ export class CacheService {
         this.setInMemory(key, value, ttl);
         return false; // Indicate Redis failed, but memory cache set
       } catch (memoryError) {
-        console.error(`Failed to cache value for key ${key}:`, error);
+        console.error("Failed to cache value:", {
+          key,
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
         return false;
       }
     }

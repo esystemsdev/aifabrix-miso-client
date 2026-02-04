@@ -61,7 +61,9 @@ function loadAllowedOrigins(): string[] | undefined {
 }
 
 /**
- * Loads configuration from environment variables with defaults
+ * Loads configuration from environment variables with defaults.
+ * @returns MisoClient configuration object.
+ * @throws Error when required environment variables are missing.
  */
 export function loadConfig(): MisoClientConfig {
   const config: MisoClientConfig = {

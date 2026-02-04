@@ -4,7 +4,8 @@
  */
 
 // Response helpers
-export { ResponseHelper, PaginationMeta } from "./response-helper";
+export { ResponseHelper } from "./response-helper";
+export type { PaginationMeta } from "./response-helper";
 export { injectResponseHelpers } from "./response-middleware";
 
 // Async handler
@@ -14,26 +15,16 @@ export { asyncHandler, asyncHandlerNamed } from "./async-handler";
 export { ValidationHelper } from "./validation-helper";
 
 // Error handling - Types
-export {
-  AppError,
-  ApiError,
-  ValidationError,
-  ApiResponse,
-  createSuccessResponse,
-  createErrorResponse,
-} from "./error-types";
+export { AppError, createSuccessResponse, createErrorResponse } from "./error-types";
+export type { ApiError, ValidationError, ApiResponse } from "./error-types";
 
 // Error handling - Utilities
-export { ErrorLogger, setErrorLogger, handleRouteError } from "./error-handler";
+export { setErrorLogger, handleRouteError } from "./error-handler";
+export type { ErrorLogger } from "./error-handler";
 
 // Error handling - Response
-export {
-  ErrorResponse,
-  RBACErrorExtensions,
-  getErrorTypeUri,
-  getErrorTitle,
-  sendErrorResponse,
-} from "./error-response";
+export { getErrorTypeUri, getErrorTitle, sendErrorResponse } from "./error-response";
+export type { ErrorResponse, RBACErrorExtensions } from "./error-response";
 
 // Origin validation and environment token utilities
 export { validateOrigin } from "../utils/origin-validator";

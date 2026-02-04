@@ -32,7 +32,7 @@ module.exports = {
   cacheDirectory: '<rootDir>/.jest-cache',
   // Skip slow operations for faster test execution
   detectOpenHandles: false, // Disable open handle detection for speed
-  forceExit: true, // Force exit after tests complete to prevent hanging
+  forceExit: false, // Allow Jest to exit normally (avoids warning)
   // Additional performance optimizations
   logHeapUsage: false, // Disable heap usage logging
   verbose: false, // Disable verbose output
@@ -72,9 +72,7 @@ module.exports = {
       {
         tsconfig: {
           esModuleInterop: true
-        },
-        // Use isolatedModules for faster compilation (skips type checking)
-        isolatedModules: true
+        }
       }
     ]
   },

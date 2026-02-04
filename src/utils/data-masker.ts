@@ -129,6 +129,9 @@ export class DataMasker {
 
   /**
    * Mask specific value (useful for masking individual strings)
+   * @param value - Value to mask.
+   * @param showFirst - Number of leading characters to keep.
+   * @param showLast - Number of trailing characters to keep.
    */
   static maskValue(
     value: string,

@@ -132,7 +132,14 @@ async function logError(error: unknown, errorInfo: ReturnType<typeof extractErro
   }
 }
 
-/** Generic route error handler - logs error and sends RFC 7807 compliant response */
+/**
+ * Generic route error handler - logs error and sends RFC 7807 compliant response.
+ * @param error - Error object or unknown error.
+ * @param req - Express request object.
+ * @param res - Express response object.
+ * @param operation - Optional operation name for logging.
+ * @returns Promise that resolves when response is sent.
+ */
 export async function handleRouteError(error: unknown, req: Request, res: Response, operation?: string): Promise<void> {
   const requestContext = extractRequestContext(req);
   const correlationId = (req as Request & { correlationId?: string }).correlationId || requestContext.correlationId || generateCorrelationId();

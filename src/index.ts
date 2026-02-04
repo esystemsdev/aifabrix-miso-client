@@ -166,126 +166,240 @@ export class MisoClient {
     return validateOriginUtil(req, origins);
   }
 
-  /** Get environment token using client credentials */
+  /**
+   * Get environment token using client credentials.
+   * @returns Environment token string or empty string on failure.
+   */
   async getEnvironmentToken(): Promise<string> {
     return this.auth.getEnvironmentToken();
   }
 
-  /** Initiate login flow - returns login URL for browser redirect */
+  /**
+   * Initiate login flow and return login URL for browser redirect.
+   * @param params - Login parameters.
+   * @param params.redirect - Final destination URL after authentication.
+   * @param params.state - Optional CSRF protection token.
+   * @returns Login response with loginUrl and state.
+   */
   async login(params: { redirect: string; state?: string }): Promise<import("./types/config.types").LoginResponse> {
     return this.auth.login(params);
   }
 
-  /** Validate token with controller */
+  /**
+   * Validate token with controller.
+   * @param token - User JWT token.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns True if token is valid, otherwise false.
+   */
   async validateToken(token: string, authStrategy?: AuthStrategy): Promise<boolean> {
     return this.auth.validateToken(token, authStrategy);
   }
 
-  /** Get user information from token */
+  /**
+   * Get user information from token.
+   * @param token - User JWT token.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns User info or null when not available.
+   */
   async getUser(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null> {
     return this.auth.getUser(token, authStrategy);
   }
 
-  /** Get user information from GET /api/v1/auth/user endpoint */
+  /**
+   * Get user information from GET /api/v1/auth/user endpoint.
+   * @param token - User JWT token.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns User info or null when not available.
+   */
   async getUserInfo(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null> {
     return this.auth.getUserInfo(token, authStrategy);
   }
 
-  /** Check if user is authenticated */
+  /**
+   * Check if user is authenticated.
+   * @param token - User JWT token.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns True if authenticated, otherwise false.
+   */
   async isAuthenticated(token: string, authStrategy?: AuthStrategy): Promise<boolean> {
     return this.auth.isAuthenticated(token, authStrategy);
   }
 
-  /** Logout user */
+  /**
+   * Logout user.
+   * @param params - Logout parameters.
+   * @param params.token - User JWT token.
+   * @returns Logout response.
+   */
   async logout(params: { token: string }): Promise<import("./types/config.types").LogoutResponse> {
     return this.auth.logout(params);
   }
 
-  /** Refresh user access token using refresh token */
+  /**
+   * Refresh user access token using refresh token.
+   * @param refreshToken - Refresh token.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns Refresh token response or null on failure.
+   */
   async refreshToken(refreshToken: string, authStrategy?: AuthStrategy): Promise<import("./types/config.types").RefreshTokenResponse | null> {
     return this.auth.refreshToken(refreshToken, authStrategy);
   }
 
-  /** Validate token locally using JWKS (no API call) */
+  /**
+   * Validate token locally using JWKS (no API call).
+   * @param token - User JWT token.
+   * @param options - Optional validation options.
+   * @returns Validation result.
+   */
   async validateTokenLocal(token: string, options?: TokenValidationOptions): Promise<TokenValidationResult> {
     return this.tokenValidation.validateTokenLocal(token, options);
   }
 
-  /** Set or update Keycloak configuration for local validation */
+  /**
+   * Set or update Keycloak configuration for local validation.
+   * @param config - Keycloak configuration.
+   */
   setKeycloakConfig(config: KeycloakConfig): void {
     this.tokenValidation.setKeycloakConfig(config);
   }
 
-  /** Clear JWKS cache */
+  /**
+   * Clear JWKS cache.
+   * @param jwksUri - Optional JWKS URI to clear.
+   */
   clearJwksCache(jwksUri?: string): void {
     this.tokenValidation.clearCache(jwksUri);
   }
 
-  /** Clear validation result cache */
+  /**
+   * Clear validation result cache.
+   */
   clearValidationCache(): void {
     this.tokenValidation.clearResultCache();
   }
 
-  /** Clear all token validation caches (JWKS + results) */
+  /**
+   * Clear all token validation caches (JWKS + results).
+   */
   clearAllTokenCaches(): void {
     this.tokenValidation.clearAllCaches();
   }
 
   // ==================== ROLE METHODS ====================
 
-  /** Get user roles (cached if Redis available) */
+  /**
+   * Get user roles (cached if Redis available).
+   * @param token - User JWT token.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns Array of roles.
+   */
   async getRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     return this.roles.getRoles(token, authStrategy);
   }
 
-  /** Check if user has specific role */
+  /**
+   * Check if user has specific role.
+   * @param token - User JWT token.
+   * @param role - Role to check.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns True if user has the role.
+   */
   async hasRole(token: string, role: string, authStrategy?: AuthStrategy): Promise<boolean> {
     return this.roles.hasRole(token, role, authStrategy);
   }
 
-  /** Check if user has any of the specified roles */
+  /**
+   * Check if user has any of the specified roles.
+   * @param token - User JWT token.
+   * @param roles - Roles to check.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns True if user has any of the roles.
+   */
   async hasAnyRole(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean> {
     return this.roles.hasAnyRole(token, roles, authStrategy);
   }
 
-  /** Check if user has all of the specified roles */
+  /**
+   * Check if user has all of the specified roles.
+   * @param token - User JWT token.
+   * @param roles - Roles to check.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns True if user has all roles.
+   */
   async hasAllRoles(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean> {
     return this.roles.hasAllRoles(token, roles, authStrategy);
   }
 
-  /** Force refresh roles from controller (bypass cache) */
+  /**
+   * Force refresh roles from controller (bypass cache).
+   * @param token - User JWT token.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns Array of roles.
+   */
   async refreshRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     return this.roles.refreshRoles(token, authStrategy);
   }
 
   // ==================== PERMISSION METHODS ====================
 
-  /** Get user permissions (cached if Redis available) */
+  /**
+   * Get user permissions (cached if Redis available).
+   * @param token - User JWT token.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns Array of permissions.
+   */
   async getPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     return this.permissions.getPermissions(token, authStrategy);
   }
 
-  /** Check if user has specific permission */
+  /**
+   * Check if user has specific permission.
+   * @param token - User JWT token.
+   * @param permission - Permission to check.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns True if user has permission.
+   */
   async hasPermission(token: string, permission: string, authStrategy?: AuthStrategy): Promise<boolean> {
     return this.permissions.hasPermission(token, permission, authStrategy);
   }
 
-  /** Check if user has any of the specified permissions */
+  /**
+   * Check if user has any of the specified permissions.
+   * @param token - User JWT token.
+   * @param permissions - Permissions to check.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns True if user has any permission.
+   */
   async hasAnyPermission(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean> {
     return this.permissions.hasAnyPermission(token, permissions, authStrategy);
   }
 
-  /** Check if user has all of the specified permissions */
+  /**
+   * Check if user has all of the specified permissions.
+   * @param token - User JWT token.
+   * @param permissions - Permissions to check.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns True if user has all permissions.
+   */
   async hasAllPermissions(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean> {
     return this.permissions.hasAllPermissions(token, permissions, authStrategy);
   }
 
-  /** Force refresh permissions from controller (bypass cache) */
+  /**
+   * Force refresh permissions from controller (bypass cache).
+   * @param token - User JWT token.
+   * @param authStrategy - Optional authentication strategy override.
+   * @returns Array of permissions.
+   */
   async refreshPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     return this.permissions.refreshPermissions(token, authStrategy);
   }
 
-  /** Clear cached permissions for a user */
+  /**
+   * Clear cached permissions for a user.
+   * @param token - User JWT token.
+   * @param authStrategy - Optional authentication strategy override.
+   */
   async clearPermissionsCache(token: string, authStrategy?: AuthStrategy): Promise<void> {
     return this.permissions.clearPermissionsCache(token, authStrategy);
   }
@@ -327,22 +441,43 @@ export class MisoClient {
     return { ...this.config };
   }
 
-  /** Check if Redis is connected */
+  /**
+   * Check if Redis is connected.
+   * @returns True if Redis connection is active.
+   */
   isRedisConnected(): boolean {
     return this.redis.isConnected();
   }
 
-  /** Make request with authentication strategy */
+  /**
+   * Make request with authentication strategy.
+   * @param method - HTTP method.
+   * @param url - Request URL.
+   * @param authStrategy - Authentication strategy to use.
+   * @param data - Optional request data.
+   * @param config - Optional Axios config overrides.
+   * @returns Parsed response data.
+   */
   async requestWithAuthStrategy<T>(method: "GET" | "POST" | "PUT" | "DELETE", url: string, authStrategy: AuthStrategy, data?: unknown, config?: import("axios").AxiosRequestConfig): Promise<T> {
     return this.httpClient.requestWithAuthStrategy<T>(method, url, authStrategy, data, config);
   }
 
-  /** Create authentication strategy helper */
+  /**
+   * Create authentication strategy helper.
+   * @param methods - Auth methods in priority order.
+   * @param bearerToken - Optional bearer token.
+   * @param apiKey - Optional API key.
+   * @returns Authentication strategy.
+   */
   createAuthStrategy(methods: ("bearer" | "client-token" | "client-credentials" | "api-key")[], bearerToken?: string, apiKey?: string): AuthStrategy {
     return { methods, bearerToken, apiKey };
   }
 
-  /** Get default authentication strategy */
+  /**
+   * Get default authentication strategy.
+   * @param bearerToken - Optional bearer token.
+   * @returns Default authentication strategy.
+   */
   getDefaultAuthStrategy(bearerToken?: string): AuthStrategy {
     return AuthStrategyHandler.getDefaultStrategy(bearerToken);
   }
@@ -352,10 +487,10 @@ export class MisoClient {
 export * from "./types/config.types";
 
 // Export pagination, filter, sort types
-export * from "./types/pagination.types";
+export type * from "./types/pagination.types";
 export * from "./types/filter.types";
 export * from "./types/filter-schema.types";
-export * from "./types/sort.types";
+export type * from "./types/sort.types";
 
 // Export error types (use explicit exports to avoid conflict with config.types ErrorResponse)
 export type {
@@ -434,21 +569,15 @@ export type {
 // Export everything except ErrorResponse to avoid conflict with config.types ErrorResponse
 export {
   ResponseHelper,
-  PaginationMeta,
   injectResponseHelpers,
   asyncHandler,
   asyncHandlerNamed,
   ValidationHelper,
   AppError,
-  ApiError,
-  ValidationError,
-  ApiResponse,
   createSuccessResponse,
   createErrorResponse,
-  ErrorLogger,
   setErrorLogger,
   handleRouteError,
-  RBACErrorExtensions,
   getErrorTypeUri,
   getErrorTitle,
   sendErrorResponse,
@@ -457,13 +586,21 @@ export {
   loggerContextMiddleware,
 } from "./express";
 export type {
+  PaginationMeta,
+  ApiError,
+  ValidationError,
+  ApiResponse,
+  ErrorLogger,
+  RBACErrorExtensions,
+} from "./express";
+export type {
   ClientTokenEndpointOptions,
   ClientTokenResponse,
   DataClientConfigResponse,
 } from "./express";
 
 // Export Express ErrorResponse with alias to avoid conflict with SDK ErrorResponse
-export { ErrorResponse as ExpressErrorResponse } from "./express/error-response";
+export type { ErrorResponse as ExpressErrorResponse } from "./express/error-response";
 
 // Export DataClient browser wrapper
 export { DataClient, dataClient } from "./utils/data-client";

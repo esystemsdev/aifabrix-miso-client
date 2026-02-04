@@ -143,7 +143,8 @@ function extractResponseData(
 }
 
 /**
- * Extract user ID from JWT token
+ * Extract user ID from JWT token.
+ * Checks fields in order: sub, userId, user_id, id.
  */
 export function extractUserIdFromToken(authHeader?: string): string | null {
   if (!authHeader || !authHeader.startsWith("Bearer ")) {

@@ -6,7 +6,6 @@ import { HttpClient } from "../utils/http-client";
 import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
 import {
-  MisoClientConfig,
   AuthStrategy,
   AuthMethod,
 } from "../types/config.types";
@@ -22,32 +21,36 @@ export class RoleService {
   private httpClient: HttpClient;
   private apiClient: ApiClient;
   private cache: CacheService;
-  private config: MisoClientConfig;
   private roleTTL: number;
   private applicationContextService: ApplicationContextService;
 
   constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
-    this.config = httpClient.config;
     this.cache = cache;
     this.httpClient = httpClient;
     this.apiClient = apiClient;
-    this.roleTTL = this.config.cache?.roleTTL || 900; // 15 minutes default
+    this.roleTTL = this.httpClient.config.cache?.roleTTL || 900; // 15 minutes default
     this.applicationContextService = new ApplicationContextService(httpClient);
   }
 
-  /** Build auth strategy with bearer token */
+  /**
+   * Build auth strategy with bearer token.
+   */
   private buildAuthStrategy(token: string, authStrategy?: AuthStrategy): AuthStrategy {
-    const base = authStrategy || this.config.authStrategy;
+    const base = authStrategy || this.httpClient.config.authStrategy;
     return base ? { ...base, bearerToken: token } : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
   }
 
-  /** Get environment query params from application context */
+  /**
+   * Get environment query params from application context.
+   */
   private getEnvironmentParams(): { environment: string } | undefined {
     const context = this.applicationContextService.getApplicationContext();
     return context.environment ? { environment: context.environment } : undefined;
   }
 
-  /** Get userId from token, validating via API if not in JWT */
+  /**
+   * Get userId from token, validating via API if not in JWT.
+   */
   private async resolveUserId(token: string, authStrategy?: AuthStrategy): Promise<string | null> {
     const userId = extractUserIdFromToken(token);
     if (userId) return userId;
@@ -85,12 +88,26 @@ export class RoleService {
       await this.cache.set<RoleCacheData>(`roles:${userId}`, { roles, timestamp: Date.now() }, this.roleTTL);
       return roles;
     } catch (error) {
-      console.error("Failed to get roles:", error); // eslint-disable-line no-console
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to get roles:", {
+        method: "GET",
+        path: "/api/auth/roles",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      }); // eslint-disable-line no-console
       return [];
     }
   }
 
-  /** Fetch roles from controller API */
+  /**
+   * Fetch roles from controller API.
+   */
   private async fetchRolesFromController(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     const authStrategyWithToken = this.buildAuthStrategy(token, authStrategy);
     const queryParams = this.getEnvironmentParams();
@@ -164,7 +181,19 @@ export class RoleService {
       await this.cache.set<RoleCacheData>(`roles:${userId}`, { roles, timestamp: Date.now() }, this.roleTTL);
       return roles;
     } catch (error) {
-      console.error("Failed to refresh roles:", error); // eslint-disable-line no-console
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to refresh roles:", {
+        method: "POST",
+        path: "/api/auth/roles/refresh",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      }); // eslint-disable-line no-console
       return [];
     }
   }

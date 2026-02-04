@@ -658,7 +658,7 @@ app.post('/api/v1/logs', logEndpoint(misoClient));
 // This allows client-side routing to work properly
 // API routes and static files are handled by middleware above
 app.get(
-  '*',
+  /.*/,
   asyncHandler(async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     // Skip if this is an API route or static file request
     if (

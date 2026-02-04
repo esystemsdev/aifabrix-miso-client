@@ -18,6 +18,10 @@ import { ResponseHelper, PaginationMeta } from "./response-helper";
  * - res.paginated(users, meta)
  * - res.noContent()
  * - res.accepted(job, 'Job queued')
+ *
+ * @param req - Express request object.
+ * @param res - Express response object.
+ * @param next - Express next function.
  */
 export function injectResponseHelpers(
   req: Request,

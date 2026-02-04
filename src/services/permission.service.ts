@@ -6,7 +6,6 @@ import { HttpClient } from "../utils/http-client";
 import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
 import {
-  MisoClientConfig,
   AuthStrategy,
   AuthMethod,
 } from "../types/config.types";
@@ -22,32 +21,36 @@ export class PermissionService {
   private httpClient: HttpClient;
   private apiClient: ApiClient;
   private cache: CacheService;
-  private config: MisoClientConfig;
   private permissionTTL: number;
   private applicationContextService: ApplicationContextService;
 
   constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
-    this.config = httpClient.config;
     this.cache = cache;
     this.httpClient = httpClient;
     this.apiClient = apiClient;
-    this.permissionTTL = this.config.cache?.permissionTTL || 900; // 15 minutes default
+    this.permissionTTL = this.httpClient.config.cache?.permissionTTL || 900; // 15 minutes default
     this.applicationContextService = new ApplicationContextService(httpClient);
   }
 
-  /** Build auth strategy with bearer token */
+  /**
+   * Build auth strategy with bearer token.
+   */
   private buildAuthStrategy(token: string, authStrategy?: AuthStrategy): AuthStrategy {
-    const base = authStrategy || this.config.authStrategy;
+    const base = authStrategy || this.httpClient.config.authStrategy;
     return base ? { ...base, bearerToken: token } : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
   }
 
-  /** Get environment query params from application context */
+  /**
+   * Get environment query params from application context.
+   */
   private getEnvironmentParams(): { environment: string } | undefined {
     const context = this.applicationContextService.getApplicationContext();
     return context.environment ? { environment: context.environment } : undefined;
   }
 
-  /** Get userId from token, validating via API if not in JWT */
+  /**
+   * Get userId from token, validating via API if not in JWT.
+   */
   private async resolveUserId(token: string, authStrategy?: AuthStrategy): Promise<string | null> {
     const userId = extractUserIdFromToken(token);
     if (userId) return userId;
@@ -85,12 +88,26 @@ export class PermissionService {
       await this.cache.set<PermissionCacheData>(`permissions:${userId}`, { permissions, timestamp: Date.now() }, this.permissionTTL);
       return permissions;
     } catch (error) {
-      console.error("Failed to get permissions:", error); // eslint-disable-line no-console
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to get permissions:", {
+        method: "GET",
+        path: "/api/auth/permissions",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      }); // eslint-disable-line no-console
       return [];
     }
   }
 
-  /** Fetch permissions from controller API */
+  /**
+   * Fetch permissions from controller API.
+   */
   private async fetchPermissionsFromController(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
     const authStrategyWithToken = this.buildAuthStrategy(token, authStrategy);
     const queryParams = this.getEnvironmentParams();
@@ -168,7 +185,19 @@ export class PermissionService {
       await this.cache.set<PermissionCacheData>(`permissions:${userId}`, { permissions, timestamp: Date.now() }, this.permissionTTL);
       return permissions;
     } catch (error) {
-      console.error("Failed to refresh permissions:", error); // eslint-disable-line no-console
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to refresh permissions:", {
+        method: "POST",
+        path: "/api/auth/permissions/refresh",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      }); // eslint-disable-line no-console
       return [];
     }
   }
@@ -186,7 +215,19 @@ export class PermissionService {
       if (!userId) return;
       await this.cache.delete(`permissions:${userId}`);
     } catch (error) {
-      console.error("Failed to clear permissions cache:", error); // eslint-disable-line no-console
+      const statusCode =
+        (error as { statusCode?: number })?.statusCode ||
+        (error as { response?: { status?: number } })?.response?.status;
+      console.error("Failed to clear permissions cache:", {
+        method: "DELETE",
+        path: "/cache/permissions",
+        statusCode,
+        ipAddress: "unknown",
+        correlationId: (error as { correlationId?: string })?.correlationId,
+        userId: extractUserIdFromToken(token) || undefined,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stackTrace: error instanceof Error ? error.stack : undefined,
+      }); // eslint-disable-line no-console
     }
   }
 }

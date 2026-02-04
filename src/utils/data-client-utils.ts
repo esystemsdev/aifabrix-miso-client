@@ -54,7 +54,8 @@ export function removeLocalStorage(key: string): void {
 }
 
 /**
- * Extract userId from JWT token
+ * Extract userId from JWT token.
+ * Checks fields in order: sub, userId, user_id, id.
  */
 export function extractUserIdFromToken(token: string): string | null {
   try {

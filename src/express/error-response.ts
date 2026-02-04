@@ -59,14 +59,18 @@ const ERROR_TYPE_URI_MAP: Record<number, string> = {
 };
 
 /**
- * Get error type URI for a given status code
+ * Get error type URI for a given status code.
+ * @param statusCode - HTTP status code.
+ * @returns Error type URI string.
  */
 export function getErrorTypeUri(statusCode: number): string {
   return ERROR_TYPE_URI_MAP[statusCode] || "/Errors/InternalServerError";
 }
 
 /**
- * Get error title for a given status code
+ * Get error title for a given status code.
+ * @param statusCode - HTTP status code.
+ * @returns Human-readable error title.
  */
 export function getErrorTitle(statusCode: number): string {
   const titles: Record<number, string> = {
@@ -86,7 +90,13 @@ export function getErrorTitle(statusCode: number): string {
 }
 
 /**
- * Create RFC 7807 compliant error response
+ * Create RFC 7807 compliant error response.
+ * @param error - Error object or message.
+ * @param statusCode - HTTP status code.
+ * @param request - Optional Express request for instance/correlation ID.
+ * @param correlationId - Optional correlation ID override.
+ * @param validationErrors - Optional validation errors array.
+ * @returns RFC 7807 compliant error response.
  */
 export function createErrorResponse(
   error: unknown,
@@ -134,7 +144,9 @@ export function createErrorResponse(
 }
 
 /**
- * Send RFC 7807 compliant error response
+ * Send RFC 7807 compliant error response.
+ * @param res - Express response object.
+ * @param errorResponse - RFC 7807 error response.
  */
 export function sendErrorResponse(
   res: Response,

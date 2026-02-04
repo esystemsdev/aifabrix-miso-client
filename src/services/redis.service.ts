@@ -14,6 +14,9 @@ export class RedisService {
     this.config = config;
   }
 
+  /**
+   * Connect to Redis if configured.
+   */
   async connect(): Promise<void> {
     if (!this.config) {
       // Redis not configured - silently use controller fallback
@@ -38,12 +41,17 @@ export class RedisService {
       // Connection successful - no need to log in production
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Failed to connect to Redis:", error);
+      console.error("Failed to connect to Redis:", {
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       this.connected = false;
       throw error;
     }
   }
 
+  /**
+   * Disconnect from Redis.
+   */
   async disconnect(): Promise<void> {
     if (this.redis) {
       await this.redis.disconnect();
@@ -52,6 +60,11 @@ export class RedisService {
     }
   }
 
+  /**
+   * Get a cached value by key.
+   * @param key - Cache key.
+   * @returns Cached value or null.
+   */
   async get(key: string): Promise<string | null> {
     if (!this.redis || !this.connected) {
       return null;
@@ -61,11 +74,21 @@ export class RedisService {
       return await this.redis.get(key);
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Redis get error:", error);
+      console.error("Redis get error:", {
+        key,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       return null;
     }
   }
 
+  /**
+   * Set a cached value with TTL.
+   * @param key - Cache key.
+   * @param value - Serialized value.
+   * @param ttl - Time-to-live in seconds.
+   * @returns True if set succeeded.
+   */
   async set(key: string, value: string, ttl: number): Promise<boolean> {
     if (!this.redis || !this.connected) {
       return false;
@@ -76,11 +99,19 @@ export class RedisService {
       return true;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Redis set error:", error);
+      console.error("Redis set error:", {
+        key,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }
 
+  /**
+   * Delete a cached value.
+   * @param key - Cache key.
+   * @returns True if delete succeeded.
+   */
   async delete(key: string): Promise<boolean> {
     if (!this.redis || !this.connected) {
       return false;
@@ -91,11 +122,20 @@ export class RedisService {
       return true;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Redis delete error:", error);
+      console.error("Redis delete error:", {
+        key,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }
 
+  /**
+   * Push a value onto a Redis list.
+   * @param queue - Queue/list name.
+   * @param value - Serialized value.
+   * @returns True if push succeeded.
+   */
   async rpush(queue: string, value: string): Promise<boolean> {
     if (!this.redis || !this.connected) {
       return false;
@@ -106,7 +146,10 @@ export class RedisService {
       return true;
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error("Redis rpush error:", error);
+      console.error("Redis rpush error:", {
+        queue,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
       return false;
     }
   }

@@ -347,7 +347,8 @@ export function logEndpoint(misoClient: MisoClient | null) {
 export function errorEndpoint(misoClient: MisoClient | null) {
   return asyncHandler(async (req: Request, _res: Response): Promise<void> => {
     const { code } = req.params;
-    const statusCode = parseInt(code, 10) || 500;
+    const codeParam = Array.isArray(code) ? code[0] : code;
+    const statusCode = parseInt(codeParam || "", 10) || 500;
 
     const errorMessages: Record<number, string> = {
       400: 'Bad Request',
