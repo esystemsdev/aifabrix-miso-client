@@ -61,13 +61,13 @@ describe('EncryptionService', () => {
     it('should include helpful error message for missing key', async () => {
       await expect(
         encryptionServiceWithoutKey.encrypt('secret', 'my-param'),
-      ).rejects.toThrow('Encryption key is required. Set MISO_ENCRYPTION_KEY environment variable or provide encryptionKey in config.');
+      ).rejects.toThrow('Encryption key is required. Set ENCRYPTION_KEY environment variable or provide encryptionKey in config.');
     });
   });
 
   describe('encrypt', () => {
     it('should encrypt and return result with keyvault storage', async () => {
-      mockApiClient.encryption.encrypt.mockResolvedValue({
+      (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
         value: 'kv://my-param',
         storage: 'keyvault',
       });
@@ -83,7 +83,7 @@ describe('EncryptionService', () => {
     });
 
     it('should encrypt and return result with local storage', async () => {
-      mockApiClient.encryption.encrypt.mockResolvedValue({
+      (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
         value: 'enc://v1:base64data',
         storage: 'local',
       });
@@ -94,7 +94,7 @@ describe('EncryptionService', () => {
     });
 
     it('should include encryptionKey in API call', async () => {
-      mockApiClient.encryption.encrypt.mockResolvedValue({
+      (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
         value: 'enc://v1:test',
         storage: 'local',
       });
@@ -129,7 +129,7 @@ describe('EncryptionService', () => {
 
     it('should propagate API errors', async () => {
       const apiError = new Error('API error');
-      mockApiClient.encryption.encrypt.mockRejectedValue(apiError);
+      (mockApiClient.encryption.encrypt as jest.Mock).mockRejectedValue(apiError);
 
       await expect(
         encryptionService.encrypt('secret', 'valid-param'),
@@ -139,7 +139,7 @@ describe('EncryptionService', () => {
 
   describe('decrypt', () => {
     it('should decrypt and return plaintext', async () => {
-      mockApiClient.encryption.decrypt.mockResolvedValue({
+      (mockApiClient.encryption.decrypt as jest.Mock).mockResolvedValue({
         plaintext: 'decrypted-secret',
       });
 
@@ -154,7 +154,7 @@ describe('EncryptionService', () => {
     });
 
     it('should decrypt enc:// reference', async () => {
-      mockApiClient.encryption.decrypt.mockResolvedValue({
+      (mockApiClient.encryption.decrypt as jest.Mock).mockResolvedValue({
         plaintext: 'my-secret',
       });
 
@@ -164,7 +164,7 @@ describe('EncryptionService', () => {
     });
 
     it('should include encryptionKey in API call', async () => {
-      mockApiClient.encryption.decrypt.mockResolvedValue({
+      (mockApiClient.encryption.decrypt as jest.Mock).mockResolvedValue({
         plaintext: 'test',
       });
 
@@ -185,7 +185,7 @@ describe('EncryptionService', () => {
 
     it('should propagate API errors', async () => {
       const apiError = new Error('Decryption failed');
-      mockApiClient.encryption.decrypt.mockRejectedValue(apiError);
+      (mockApiClient.encryption.decrypt as jest.Mock).mockRejectedValue(apiError);
 
       await expect(
         encryptionService.decrypt('kv://my-param', 'my-param'),
@@ -239,7 +239,7 @@ describe('EncryptionService', () => {
     describe('valid names', () => {
       validNames.forEach((name) => {
         it(`should accept valid name: "${name.substring(0, 30)}${name.length > 30 ? '...' : ''}"`, async () => {
-          mockApiClient.encryption.encrypt.mockResolvedValue({
+          (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
             value: 'enc://v1:test',
             storage: 'local',
           });

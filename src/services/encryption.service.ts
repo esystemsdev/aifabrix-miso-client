@@ -30,7 +30,7 @@ export class EncryptionService {
   /**
    * Create encryption service
    * @param apiClient - API client for controller communication
-   * @param encryptionKey - Encryption key for server-side validation (from MISO_ENCRYPTION_KEY)
+   * @param encryptionKey - Encryption key for server-side validation (from ENCRYPTION_KEY)
    */
   constructor(private apiClient: ApiClient, encryptionKey?: string) {
     this.encryptionKey = encryptionKey;
@@ -86,7 +86,7 @@ export class EncryptionService {
   private validateEncryptionKey(): void {
     if (!this.encryptionKey) {
       throw new EncryptionError(
-        'Encryption key is required. Set MISO_ENCRYPTION_KEY environment variable or provide encryptionKey in config.',
+        'Encryption key is required. Set ENCRYPTION_KEY environment variable or provide encryptionKey in config.',
         'ENCRYPTION_KEY_REQUIRED',
       );
     }

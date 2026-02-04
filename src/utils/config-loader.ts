@@ -105,7 +105,7 @@ export function loadConfig(): MisoClientConfig {
 
   const keycloak = loadKeycloakConfig();
   if (keycloak) config.keycloak = keycloak;
-  if (process.env.MISO_ENCRYPTION_KEY) config.encryptionKey = process.env.MISO_ENCRYPTION_KEY;
+  if (process.env.ENCRYPTION_KEY) config.encryptionKey = process.env.ENCRYPTION_KEY;
 
   return config;
 }

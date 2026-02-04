@@ -210,7 +210,7 @@ const dataClientWithRefresh = new DataClient({
 ```
 
 → [DataClient Documentation](docs/data-client.md) - Includes security guide and Client Token Pattern  
-→ [DataClient API Reference](docs/api-reference.md#dataclient)
+→ [DataClient API Reference](docs/reference-dataclient.md)
 
 ---
 
@@ -218,7 +218,7 @@ const dataClientWithRefresh = new DataClient({
 
 **First time?** You'll need Keycloak and Miso Controller running.
 
-Use the [AI Fabrix Builder](https://github.com/esystemsdev/aifabrix-builder/blob/main/docs/QUICK-START.md):
+Use the [AI Fabrix Builder](https://github.com/esystemsdev/aifabrix-builder) (see repository docs for Quick Start):
 
 ```bash
 # Start infrastructure (Postgres, Redis)
@@ -235,7 +235,7 @@ aifabrix build miso-controller
 aifabrix run miso-controller
 ```
 
-→ [Infrastructure Guide](https://github.com/esystemsdev/aifabrix-builder/blob/main/docs/INFRASTRUCTURE.md)
+→ [Infrastructure Guide](https://github.com/esystemsdev/aifabrix-builder) (see repository docs)
 
 **Already have Keycloak and Controller?** Use the Quick Start above.
 
@@ -297,7 +297,7 @@ if (isAdmin) {
 **Pro tip:** Without Redis, checks go to the controller. Add Redis to cache role lookups (15-minute default TTL).
 
 → [Complete RBAC example](examples/step-4-rbac.ts)  
-→ [AI Fabrix Builder Quick Start](https://github.com/esystemsdev/aifabrix-builder/blob/main/docs/QUICK-START.md)
+→ [AI Fabrix Builder](https://github.com/esystemsdev/aifabrix-builder) (Quick Start in repository docs)
 
 ---
 
@@ -376,7 +376,7 @@ client.log.on('log', (logEntry: LogEntry) => {
 
 → [Complete logging example](examples/step-5-logging.ts)  
 → [Event emission mode example](examples/event-emission-mode.example.ts)  
-→ [Logging Reference](docs/api-reference.md#logger-service)  
+→ [Logging Reference](docs/reference-services.md#logging-methods)  
 → [Event Emission Mode Guide](docs/configuration.md#event-emission-mode)
 
 ---
@@ -532,8 +532,8 @@ ENCRYPTION_KEY=your-32-byte-encryption-key
 ```
 
 → [Complete encryption & caching example](examples/step-7-encryption-cache.ts)  
-→ [API Reference](docs/api-reference.md#encryption-methods)  
-→ [Cache Methods](docs/api-reference.md#cache-methods)
+→ [API Reference](docs/reference-services.md#encryption-methods)  
+→ [Cache Methods](docs/reference-services.md#cache-methods)
 
 ---
 
@@ -590,10 +590,10 @@ const response = createPaginatedListResponse(
 
 **Pro tip:** These utilities are business-logic-free and reusable across applications. Perfect for building query strings, parsing API responses, and testing with mocks. Designed following enterprise best practices for maintainability and compliance.
 
-→ [Complete pagination example](docs/examples.md#pagination)  
-→ [Complete filter example](docs/examples.md#filtering)  
-→ [Complete sort example](docs/examples.md#sorting)  
-→ [API Reference](docs/api-reference.md#pagination-utilities)
+→ [Complete pagination example](docs/examples/utilities.md#pagination)  
+→ [Complete filter example](docs/examples/utilities.md#filtering)  
+→ [Complete sort example](docs/examples/utilities.md#sorting)  
+→ [API Reference](docs/reference-utilities.md#pagination-utilities)
 
 ---
 
@@ -797,7 +797,7 @@ app.get('/users', (req, res) => {
 **Note:** For large datasets, always sort at the database level. Use `applySorting()` only for small in-memory datasets or client-side sorting.
 
 → [Complete Express examples](examples/)  
-→ [API Reference](docs/api-reference.md#express-utilities)
+→ [API Reference](docs/reference-utilities.md#express-utilities)
 
 ---
 
@@ -852,8 +852,8 @@ MISO_API_KEY=optional-api-key
 
 **Backward Compatibility:** All existing code continues to work without changes. If no strategy is specified, defaults to `['bearer', 'client-token']` (existing behavior).
 
-→ [Complete authentication strategy example](docs/examples.md#authentication-strategy)  
-→ [API Reference](docs/api-reference.md#authentication-strategy)
+→ [Complete authentication strategy example](docs/reference-authentication.md#authentication-strategy)  
+→ [API Reference](docs/reference-authentication.md#authentication-strategy)
 
 ---
 
@@ -896,7 +896,7 @@ interface AuthStrategy {
 - **[Getting Started](docs/getting-started.md)** - Detailed setup guide
 - **[API Reference](docs/api-reference.md)** - Complete API documentation
 - **[Configuration](docs/configuration.md)** - Configuration options
-- **[Examples](docs/examples.md)** - Framework-specific examples
+- **[Examples](docs/examples/README.md)** - Framework-specific examples
 - **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
 
 ---
@@ -911,7 +911,7 @@ The SDK consists of five core services:
 - **LoggerService** - Centralized logging with API key authentication
 - **RedisService** - Caching and queue management (optional)
 
-→ [Architecture Details](docs/api-reference.md#architecture)
+→ [Architecture Details](docs/api-reference.md#sdk-structure)
 
 ---
 
@@ -939,7 +939,7 @@ The SDK consists of five core services:
 
 4. **Start development** and then deploy to Docker or Azure.
 
-→ [Full Quick Start Guide](https://github.com/esystemsdev/aifabrix-builder/blob/main/docs/QUICK-START.md)
+→ [Full Quick Start Guide](https://github.com/esystemsdev/aifabrix-builder) (see repository docs)
 
 ---
 
@@ -947,10 +947,10 @@ The SDK consists of five core services:
 
 ### Learn More
 
-- [Express.js Middleware](docs/examples.md#expressjs-middleware) - Protect API routes
-- [React Authentication](docs/examples.md#react-authentication) - Frontend auth
-- [NestJS Guards](docs/examples.md#nestjs-guards) - Decorator-based auth
-- [Error Handling](docs/examples.md#error-handling) - Best practices
+- [Express.js Middleware](docs/examples/express-middleware.md) - Protect API routes
+- [React Authentication](docs/examples/react-authentication.md) - Frontend auth
+- [NestJS Guards](docs/reference-authentication.md#nestjs-guards) - Decorator-based auth
+- [Error Handling](docs/examples/error-handling.md) - Best practices
 
 ### Common Tasks
 

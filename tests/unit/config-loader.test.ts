@@ -380,16 +380,16 @@ describe("ConfigLoader", () => {
         process.env.MISO_CLIENTSECRET = "test-secret";
       });
 
-      it("should load encryptionKey from MISO_ENCRYPTION_KEY", () => {
-        process.env.MISO_ENCRYPTION_KEY = "test-encryption-key-12345";
+      it("should load encryptionKey from ENCRYPTION_KEY", () => {
+        process.env.ENCRYPTION_KEY = "test-encryption-key-12345";
 
         const config = loadConfig();
 
         expect(config.encryptionKey).toBe("test-encryption-key-12345");
       });
 
-      it("should not set encryptionKey when MISO_ENCRYPTION_KEY is not provided", () => {
-        delete process.env.MISO_ENCRYPTION_KEY;
+      it("should not set encryptionKey when ENCRYPTION_KEY is not provided", () => {
+        delete process.env.ENCRYPTION_KEY;
 
         const config = loadConfig();
 
@@ -397,7 +397,7 @@ describe("ConfigLoader", () => {
       });
 
       it("should load encryptionKey with special characters", () => {
-        process.env.MISO_ENCRYPTION_KEY = "key-with-special_chars.123!@#";
+        process.env.ENCRYPTION_KEY = "key-with-special_chars.123!@#";
 
         const config = loadConfig();
 
@@ -406,7 +406,7 @@ describe("ConfigLoader", () => {
 
       it("should load long encryptionKey", () => {
         const longKey = "a".repeat(256);
-        process.env.MISO_ENCRYPTION_KEY = longKey;
+        process.env.ENCRYPTION_KEY = longKey;
 
         const config = loadConfig();
 

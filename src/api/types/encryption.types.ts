@@ -16,7 +16,7 @@ export interface EncryptRequest {
   plaintext: string;
   /** Name identifier for the parameter (alphanumeric, dots, underscores, hyphens, 1-128 chars) */
   parameterName: string;
-  /** Encryption key for server-side validation (from MISO_ENCRYPTION_KEY) */
+  /** Encryption key for server-side validation (from ENCRYPTION_KEY) */
   encryptionKey: string;
 }
 
@@ -38,7 +38,7 @@ export interface DecryptRequest {
   value: string;
   /** Name identifier for the parameter (must match encryption) */
   parameterName: string;
-  /** Encryption key for server-side validation (from MISO_ENCRYPTION_KEY) */
+  /** Encryption key for server-side validation (from ENCRYPTION_KEY) */
   encryptionKey: string;
 }
 

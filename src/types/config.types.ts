@@ -133,7 +133,7 @@ export interface MisoClientConfig {
 
   // Optional: Encryption key for security parameter operations
   // Required if using client.encryption.encrypt() or decrypt()
-  // Loaded from MISO_ENCRYPTION_KEY environment variable
+  // Loaded from ENCRYPTION_KEY environment variable
   encryptionKey?: string;
 }
 
