@@ -3,13 +3,13 @@
  */
 
 import { LoggerService } from "../../src/services/logger";
-import { LoggerContextStorage } from "../../src/services/logger/logger-context-storage";
 import { HttpClient } from "../../src/utils/http-client";
 import { RedisService } from "../../src/services/redis.service";
 import { MisoClientConfig } from "../../src/types/config.types";
 import { Request } from "express";
 import { ApiClient } from "../../src/api";
 import { LoggerContextStorage } from "../../src/services/logger/logger-context-storage";
+import jwt from "jsonwebtoken";
 
 // Mock HttpClient
 jest.mock("../../src/utils/http-client");
@@ -23,7 +23,6 @@ const MockedRedisService = RedisService as jest.MockedClass<
 
 // Mock jsonwebtoken
 jest.mock("jsonwebtoken");
-const jwt = require("jsonwebtoken");
 
 describe("LoggerService", () => {
   let loggerService: LoggerService;
@@ -31,6 +30,16 @@ describe("LoggerService", () => {
   let mockRedisService: jest.Mocked<RedisService>;
   let mockApiClient: jest.Mocked<ApiClient>;
   let config: MisoClientConfig;
+
+  const setHttpClientConfig = (
+    client: jest.Mocked<HttpClient>,
+    nextConfig: MisoClientConfig,
+  ): void => {
+    const clientWithConfig = client as jest.Mocked<HttpClient> & {
+      config: MisoClientConfig;
+    };
+    clientWithConfig.config = nextConfig;
+  };
 
   beforeEach(() => {
     config = {
@@ -42,22 +51,24 @@ describe("LoggerService", () => {
 
     mockHttpClient = {
       request: jest.fn(),
-    } as any;
-    (mockHttpClient as any).config = config; // Add config to httpClient for access
+    } as unknown as jest.Mocked<HttpClient>;
+    setHttpClientConfig(mockHttpClient, config);
 
     mockRedisService = {
       isConnected: jest.fn(),
       rpush: jest.fn(),
-    } as any;
+    } as unknown as jest.Mocked<RedisService>;
 
     // Mock ApiClient with logs.createLog that calls through to httpClient.request
     mockApiClient = {
       logs: {
-        createLog: jest.fn().mockImplementation(async (logEntry) => {
-          return mockHttpClient.request('POST', '/api/v1/logs', logEntry);
-        }),
+        createLog: jest
+          .fn()
+          .mockImplementation(async (logEntry: unknown) => {
+            return mockHttpClient.request("POST", "/api/v1/logs", logEntry);
+          }),
       },
-    } as any;
+    } as unknown as jest.Mocked<ApiClient>;
 
     MockedHttpClient.mockImplementation(() => mockHttpClient);
     MockedRedisService.mockImplementation(() => mockRedisService);
@@ -198,7 +209,7 @@ describe("LoggerService", () => {
 
     it("should not log debug message when logLevel is not debug", async () => {
       const configWithoutDebug = { ...config, logLevel: "info" as const };
-      (mockHttpClient as any).config = configWithoutDebug;
+      setHttpClientConfig(mockHttpClient, configWithoutDebug);
       const loggerWithoutDebug = new LoggerService(
         mockHttpClient,
         mockRedisService,
@@ -604,7 +615,7 @@ describe("LoggerService", () => {
       await chain.info("Test");
 
       const rpushCall = mockRedisService.rpush.mock.calls.find(
-        (call: any[]) =>
+        (call: [string, string]) =>
           call &&
           call[1] &&
           typeof call[1] === "string" &&
@@ -685,7 +696,7 @@ describe("LoggerService", () => {
     beforeEach(() => {
       // Set emitEvents to true
       config.emitEvents = true;
-      (mockHttpClient as any).config = config;
+      setHttpClientConfig(mockHttpClient, config);
       loggerService = new LoggerService(mockHttpClient, mockRedisService);
     });
 
@@ -790,7 +801,7 @@ describe("LoggerService", () => {
     it("should maintain backward compatibility when emitEvents is false", async () => {
       // Reset to default mode (emitEvents = false)
       config.emitEvents = false;
-      (mockHttpClient as any).config = config;
+      setHttpClientConfig(mockHttpClient, config);
       loggerService = new LoggerService(mockHttpClient, mockRedisService);
 
       mockRedisService.isConnected.mockReturnValue(true);
@@ -859,6 +870,34 @@ describe("LoggerService", () => {
         expect(logEntry.context.referer).toBe("https://example.com");
         expect(logEntry.context.requestSize).toBe(1024);
       }
+    });
+
+    it("should include top-level request metadata in log entry", async () => {
+      mockRequest.headers = {
+        ...mockRequest.headers,
+        authorization: "Bearer valid-token",
+      };
+      jwt.decode.mockReturnValue({
+        sub: "user-999",
+        sessionId: "session-123",
+      });
+
+      const logEntry = loggerService.getLogWithRequest(
+        mockRequest as Request,
+        "Test message",
+        "info",
+        { action: "test" },
+      );
+
+      expect(logEntry.ipAddress).toBe("192.168.1.1");
+      expect(logEntry.userAgent).toBe("Mozilla/5.0");
+      expect(logEntry.correlationId).toBe("corr-123");
+      expect(logEntry.requestId).toBe("req-456");
+      expect(logEntry.userId).toBe("user-999");
+      expect(logEntry.sessionId).toBe("session-123");
+      expect(logEntry.context).toMatchObject({
+        action: "test",
+      });
     });
 
     it("should handle request without Authorization header", async () => {

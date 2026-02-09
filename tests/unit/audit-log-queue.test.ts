@@ -39,13 +39,16 @@ describe("AuditLogQueue", () => {
 
     mockHttpClient = {
       request: jest.fn().mockResolvedValue({}),
-    } as any;
-    (mockHttpClient as any).config = config;
+    } as unknown as jest.Mocked<HttpClient>;
+    const httpClientWithConfig = mockHttpClient as jest.Mocked<HttpClient> & {
+      config: MisoClientConfig;
+    };
+    httpClientWithConfig.config = config;
 
     mockRedisService = {
       isConnected: jest.fn().mockReturnValue(false),
       rpush: jest.fn().mockResolvedValue(true),
-    } as any;
+    } as unknown as jest.Mocked<RedisService>;
 
     MockedHttpClient.mockImplementation(() => mockHttpClient);
     MockedRedisService.mockImplementation(() => mockRedisService);
@@ -224,7 +227,6 @@ describe("AuditLogQueue", () => {
 
     it("should not flush if already flushing", async () => {
       const entry1 = createLogEntry("1");
-      const entry2 = createLogEntry("2");
 
       await auditLogQueue.add(entry1);
 
@@ -359,10 +361,13 @@ describe("AuditLogQueue", () => {
 
       const mockProcess = {
         on: jest.fn(),
-      } as any;
+      } as unknown as NodeJS.Process;
 
       // Temporarily replace process
-      (global as any).process = mockProcess;
+      const globalWithProcess = global as typeof global & {
+        process: NodeJS.Process;
+      };
+      globalWithProcess.process = mockProcess;
 
       new AuditLogQueue(mockHttpClient, mockRedisService, config);
 
@@ -380,7 +385,7 @@ describe("AuditLogQueue", () => {
       );
 
       // Restore original process
-      (global as any).process = originalProcess;
+      globalWithProcess.process = originalProcess;
     });
   });
 
@@ -430,6 +435,81 @@ describe("AuditLogQueue", () => {
       expect(auditLogQueue.getQueueSize()).toBe(0);
       expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
     });
+
+    it("should preserve per-entry fields in HTTP batch payload", async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      const entry1: LogEntry = {
+        ...createLogEntry("Log 1"),
+        applicationId: "app-1",
+        userId: "user-1",
+        sessionId: "session-1",
+        requestId: "req-1",
+        correlationId: "corr-1",
+        ipAddress: "10.0.0.1",
+        userAgent: "UnitTest/1.0",
+        hostname: "host-1",
+        context: { action: "sync", requestPath: "/api/users" },
+        requestSize: 120,
+        responseSize: 240,
+        durationMs: 180,
+        errorCategory: "network",
+        httpStatusCategory: "5xx",
+        stackTrace: "stack-trace-1",
+        sourceKey: "source-1",
+        recordKey: "record-1",
+      };
+      const entry2: LogEntry = {
+        ...createLogEntry("Log 2"),
+        applicationId: "app-2",
+        userId: "user-2",
+        sessionId: "session-2",
+        requestId: "req-2",
+        correlationId: "corr-2",
+        ipAddress: "10.0.0.2",
+        userAgent: "UnitTest/2.0",
+        hostname: "host-2",
+        context: { action: "delete", requestPath: "/api/records/2" },
+        requestSize: 320,
+        responseSize: 640,
+        durationMs: 380,
+        errorCategory: "validation",
+        httpStatusCategory: "4xx",
+        stackTrace: "stack-trace-2",
+        sourceKey: "source-2",
+        recordKey: "record-2",
+      };
+
+      await auditLogQueue.add(entry1);
+      await auditLogQueue.add(entry2);
+      await auditLogQueue.flush();
+
+      const payload = (mockHttpClient.request as jest.Mock).mock.calls[0]?.[2] as {
+        logs: LogEntry[];
+      };
+      expect(payload.logs).toHaveLength(2);
+
+      const first = payload.logs[0];
+      expect(first.userId).toBe("user-1");
+      expect(first.sessionId).toBe("session-1");
+      expect(first.requestId).toBe("req-1");
+      expect(first.correlationId).toBe("corr-1");
+      expect(first.ipAddress).toBe("10.0.0.1");
+      expect(first.userAgent).toBe("UnitTest/1.0");
+      expect(first.hostname).toBe("host-1");
+      expect(first.applicationId).toBe("app-1");
+      expect(first.context).toMatchObject({
+        action: "sync",
+        requestPath: "/api/users",
+      });
+      expect(first.requestSize).toBe(120);
+      expect(first.responseSize).toBe(240);
+      expect(first.durationMs).toBe(180);
+      expect(first.errorCategory).toBe("network");
+      expect(first.httpStatusCategory).toBe("5xx");
+      expect(first.stackTrace).toBe("stack-trace-1");
+      expect(first.sourceKey).toBe("source-1");
+      expect(first.recordKey).toBe("record-1");
+    });
   });
 
   describe("event emission (emitEvents mode)", () => {
@@ -438,7 +518,10 @@ describe("AuditLogQueue", () => {
     beforeEach(() => {
       eventEmitter = new EventEmitter();
       config.emitEvents = true;
-      (mockHttpClient as any).config = config;
+      const httpClientWithConfig = mockHttpClient as jest.Mocked<HttpClient> & {
+        config: MisoClientConfig;
+      };
+      httpClientWithConfig.config = config;
       auditLogQueue = new AuditLogQueue(
         mockHttpClient,
         mockRedisService,
@@ -522,6 +605,87 @@ describe("AuditLogQueue", () => {
       });
     });
 
+    it("should preserve per-entry fields in emitted batches", async () => {
+      const eventSpy = jest.fn();
+      eventEmitter.on("log:batch", eventSpy);
+
+      const entry1: LogEntry = {
+        ...createLogEntry("Log 1"),
+        applicationId: "app-1",
+        userId: "user-1",
+        sessionId: "session-1",
+        requestId: "req-1",
+        correlationId: "corr-1",
+        ipAddress: "10.0.0.1",
+        userAgent: "UnitTest/1.0",
+        hostname: "host-1",
+        context: { action: "sync", requestPath: "/api/users" },
+        requestSize: 120,
+        responseSize: 240,
+        durationMs: 180,
+        errorCategory: "network",
+        httpStatusCategory: "5xx",
+        stackTrace: "stack-trace-1",
+      };
+      const entry2: LogEntry = {
+        ...createLogEntry("Log 2"),
+        applicationId: "app-2",
+        userId: "user-2",
+        sessionId: "session-2",
+        requestId: "req-2",
+        correlationId: "corr-2",
+        ipAddress: "10.0.0.2",
+        userAgent: "UnitTest/2.0",
+        hostname: "host-2",
+        context: { action: "delete", requestPath: "/api/records/2" },
+        requestSize: 320,
+        responseSize: 640,
+        durationMs: 380,
+        errorCategory: "validation",
+        httpStatusCategory: "4xx",
+        stackTrace: "stack-trace-2",
+      };
+
+      await auditLogQueue.add(entry1);
+      await auditLogQueue.add(entry2);
+      await auditLogQueue.flush();
+
+      const emittedBatch = eventSpy.mock.calls[0]?.[0] as LogEntry[];
+      expect(emittedBatch).toHaveLength(2);
+      expect(emittedBatch[0]).toMatchObject({
+        userId: "user-1",
+        sessionId: "session-1",
+        requestId: "req-1",
+        correlationId: "corr-1",
+        ipAddress: "10.0.0.1",
+        userAgent: "UnitTest/1.0",
+        hostname: "host-1",
+        applicationId: "app-1",
+        requestSize: 120,
+        responseSize: 240,
+        durationMs: 180,
+        errorCategory: "network",
+        httpStatusCategory: "5xx",
+        stackTrace: "stack-trace-1",
+      });
+      expect(emittedBatch[1]).toMatchObject({
+        userId: "user-2",
+        sessionId: "session-2",
+        requestId: "req-2",
+        correlationId: "corr-2",
+        ipAddress: "10.0.0.2",
+        userAgent: "UnitTest/2.0",
+        hostname: "host-2",
+        applicationId: "app-2",
+        requestSize: 320,
+        responseSize: 640,
+        durationMs: 380,
+        errorCategory: "validation",
+        httpStatusCategory: "4xx",
+        stackTrace: "stack-trace-2",
+      });
+    });
+
     it("should batch events correctly when batch size is reached", async () => {
       config.audit!.batchSize = 3;
       auditLogQueue = new AuditLogQueue(
@@ -554,7 +718,10 @@ describe("AuditLogQueue", () => {
 
     it("should maintain backward compatibility when emitEvents is false", async () => {
       config.emitEvents = false;
-      (mockHttpClient as any).config = config;
+      const httpClientWithConfig = mockHttpClient as jest.Mocked<HttpClient> & {
+        config: MisoClientConfig;
+      };
+      httpClientWithConfig.config = config;
       auditLogQueue = new AuditLogQueue(
         mockHttpClient,
         mockRedisService,
