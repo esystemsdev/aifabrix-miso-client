@@ -23,6 +23,11 @@ import {
   TokenValidationResult,
   KeycloakConfig,
 } from "./types/token-validation.types";
+import type {
+  UpdateSelfStatusRequest,
+  UpdateSelfStatusResponse,
+  ApplicationStatusResponse,
+} from "./api/types/applications.types";
 
 export class MisoClient {
   private config: MisoClientConfig;
@@ -432,6 +437,85 @@ export class MisoClient {
     return this.cacheService;
   }
 
+  // ==================== APPLICATION STATUS METHODS (server-side) ====================
+
+  /**
+   * Update the current application's status and URLs (server-side only).
+   * Uses client credentials or provided authStrategy.
+   * When envKey is omitted, resolves from application context (client token / clientId).
+   *
+   * @param body - Update request (status, url, internalUrl, port)
+   * @param options - Optional envKey and authStrategy; if envKey omitted, uses context (throws if context missing)
+   * @returns Update response with success and optional application data
+   */
+  async updateMyApplicationStatus(
+    body: UpdateSelfStatusRequest,
+    options?: { envKey?: string; authStrategy?: AuthStrategy },
+  ): Promise<UpdateSelfStatusResponse> {
+    const envKey =
+      options?.envKey ??
+      this.logger.getApplicationContextService().getApplicationContext()
+        .environment;
+    if (!envKey) {
+      throw new Error(
+        'updateMyApplicationStatus requires envKey or application context (client token/clientId with environment). Neither was available.',
+      );
+    }
+    return this.apiClient.applications.updateSelfStatus(
+      envKey,
+      body,
+      options?.authStrategy,
+    );
+  }
+
+  /**
+   * Get any application's status and URLs (without configuration).
+   * Uses client credentials or provided authStrategy.
+   *
+   * @param envKey - Environment key
+   * @param appKey - Application key
+   * @param authStrategy - Optional authentication strategy override
+   * @returns Application status response with metadata
+   */
+  async getApplicationStatus(
+    envKey: string,
+    appKey: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<ApplicationStatusResponse> {
+    return this.apiClient.applications.getApplicationStatus(
+      envKey,
+      appKey,
+      authStrategy,
+    );
+  }
+
+  /**
+   * Get the current application's status and URLs (server-side only).
+   * Uses envKey and appKey from application context when not provided.
+   *
+   * @param options - Optional envKey and appKey; if omitted, uses context
+   * @param authStrategy - Optional authentication strategy override
+   * @returns Application status response with metadata
+   */
+  async getMyApplicationStatus(
+    options?: { envKey?: string; appKey?: string },
+    authStrategy?: AuthStrategy,
+  ): Promise<ApplicationStatusResponse> {
+    const context = this.logger.getApplicationContextService().getApplicationContext();
+    const envKey = options?.envKey ?? context.environment;
+    const appKey = options?.appKey ?? context.application;
+    if (!envKey || !appKey) {
+      throw new Error(
+        'getMyApplicationStatus requires envKey and appKey or application context (client token/clientId). Neither was fully available.',
+      );
+    }
+    return this.apiClient.applications.getApplicationStatus(
+      envKey,
+      appKey,
+      authStrategy,
+    );
+  }
+
   // ==================== UTILITY METHODS ====================
 
   /**
@@ -515,6 +599,7 @@ export { HttpClient } from "./utils/http-client";
 
 // Export unified logging interface
 export { getLogger } from "./services/logger/unified-logger.factory";
+export { LoggerContextStorage } from "./services/logger";
 export type {
   UnifiedLogger,
 } from "./services/logger/unified-logger.service";
@@ -558,6 +643,13 @@ export type {
   DecryptResponse,
   EncryptionStorage,
 } from "./api/types/encryption.types";
+
+// Application status types (server-side)
+export type {
+  UpdateSelfStatusRequest,
+  UpdateSelfStatusResponse,
+  ApplicationStatusResponse,
+} from "./api/types/applications.types";
 
 // Express utilities (v2.1.0+)
 // Export everything except ErrorResponse to avoid conflict with config.types ErrorResponse

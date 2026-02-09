@@ -399,4 +399,130 @@ describe("MisoClient", () => {
       expect(client.isRedisConnected()).toBe(true);
     });
   });
+
+  describe("Application status", () => {
+    beforeEach(async () => {
+      await client.initialize();
+    });
+
+    it("should provide updateMyApplicationStatus method", () => {
+      expect(typeof client.updateMyApplicationStatus).toBe("function");
+    });
+
+    it("should provide getApplicationStatus method", () => {
+      expect(typeof client.getApplicationStatus).toBe("function");
+    });
+
+    it("should provide getMyApplicationStatus method", () => {
+      expect(typeof client.getMyApplicationStatus).toBe("function");
+    });
+
+    it("updateMyApplicationStatus should throw when envKey omitted and context missing", async () => {
+      // config uses clientId "ctrl-dev-test-app" which does not parse to env/app
+      await expect(
+        client.updateMyApplicationStatus({ status: "active" }),
+      ).rejects.toThrow(/envKey or application context/);
+    });
+
+    it("updateMyApplicationStatus should forward to API when envKey provided", async () => {
+      const apiClient = (client as any).apiClient;
+      const updateSpy = jest
+        .spyOn(apiClient.applications, "updateSelfStatus")
+        .mockResolvedValue({ success: true });
+
+      const result = await client.updateMyApplicationStatus(
+        { status: "active", url: "https://app.example.com" },
+        { envKey: "miso" },
+      );
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        "miso",
+        { status: "active", url: "https://app.example.com" },
+        undefined,
+      );
+      expect(result).toEqual({ success: true });
+
+      updateSpy.mockRestore();
+    });
+
+    it("updateMyApplicationStatus should pass authStrategy when provided", async () => {
+      const apiClient = (client as any).apiClient;
+      const authStrategy = { bearerToken: "token-123" };
+      const updateSpy = jest
+        .spyOn(apiClient.applications, "updateSelfStatus")
+        .mockResolvedValue({ success: true });
+
+      await client.updateMyApplicationStatus(
+        { port: 8080 },
+        { envKey: "miso", authStrategy },
+      );
+
+      expect(updateSpy).toHaveBeenCalledWith(
+        "miso",
+        { port: 8080 },
+        authStrategy,
+      );
+
+      updateSpy.mockRestore();
+    });
+
+    it("getApplicationStatus should forward to API", async () => {
+      const apiClient = (client as any).apiClient;
+      const mockStatus = {
+        key: "my-app",
+        displayName: "My App",
+        url: "https://app.example.com",
+        status: "active",
+      };
+      const getSpy = jest
+        .spyOn(apiClient.applications, "getApplicationStatus")
+        .mockResolvedValue(mockStatus);
+
+      const result = await client.getApplicationStatus("miso", "my-app");
+
+      expect(getSpy).toHaveBeenCalledWith("miso", "my-app", undefined);
+      expect(result).toEqual(mockStatus);
+
+      getSpy.mockRestore();
+    });
+
+    it("getApplicationStatus should pass authStrategy when provided", async () => {
+      const apiClient = (client as any).apiClient;
+      const authStrategy = { bearerToken: "token-123" };
+      const getSpy = jest
+        .spyOn(apiClient.applications, "getApplicationStatus")
+        .mockResolvedValue({ key: "my-app" });
+
+      await client.getApplicationStatus("miso", "my-app", authStrategy);
+
+      expect(getSpy).toHaveBeenCalledWith("miso", "my-app", authStrategy);
+
+      getSpy.mockRestore();
+    });
+
+    it("getMyApplicationStatus should throw when context missing", async () => {
+      // config uses clientId "ctrl-dev-test-app" which does not parse to env/app
+      await expect(client.getMyApplicationStatus()).rejects.toThrow(
+        /envKey and appKey or application context/,
+      );
+    });
+
+    it("getMyApplicationStatus should forward to API when options provided", async () => {
+      const apiClient = (client as any).apiClient;
+      const mockStatus = { key: "my-app", status: "active" };
+      const getSpy = jest
+        .spyOn(apiClient.applications, "getApplicationStatus")
+        .mockResolvedValue(mockStatus);
+
+      const result = await client.getMyApplicationStatus({
+        envKey: "miso",
+        appKey: "my-app",
+      });
+
+      expect(getSpy).toHaveBeenCalledWith("miso", "my-app", undefined);
+      expect(result).toEqual(mockStatus);
+
+      getSpy.mockRestore();
+    });
+  });
 });

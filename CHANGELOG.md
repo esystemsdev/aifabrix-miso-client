@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.1] - 2026-02-09
+
+### Added
+
+- **Application status and URLs (server-side)** - New SDK methods for updating and fetching application status
+  - `updateMyApplicationStatus(body, options?)` - Update current application's status, url, internalUrl, port via POST self/status
+  - `getApplicationStatus(envKey, appKey, authStrategy?)` - Fetch any application's status and URLs (without configuration)
+  - `getMyApplicationStatus(options?, authStrategy?)` - Fetch current application's status using context when envKey/appKey omitted
+  - Uses `ApplicationContextService` for default envKey/appKey when omitted (client token / clientId parsing)
+  - New types: `UpdateSelfStatusRequest`, `UpdateSelfStatusResponse`, `ApplicationStatusResponse`
+  - Endpoints: `POST /api/v1/environments/:envKey/applications/self/status`, `GET /api/v1/environments/:envKey/applications/:appKey/status`
+- **LoggerContextStorage** - Exported for background operation context (e.g. Keycloak sync, cron jobs)
+  - Use `LoggerContextStorage.getInstance().runWithContextAsync(context, async () => { ... })` for operations without request middleware
+
+### Changed
+
+- **Encryption key configuration** - Renamed environment variable from `MISO_ENCRYPTION_KEY` to `ENCRYPTION_KEY` across types, services, config loader, and tests for consistency
+- **README** - Updated API documentation links and usage instructions for the AI Fabrix Builder
+
 ## [4.4.0] - 2026-02-04
 
 ### Changed
