@@ -4,19 +4,24 @@ When the `/validate-tests` command is used, the agent must automatically fix all
 
 **Execution Process:**
 
-1. **Lint Fix Step**:
+1. **Test Typecheck Step**:
+   - Run `npm run tests:typecheck` to validate TypeScript in tests
+   - If it fails, fix test type errors and re-run until it passes
+   - Do not proceed until test typecheck step is green
+
+2. **Lint Fix Step**:
    - Run `npm run lint:fix` to automatically fix linting and formatting issues
    - If lint:fix fails or produces errors, automatically fix the issues in the codebase
    - Re-run `npm run lint:fix` until it passes (exit code 0)
    - Do not proceed until lint:fix step is green
 
-2. **Lint Check Step**:
+3. **Lint Check Step**:
    - Run `npm run lint` to check for remaining linting errors
    - If linting fails, automatically fix all linting errors in the codebase
    - Re-run `npm run lint` until it passes (exit code 0)
    - Do not proceed until lint step is green
 
-3. **Test Step**:
+4. **Test Step**:
    - Run `npm test` to run all tests
    - If tests fail, automatically fix all test failures
    - Re-run `npm test` until all tests pass (exit code 0)
@@ -24,7 +29,9 @@ When the `/validate-tests` command is used, the agent must automatically fix all
    - **All tests MUST be mocked** - no real database connections, external API calls, or I/O operations
    - **Each individual test MUST complete in less than 0.5 seconds** - if any individual test takes longer than 0.5 seconds, optimize by ensuring all external dependencies are properly mocked and using fake timers where appropriate
 
-4. **Final Verification Step**:
+5. **Final Verification Step**:
+   - Run `npm run tests:typecheck` again to ensure no new test type errors
+   - If it fails, fix issues and re-run until it passes
    - Run `npm run lint:fix` again to ensure no formatting changes were introduced
    - Run `npm run lint` again to ensure no linting issues were introduced
    - If lint:fix or lint made any changes, run `npm test` again to verify tests still pass
@@ -40,12 +47,14 @@ When the `/validate-tests` command is used, the agent must automatically fix all
 - **Test Performance**: All tests must be mocked and each individual test must complete in less than 0.5 seconds
 - **Final Verification**: Lint:fix and lint must be run again after tests pass, and if changes are made, tests must be re-run
 - **Complete Success**: The command is only complete when ALL steps pass AND final verification shows no changes:
-  - ✅ `npm run lint:fix` passes (initial)
-  - ✅ `npm run lint` passes (initial)
-  - ✅ `npm test` passes (initial, each test < 0.5 seconds, all mocked)
-  - ✅ `npm run lint:fix` passes (final, no changes)
-  - ✅ `npm run lint` passes (final, no changes)
-  - ✅ `npm test` passes (final, if lint:fix/lint made changes)
+- ✅ `npm run tests:typecheck` passes (initial)
+- ✅ `npm run lint:fix` passes (initial)
+- ✅ `npm run lint` passes (initial)
+- ✅ `npm test` passes (initial, each test < 0.5 seconds, all mocked)
+- ✅ `npm run tests:typecheck` passes (final)
+- ✅ `npm run lint:fix` passes (final, no changes)
+- ✅ `npm run lint` passes (final, no changes)
+- ✅ `npm test` passes (final, if lint:fix/lint made changes)
 
 **Work is only done when all validation checks are green and working, final verification shows no changes, and each individual test completes in under 0.5 seconds.**
 
