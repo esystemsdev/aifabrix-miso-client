@@ -50,6 +50,7 @@ describe('LogsCreateApi', () => {
       };
       const mockResponse: CreateLogResponse = {
         success: true,
+        data: null,
         message: 'Log created successfully',
         timestamp: new Date().toISOString(),
       };
@@ -72,11 +73,11 @@ describe('LogsCreateApi', () => {
         data: {
           level: 'error',
           message: 'Error log message',
-          stackTrace: 'Error stack trace',
         },
       };
       const mockResponse: CreateLogResponse = {
         success: true,
+        data: null,
         message: 'Log created successfully',
         timestamp: new Date().toISOString(),
       };
@@ -107,6 +108,7 @@ describe('LogsCreateApi', () => {
       };
       const mockResponse: CreateLogResponse = {
         success: true,
+        data: null,
         message: 'Log created successfully',
         timestamp: new Date().toISOString(),
       };
@@ -133,10 +135,12 @@ describe('LogsCreateApi', () => {
         },
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: CreateLogResponse = {
         success: true,
+        data: null,
         message: 'Log created successfully',
         timestamp: new Date().toISOString(),
       };
@@ -169,6 +173,7 @@ describe('LogsCreateApi', () => {
       };
       const mockResponse: CreateLogResponse = {
         success: true,
+        data: null,
         message: 'Log created successfully',
         timestamp: new Date().toISOString(),
       };
@@ -265,7 +270,7 @@ describe('LogsCreateApi', () => {
           {
             index: 1,
             error: 'Invalid log format',
-            log: logs.logs[1] as Record<string, unknown>,
+            log: logs.logs[1] as unknown as Record<string, unknown>,
           },
         ],
         timestamp: new Date().toISOString(),
@@ -295,6 +300,7 @@ describe('LogsCreateApi', () => {
         ] as LogEntry[],
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: BatchLogResponse = {

@@ -4,6 +4,7 @@
 
 import { extractRequestContext, RequestContext } from "../../src/utils/request-context";
 import { Request } from "express";
+import { Socket } from "net";
 
 // Mock jsonwebtoken
 jest.mock("jsonwebtoken");
@@ -21,7 +22,7 @@ describe("request-context", () => {
       headers: {},
       socket: {
         remoteAddress: "127.0.0.1",
-      },
+      } as unknown as Socket,
     } as Partial<Request>;
     jest.clearAllMocks();
   });
@@ -82,71 +83,95 @@ describe("request-context", () => {
     });
 
     it("should extract request size from content-length header", () => {
-      mockRequest.headers = {
-        "content-length": "1024",
+      const request: Partial<Request> = {
+        ...mockRequest,
+        headers: {
+          "content-length": "1024",
+        },
       };
-      const ctx = extractRequestContext(mockRequest as Request);
+      const ctx = extractRequestContext(request as Request);
 
       expect(ctx.requestSize).toBe(1024);
     });
 
     it("should handle missing content-length gracefully", () => {
-      mockRequest.headers = {};
-      const ctx = extractRequestContext(mockRequest as Request);
+      const request: Partial<Request> = {
+        ...mockRequest,
+        headers: {},
+      };
+      const ctx = extractRequestContext(request as Request);
 
       expect(ctx.requestSize).toBeUndefined();
     });
 
     it("should extract IP from req.ip", () => {
-      mockRequest.ip = "192.168.1.1";
-      const ctx = extractRequestContext(mockRequest as Request);
+      const request: Partial<Request> = {
+        ...mockRequest,
+        ip: "192.168.1.1",
+      };
+      const ctx = extractRequestContext(request as Request);
 
       expect(ctx.ipAddress).toBe("192.168.1.1");
     });
 
     it("should extract IP from x-forwarded-for header when req.ip is missing", () => {
-      delete mockRequest.ip;
-      mockRequest.headers = {
-        "x-forwarded-for": "192.168.1.1, 10.0.0.1",
+      const request: Partial<Request> = {
+        ...mockRequest,
+        ip: undefined,
+        headers: {
+          "x-forwarded-for": "192.168.1.1, 10.0.0.1",
+        },
       };
-      const ctx = extractRequestContext(mockRequest as Request);
+      const ctx = extractRequestContext(request as Request);
 
       expect(ctx.ipAddress).toBe("192.168.1.1");
     });
 
     it("should handle x-forwarded-for with single IP", () => {
-      delete mockRequest.ip;
-      mockRequest.headers = {
-        "x-forwarded-for": "192.168.1.1",
+      const request: Partial<Request> = {
+        ...mockRequest,
+        ip: undefined,
+        headers: {
+          "x-forwarded-for": "192.168.1.1",
+        },
       };
-      const ctx = extractRequestContext(mockRequest as Request);
+      const ctx = extractRequestContext(request as Request);
 
       expect(ctx.ipAddress).toBe("192.168.1.1");
     });
 
     it("should extract IP from socket.remoteAddress when other sources are missing", () => {
-      delete mockRequest.ip;
-      mockRequest.headers = {};
-      mockRequest.socket = {
-        remoteAddress: "10.0.0.1",
+      const request: Partial<Request> = {
+        ...mockRequest,
+        ip: undefined,
+        headers: {},
+        socket: {
+          remoteAddress: "10.0.0.1",
+        } as unknown as Socket,
       };
-      const ctx = extractRequestContext(mockRequest as Request);
+      const ctx = extractRequestContext(request as Request);
 
       expect(ctx.ipAddress).toBe("10.0.0.1");
     });
 
     it("should use originalUrl over path when both are present", () => {
-      mockRequest.originalUrl = "/api/v2/users";
-      mockRequest.path = "/api/users";
-      const ctx = extractRequestContext(mockRequest as Request);
+      const request: Partial<Request> = {
+        ...mockRequest,
+        originalUrl: "/api/v2/users",
+        path: "/api/users",
+      };
+      const ctx = extractRequestContext(request as Request);
 
       expect(ctx.path).toBe("/api/v2/users");
     });
 
     it("should use path when originalUrl is missing", () => {
-      delete mockRequest.originalUrl;
-      mockRequest.path = "/api/users";
-      const ctx = extractRequestContext(mockRequest as Request);
+      const request: Partial<Request> = {
+        ...mockRequest,
+        originalUrl: undefined,
+        path: "/api/users",
+      };
+      const ctx = extractRequestContext(request as Request);
 
       expect(ctx.path).toBe("/api/users");
     });
@@ -308,19 +333,25 @@ describe("request-context", () => {
       });
 
       it("should handle undefined headers gracefully", () => {
-        delete mockRequest.headers;
-        const ctx = extractRequestContext(mockRequest as Request);
+      const request: Partial<Request> = {
+        ...mockRequest,
+        headers: undefined,
+      };
+      const ctx = extractRequestContext(request as Request);
 
         expect(ctx.method).toBe("GET");
         expect(ctx.path).toBe("/api/users");
       });
 
       it("should handle x-forwarded-for with whitespace", () => {
-        delete mockRequest.ip;
-        mockRequest.headers = {
+      const request: Partial<Request> = {
+        ...mockRequest,
+        ip: undefined,
+        headers: {
           "x-forwarded-for": "  192.168.1.1  ,  10.0.0.1  ",
-        };
-        const ctx = extractRequestContext(mockRequest as Request);
+        },
+      };
+      const ctx = extractRequestContext(request as Request);
 
         expect(ctx.ipAddress).toBe("192.168.1.1");
       });

@@ -54,6 +54,7 @@ describe("Zero-Config Integration", () => {
   let mockResponse: Partial<Response>;
   let jsonSpy: jest.Mock;
   let statusSpy: jest.Mock;
+  let nextSpy: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -77,6 +78,7 @@ describe("Zero-Config Integration", () => {
     statusSpy = jest.fn().mockReturnValue({
       json: jsonSpy,
     });
+    nextSpy = jest.fn();
 
     mockRequest = {
       protocol: "https",
@@ -107,7 +109,11 @@ describe("Zero-Config Integration", () => {
       mockGetEnvironmentToken.mockResolvedValue("test-token-123");
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       // Verify server response includes config
       expect(jsonSpy).toHaveBeenCalledWith({
@@ -216,7 +222,11 @@ describe("Zero-Config Integration", () => {
         expiresIn: 3600,
       });
 
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(jsonSpy).toHaveBeenCalledWith({
         token: "custom-token",
@@ -279,7 +289,11 @@ describe("Zero-Config Integration", () => {
       );
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(statusSpy).toHaveBeenCalledWith(403);
       expect(jsonSpy).toHaveBeenCalledWith({

@@ -2616,7 +2616,7 @@ describe("HttpClient", () => {
 
         expect(debugCall).toBeDefined();
         if (debugCall) {
-          const debugContext = debugCall[1];
+          const debugContext = (debugCall[1] ?? {}) as { responseBody?: unknown };
           const responseBodyStr = JSON.stringify(debugContext.responseBody);
           // Response body should be truncated (less than original size)
           expect(responseBodyStr.length).toBeLessThan(JSON.stringify(largeData).length);

@@ -3,6 +3,7 @@
  */
 
 import { Request, Response, NextFunction } from "express";
+import { Socket } from "net";
 import { loggerContextMiddleware } from "../../src/express/logger-context.middleware";
 import { LoggerContextStorage } from "../../src/services/logger/logger-context-storage";
 import { clearLoggerContext } from "../../src/services/logger/unified-logger.factory";
@@ -29,7 +30,7 @@ describe("loggerContextMiddleware", () => {
       },
       socket: {
         remoteAddress: "10.0.0.5",
-      },
+      } as unknown as Socket,
     } as Partial<Request>;
 
     const res = {} as Response;

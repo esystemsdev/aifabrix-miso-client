@@ -23,6 +23,7 @@ const MockedRedisService = RedisService as jest.MockedClass<
 
 // Mock jsonwebtoken
 jest.mock("jsonwebtoken");
+const mockedJwtDecode = jwt.decode as jest.MockedFunction<typeof jwt.decode>;
 
 describe("LoggerService", () => {
   let loggerService: LoggerService;
@@ -244,6 +245,72 @@ describe("LoggerService", () => {
       // Should not throw
       await expect(loggerService.error("Test error")).resolves.toBeUndefined();
     });
+
+    it("should prefer logger context over JWT token values", async () => {
+      mockedJwtDecode.mockReturnValue({
+        sub: "jwt-user",
+        sessionId: "jwt-session",
+      });
+      const contextStorage = LoggerContextStorage.getInstance();
+      contextStorage.setContext({
+        token: "jwt-token",
+        userId: "ctx-user",
+        sessionId: "ctx-session",
+        requestId: "req-123",
+        correlationId: "corr-123",
+        ipAddress: "10.0.0.1",
+        userAgent: "UnitTest/1.0",
+      });
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      await loggerService.info("Test");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string) as {
+          userId?: string;
+          sessionId?: string;
+          requestId?: string;
+          correlationId?: string;
+          ipAddress?: string;
+          userAgent?: string;
+        };
+        expect(logEntry.userId).toBe("ctx-user");
+        expect(logEntry.sessionId).toBe("ctx-session");
+        expect(logEntry.requestId).toBe("req-123");
+        expect(logEntry.correlationId).toBe("corr-123");
+        expect(logEntry.ipAddress).toBe("10.0.0.1");
+        expect(logEntry.userAgent).toBe("UnitTest/1.0");
+      }
+    });
+
+    it("should include hostname from environment metadata", async () => {
+      const originalHostname = process.env.HOSTNAME;
+      process.env.HOSTNAME = "test-host";
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      try {
+        await loggerService.info("Test");
+      } finally {
+        if (originalHostname === undefined) {
+          delete process.env.HOSTNAME;
+        } else {
+          process.env.HOSTNAME = originalHostname;
+        }
+      }
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string) as {
+          hostname?: string;
+        };
+        expect(logEntry.hostname).toBe("test-host");
+      }
+    });
   });
 
   describe("enhanced logging options", () => {
@@ -386,7 +453,7 @@ describe("LoggerService", () => {
     });
 
     it("should extract JWT context from request token", async () => {
-      jwt.decode.mockReturnValue({
+      mockedJwtDecode.mockReturnValue({
         sub: "user-123",
         applicationId: "app-456",
         sessionId: "session-789",
@@ -419,7 +486,7 @@ describe("LoggerService", () => {
     });
 
     it("should handle JWT decode failure in request token", async () => {
-      jwt.decode.mockImplementation(() => {
+      mockedJwtDecode.mockImplementation(() => {
         throw new Error("Invalid token");
       });
 
@@ -446,7 +513,7 @@ describe("LoggerService", () => {
     });
 
     it("should extract userId from different JWT claim formats", async () => {
-      jwt.decode.mockReturnValue({
+      mockedJwtDecode.mockReturnValue({
         user_id: "user-456", // Alternative format
         app_id: "app-789",
       });
@@ -473,7 +540,7 @@ describe("LoggerService", () => {
     });
 
     it("should extract roles from realm_access in JWT", async () => {
-      jwt.decode.mockReturnValue({
+      mockedJwtDecode.mockReturnValue({
         sub: "user-123",
         realm_access: {
           roles: ["admin", "manager"],
@@ -504,7 +571,7 @@ describe("LoggerService", () => {
     });
 
     it("should extract permissions from scope in JWT", async () => {
-      jwt.decode.mockReturnValue({
+      mockedJwtDecode.mockReturnValue({
         sub: "user-123",
         scope: "read:users write:posts",
       });
@@ -533,7 +600,7 @@ describe("LoggerService", () => {
     });
 
     it("should handle null decoded JWT gracefully", async () => {
-      jwt.decode.mockReturnValue(null);
+      mockedJwtDecode.mockReturnValue(null);
 
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
@@ -554,7 +621,7 @@ describe("LoggerService", () => {
     });
 
     it("should extract sessionId from sid claim", async () => {
-      jwt.decode.mockReturnValue({
+      mockedJwtDecode.mockReturnValue({
         sub: "user-123",
         sid: "session-from-sid",
       });
@@ -581,7 +648,7 @@ describe("LoggerService", () => {
     });
 
     it("should handle empty roles and permissions arrays in JWT", async () => {
-      jwt.decode.mockReturnValue({
+      mockedJwtDecode.mockReturnValue({
         sub: "user-123",
         roles: [],
         permissions: [],
@@ -668,7 +735,7 @@ describe("LoggerService", () => {
     });
 
     it("should combine multiple chain methods", async () => {
-      jwt.decode.mockReturnValue({ sub: "user-123" });
+      mockedJwtDecode.mockReturnValue({ sub: "user-123" });
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
@@ -773,7 +840,10 @@ describe("LoggerService", () => {
       const eventSpy = jest.fn();
       loggerService.on("log", eventSpy);
 
-      jwt.decode.mockReturnValue({ sub: "user-123", sessionId: "session-456" });
+      mockedJwtDecode.mockReturnValue({
+        sub: "user-123",
+        sessionId: "session-456",
+      });
       const contextStorage = LoggerContextStorage.getInstance();
       contextStorage.setContext({
         token: "jwt-token",
@@ -840,7 +910,7 @@ describe("LoggerService", () => {
     });
 
     it("should extract and set request context in LoggerChain", async () => {
-      jwt.decode.mockReturnValue({
+      mockedJwtDecode.mockReturnValue({
         sub: "user-123",
         sessionId: "session-456",
       });
@@ -877,7 +947,7 @@ describe("LoggerService", () => {
         ...mockRequest.headers,
         authorization: "Bearer valid-token",
       };
-      jwt.decode.mockReturnValue({
+      mockedJwtDecode.mockReturnValue({
         sub: "user-999",
         sessionId: "session-123",
       });
@@ -922,7 +992,7 @@ describe("LoggerService", () => {
     });
 
     it("should handle request with invalid JWT token", async () => {
-      jwt.decode.mockReturnValue(null);
+      mockedJwtDecode.mockReturnValue(null);
       mockRequest.headers = {
         ...mockRequest.headers,
         authorization: "Bearer invalid-token",
@@ -944,16 +1014,19 @@ describe("LoggerService", () => {
     });
 
     it("should handle request with proxy IP (x-forwarded-for)", async () => {
-      mockRequest.ip = undefined;
-      mockRequest.headers = {
-        ...mockRequest.headers,
-        "x-forwarded-for": "10.0.0.1, 192.168.1.1",
+      const proxyRequest: Partial<Request> = {
+        ...mockRequest,
+        ip: undefined,
+        headers: {
+          ...mockRequest.headers,
+          "x-forwarded-for": "10.0.0.1, 192.168.1.1",
+        },
       };
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
       const chain = loggerService.withContext({});
-      chain.withRequest(mockRequest as Request);
+      chain.withRequest(proxyRequest as Request);
       await chain.info("Test with proxy IP");
 
       const rpushCall = mockRedisService.rpush.mock.calls[0];
@@ -965,7 +1038,7 @@ describe("LoggerService", () => {
     });
 
     it("should support method chaining with withRequest", async () => {
-      jwt.decode.mockReturnValue({ sub: "user-123" });
+      mockedJwtDecode.mockReturnValue({ sub: "user-123" });
       mockRequest.headers = {
         ...mockRequest.headers,
         authorization: "Bearer valid-token",
@@ -989,13 +1062,16 @@ describe("LoggerService", () => {
     });
 
     it("should use originalUrl over path when both are present", async () => {
-      mockRequest.originalUrl = "/api/v2/users";
-      mockRequest.path = "/api/users";
+      const urlRequest: Partial<Request> = {
+        ...mockRequest,
+        originalUrl: "/api/v2/users",
+        path: "/api/users",
+      };
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
       const chain = loggerService.withContext({});
-      chain.withRequest(mockRequest as Request);
+      chain.withRequest(urlRequest as Request);
       await chain.info("Test originalUrl");
 
       const rpushCall = mockRedisService.rpush.mock.calls[0];
@@ -1026,7 +1102,7 @@ describe("LoggerService", () => {
     });
 
     it("should create LoggerChain with request context pre-populated", async () => {
-      jwt.decode.mockReturnValue({
+      mockedJwtDecode.mockReturnValue({
         sub: "user-999",
       });
       mockRequest.headers = {

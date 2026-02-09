@@ -26,7 +26,7 @@ describe("PermissionService", () => {
   let permissionService: PermissionService;
   let config: MisoClientConfig;
   let mockHttpClient: jest.Mocked<HttpClient>;
-  let mockApiClient: {
+  type MockApiClient = {
     auth: {
       validateToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
     };
@@ -34,7 +34,17 @@ describe("PermissionService", () => {
       getPermissions: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
       refreshPermissions: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
     };
+    roles: {
+      getRoles: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
+      refreshRoles: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
+    };
+    logs: {
+      createLog: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
+    };
+    encryption: Record<string, unknown>;
+    applications: Record<string, unknown>;
   };
+  let mockApiClient: MockApiClient;
   let mockCacheService: jest.Mocked<CacheService>;
 
   beforeEach(() => {
@@ -59,6 +69,15 @@ describe("PermissionService", () => {
         getPermissions: jest.fn(),
         refreshPermissions: jest.fn(),
       },
+      roles: {
+        getRoles: jest.fn(),
+        refreshRoles: jest.fn(),
+      },
+      logs: {
+        createLog: jest.fn(),
+      },
+      encryption: {},
+      applications: {},
     } as any;
 
     mockCacheService = {
@@ -68,10 +87,16 @@ describe("PermissionService", () => {
     } as any;
 
     MockedHttpClient.mockImplementation(() => mockHttpClient);
-    MockedApiClient.mockImplementation(() => mockApiClient);
+    MockedApiClient.mockImplementation(
+      () => mockApiClient as unknown as ApiClient,
+    );
     MockedCacheService.mockImplementation(() => mockCacheService);
 
-    permissionService = new PermissionService(mockHttpClient, mockApiClient, mockCacheService);
+    permissionService = new PermissionService(
+      mockHttpClient,
+      mockApiClient as unknown as ApiClient,
+      mockCacheService,
+    );
   });
 
   afterEach(() => {
@@ -765,7 +790,11 @@ describe("PermissionService", () => {
       };
       (mockHttpClient as any).config = configWithoutTTL;
 
-      const service = new PermissionService(mockHttpClient, mockApiClient, mockCacheService);
+      const service = new PermissionService(
+        mockHttpClient,
+        mockApiClient as unknown as ApiClient,
+        mockCacheService,
+      );
       expect(service).toBeDefined();
     });
 
@@ -778,7 +807,11 @@ describe("PermissionService", () => {
       };
       (mockHttpClient as any).config = configWithTTL;
 
-      const service = new PermissionService(mockHttpClient, mockApiClient, mockCacheService);
+      const service = new PermissionService(
+        mockHttpClient,
+        mockApiClient as unknown as ApiClient,
+        mockCacheService,
+      );
       expect(service).toBeDefined();
     });
   });

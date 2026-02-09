@@ -22,6 +22,7 @@ describe("client-token-endpoint", () => {
   let mockResponse: Partial<Response>;
   let jsonSpy: jest.Mock;
   let statusSpy: jest.Mock;
+  let nextSpy: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -45,6 +46,7 @@ describe("client-token-endpoint", () => {
     statusSpy = jest.fn().mockReturnValue({
       json: jsonSpy,
     });
+    nextSpy = jest.fn();
 
     mockRequest = {
       protocol: "http",
@@ -76,7 +78,11 @@ describe("client-token-endpoint", () => {
       mockGetEnvironmentToken.mockResolvedValue("test-token-123");
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(mockGetEnvironmentToken).toHaveBeenCalledWith(
         mockMisoClient,
@@ -103,7 +109,11 @@ describe("client-token-endpoint", () => {
         clientTokenUri: "/custom/token",
         expiresIn: 3600,
       });
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(jsonSpy).toHaveBeenCalledWith({
         token: "test-token-123",
@@ -124,7 +134,11 @@ describe("client-token-endpoint", () => {
       const handler = createClientTokenEndpoint(mockMisoClient, {
         includeConfig: false,
       });
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(jsonSpy).toHaveBeenCalledWith({
         token: "test-token-123",
@@ -136,7 +150,11 @@ describe("client-token-endpoint", () => {
       mockMisoClient.isInitialized = jest.fn().mockReturnValue(false);
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(statusSpy).toHaveBeenCalledWith(503);
       expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
@@ -154,7 +172,11 @@ describe("client-token-endpoint", () => {
       );
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(statusSpy).toHaveBeenCalledWith(403);
       expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
@@ -173,7 +195,11 @@ describe("client-token-endpoint", () => {
       mockGetEnvironmentToken.mockResolvedValue("test-token-123");
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(statusSpy).toHaveBeenCalledWith(500);
       expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
@@ -193,7 +219,11 @@ describe("client-token-endpoint", () => {
       mockGetEnvironmentToken.mockResolvedValue("test-token-123");
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(jsonSpy).toHaveBeenCalledWith({
         token: "test-token-123",
@@ -217,7 +247,11 @@ describe("client-token-endpoint", () => {
       mockGetEnvironmentToken.mockResolvedValue("test-token-123");
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(jsonSpy).toHaveBeenCalledWith({
         token: "test-token-123",
@@ -238,7 +272,11 @@ describe("client-token-endpoint", () => {
       );
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(mockRequest as Request, mockResponse as Response);
+      await handler(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextSpy,
+      );
 
       expect(statusSpy).toHaveBeenCalledWith(500);
       expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({

@@ -63,6 +63,7 @@ describe('LogsApi', () => {
       };
       const mockResponse: CreateLogResponse = {
         success: true,
+        data: null,
         message: 'Log created successfully',
         timestamp: new Date().toISOString(),
       };
@@ -88,10 +89,12 @@ describe('LogsApi', () => {
         },
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: CreateLogResponse = {
         success: true,
+        data: null,
         message: 'Log created',
         timestamp: new Date().toISOString(),
       };
@@ -213,6 +216,7 @@ describe('LogsApi', () => {
         pageSize: 10,
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: PaginatedLogsResponse<GeneralLogEntry> = {

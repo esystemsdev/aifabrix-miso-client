@@ -75,7 +75,10 @@ describe('ApplicationsApi', () => {
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const body: UpdateSelfStatusRequest = { status: 'inactive' };
-      const authStrategy: AuthStrategy = { bearerToken: 'test-token' };
+      const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
+        bearerToken: 'test-token',
+      };
       const mockResponse: UpdateSelfStatusResponse = { success: true };
 
       mockHttpClient.authenticatedRequest.mockResolvedValue(mockResponse);
@@ -171,7 +174,10 @@ describe('ApplicationsApi', () => {
     });
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
-      const authStrategy: AuthStrategy = { bearerToken: 'test-token' };
+      const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
+        bearerToken: 'test-token',
+      };
       const mockResponse: ApplicationStatusResponse = {
         key: 'my-app',
         status: 'active',

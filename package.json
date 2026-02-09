@@ -21,6 +21,7 @@
     "test:integration:api": "node --unhandled-rejections=warn node_modules/jest/bin/jest.js tests/integration/api-endpoints.integration.test.ts --maxWorkers=50% --testPathIgnorePatterns=/node_modules/",
     "lint": "eslint 'src/**/*.ts' --max-warnings 0 --ignore-pattern '**/*.d.ts'",
     "lint:fix": "eslint 'src/**/*.ts' --fix --ignore-pattern '**/*.d.ts'",
+    "tests:typecheck": "tsc -p tests/tsconfig.json --noEmit",
     "prepublishOnly": "pnpm run build"
   },
   "keywords": [

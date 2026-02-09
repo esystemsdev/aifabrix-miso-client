@@ -65,6 +65,7 @@ describe('AuthCacheApi', () => {
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: CacheStatsResponse = {
@@ -155,6 +156,7 @@ describe('AuthCacheApi', () => {
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: CachePerformanceResponse = {
@@ -242,6 +244,7 @@ describe('AuthCacheApi', () => {
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: CacheEfficiencyResponse = {
@@ -325,6 +328,7 @@ describe('AuthCacheApi', () => {
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: ClearCacheResponse = {
@@ -433,6 +437,7 @@ describe('AuthCacheApi', () => {
         pattern: 'roles:*',
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: InvalidateCacheResponse = {

@@ -15,7 +15,7 @@ import { ErrorResponse } from "../../../src/types/config.types";
 describe("extractErrorInfo", () => {
   describe("MisoClientError", () => {
     it("should extract error info from MisoClientError with errorResponse", () => {
-      const errorResponse: ErrorResponse = {
+      const errorResponse: ErrorResponse & { correlationId: string } = {
         errors: ["Validation failed"],
         type: "/Errors/BadRequest",
         title: "Bad Request",
@@ -64,7 +64,7 @@ describe("extractErrorInfo", () => {
     });
 
     it("should prefer correlationId from options over errorResponse", () => {
-      const errorResponse: ErrorResponse = {
+      const errorResponse: ErrorResponse & { correlationId: string } = {
         errors: ["Error"],
         type: "/Errors/InternalServerError",
         title: "Internal Server Error",
@@ -81,7 +81,7 @@ describe("extractErrorInfo", () => {
     });
 
     it("should use correlationId from errorResponse when not in options", () => {
-      const errorResponse: ErrorResponse = {
+      const errorResponse: ErrorResponse & { correlationId: string } = {
         errors: ["Error"],
         type: "/Errors/InternalServerError",
         title: "Internal Server Error",

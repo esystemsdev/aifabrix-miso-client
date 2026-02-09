@@ -3,7 +3,7 @@
  */
 
 import { MisoClient } from "../../src/index";
-import { MisoClientConfig } from "../../src/types/config.types";
+import { AuthStrategy, MisoClientConfig } from "../../src/types/config.types";
 import { Request } from "express";
 
 // Mock Redis
@@ -447,7 +447,10 @@ describe("MisoClient", () => {
 
     it("updateMyApplicationStatus should pass authStrategy when provided", async () => {
       const apiClient = (client as any).apiClient;
-      const authStrategy = { bearerToken: "token-123" };
+      const authStrategy: AuthStrategy = {
+        methods: ["bearer"],
+        bearerToken: "token-123",
+      };
       const updateSpy = jest
         .spyOn(apiClient.applications, "updateSelfStatus")
         .mockResolvedValue({ success: true });
@@ -488,7 +491,10 @@ describe("MisoClient", () => {
 
     it("getApplicationStatus should pass authStrategy when provided", async () => {
       const apiClient = (client as any).apiClient;
-      const authStrategy = { bearerToken: "token-123" };
+      const authStrategy: AuthStrategy = {
+        methods: ["bearer"],
+        bearerToken: "token-123",
+      };
       const getSpy = jest
         .spyOn(apiClient.applications, "getApplicationStatus")
         .mockResolvedValue({ key: "my-app" });

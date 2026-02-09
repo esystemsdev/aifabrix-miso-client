@@ -301,7 +301,6 @@ describe("Response Validator", () => {
         title: "Bad Request",
         statusCode: 400,
         instance: "/api/users",
-        correlationId: "corr-123",
       };
 
       expect(validateErrorResponse(response)).toBe(true);

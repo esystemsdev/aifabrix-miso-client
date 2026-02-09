@@ -109,6 +109,7 @@ describe('LogsListApi', () => {
         level: 'error',
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: PaginatedLogsResponse<GeneralLogEntry> = {
@@ -233,6 +234,7 @@ describe('LogsListApi', () => {
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const id = 'log-id-789';
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: GeneralLogEntry = {
@@ -340,10 +342,9 @@ describe('LogsListApi', () => {
     });
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
-      const params: ListLogsQueryParams = {
-        entityType: 'user',
-      };
+      const params: ListLogsQueryParams = {};
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: PaginatedLogsResponse<AuditLogEntry> = {
@@ -467,6 +468,7 @@ describe('LogsListApi', () => {
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const id = 'audit-log-id-789';
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: AuditLogEntry = {
@@ -579,6 +581,7 @@ describe('LogsListApi', () => {
         correlationId: 'corr-123',
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: PaginatedLogsResponse<JobLogEntry> = {
@@ -674,6 +677,7 @@ describe('LogsListApi', () => {
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const id = 'job-log-id-456';
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: JobLogEntry = {

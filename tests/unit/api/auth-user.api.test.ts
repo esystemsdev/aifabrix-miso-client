@@ -41,6 +41,7 @@ describe('AuthUserApi', () => {
   describe('getUser', () => {
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: GetUserResponse = {
@@ -108,6 +109,7 @@ describe('AuthUserApi', () => {
 
     it('should handle errors', async () => {
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'invalid-token',
       };
       const error = new Error('Get user failed');
@@ -199,7 +201,6 @@ describe('AuthUserApi', () => {
       const mockResponse: CallbackResponse = {
         success: true,
         message: 'Callback handled successfully',
-        timestamp: new Date().toISOString(),
       };
 
       mockHttpClient.request.mockResolvedValue(mockResponse);
@@ -227,7 +228,6 @@ describe('AuthUserApi', () => {
       const mockResponse: CallbackResponse = {
         success: true,
         message: 'Callback handled successfully',
-        timestamp: new Date().toISOString(),
       };
 
       mockHttpClient.requestWithAuthStrategy.mockResolvedValue(mockResponse);
@@ -253,7 +253,6 @@ describe('AuthUserApi', () => {
       const mockResponse: CallbackResponse = {
         success: true,
         message: 'Callback handled successfully',
-        timestamp: new Date().toISOString(),
       };
 
       mockHttpClient.request.mockResolvedValue(mockResponse);

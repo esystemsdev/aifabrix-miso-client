@@ -43,6 +43,7 @@ describe('PermissionsApi', () => {
         application: 'test-app',
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: GetPermissionsResponse = {
@@ -73,7 +74,7 @@ describe('PermissionsApi', () => {
         environment: 'dev',
       };
       const authStrategy: AuthStrategy = {
-        environment: 'dev',
+        methods: ['bearer'],
       };
       const mockResponse: GetPermissionsResponse = {
         success: true,
@@ -105,6 +106,7 @@ describe('PermissionsApi', () => {
 
     it('should handle errors', async () => {
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const error = new Error('Network error');
@@ -122,6 +124,7 @@ describe('PermissionsApi', () => {
   describe('refreshPermissions', () => {
     it('should call HttpClient.authenticatedRequest with correct parameters', async () => {
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: RefreshPermissionsResponse = {

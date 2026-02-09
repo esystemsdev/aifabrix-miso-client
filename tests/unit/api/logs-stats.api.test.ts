@@ -116,6 +116,7 @@ describe('LogsStatsApi', () => {
         environment: 'staging',
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: LogStatsSummaryResponse = {
@@ -255,6 +256,7 @@ describe('LogsStatsApi', () => {
         application: 'my-app',
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: ErrorStatsResponse = {
@@ -395,6 +397,7 @@ describe('LogsStatsApi', () => {
         application: 'my-app',
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: UserActivityStatsResponse = {
@@ -527,6 +530,7 @@ describe('LogsStatsApi', () => {
         application: 'my-app',
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: ApplicationStatsResponse = {

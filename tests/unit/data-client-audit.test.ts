@@ -9,6 +9,7 @@ import jwt from "jsonwebtoken";
 
 // Mock jsonwebtoken for extractUserIdFromToken
 jest.mock("jsonwebtoken");
+const mockedJwtDecode = jwt.decode as jest.MockedFunction<typeof jwt.decode>;
 
 describe("data-client-audit", () => {
   const createMisoClient = (): MisoClient =>
@@ -26,7 +27,7 @@ describe("data-client-audit", () => {
     const misoClient = createMisoClient();
     const auditConfig: AuditConfig = { enabled: true, level: "minimal" };
     const token = "test-token";
-    jwt.decode.mockReturnValue({ sub: "user-123" });
+    mockedJwtDecode.mockReturnValue({ sub: "user-123" });
 
     await logDataClientAudit(
       "GET",

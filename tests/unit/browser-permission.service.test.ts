@@ -32,7 +32,7 @@ describe("BrowserPermissionService", () => {
   let permissionService: BrowserPermissionService;
   let config: MisoClientConfig;
   let mockHttpClient: jest.Mocked<HttpClient>;
-  let mockApiClient: {
+  type MockApiClient = {
     auth: {
       validateToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
     };
@@ -44,8 +44,13 @@ describe("BrowserPermissionService", () => {
       getPermissions: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
       refreshPermissions: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
     };
-    logs: Record<string, jest.MockedFunction<any>>;
+    logs: {
+      createLog: jest.MockedFunction<(params: unknown, authStrategy?: unknown) => Promise<unknown>>;
+    };
+    encryption: Record<string, unknown>;
+    applications: Record<string, unknown>;
   };
+  let mockApiClient: MockApiClient;
   let mockCacheService: jest.Mocked<CacheService>;
 
   beforeEach(() => {
@@ -74,7 +79,11 @@ describe("BrowserPermissionService", () => {
         getPermissions: jest.fn(),
         refreshPermissions: jest.fn(),
       },
-      logs: {},
+      logs: {
+        createLog: jest.fn(),
+      },
+      encryption: {},
+      applications: {},
     } as any;
 
     mockCacheService = {
@@ -84,12 +93,14 @@ describe("BrowserPermissionService", () => {
     } as any;
 
     MockedHttpClient.mockImplementation(() => mockHttpClient);
-    MockedApiClient.mockImplementation(() => mockApiClient as any);
+    MockedApiClient.mockImplementation(
+      () => mockApiClient as unknown as ApiClient,
+    );
     MockedCacheService.mockImplementation(() => mockCacheService);
 
     permissionService = new BrowserPermissionService(
       mockHttpClient,
-      mockApiClient,
+      mockApiClient as unknown as ApiClient,
       mockCacheService,
     );
   });

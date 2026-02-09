@@ -61,11 +61,12 @@ describe("http-error-handler", () => {
 
   describe("parseErrorResponse with authMethod", () => {
     it("should extract authMethod from error response data", () => {
-      const error: AxiosError = {
-        config: { url: "/test" },
+      const error = {
+        config: { url: "/test", headers: {} },
         message: "Unauthorized",
         name: "AxiosError",
         isAxiosError: true,
+        toJSON: jest.fn(),
         response: {
           status: 401,
           statusText: "Unauthorized",
@@ -79,7 +80,7 @@ describe("http-error-handler", () => {
           headers: {},
           config: {} as any,
         },
-      } as AxiosError;
+      } as unknown as AxiosError;
 
       const result = parseErrorResponse(error, "/test");
       expect(result).toBeDefined();
@@ -87,11 +88,12 @@ describe("http-error-handler", () => {
     });
 
     it("should extract authMethod 'client-credentials' from error response", () => {
-      const error: AxiosError = {
-        config: { url: "/api/v1/auth/token" },
+      const error = {
+        config: { url: "/api/v1/auth/token", headers: {} },
         message: "Unauthorized",
         name: "AxiosError",
         isAxiosError: true,
+        toJSON: jest.fn(),
         response: {
           status: 401,
           statusText: "Unauthorized",
@@ -105,7 +107,7 @@ describe("http-error-handler", () => {
           headers: {},
           config: {} as any,
         },
-      } as AxiosError;
+      } as unknown as AxiosError;
 
       const result = parseErrorResponse(error, "/api/v1/auth/token");
       expect(result).toBeDefined();
@@ -113,11 +115,12 @@ describe("http-error-handler", () => {
     });
 
     it("should return undefined authMethod when not present in response", () => {
-      const error: AxiosError = {
-        config: { url: "/test" },
+      const error = {
+        config: { url: "/test", headers: {} },
         message: "Unauthorized",
         name: "AxiosError",
         isAxiosError: true,
+        toJSON: jest.fn(),
         response: {
           status: 401,
           statusText: "Unauthorized",
@@ -130,7 +133,7 @@ describe("http-error-handler", () => {
           headers: {},
           config: {} as any,
         },
-      } as AxiosError;
+      } as unknown as AxiosError;
 
       const result = parseErrorResponse(error, "/test");
       expect(result).toBeDefined();
@@ -222,7 +225,7 @@ describe("http-error-handler", () => {
     });
 
     it("should detect client-token from headers when authMethod not in response", () => {
-      const error: AxiosError = {
+      const error = {
         config: {
           url: "/test",
           headers: { "x-client-token": "client-token-123" },
@@ -230,6 +233,7 @@ describe("http-error-handler", () => {
         message: "Unauthorized",
         name: "AxiosError",
         isAxiosError: true,
+        toJSON: jest.fn(),
         response: {
           status: 401,
           statusText: "Unauthorized",
@@ -242,7 +246,7 @@ describe("http-error-handler", () => {
           headers: {},
           config: {} as any,
         },
-      } as AxiosError;
+      } as unknown as AxiosError;
 
       const result = createMisoClientError(error, "/test");
       expect(result).toBeInstanceOf(MisoClientError);
@@ -250,7 +254,7 @@ describe("http-error-handler", () => {
     });
 
     it("should detect client-credentials from headers when authMethod not in response", () => {
-      const error: AxiosError = {
+      const error = {
         config: {
           url: "/api/v1/auth/token",
           headers: { "x-client-id": "client-id-123" },
@@ -258,6 +262,7 @@ describe("http-error-handler", () => {
         message: "Unauthorized",
         name: "AxiosError",
         isAxiosError: true,
+        toJSON: jest.fn(),
         response: {
           status: 401,
           statusText: "Unauthorized",
@@ -270,7 +275,7 @@ describe("http-error-handler", () => {
           headers: {},
           config: {} as any,
         },
-      } as AxiosError;
+      } as unknown as AxiosError;
 
       const result = createMisoClientError(error, "/api/v1/auth/token");
       expect(result).toBeInstanceOf(MisoClientError);

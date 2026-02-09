@@ -33,6 +33,7 @@ jest.mock("../../src/api");
 
 // Mock jsonwebtoken
 jest.mock("jsonwebtoken");
+const mockedJwtDecode = jwt.decode as jest.MockedFunction<typeof jwt.decode>;
 
 describe("LoggerContextStorage", () => {
   let storage: LoggerContextStorage;
@@ -238,7 +239,7 @@ describe("UnifiedLoggerService", () => {
       });
 
       // Mock jwt.decode to return test data
-      jwt.decode.mockReturnValue({
+      mockedJwtDecode.mockReturnValue({
         sub: "user-jwt",
         sessionId: "sess-123",
         applicationId: "app-456",

@@ -72,6 +72,7 @@ describe('AuthApi', () => {
         redirect: 'http://localhost:3000/callback',
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: LoginResponse = {
@@ -164,6 +165,7 @@ describe('AuthApi', () => {
   describe('getUser', () => {
     it('should call HttpClient.authenticatedRequest with bearerToken', async () => {
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: GetUserResponse = {

@@ -39,6 +39,7 @@ describe('LogsExportApi', () => {
   describe('exportLogs', () => {
     it('should call HttpClient.request when no authStrategy and return CSV string', async () => {
       const params: ExportLogsQueryParams = {
+        type: 'general',
         format: 'csv',
         startDate: '2024-01-01',
         endDate: '2024-01-31',
@@ -61,6 +62,7 @@ describe('LogsExportApi', () => {
 
     it('should call HttpClient.request when no authStrategy and return JSON ExportLogsResponse', async () => {
       const params: ExportLogsQueryParams = {
+        type: 'general',
         format: 'json',
         startDate: '2024-01-01',
         endDate: '2024-01-31',
@@ -98,6 +100,7 @@ describe('LogsExportApi', () => {
 
     it('should call HttpClient.request with minimal params', async () => {
       const params: ExportLogsQueryParams = {
+        type: 'general',
         format: 'csv',
       };
       const mockResponse = 'timestamp,level,message\n';
@@ -117,11 +120,13 @@ describe('LogsExportApi', () => {
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const params: ExportLogsQueryParams = {
+        type: 'general',
         format: 'json',
         environment: 'production',
         application: 'my-app',
       };
       const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
         bearerToken: 'test-token',
       };
       const mockResponse: ExportLogsResponse = {
@@ -152,6 +157,7 @@ describe('LogsExportApi', () => {
 
     it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
       const params: ExportLogsQueryParams = {
+        type: 'general',
         format: 'csv',
         startDate: '2024-01-01',
       };
@@ -176,6 +182,7 @@ describe('LogsExportApi', () => {
 
     it('should handle errors', async () => {
       const params: ExportLogsQueryParams = {
+        type: 'general',
         format: 'csv',
       };
       const error = new Error('Export logs failed');
