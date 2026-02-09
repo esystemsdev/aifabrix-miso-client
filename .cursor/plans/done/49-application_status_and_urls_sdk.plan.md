@@ -190,3 +190,80 @@ Add server-side SDK support in miso-client for (1) updating the current applicat
 - Consider adding a short subsection under docs (e.g. configuration or getting-started) describing server-side application status/URL usage.
 - Keep MisoClient methods as thin wrappers (context resolution + API call) to avoid bloating index.ts; introduce ApplicationStatusService only if the surface grows.
 
+---
+
+## Validation
+
+**Date**: 2026-02-09  
+**Plan**: .cursor/plans/49-application_status_and_urls_sdk.plan.md  
+**Status**: ✅ COMPLETE
+
+### Executive Summary
+
+Implementation is complete. All plan requirements are met: types, API layer (ApplicationsApi), ApiClient wiring, MisoClient public API (updateMyApplicationStatus, getApplicationStatus, getMyApplicationStatus), ApplicationContextService for default envKey/appKey, exports, documentation, and unit tests. Build, lint, and test all pass. Cursor rules compliance verified.
+
+### File Existence Validation
+
+- ✅ src/api/types/applications.types.ts - Exists; interfaces UpdateSelfStatusRequest, UpdateSelfStatusResponse, ApplicationStatusResponse (camelCase, JSDoc).
+- ✅ src/api/applications.api.ts - Exists; ApplicationsApi with SELF_STATUS_ENDPOINT, APPLICATION_STATUS_ENDPOINT, updateSelfStatus, getApplicationStatus; buildPath for :envKey/:appKey; request/authenticatedRequest/requestWithAuthStrategy pattern.
+- ✅ src/api/index.ts - ApplicationsApi imported and registered as readonly applications.
+- ✅ src/index.ts - updateMyApplicationStatus, getApplicationStatus, getMyApplicationStatus; context via logger.getApplicationContextService(); types exported.
+- ✅ tests/unit/api/applications.api.test.ts - Exists; 10 tests for updateSelfStatus and getApplicationStatus (no auth, bearer, requestWithAuthStrategy, path params, errors).
+- ✅ tests/unit/client.test.ts - "Application status" describe block; 8 tests for MisoClient methods (context missing, forward with envKey, authStrategy, getApplicationStatus, getMyApplicationStatus).
+- ✅ docs/reference-misoclient.md - Application status methods section and quick reference added.
+- ✅ docs/reference-types.md - Application status types section and type exports updated.
+- ✅ docs/getting-started.md - Bullet for server-side application status/URLs added.
+
+### Test Coverage
+
+- ✅ Unit tests exist for ApplicationsApi (tests/unit/api/applications.api.test.ts).
+- ✅ Unit tests exist for MisoClient application status methods (tests/unit/client.test.ts).
+- Tests use mocked HttpClient; MisoClient tests spy on apiClient.applications. No integration tests required by plan.
+- Full suite: 67 test suites, 1857 tests passed.
+
+### Code Quality Validation
+
+**STEP 1 - FORMAT**: ✅ PASSED (`npm run lint:fix` exit 0)  
+**STEP 2 - LINT**: ✅ PASSED (`npm run lint` exit 0, 0 errors, 0 warnings)  
+**STEP 3 - TEST**: ✅ PASSED (all 1857 tests pass)
+
+**Build**: ✅ PASSED (`npm run build`)
+
+### Cursor Rules Compliance
+
+- ✅ Code reuse: ApplicationsApi follows auth-cache/logs-create pattern; MisoClient uses existing LoggerService.getApplicationContextService().
+- ✅ Error handling: try/catch in API methods with logErrorWithContext; clear throws when context missing (updateMyApplicationStatus, getMyApplicationStatus).
+- ✅ Logging: extractErrorInfo and logErrorWithContext used; no secrets logged.
+- ✅ Type safety: Interfaces for all API types; camelCase in request/response (displayName, internalUrl, runtimeStatus, environmentId, createdAt, updatedAt).
+- ✅ Async patterns: async/await throughout.
+- ✅ HTTP client patterns: request() for client credentials, authenticatedRequest when bearerToken, requestWithAuthStrategy when authStrategy; path built from constants.
+- ✅ Token management: N/A for these endpoints (client token via request()).
+- ✅ Redis caching: N/A for application status (no caching per plan).
+- ✅ Service layer patterns: Thin MisoClient wrappers; no dedicated ApplicationStatusService (minimal surface).
+- ✅ Security: Auth via client token or authStrategy; clientId/clientSecret never exposed.
+- ✅ Public API naming: All public outputs camelCase (interfaces and method names).
+
+### Implementation Completeness
+
+- ✅ Types: UpdateSelfStatusRequest, UpdateSelfStatusResponse, ApplicationStatusResponse in applications.types.ts.
+- ✅ API layer: ApplicationsApi with updateSelfStatus, getApplicationStatus; endpoint constants; JSDoc on both methods.
+- ✅ ApiClient: applications: ApplicationsApi registered in src/api/index.ts.
+- ✅ MisoClient: updateMyApplicationStatus(body, options?), getApplicationStatus(envKey, appKey, authStrategy?), getMyApplicationStatus(options?, authStrategy?); context resolution; JSDoc.
+- ✅ Exports: UpdateSelfStatusRequest, UpdateSelfStatusResponse, ApplicationStatusResponse exported from src/index.ts.
+- ✅ Documentation: reference-misoclient.md (Application status methods), reference-types.md (Application status types + type exports), getting-started.md (bullet).
+
+### Issues and Recommendations
+
+- None. Controller path constants use `/api/v1/` for both endpoints per plan 7; update SDK if controller finalizes different paths.
+
+### Final Validation Checklist
+
+- [x] All tasks completed (plan had no checkboxes; Files to add or touch and Definition of done satisfied)
+- [x] All files exist
+- [x] Tests exist and pass
+- [x] Code quality validation passes (format → lint → test)
+- [x] Cursor rules compliance verified
+- [x] Implementation complete
+
+**Result**: ✅ **VALIDATION PASSED** - Application status and URLs SDK implementation is complete. All files, tests, docs, and quality checks pass; cursor rules followed.
+

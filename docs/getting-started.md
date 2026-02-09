@@ -25,6 +25,7 @@ By the end of this guide, you'll have:
 - ✅ Audit trails for compliance
 - ✅ Data encryption (optional)
 - ✅ Generic caching (optional)
+- ✅ Server-side application status and URLs (update/fetch your app's status and URLs; see [MisoClient reference](reference-misoclient.md#application-status-methods))
 
 ---
 

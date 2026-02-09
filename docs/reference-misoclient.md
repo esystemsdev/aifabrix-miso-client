@@ -8,6 +8,7 @@ Complete API reference for the MisoClient class - the main client that provides 
 - [Initialization Methods](#initialization-methods)
 - [Configuration Methods](#configuration-methods)
 - [Origin Validation](#origin-validation)
+- [Application Status Methods](#application-status-methods)
 - [Examples](#examples)
 - [See Also](#see-also)
 
@@ -199,6 +200,86 @@ const client = new MisoClient({
 - [Standalone Utilities](./reference-utilities.md#standalone-utilities) - Standalone `validateOrigin` utility function
 - [Configuration Guide](./configuration.md) - Complete configuration documentation
 
+## Application Status Methods
+
+Server-side only. These methods update or fetch application status and URLs. Authentication uses client credentials (client token) by default, or a provided `authStrategy`. When `envKey` or `appKey` is omitted, the SDK resolves them from application context (client token or clientId parsing).
+
+### `updateMyApplicationStatus(body, options?): Promise<UpdateSelfStatusResponse>`
+
+Updates the current application's status and optional URLs (e.g. after deployment).
+
+**Parameters:**
+
+- `body` - [UpdateSelfStatusRequest](./reference-types.md#application-status-types): optional `status`, `url`, `internalUrl`, `port`
+- `options` - Optional: `{ envKey?: string; authStrategy?: AuthStrategy }`. If `envKey` is omitted, uses application context (throws if context is missing).
+
+**Returns:** Promise of [UpdateSelfStatusResponse](./reference-types.md#application-status-types).
+
+**Example:**
+
+```typescript
+await client.initialize();
+
+// Using application context (clientId/client token)
+await client.updateMyApplicationStatus({
+  status: 'active',
+  url: 'https://myapp.example.com',
+  internalUrl: 'http://myapp:8080',
+  port: 8080,
+});
+
+// With explicit envKey
+await client.updateMyApplicationStatus(
+  { status: 'inactive' },
+  { envKey: 'miso' },
+);
+```
+
+### `getApplicationStatus(envKey, appKey, authStrategy?): Promise<ApplicationStatusResponse>`
+
+Fetches any application's status and URLs (without configuration).
+
+**Parameters:**
+
+- `envKey` - Environment key
+- `appKey` - Application key
+- `authStrategy` - Optional authentication strategy override
+
+**Returns:** Promise of [ApplicationStatusResponse](./reference-types.md#application-status-types).
+
+**Example:**
+
+```typescript
+const status = await client.getApplicationStatus('miso', 'my-app');
+console.log(status.url, status.status);
+```
+
+### `getMyApplicationStatus(options?, authStrategy?): Promise<ApplicationStatusResponse>`
+
+Fetches the current application's status. When `envKey` or `appKey` is omitted, uses application context.
+
+**Parameters:**
+
+- `options` - Optional: `{ envKey?: string; appKey?: string }`
+- `authStrategy` - Optional authentication strategy override
+
+**Returns:** Promise of [ApplicationStatusResponse](./reference-types.md#application-status-types).
+
+**Example:**
+
+```typescript
+// Using context (clientId/client token)
+const myStatus = await client.getMyApplicationStatus();
+
+// With explicit env and app
+const status = await client.getMyApplicationStatus({
+  envKey: 'miso',
+  appKey: 'my-app',
+});
+```
+
+**See Also:** [Application status types](./reference-types.md#application-status-types)
+
 ## Examples
 
 ### Basic Initialization
@@ -288,6 +369,9 @@ MisoClient provides access to authentication and authorization methods via `clie
 - `client.hasRole(token, role)` - Check if user has role (cached)
 - `client.getPermissions(token)` - Get user permissions (cached)
 - `client.hasPermission(token, permission)` - Check if user has permission (cached)
+- `client.updateMyApplicationStatus(body, options?)` - Update current app status/URLs (server-side)
+- `client.getApplicationStatus(envKey, appKey, authStrategy?)` - Get any app's status (server-side)
+- `client.getMyApplicationStatus(options?, authStrategy?)` - Get current app's status (server-side)
 
 ## See Also
 

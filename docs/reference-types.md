@@ -9,6 +9,7 @@ Complete type definitions for the MisoClient SDK.
 - [DataClient Types](#dataclient-types)
 - [Utility Types](#utility-types)
 - [Error Types](#error-types)
+- [Application Status Types](#application-status-types)
 - [Type Exports](#type-exports)
 - [See Also](#see-also)
 
@@ -641,6 +642,55 @@ class ApiErrorException extends Error {
 }
 ```
 
+## Application Status Types
+
+Server-side types for updating and fetching application status and URLs. See [MisoClient Application Status Methods](./reference-misoclient.md#application-status-methods).
+
+### UpdateSelfStatusRequest
+
+Request body for updating the current application's status and URLs.
+
+```typescript
+interface UpdateSelfStatusRequest {
+  status?: string;      // Application status (e.g. active, inactive)
+  url?: string;         // Public URL
+  internalUrl?: string;  // Internal URL
+  port?: number;        // Port (1-65535)
+}
+```
+
+### UpdateSelfStatusResponse
+
+Response from updating the current application's status.
+
+```typescript
+interface UpdateSelfStatusResponse {
+  success?: boolean;
+  application?: ApplicationStatusResponse;
+  message?: string;
+}
+```
+
+### ApplicationStatusResponse
+
+Application metadata without configuration (used for status and URL responses).
+
+```typescript
+interface ApplicationStatusResponse {
+  id?: string;
+  key?: string;
+  displayName?: string;
+  url?: string;
+  internalUrl?: string;
+  port?: number;
+  status?: string;
+  runtimeStatus?: string;
+  environmentId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+```
+
 ## Type Exports
 
 All types are exported from the main package:
@@ -693,6 +743,11 @@ import {
   DataClientConfigResponse,
   ClientTokenEndpointOptions,
   AutoInitOptions,
+
+  // Application status types (server-side)
+  UpdateSelfStatusRequest,
+  UpdateSelfStatusResponse,
+  ApplicationStatusResponse,
 } from '@aifabrix/miso-client';
 ```
 
