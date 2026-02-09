@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Patch ioredis package to use our stub for @ioredis/commands
- * This runs after npm install to replace the import in ioredis files
+ * This runs after pnpm install to replace the import in ioredis files
  */
 
 const fs = require('fs');

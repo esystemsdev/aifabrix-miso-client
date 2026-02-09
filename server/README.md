@@ -28,7 +28,7 @@ This application demonstrates all features of the DataClient, including:
 
 ### Prerequisites
 
-- Node.js 18+ and npm
+- Node.js 18+ and pnpm
 - Miso Controller running (for authentication)
 - Environment variables configured (see Configuration section)
 
@@ -37,7 +37,7 @@ This application demonstrates all features of the DataClient, including:
 ```bash
 # Install dependencies
 cd server
-npm install
+pnpm install
 ```
 
 ### Configuration
@@ -87,11 +87,11 @@ See `builder/miso-test/README.md` for complete setup instructions.
 
 ```bash
 # Development mode (with hot reload)
-npm run dev
+pnpm run dev
 
 # Production mode
-npm run build
-npm start
+pnpm run build
+pnpm start
 ```
 
 The application will be available at:
@@ -494,30 +494,30 @@ describe('MisoClient Fallback', () => {
 
 ```bash
 # Run all tests
-npm test
+pnpm test
 
 # Run specific test file
-npm test -- error-logger.test.ts
+pnpm test -- error-logger.test.ts
 
 # Run tests in watch mode
-npm test -- --watch
+pnpm test -- --watch
 ```
 
 ## Development
 
 ### Scripts
 
-- `npm run dev` - Run in development mode with ts-node
-- `npm run build` - Compile TypeScript to JavaScript
-- `npm start` - Run compiled JavaScript
-- `npm test` - Run tests
-- `npm run lint` - Lint code
-- `npm run lint:fix` - Fix linting issues
+- `pnpm run dev` - Run in development mode with ts-node
+- `pnpm run build` - Compile TypeScript to JavaScript
+- `pnpm start` - Run compiled JavaScript
+- `pnpm test` - Run tests
+- `pnpm run lint` - Lint code
+- `pnpm run lint:fix` - Fix linting issues
 
 ### Building
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 This compiles TypeScript files to the `dist/` directory.
@@ -525,7 +525,7 @@ This compiles TypeScript files to the `dist/` directory.
 ### Testing
 
 ```bash
-npm test
+pnpm test
 ```
 
 ## Security Considerations
@@ -561,7 +561,7 @@ MISO_ALLOWED_ORIGINS=http://localhost:*
 
 If DataClient fails to load:
 
-1. Ensure parent package is built: `npm run build` (in root directory)
+1. Ensure parent package is built: `pnpm run build` (in root directory)
 2. Check browser console for errors
 3. Verify `/dataclient.js` endpoint is accessible
 

@@ -6,12 +6,12 @@
  * To run these tests:
  * 1. Ensure .env file exists with MISO_CLIENTID, MISO_CLIENTSECRET, MISO_CONTROLLER_URL
  * 2. Optionally set TEST_USER_TOKEN for authenticated endpoint tests
- * 3. Run: npm run test:integration:api
+ * 3. Run: pnpm run test:integration:api
  * 
  * Tests will gracefully skip if controller is unavailable (don't fail CI/CD)
  * 
  * NOTE: This file is excluded from normal test runs (requires real controller)
- * Run via: npm run test:integration:api
+ * Run via: pnpm run test:integration:api
  */
 
 // CRITICAL: Load environment variables BEFORE importing anything that uses dotenv
@@ -535,7 +535,7 @@ describe("API Endpoints Integration Tests", () => {
     // 
     // To test with controller down:
     // 1. Set MISO_CONTROLLER_URL to an invalid/unreachable URL (e.g., http://localhost:9999)
-    // 2. Run: npm run test:integration:api
+    // 2. Run: pnpm run test:integration:api
     // 3. Tests should fail with proper error messages
     
     let invalidClient: MisoClient;

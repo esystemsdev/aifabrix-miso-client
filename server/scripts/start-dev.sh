@@ -129,6 +129,6 @@ if [ -f "dist/src/server.js" ]; then
 else
   # Development mode - use ts-node
   echo "🔧 Running development server (ts-node)..."
-  npm run dev
+  pnpm run dev
 fi
 

@@ -25,14 +25,10 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
           scope: '@aifabrix'
+          cache: 'pnpm'
 
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
+      - name: Enable Corepack
+        run: corepack enable
       
       - name: Get version
         id: get_version
@@ -51,23 +47,23 @@ jobs:
           VERSION="${{ steps.get_version.outputs.VERSION }}"
           
           # Check if version exists on npm
-          if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
+          if pnpm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
             echo "⚠️  Version $VERSION already published on npm!"
             exit 1
           fi
           echo "✅ Version $VERSION not yet published, proceeding..."
       
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
       
       - name: Run linting
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Run tests
-        run: npm test
+        run: pnpm test
       
       - name: Build package
-        run: npm run build
+        run: pnpm run build
       
       - name: Verify build output
         run: |
@@ -79,7 +75,7 @@ jobs:
       
       - name: Test package structure
         run: |
-          npm pack --dry-run 2>&1 | tee pack-output.txt
+          pnpm pack --dry-run 2>&1 | tee pack-output.txt
           
           if grep -q "dist/index.js" pack-output.txt; then
             echo "✅ dist/index.js will be included"
@@ -89,7 +85,7 @@ jobs:
           fi
       
       - name: Publish to npm (public)
-        run: npm publish --access public
+        run: pnpm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       
@@ -100,7 +96,7 @@ jobs:
           
           sleep 30
           
-          if npm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
+          if pnpm view "$PACKAGE_NAME@$VERSION" version 2>/dev/null; then
             echo "✅ Successfully verified: $PACKAGE_NAME@$VERSION"
           else
             echo "⚠️  Could not verify (npm registry may take time to update)"
@@ -116,5 +112,5 @@ jobs:
           echo "🔖 Version: $VERSION"
           echo "🌐 Registry: https://registry.npmjs.org"
           echo ""
-          echo "Installation: npm install $PACKAGE_NAME@$VERSION"
+          echo "Installation: pnpm add $PACKAGE_NAME@$VERSION"
 

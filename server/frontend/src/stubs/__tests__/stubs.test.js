@@ -1,6 +1,6 @@
 /**
  * Unit tests for Node.js module stubs
- * Run with: pnpm test or npm test
+ * Run with: pnpm test
  * 
  * These tests verify that all stubs export correctly and can be used
  * as expected by the bundled code. This catches issues before browser testing.
