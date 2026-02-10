@@ -646,10 +646,12 @@ export type {
 
 // Application status types (server-side)
 export type {
+  ApplicationStatus,
   UpdateSelfStatusRequest,
   UpdateSelfStatusResponse,
   ApplicationStatusResponse,
 } from "./api/types/applications.types";
+export { APPLICATION_STATUS_VALUES } from "./api/types/applications.types";
 
 // Express utilities (v2.1.0+)
 // Export everything except ErrorResponse to avoid conflict with config.types ErrorResponse

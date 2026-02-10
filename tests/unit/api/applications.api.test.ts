@@ -40,7 +40,7 @@ describe('ApplicationsApi', () => {
   describe('updateSelfStatus', () => {
     it('should call HttpClient.request when no authStrategy', async () => {
       const body: UpdateSelfStatusRequest = {
-        status: 'active',
+        status: 'healthy',
         url: 'https://app.example.com',
       };
       const mockResponse: UpdateSelfStatusResponse = {
@@ -74,7 +74,7 @@ describe('ApplicationsApi', () => {
     });
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
-      const body: UpdateSelfStatusRequest = { status: 'inactive' };
+      const body: UpdateSelfStatusRequest = { status: 'maintenance' };
       const authStrategy: AuthStrategy = {
         methods: ['bearer'],
         bearerToken: 'test-token',
@@ -123,7 +123,7 @@ describe('ApplicationsApi', () => {
     });
 
     it('should handle errors', async () => {
-      const body: UpdateSelfStatusRequest = { status: 'active' };
+      const body: UpdateSelfStatusRequest = { status: 'healthy' };
       const error = new Error('Update failed');
 
       mockHttpClient.request.mockRejectedValue(error);
@@ -145,7 +145,7 @@ describe('ApplicationsApi', () => {
         key: 'my-app',
         displayName: 'My App',
         url: 'https://app.example.com',
-        status: 'active',
+        status: 'healthy',
       };
 
       mockHttpClient.request.mockResolvedValue(mockResponse);
@@ -180,7 +180,7 @@ describe('ApplicationsApi', () => {
       };
       const mockResponse: ApplicationStatusResponse = {
         key: 'my-app',
-        status: 'active',
+        status: 'healthy',
       };
 
       mockHttpClient.authenticatedRequest.mockResolvedValue(mockResponse);

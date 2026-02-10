@@ -646,16 +646,26 @@ class ApiErrorException extends Error {
 
 Server-side types for updating and fetching application status and URLs. See [MisoClient Application Status Methods](./reference-misoclient.md#application-status-methods).
 
+### ApplicationStatus
+
+The API expects `status` to be one of these values:
+
+```typescript
+type ApplicationStatus = "healthy" | "degraded" | "deploying" | "error" | "maintenance";
+```
+
+You can use the exported constant `APPLICATION_STATUS_VALUES` for validation or iteration.
+
 ### UpdateSelfStatusRequest
 
 Request body for updating the current application's status and URLs.
 
 ```typescript
 interface UpdateSelfStatusRequest {
-  status?: string;      // Application status (e.g. active, inactive)
-  url?: string;         // Public URL
-  internalUrl?: string;  // Internal URL
-  port?: number;        // Port (1-65535)
+  status?: ApplicationStatus;  // One of: healthy | degraded | deploying | error | maintenance
+  url?: string;                // Public URL
+  internalUrl?: string;        // Internal URL
+  port?: number;               // Port (1-65535)
 }
 ```
 
@@ -683,8 +693,8 @@ interface ApplicationStatusResponse {
   url?: string;
   internalUrl?: string;
   port?: number;
-  status?: string;
-  runtimeStatus?: string;
+  status?: ApplicationStatus;
+  runtimeStatus?: ApplicationStatus;
   environmentId?: string;
   createdAt?: string;
   updatedAt?: string;

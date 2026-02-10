@@ -1,6 +1,6 @@
 {
   "name": "@aifabrix/miso-client",
-  "version": "4.4.1",
+  "version": "4.4.2",
   "description": "AI Fabrix Client SDK - Authentication, authorization, logging, and Express.js utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -18,10 +18,11 @@
     "test:coverage": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --coverage",
     "test:no-coverage": "node --unhandled-rejections=warn -r ./tests/setup-rejection-handler.js node_modules/jest/bin/jest.js --no-coverage",
     "test:integration": "ts-node test_integration.ts",
-    "test:integration:api": "node --unhandled-rejections=warn node_modules/jest/bin/jest.js tests/integration/api-endpoints.integration.test.ts --maxWorkers=50% --testPathIgnorePatterns=/node_modules/",
+    "test:integration:api": "node --unhandled-rejections=warn node_modules/jest/bin/jest.js tests/integration/api-endpoints.integration.test.ts --maxWorkers=50% --testPathIgnorePatterns=/node_modules/ --forceExit",
     "lint": "eslint 'src/**/*.ts' --max-warnings 0 --ignore-pattern '**/*.d.ts'",
     "lint:fix": "eslint 'src/**/*.ts' --fix --ignore-pattern '**/*.d.ts'",
     "tests:typecheck": "tsc -p tests/tsconfig.json --noEmit",
+    "all": "pnpm run lint:fix && pnpm run test && pnpm run test:integration:api && pnpm run test:integration && pnpm run build",
     "prepublishOnly": "pnpm run build"
   },
   "keywords": [

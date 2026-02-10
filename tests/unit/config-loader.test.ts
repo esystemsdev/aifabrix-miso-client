@@ -24,10 +24,11 @@ describe("ConfigLoader", () => {
   describe("loadConfig", () => {
     describe("default values", () => {
       it("should load configuration with defaults when env vars are not set", () => {
-        // Set required fields
+        // Set required fields; unset others so defaults apply
         process.env.MISO_CLIENTID = "test-client-id";
         process.env.MISO_CLIENTSECRET = "test-secret";
         delete process.env.MISO_CONTROLLER_URL;
+        delete process.env.MISO_LOG_LEVEL;
         delete process.env.REDIS_HOST;
 
         const config = loadConfig();

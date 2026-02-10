@@ -4,12 +4,32 @@
  */
 
 /**
+ * Application status values accepted by the API for update and returned in status responses.
+ * API expects status to be one of these values.
+ */
+export type ApplicationStatus =
+  | "healthy"
+  | "degraded"
+  | "deploying"
+  | "error"
+  | "maintenance";
+
+/** Valid application status values (for validation or iteration). */
+export const APPLICATION_STATUS_VALUES: readonly ApplicationStatus[] = [
+  "healthy",
+  "degraded",
+  "deploying",
+  "error",
+  "maintenance",
+];
+
+/**
  * Request body for updating the current application's status and URLs
  * All fields optional; at least one typically sent
  */
 export interface UpdateSelfStatusRequest {
-  /** Application status (e.g. active, inactive) */
-  status?: string;
+  /** Application status: one of "healthy" | "degraded" | "deploying" | "error" | "maintenance" */
+  status?: ApplicationStatus;
   /** Public URL of the application */
   url?: string;
   /** Internal URL of the application */
@@ -47,10 +67,10 @@ export interface ApplicationStatusResponse {
   internalUrl?: string;
   /** Port number */
   port?: number;
-  /** Application status */
-  status?: string;
-  /** Runtime status */
-  runtimeStatus?: string;
+  /** Application status: one of healthy, degraded, deploying, error, maintenance */
+  status?: ApplicationStatus;
+  /** Runtime status (same values as status when present) */
+  runtimeStatus?: ApplicationStatus;
   /** Environment ID or reference */
   environmentId?: string;
   /** Creation timestamp */

@@ -1,9 +1,12 @@
 /**
  * Integration Test Script for Miso Controller
  * Comprehensive test suite for all MisoClient SDK services
+ *
+ * Loads .env from project root (same as api-endpoints.integration.test.ts).
  */
 
-import { MisoClient, loadConfig, EncryptionUtil } from './src/index';
+import "./run-load-env";
+import { MisoClient, loadConfig } from './src/index';
 
 // Color output utilities (with chalk fallback to ANSI)
 let colors: {
@@ -540,6 +543,7 @@ async function runIntegrationTests(): Promise<void> {
 
   await runner.runTest('LoggerChain withResponseMetrics', async () => {
     await client.log
+      .withContext({})
       .withResponseMetrics(2048, 120)
       .info('LoggerChain with response metrics test');
   });
@@ -674,34 +678,20 @@ async function runIntegrationTests(): Promise<void> {
   console.log('\n[EncryptionService]');
 
   const hasEncryptionKey = !!config.encryptionKey || !!process.env.ENCRYPTION_KEY;
-  
-  // Initialize EncryptionUtil if encryption key is available
-  if (hasEncryptionKey) {
-    try {
-      EncryptionUtil.initialize();
-    } catch (error) {
-      // If initialization fails, encryption tests will be skipped
-      console.log(`  ${colors.yellow('⚠')} EncryptionUtil initialization failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
+  const testParamName = 'integration-test-param';
 
   await runner.runTest(
     'encrypt',
     async () => {
       if (!hasEncryptionKey) {
-        throw new Error('SKIP: EncryptionUtil is not available (ENCRYPTION_KEY not set)');
+        throw new Error('SKIP: EncryptionService is not available (ENCRYPTION_KEY not set)');
       }
-      try {
-        EncryptionUtil.initialize();
-      } catch {
-        // Already initialized or failed - continue
+      const result = await client.encryption.encrypt('test plaintext', testParamName);
+      if (!result || typeof result.value !== 'string') {
+        throw new Error('encrypt should return EncryptResult with value');
       }
-      const encrypted = EncryptionUtil.encrypt('test plaintext');
-      if (!encrypted || typeof encrypted !== 'string') {
-        throw new Error('encrypt should return a string');
-      }
-      if (encrypted === 'test plaintext') {
-        throw new Error('encrypted text should be different from plaintext');
+      if (result.value === 'test plaintext') {
+        throw new Error('encrypted value should be different from plaintext');
       }
     },
     !hasEncryptionKey
@@ -711,15 +701,10 @@ async function runIntegrationTests(): Promise<void> {
     'decrypt',
     async () => {
       if (!hasEncryptionKey) {
-        throw new Error('SKIP: EncryptionUtil is not available (ENCRYPTION_KEY not set)');
+        throw new Error('SKIP: EncryptionService is not available (ENCRYPTION_KEY not set)');
       }
-      try {
-        EncryptionUtil.initialize();
-      } catch {
-        // Already initialized or failed - continue
-      }
-      const encrypted = EncryptionUtil.encrypt('test plaintext');
-      const decrypted = EncryptionUtil.decrypt(encrypted);
+      const encResult = await client.encryption.encrypt('test plaintext', testParamName);
+      const decrypted = await client.encryption.decrypt(encResult.value, testParamName);
       if (decrypted !== 'test plaintext') {
         throw new Error('decrypt should return original plaintext');
       }
@@ -731,16 +716,11 @@ async function runIntegrationTests(): Promise<void> {
     'encryption/decryption roundtrip',
     async () => {
       if (!hasEncryptionKey) {
-        throw new Error('SKIP: EncryptionUtil is not available (ENCRYPTION_KEY not set)');
-      }
-      try {
-        EncryptionUtil.initialize();
-      } catch {
-        // Already initialized or failed - continue
+        throw new Error('SKIP: EncryptionService is not available (ENCRYPTION_KEY not set)');
       }
       const original = 'This is a test message with special chars: !@#$%^&*()';
-      const encrypted = EncryptionUtil.encrypt(original);
-      const decrypted = EncryptionUtil.decrypt(encrypted);
+      const encResult = await client.encryption.encrypt(original, testParamName);
+      const decrypted = await client.encryption.decrypt(encResult.value, testParamName);
       if (decrypted !== original) {
         throw new Error('Roundtrip encryption/decryption failed');
       }

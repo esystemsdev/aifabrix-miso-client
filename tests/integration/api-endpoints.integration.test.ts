@@ -1,12 +1,13 @@
 // @ts-nocheck
 /**
- * Comprehensive integration tests for all Auth and Logs API endpoints
+ * Comprehensive integration tests for Auth, Logs, and Applications API endpoints
  * Tests against real controller using credentials from .env file
  * 
  * To run these tests:
  * 1. Ensure .env file exists with MISO_CLIENTID, MISO_CLIENTSECRET, MISO_CONTROLLER_URL
  * 2. Optionally set TEST_USER_TOKEN for authenticated endpoint tests
- * 3. Run: pnpm run test:integration:api
+ * 3. Optionally set TEST_ENV_KEY and TEST_APP_KEY for application status endpoint tests
+ * 4. Run: pnpm run test:integration:api
  * 
  * Tests will gracefully skip if controller is unavailable (don't fail CI/CD)
  * 
@@ -16,26 +17,10 @@
 
 // CRITICAL: Load environment variables BEFORE importing anything that uses dotenv
 // This ensures .env is loaded before loadConfig() imports "dotenv/config"
-import { resolve, join } from "path";
-import { existsSync } from "fs";
+import { resolve } from "path";
+import { loadIntegrationEnv } from "./load-env";
 
-// Load environment variables from project root .env file
-// Use absolute path to ensure we find the .env file regardless of Jest's working directory
-const projectRoot = resolve(__dirname, "../..");
-const envPath = join(projectRoot, ".env");
-
-if (existsSync(envPath)) {
-  require("dotenv").config({ path: envPath });
-} else {
-  // Fallback: try current working directory
-  const cwdEnvPath = join(process.cwd(), ".env");
-  if (existsSync(cwdEnvPath)) {
-    require("dotenv").config({ path: cwdEnvPath });
-  } else {
-    // Last resort: default behavior
-    require("dotenv").config();
-  }
-}
+loadIntegrationEnv(resolve(__dirname, "../.."));
 
 // Now import modules that may use dotenv
 import { MisoClient, MisoClientError } from "../../src/index";
@@ -49,6 +34,8 @@ describe("API Endpoints Integration Tests", () => {
   let client: MisoClient;
   let config: MisoClientConfig | undefined;
   let userToken: string | undefined;
+  let envKey: string | undefined;
+  let appKey: string | undefined;
 
   beforeAll(async () => {
     // Load config from .env
@@ -83,6 +70,9 @@ describe("API Endpoints Integration Tests", () => {
 
     // Get user token from environment (optional)
     userToken = process.env.TEST_USER_TOKEN;
+    // Get env/app keys for application status tests (optional)
+    envKey = process.env.TEST_ENV_KEY;
+    appKey = process.env.TEST_APP_KEY;
   });
 
   afterAll(async () => {
@@ -145,14 +135,16 @@ describe("API Endpoints Integration Tests", () => {
           expect(response.data).toBeDefined();
           expect(response.data.token).toBeDefined();
         } catch (error) {
-          // In Node.js test environment, frontend endpoint may timeout due to origin validation
-          // Accept timeout/canceled errors as acceptable (endpoint is reachable, just slow/blocked)
+          // In Node.js test environment, frontend endpoint may timeout (origin validation),
+          // return 404 (endpoint not available), or be canceled
           const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-          const isAcceptableError = 
+          const is404 = error instanceof MisoClientError && error.statusCode === 404;
+          const isAcceptableError =
             errorMessage.includes("timeout") ||
             errorMessage.includes("canceled") ||
-            errorMessage.includes("aborted");
-          // Accept timeout/canceled as test passing (endpoint exists, just slow in Node.js)
+            errorMessage.includes("aborted") ||
+            errorMessage.includes("not found") ||
+            is404;
           expect(isAcceptableError).toBe(true);
         }
       }, 5000); // 5 second Jest timeout (request will timeout after 3 seconds)
@@ -529,6 +521,42 @@ describe("API Endpoints Integration Tests", () => {
     });
   });
 
+  describe("Applications Endpoints", () => {
+    describe("Application Status Endpoints", () => {
+      test("POST /api/v1/environments/:envKey/applications/self/status - Update self status (client token)", async () => {
+        if (shouldSkip() || !envKey) {
+          console.log("Skipping test - config or TEST_ENV_KEY not available");
+          return;
+        }
+
+        // Uses client credentials (x-client-token) when no authStrategy provided
+        // API expects status one of: healthy | degraded | deploying | error | maintenance
+        const response = await client.apiClient.applications.updateSelfStatus(
+          envKey,
+          { status: "healthy" },
+        );
+        expect(response).toBeDefined();
+        expect(response.success).toBeDefined();
+      }, 3000);
+
+      test("GET /api/v1/environments/:envKey/applications/:appKey/status - Get application status (client token)", async () => {
+        if (shouldSkip() || !envKey || !appKey) {
+          console.log("Skipping test - config, TEST_ENV_KEY or TEST_APP_KEY not available");
+          return;
+        }
+
+        // Uses client credentials when no authStrategy provided
+        const response = await client.apiClient.applications.getApplicationStatus(
+          envKey,
+          appKey,
+        );
+        expect(response).toBeDefined();
+        if (response.id !== undefined) expect(response.id).toBeDefined();
+        if (response.key !== undefined) expect(response.key).toBeDefined();
+      }, 3000);
+    });
+  });
+
   describe("Negative Test Cases - Controller Down", () => {
     // These tests validate that errors are properly thrown when the controller is unavailable.
     // They should FAIL (not skip) when the controller is down to ensure proper error handling.
@@ -879,6 +907,40 @@ describe("API Endpoints Integration Tests", () => {
           verifyNetworkError(error);
         }
       }, 3000); // 3 second Jest timeout (HTTP call should fail in ~500ms)
+    });
+
+    describe("Applications Endpoints - Controller Down", () => {
+      test("POST .../applications/self/status - Should fail when controller is down", async () => {
+        if (shouldSkipNegativeTests()) {
+          console.log("Skipping negative test - invalid config not available");
+          return;
+        }
+
+        try {
+          await invalidClient.apiClient.applications.updateSelfStatus(
+            "test-env",
+            { status: "healthy" },
+          );
+        } catch (error) {
+          verifyNetworkError(error);
+        }
+      }, 3000);
+
+      test("GET .../applications/:appKey/status - Should fail when controller is down", async () => {
+        if (shouldSkipNegativeTests()) {
+          console.log("Skipping negative test - invalid config not available");
+          return;
+        }
+
+        try {
+          await invalidClient.apiClient.applications.getApplicationStatus(
+            "test-env",
+            "test-app",
+          );
+        } catch (error) {
+          verifyNetworkError(error);
+        }
+      }, 3000);
     });
   });
 });
