@@ -89,14 +89,17 @@ jobs:
       
       - name: Test package structure
         run: |
-          pnpm pack --dry-run 2>&1 | tee pack-output.txt
-          
+          pnpm pack
+          TARBALL=$(ls *.tgz)
+          tar -tzf "$TARBALL" | tee pack-output.txt
           if grep -q "dist/index.js" pack-output.txt; then
             echo "✅ dist/index.js will be included"
           else
             echo "❌ dist/index.js NOT found in package"
+            rm -f "$TARBALL"
             exit 1
           fi
+          rm -f "$TARBALL"
       
       - name: Publish to npm (public)
         run: pnpm publish --access public
