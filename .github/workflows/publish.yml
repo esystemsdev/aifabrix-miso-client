@@ -96,10 +96,10 @@ jobs:
             echo "✅ dist/index.js will be included"
           else
             echo "❌ dist/index.js NOT found in package"
-            rm -f "$TARBALL"
+            rm -f "$TARBALL" pack-output.txt
             exit 1
           fi
-          rm -f "$TARBALL"
+          rm -f "$TARBALL" pack-output.txt
       
       - name: Publish to npm (public)
         run: pnpm publish --access public
