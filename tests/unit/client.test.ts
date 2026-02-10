@@ -420,7 +420,7 @@ describe("MisoClient", () => {
     it("updateMyApplicationStatus should throw when envKey omitted and context missing", async () => {
       // config uses clientId "ctrl-dev-test-app" which does not parse to env/app
       await expect(
-        client.updateMyApplicationStatus({ status: "active" }),
+        client.updateMyApplicationStatus({ status: "healthy" }),
       ).rejects.toThrow(/envKey or application context/);
     });
 
@@ -431,13 +431,13 @@ describe("MisoClient", () => {
         .mockResolvedValue({ success: true });
 
       const result = await client.updateMyApplicationStatus(
-        { status: "active", url: "https://app.example.com" },
+        { status: "healthy", url: "https://app.example.com" },
         { envKey: "miso" },
       );
 
       expect(updateSpy).toHaveBeenCalledWith(
         "miso",
-        { status: "active", url: "https://app.example.com" },
+        { status: "healthy", url: "https://app.example.com" },
         undefined,
       );
       expect(result).toEqual({ success: true });
