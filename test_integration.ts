@@ -179,6 +179,12 @@ async function runIntegrationTests(): Promise<void> {
     process.exit(1);
   }
 
+  // Use a shorter timeout so integration tests fail fast instead of hanging (e.g. 30s per request)
+  config = {
+    ...config,
+    timeout: 10000, // 10 seconds per request
+  };
+
   // Initialize client
   const client = new MisoClient(config);
   await client.initialize();
@@ -564,21 +570,23 @@ async function runIntegrationTests(): Promise<void> {
   // ==================== HttpClient Tests ====================
   console.log('\n[HttpClient]');
 
+  // Use a shorter timeout for these "expect failure" requests so we don't wait 10s when
+  // the controller doesn't implement an endpoint (e.g. PUT/DELETE /api/v1/auth/user).
+  const httpClientTestTimeout = 3000; // 3s - fail fast for non-responding endpoints
+  const httpClientConfig = { ...config, timeout: httpClientTestTimeout };
+  const httpClient = new MisoClient(httpClientConfig);
+  await httpClient.initialize();
+
   // Note: HttpClient methods are accessed through the client's internal services
   // We'll test them indirectly through the client's public API
-  // For direct testing, we'd need to access internal httpClient, which is private
-  // So we'll test via authenticatedRequest pattern
-
   await runner.runTest('GET request via authenticatedRequest', async () => {
-    // Test GET request (may fail if endpoint doesn't exist, but should not throw unexpected errors)
     try {
-      await client.requestWithAuthStrategy(
+      await httpClient.requestWithAuthStrategy(
         'GET',
         '/api/v1/auth/user',
-        client.createAuthStrategy(['api-key'], undefined, apiKey)
+        httpClient.createAuthStrategy(['api-key'], undefined, apiKey)
       );
     } catch (error) {
-      // Expected to fail if no user token, but should be a proper error
       if (!(error instanceof Error)) {
         throw new Error('Expected Error instance');
       }
@@ -587,14 +595,13 @@ async function runIntegrationTests(): Promise<void> {
 
   await runner.runTest('POST request via authenticatedRequest', async () => {
     try {
-      await client.requestWithAuthStrategy(
+      await httpClient.requestWithAuthStrategy(
         'POST',
         '/api/v1/auth/validate',
-        client.createAuthStrategy(['api-key'], undefined, apiKey),
+        httpClient.createAuthStrategy(['api-key'], undefined, apiKey),
         { token: apiKey }
       );
     } catch (error) {
-      // May fail, but should be a proper error
       if (!(error instanceof Error)) {
         throw new Error('Expected Error instance');
       }
@@ -603,14 +610,14 @@ async function runIntegrationTests(): Promise<void> {
 
   await runner.runTest('PUT request via authenticatedRequest', async () => {
     try {
-      await client.requestWithAuthStrategy(
+      await httpClient.requestWithAuthStrategy(
         'PUT',
         '/api/v1/auth/user',
-        client.createAuthStrategy(['api-key'], undefined, apiKey),
+        httpClient.createAuthStrategy(['api-key'], undefined, apiKey),
         { test: 'data' }
       );
     } catch (error) {
-      // Expected to fail if endpoint doesn't exist, but should be a proper error
+      // Expected to fail (endpoint often not implemented) or timeout in 3s
       if (!(error instanceof Error)) {
         throw new Error('Expected Error instance');
       }
@@ -619,18 +626,20 @@ async function runIntegrationTests(): Promise<void> {
 
   await runner.runTest('DELETE request via authenticatedRequest', async () => {
     try {
-      await client.requestWithAuthStrategy(
+      await httpClient.requestWithAuthStrategy(
         'DELETE',
         '/api/v1/auth/user',
-        client.createAuthStrategy(['api-key'], undefined, apiKey)
+        httpClient.createAuthStrategy(['api-key'], undefined, apiKey)
       );
     } catch (error) {
-      // Expected to fail if endpoint doesn't exist, but should be a proper error
+      // Expected to fail (endpoint often not implemented) or timeout in 3s
       if (!(error instanceof Error)) {
         throw new Error('Expected Error instance');
       }
     }
   });
+
+  await httpClient.disconnect();
 
   // ==================== CacheService Tests ====================
   console.log('\n[CacheService]');

@@ -82,6 +82,9 @@ export interface MisoClientConfig {
   // Optional: Logging
   logLevel?: "debug" | "info" | "warn" | "error";
 
+  // Optional: HTTP request timeout in milliseconds (default: 30000)
+  timeout?: number;
+
   // Optional: API key for testing (bypasses OAuth2 authentication)
   apiKey?: string;
 

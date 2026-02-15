@@ -55,20 +55,21 @@ export class InternalHttpClient {
     let httpAgent: import("http").Agent | undefined;
     let httpsAgent: import("https").Agent | undefined;
 
+    const requestTimeout = config.timeout ?? 30000;
     // Force IPv4 and set connection timeout (Node.js only)
     if (typeof (globalThis as { window?: unknown }).window === "undefined") {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const http = require("http");
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const https = require("https");
-      const agentOpts = { family: 4, timeout: 30000, keepAlive: false };
+      const agentOpts = { family: 4, timeout: requestTimeout, keepAlive: false };
       httpAgent = !isHttps ? new http.Agent(agentOpts) : undefined;
       httpsAgent = isHttps ? new https.Agent(agentOpts) : undefined;
     }
 
     return axios.create({
       baseURL: controllerUrl,
-      timeout: 30000,
+      timeout: requestTimeout,
       httpAgent,
       httpsAgent,
       headers: { "Content-Type": "application/json" },
@@ -181,7 +182,7 @@ export class InternalHttpClient {
     axiosFn: (config: AxiosRequestConfig) => Promise<AxiosResponse<T>>,
     config?: AxiosRequestConfig,
   ): Promise<T> {
-    const timeout = 30000;
+    const timeout = this.config.timeout ?? 30000;
     const controller = new AbortController();
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     const timeoutPromise = new Promise<never>((_, reject) => {
