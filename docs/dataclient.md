@@ -94,7 +94,32 @@ const dataClient = new DataClient({
 });
 ```
 
-OAuth callback and redirect flows will store the token in these keys. Use the same `tokenKeys` with `autoInitializeDataClient` if you pass custom config.
+OAuth callback and redirect flows will store the token in these keys.
+
+## When you need more than zero-config
+
+`autoInitializeDataClient` returns a DataClient with minimal config (only `baseUrl` and `misoConfig` from the server response). It does **not** accept `tokenKeys`, `loginUrl`/`logoutUrl`, `audit` (e.g. `skipEndpoints`), or interceptors. If you need those, use the pattern below.
+
+**1. Fetch token and config from your backend**  
+Call your client-token endpoint (e.g. POST `/auth/client-token`) and optionally a config-only endpoint (e.g. GET `/auth/client-config`) for the login page. Response shape: `{ token?, expiresIn, config?: { baseUrl, controllerUrl, clientId, clientTokenUri } }`.
+
+**2. Cache using the SDK’s key shape**  
+Store config and token in localStorage so the SDK and your app share one source. Use the same keys the SDK uses: `miso:dataclient-config` (config + expiresAt), `miso:client-token`, `miso:client-token-expires-at`. That way `getCachedDataClientConfig()` and any SDK logic that reads these keys stay in sync.
+
+**3. Build a full DataClientConfig**  
+- `baseUrl`: your API (dataplane) base URL.  
+- `misoConfig`: controller URL (for validate, getUser, logs), `clientId`, `clientTokenUri`; add `onClientTokenRefresh` that calls your fetch so the client can refresh the client token.  
+- Add `tokenKeys`, `loginUrl`, `logoutUrl`, `audit` (e.g. `skipEndpoints` for auth routes), `cache`, `retry`, `timeout` as needed.
+
+**4. Controller URL vs dataplane URL**  
+- **baseUrl** is for your own API (dataplane).  
+- **misoConfig.controllerUrl** / **controllerPublicUrl** is for auth and logs (controller).  
+If your backend returns both, use them. If the API sometimes returns the same origin as the app (e.g. in dev), resolve or override so validate/getUser/logs hit the real controller, not the dataplane.
+
+**5. Interceptors**  
+Use `dataClient.setInterceptors({ onRequest: async (url, options) => { ... } })` to add e.g. `X-Request-ID`, `Authorization: Bearer <token>` (from your tokenKeys), and `X-Client-Token` when available.
+
+**Summary:** One init with zero-config is enough when you only need default token keys and no custom audit or interceptors. When you need custom token keys, login/logout URLs, audit options, or request headers, fetch token/config yourself, cache with the SDK key shape, then `new DataClient(fullConfig)` and optionally `setInterceptors`.
 
 ## React example (minimal)
 
