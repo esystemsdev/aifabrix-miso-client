@@ -148,9 +148,7 @@ const isValid = await client.auth.validateToken(token);
 
 **That's it!** You now have authentication, roles, and logging.
 
-→ [Full Getting Started Guide](docs/getting-started.md)  
-→ [Environment configuration example](examples/env-config-example.ts)  
-→ [Manual configuration example](examples/manual-config-example.ts)
+→ [Quick start](docs/quick-start.md) · [Configuration](docs/configuration.md)
 
 ### Browser/Frontend Usage (DataClient)
 
@@ -209,8 +207,7 @@ const dataClientWithRefresh = new DataClient({
 });
 ```
 
-→ [DataClient Documentation](docs/data-client.md) - Includes security guide and Client Token Pattern  
-→ [DataClient API Reference](docs/reference-dataclient.md)
+→ [DataClient](docs/dataclient.md) · [Backend client token](docs/backend-client-token.md)
 
 ---
 
@@ -376,8 +373,7 @@ client.log.on('log', (logEntry: LogEntry) => {
 
 → [Complete logging example](examples/step-5-logging.ts)  
 → [Event emission mode example](examples/event-emission-mode.example.ts)  
-→ [Logging Reference](docs/reference-services.md#logging-methods)  
-→ [Event Emission Mode Guide](docs/configuration.md#event-emission-mode)
+→ [Audit and logging](docs/audit-and-logging.md) · [Configuration](docs/configuration.md)
 
 ---
 
@@ -422,7 +418,7 @@ await client.log.audit('access.denied', 'authorization', {
 **What to audit:** Login/logout, permission checks, content creation/deletion, role changes, sensitive operations.
 
 → [Complete audit example](examples/step-6-audit.ts)  
-→ [Best Practices](docs/getting-started.md#common-patterns)
+→ [Quick start](docs/quick-start.md) · [Errors](docs/errors.md)
 
 ---
 
@@ -492,7 +488,7 @@ const client = new MisoClient({
 - Data protection controls enforced
 - Optimized performance without compromising compliance
 
-→ [Audit Configuration Guide](docs/configuration.md#audit-configuration)
+→ [Configuration](docs/configuration.md) · [Audit and logging](docs/audit-and-logging.md)
 
 → [Custom sensitive fields example](examples/custom-sensitive-fields.example.ts)  
 → [Sensitive fields config example](examples/sensitive-fields-config.example.json)
@@ -532,8 +528,7 @@ ENCRYPTION_KEY=your-32-byte-encryption-key
 ```
 
 → [Complete encryption & caching example](examples/step-7-encryption-cache.ts)  
-→ [API Reference](docs/reference-services.md#encryption-methods)  
-→ [Cache Methods](docs/reference-services.md#cache-methods)
+→ [Encryption](docs/encryption.md) · [Redis](docs/redis.md)
 
 ---
 
@@ -590,10 +585,7 @@ const response = createPaginatedListResponse(
 
 **Pro tip:** These utilities are business-logic-free and reusable across applications. Perfect for building query strings, parsing API responses, and testing with mocks. Designed following enterprise best practices for maintainability and compliance.
 
-→ [Complete pagination example](docs/examples/utilities.md#pagination)  
-→ [Complete filter example](docs/examples/utilities.md#filtering)  
-→ [Complete sort example](docs/examples/utilities.md#sorting)  
-→ [API Reference](docs/reference-utilities.md#pagination-utilities)
+→ [Pagination, filter, sorting](docs/pagination-filter-sorting.md)
 
 ---
 
@@ -797,7 +789,7 @@ app.get('/users', (req, res) => {
 **Note:** For large datasets, always sort at the database level. Use `applySorting()` only for small in-memory datasets or client-side sorting.
 
 → [Complete Express examples](examples/)  
-→ [API Reference](docs/reference-utilities.md#express-utilities)
+→ [Quick start](docs/quick-start.md) · [Errors](docs/errors.md)
 
 ---
 
@@ -852,8 +844,7 @@ MISO_API_KEY=optional-api-key
 
 **Backward Compatibility:** All existing code continues to work without changes. If no strategy is specified, defaults to `['bearer', 'client-token']` (existing behavior).
 
-→ [Complete authentication strategy example](docs/reference-authentication.md#authentication-strategy)  
-→ [API Reference](docs/reference-authentication.md#authentication-strategy)
+→ [Authentication](docs/authentication.md)
 
 ---
 
@@ -887,17 +878,18 @@ interface AuthStrategy {
 
 **Recommended:** Use `loadConfig()` to load from `.env` file automatically.
 
-→ [Complete Configuration Reference](docs/configuration.md)
+→ [Configuration](docs/configuration.md)
 
 ---
 
 ## 📚 Documentation
 
-- **[Getting Started](docs/getting-started.md)** - Detailed setup guide
-- **[API Reference](docs/api-reference.md)** - Complete API documentation
-- **[Configuration](docs/configuration.md)** - Configuration options
-- **[Examples](docs/examples/README.md)** - Framework-specific examples
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
+- **[Docs index](docs/README.md)** – What to read when
+- **[Quick start](docs/quick-start.md)** – Install, .env, init, validate + getUser
+- **[Backend client token](docs/backend-client-token.md)** – One route for frontend token
+- **[Authentication](docs/authentication.md)** · **[Authorization](docs/authorization.md)** · **[Audit and logging](docs/audit-and-logging.md)** · **[Errors](docs/errors.md)** · **[Redis](docs/redis.md)** · **[Pagination/filter/sort](docs/pagination-filter-sorting.md)** · **[Encryption](docs/encryption.md)**
+- **[Configuration](docs/configuration.md)** · **[DataClient](docs/dataclient.md)** · **[Troubleshooting](docs/troubleshooting.md)**
+- **[Examples](docs/examples/README.md)** – Testing and minimal examples
 
 ---
 
@@ -911,7 +903,7 @@ The SDK consists of five core services:
 - **LoggerService** - Centralized logging with API key authentication
 - **RedisService** - Caching and queue management (optional)
 
-→ [Architecture Details](docs/api-reference.md#sdk-structure)
+→ [Docs index](docs/README.md)
 
 ---
 
@@ -947,10 +939,7 @@ The SDK consists of five core services:
 
 ### Learn More
 
-- [Express.js Middleware](docs/examples/express-middleware.md) - Protect API routes
-- [React Authentication](docs/examples/react-authentication.md) - Frontend auth
-- [NestJS Guards](docs/reference-authentication.md#nestjs-guards) - Decorator-based auth
-- [Error Handling](docs/examples/error-handling.md) - Best practices
+- [Quick start](docs/quick-start.md) · [Authentication](docs/authentication.md) · [Errors](docs/errors.md) · [DataClient](docs/dataclient.md)
 
 ### Common Tasks
 

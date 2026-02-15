@@ -329,7 +329,7 @@ if (misoClient) {
 **See Also:**
 
 - [Express Examples](../../docs/examples.md#factory-function-pattern-for-route-handlers) - Complete factory function pattern guide
-- [Error Handling Reference](../../docs/reference-errors.md) - Error handling best practices
+- [Errors](../../docs/errors.md) - Error handling best practices
 
 ### Error Logger Configuration
 
@@ -614,5 +614,5 @@ MIT
 For issues and questions, see:
 
 - [Main SDK documentation](../../docs/)
-- [DataClient documentation](../../docs/data-client.md)
+- [DataClient documentation](../../docs/dataclient.md)
 - [GitHub Issues](https://github.com/esystemsdev/aifabrix-miso-client/issues)

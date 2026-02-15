@@ -52,5 +52,5 @@ describe('MisoClient', () => {
 
 **See Also:**
 
-- [Authentication Reference](../reference-authentication.md) - Complete authentication API reference
-- [Authorization Reference](../reference-authorization.md) - Role and permission management
+- [Authentication](../authentication.md) - Token, validate, user, login/logout
+- [Authorization](../authorization.md) - Roles and permissions
