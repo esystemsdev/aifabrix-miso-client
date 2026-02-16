@@ -224,7 +224,7 @@ describe('Client Token Endpoint Integration Tests', () => {
         type: '/Errors/GatewayTimeout',
         title: 'Gateway Timeout',
         status: 504,
-        detail: expect.stringMatching(/Controller|Request timed out/),
+        detail: expect.stringMatching(/Controller|Request timed out|Request timeout/),
         instance: '/api/v1/auth/client-token',
       });
 

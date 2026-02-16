@@ -45,29 +45,32 @@ export function logErrorWithContext(
 
   // Build final message
   const message = parts.join(" | ");
+  const prefixed = `${prefix} [${correlationId}]`;
 
   // eslint-disable-next-line no-console -- Architecture-approved error logging utility
-  console.error(`${prefix} [${correlationId}] ${message}`);
+  console.error(prefixed, message);
 
   // Log response body if available
   if (errorInfo.responseBody) {
     // eslint-disable-next-line no-console -- Architecture-approved error logging utility
     console.error(
-      `${prefix} [${correlationId}] Response Body: ${JSON.stringify(errorInfo.responseBody, null, 2)}`,
+      prefixed,
+      `Response Body: ${JSON.stringify(errorInfo.responseBody, null, 2)}`,
     );
   }
 
   // Log stack trace if available
   if (errorInfo.stackTrace) {
     // eslint-disable-next-line no-console -- Architecture-approved error logging utility
-    console.error(`${prefix} [${correlationId}] Stack Trace: ${errorInfo.stackTrace}`);
+    console.error(prefixed, `Stack Trace: ${errorInfo.stackTrace}`);
   }
 
   // Log original error if available
   if (errorInfo.originalError) {
     // eslint-disable-next-line no-console -- Architecture-approved error logging utility
     console.error(
-      `${prefix} [${correlationId}] Original Error: ${String(errorInfo.originalError)}`,
+      prefixed,
+      `Original Error: ${String(errorInfo.originalError)}`,
     );
   }
 }

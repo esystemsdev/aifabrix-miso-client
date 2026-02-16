@@ -390,7 +390,10 @@ export class AuthService {
       // Gracefully handle 400 Bad Request (no session, already logged out, etc.)
       if (isHttpStatus(error, 400)) {
         // eslint-disable-next-line no-console -- Architecture-approved auth service warning log
-        console.warn(`[Auth] Logout: No active session (400) [${correlationId}]`);
+        console.warn(
+          `[Auth] Logout: No active session (400) [${correlationId}]`,
+          { correlationId },
+        );
         this.clearTokenCache(params.token);
         this.clearUserCache(params.token);
         return { success: true, message: "Logout successful (no active session)", timestamp: new Date().toISOString() };

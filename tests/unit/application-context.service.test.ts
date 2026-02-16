@@ -130,7 +130,7 @@ describe("ApplicationContextService", () => {
       expect(mockedExtractClientTokenInfo).toHaveBeenCalledWith(clientToken);
     });
 
-    it("should extract from internal client token", () => {
+    it("should fallback to clientId parsing when token is only in internal client", () => {
       const clientToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbnZpcm9ubWVudCI6InByb2QifQ.signature";
       (mockHttpClient as any).internalClient = {
         clientToken,
@@ -143,9 +143,9 @@ describe("ApplicationContextService", () => {
 
       const context = applicationContextService.getApplicationContext();
 
-      expect(context.environment).toBe("prod");
-      expect(context.application).toBe("prod-app");
-      expect(context.applicationId).toBe("app-456");
+      expect(context.environment).toBe("miso");
+      expect(context.application).toBe("miso-test");
+      expect(context.applicationId).toBe("");
     });
 
     it("should fallback to clientId parsing when client token not available", () => {

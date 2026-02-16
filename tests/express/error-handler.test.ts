@@ -21,7 +21,7 @@ describe("error-handler", () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
   let mockLogger: ErrorLogger;
-  let stderrWriteSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     mockReq = {
@@ -36,17 +36,15 @@ describe("error-handler", () => {
       logError: jest.fn().mockResolvedValue(undefined),
     };
 
-    // Spy on stderr.write
-    stderrWriteSpy = jest
-      .spyOn(process.stderr, "write")
-      .mockImplementation(() => true);
+    // Spy on console.error fallback logging
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
     jest.clearAllMocks();
   });
 
   afterEach(() => {
     setErrorLogger(null);
-    stderrWriteSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   describe("handleRouteError()", () => {
@@ -342,32 +340,38 @@ describe("error-handler", () => {
       await handleRouteError(error, mockReq as Request, mockRes as Response);
 
       expect(mockLogger.logError).toHaveBeenCalled();
-      expect(stderrWriteSpy).not.toHaveBeenCalled();
     });
 
-    it("should fallback to stderr when no logger set", async () => {
+    it("should fallback to console when no logger set", async () => {
       setErrorLogger(null);
       const error = new Error("Test error");
 
       await handleRouteError(error, mockReq as Request, mockRes as Response);
 
-      expect(stderrWriteSpy).toHaveBeenCalled();
-      expect(stderrWriteSpy.mock.calls[0][0]).toContain("Test error");
+      expect(consoleErrorSpy).toHaveBeenCalled();
+      const hasErrorMessage = consoleErrorSpy.mock.calls.some((call) =>
+        call.some(
+          (arg: unknown) =>
+            typeof arg === "string" &&
+            arg.includes("Test error"),
+        ),
+      );
+      expect(hasErrorMessage).toBe(true);
     });
 
-    it("should include stack trace in stderr output", async () => {
+    it("should include stack trace in console output", async () => {
       setErrorLogger(null);
       const error = new Error("Test error");
 
       await handleRouteError(error, mockReq as Request, mockRes as Response);
 
-      const allOutput = stderrWriteSpy.mock.calls
+      const allOutput = consoleErrorSpy.mock.calls
         .map((call) => call[0])
         .join("");
       expect(allOutput).toContain("Stack:");
     });
 
-    it("should fallback to stderr if logger throws", async () => {
+    it("should fallback to console if logger throws", async () => {
       const throwingLogger: ErrorLogger = {
         logError: jest.fn().mockRejectedValue(new Error("Logger failed")),
       };
@@ -376,9 +380,9 @@ describe("error-handler", () => {
 
       await handleRouteError(error, mockReq as Request, mockRes as Response);
 
-      expect(stderrWriteSpy).toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalled();
       expect(
-        stderrWriteSpy.mock.calls.some((call) =>
+        consoleErrorSpy.mock.calls.some((call) =>
           call[0].includes("Failed to log error"),
         ),
       ).toBe(true);

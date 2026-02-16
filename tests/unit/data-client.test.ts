@@ -1375,14 +1375,14 @@ describe("DataClient", () => {
     });
 
     describe("Browser Security: clientSecret Detection", () => {
-      let stderrWriteSpy: jest.SpyInstance;
+      let consoleWarnSpy: jest.SpyInstance;
 
       beforeEach(() => {
-        stderrWriteSpy = jest.spyOn(process.stderr, "write").mockImplementation(() => true);
+        consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
       });
 
       afterEach(() => {
-        stderrWriteSpy.mockRestore();
+        consoleWarnSpy.mockRestore();
       });
 
       it("should warn if clientSecret is provided in browser environment", () => {
@@ -1395,10 +1395,10 @@ describe("DataClient", () => {
           },
         });
 
-        expect(stderrWriteSpy).toHaveBeenCalledWith(
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
           expect.stringContaining("SECURITY WARNING"),
         );
-        expect(stderrWriteSpy).toHaveBeenCalledWith(
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
           expect.stringContaining("clientSecret"),
         );
       });
@@ -1414,7 +1414,7 @@ describe("DataClient", () => {
           },
         });
 
-        expect(stderrWriteSpy).not.toHaveBeenCalled();
+        expect(consoleWarnSpy).not.toHaveBeenCalled();
       });
     });
 

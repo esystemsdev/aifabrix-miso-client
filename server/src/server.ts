@@ -630,7 +630,7 @@ const clientTokenHandler = asyncHandler(async (req: Request, res: Response): Pro
 
   // Use zero-config helper - automatically enriches response with DataClient config
   const handler = createClientTokenEndpoint(misoClient);
-  await handler(req, res);
+  await Promise.resolve(handler(req, res, () => undefined));
 }, 'getClientToken');
 
 // Register both POST and GET handlers for compatibility
