@@ -10,7 +10,7 @@ Install, configure with .env, initialize the client, and validate tokens and get
 ## 1. Install
 
 ```bash
-npm install @aifabrix/miso-client
+pnpm add @aifabrix/miso-client
 ```
 
 ## 2. Configure (.env)

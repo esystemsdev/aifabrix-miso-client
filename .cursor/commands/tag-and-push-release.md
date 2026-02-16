@@ -41,7 +41,7 @@ When the `/tag-and-push-release` command is used, the agent must create a git ta
 7. **Final Summary:**
    - Display success message with tag name and commit hash
    - Note that pushing the tag automatically triggers `publish.yml` workflow
-   - npm publish will run automatically (no manual GitHub Release needed)
+   - pnpm publish will run automatically (no manual GitHub Release needed)
 
 **Critical Requirements:**
 
@@ -69,7 +69,7 @@ git add -A
 git commit -m "Release version 4.1.0"
 # User runs /tag-and-push-release
 # Agent creates tag v4.1.0 and pushes everything
-# Tag push automatically triggers publish.yml -> npm publish
+# Tag push automatically triggers publish.yml -> pnpm publish
 ```
 
 **Work is only complete when:**
@@ -79,4 +79,4 @@ git commit -m "Release version 4.1.0"
 - ✅ Commits pushed to origin
 - ✅ Tag pushed to origin
 - ✅ Tag verified on remote
-- ✅ Summary displayed (npm publish triggered automatically)
+- ✅ Summary displayed (pnpm publish triggered automatically)

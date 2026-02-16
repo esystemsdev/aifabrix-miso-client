@@ -101,7 +101,7 @@ This document summarizes the validation of all Auth and Logs API endpoints again
 - [x] Comprehensive integration tests created
 - [x] Integration tests cover all endpoints
 - [x] Integration tests gracefully skip if controller unavailable
-- [x] npm script `test:integration:api` added
+- [x] pnpm script `test:integration:api` added
 
 ## Summary
 

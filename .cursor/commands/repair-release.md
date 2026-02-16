@@ -6,7 +6,7 @@ When the `/repair-release` command is used, the agent must automatically prepare
 
 1. **Validation Step**:
    - First, run the `/validate-tests` command to ensure all tests pass, linting is clean, and the codebase is in a validated state
-   - This includes: `npm run lint:fix`, `npm run lint`, `npm test`, and final verification
+   - This includes: `pnpm run lint:fix`, `pnpm run lint`, `pnpm test`, and final verification
    - Do not proceed until all validation steps pass
 
 2. **Change Detection Step**:

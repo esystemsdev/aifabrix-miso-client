@@ -153,9 +153,9 @@ This command ensures that:
 **Validation Checks**:
 
 1. **DoD Requirements** (from Code Quality Standards and Testing Conventions):
-   - ✅ Build step documented (`npm run build` - runs TypeScript compilation)
-   - ✅ Lint step documented (`npm run lint` - must run and pass with zero errors)
-   - ✅ Test step documented (`npm test` - all tests must pass)
+   - ✅ Build step documented (`pnpm run build` - runs TypeScript compilation)
+   - ✅ Lint step documented (`pnpm run lint` - must run and pass with zero errors)
+   - ✅ Test step documented (`pnpm test` - all tests must pass)
    - ✅ Validation order specified (BUILD → LINT → TEST)
    - ✅ Zero warnings/errors requirement mentioned
    - ✅ Mandatory sequence documented (never skip steps, build must succeed first)
@@ -188,9 +188,9 @@ This command ensures that:
    - Add "Key Requirements" subsection with bullet points from each section
 
 2. **Add or update `## Definition of Done` section**:
-   - Build requirement: `npm run build` (must run FIRST, must succeed - runs TypeScript compilation)
-   - Lint requirement: `npm run lint` (must run and pass with zero errors/warnings)
-   - Test requirement: `npm test` (must run AFTER lint, all tests must pass, ≥80% coverage for new code)
+   - Build requirement: `pnpm run build` (must run FIRST, must succeed - runs TypeScript compilation)
+   - Lint requirement: `pnpm run lint` (must run and pass with zero errors/warnings)
+   - Test requirement: `pnpm test` (must run AFTER lint, all tests must pass, ≥80% coverage for new code)
    - Validation order: BUILD → LINT → TEST (mandatory sequence, never skip steps)
    - File size limits: Files ≤500 lines, methods ≤20-30 lines
    - JSDoc documentation: All public functions must have JSDoc comments
@@ -304,9 +304,9 @@ This command ensures that:
 
 Every plan must include these requirements in the Definition of Done section:
 
-1. **Build Step**: `npm run build` (must run FIRST, must complete successfully - runs TypeScript compilation)
-2. **Lint Step**: `npm run lint` (must run and pass with zero errors/warnings)
-3. **Test Step**: `npm test` (must run AFTER lint, all tests must pass, ≥80% coverage for new code)
+1. **Build Step**: `pnpm run build` (must run FIRST, must complete successfully - runs TypeScript compilation)
+2. **Lint Step**: `pnpm run lint` (must run and pass with zero errors/warnings)
+3. **Test Step**: `pnpm test` (must run AFTER lint, all tests must pass, ≥80% coverage for new code)
 4. **Validation Order**: BUILD → LINT → TEST (mandatory sequence, never skip steps)
 5. **File Size Limits**: Files ≤500 lines, methods ≤20-30 lines
 6. **JSDoc Documentation**: All public functions must have JSDoc comments
@@ -380,9 +380,9 @@ This plan must comply with the following rules from [Project Rules](.cursor/rule
 
 Before marking this plan as complete, ensure:
 
-1. **Build**: Run `npm run build` FIRST (must complete successfully - runs TypeScript compilation)
-2. **Lint**: Run `npm run lint` (must pass with zero errors/warnings)
-3. **Test**: Run `npm test` AFTER lint (all tests must pass, ≥80% coverage for new code)
+1. **Build**: Run `pnpm run build` FIRST (must complete successfully - runs TypeScript compilation)
+2. **Lint**: Run `pnpm run lint` (must pass with zero errors/warnings)
+3. **Test**: Run `pnpm test` AFTER lint (all tests must pass, ≥80% coverage for new code)
 4. **Validation Order**: BUILD → LINT → TEST (mandatory sequence, never skip steps)
 5. **File Size Limits**: Files ≤500 lines, methods ≤20-30 lines
 6. **JSDoc Documentation**: All public functions have JSDoc comments

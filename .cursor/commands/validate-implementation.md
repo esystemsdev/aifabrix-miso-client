@@ -81,18 +81,18 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 **Runs Validation Steps (MANDATORY ORDER)**:
 
 1. **STEP 1 - FORMAT**:
-   - Run `npm run lint:fix` FIRST
+   - Run `ppnpm run lint:fix` FIRST
    - Verify exit code 0
    - Report any formatting issues
 
 2. **STEP 2 - LINT**:
-   - Run `npm run lint` AFTER format
+   - Run `pnpm run lint` AFTER format
    - Verify exit code 0
    - Report all linting errors/warnings
    - **CRITICAL**: Zero warnings/errors required
 
 3. **STEP 3 - TEST**:
-   - Run `npm test` AFTER lint
+   - Run `pnpm test` AFTER lint
    - Verify all tests pass
    - Report test failures
    - Check test execution time (< 0.5 seconds for unit tests)

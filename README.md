@@ -121,7 +121,7 @@ Get your application secured in 30 seconds.
 ### Step 1: Install
 
 ```bash
-npm install @aifabrix/miso-client
+pnpm add @aifabrix/miso-client
 ```
 
 ### Step 2: Create `.env`
@@ -598,7 +598,7 @@ const response = createPaginatedListResponse(
 For Express.js applications, the SDK includes optional Express utilities:
 
 ```bash
-npm install @aifabrix/miso-client express
+pnpm add @aifabrix/miso-client express
 ```
 
 #### Quick Start
@@ -1016,13 +1016,6 @@ MISO_API_KEY=optional-api-key  # Optional: Default API key
 ## 📦 Installation
 
 ```bash
-# NPM
-npm install @aifabrix/miso-client
-
-# Yarn
-yarn add @aifabrix/miso-client
-
-# PNPM
 pnpm add @aifabrix/miso-client
 ```
 

@@ -11,7 +11,7 @@ Build, run, and deploy Miso Test using `@aifabrix/builder`.
 ### 1. Install
 
 ```bash
-npm install -g @aifabrix/builder
+pnpm add -g @aifabrix/builder
 ```
 
 ### 2. First Time Setup
