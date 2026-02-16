@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.3] - 2026-02-16
+
+### Changed
+
+- **pnpm-only project commands** - Standardized command docs, Cursor command specs, and release/validation instructions to use `pnpm` consistently.
+- **Server client-token endpoint tests** - Updated timeout expectation coverage and handler invocation path in server integration flow.
+- **Type-safety cleanup** - Removed `no-explicit-any` suppressions and replaced with explicit typings across SDK/server stubs and tests.
+
+### Fixed
+
+- **Validation pipeline stability** - Resolved lint/test regressions introduced during large lint-compliance refactors (logging expectations, error-handler behavior, application-context fallbacks).
+- **Server build compatibility** - Fixed `createClientTokenEndpoint` handler invocation in `server/src/server.ts` to match Express `RequestHandler` signature.
+
+### Technical
+
+- **Lint compliance refactor pass** - Reduced complexity/size hotspots across API, services, express helpers, and utils without changing ESLint configuration thresholds.
+- **Logging policy hardening** - Removed indirect logging workarounds and aligned implementation with architecture-approved console logging + narrow suppressions.
+
 ## [4.4.2] - 2026-02-10
 
 ### Technical
