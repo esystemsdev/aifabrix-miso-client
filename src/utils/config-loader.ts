@@ -18,10 +18,10 @@ function loadRedisConfig(): RedisConfig | undefined {
 
   const redisConfig: RedisConfig = {
     host: redisHost,
-    port: parseInt(process.env.REDIS_PORT || "6379"),
+    port: parseInt(process.env.REDIS_PORT || "6379", 10),
     password: process.env.REDIS_PASSWORD,
   };
-  if (process.env.REDIS_DB) redisConfig.db = parseInt(process.env.REDIS_DB);
+  if (process.env.REDIS_DB) redisConfig.db = parseInt(process.env.REDIS_DB, 10);
   if (process.env.REDIS_KEY_PREFIX) redisConfig.keyPrefix = process.env.REDIS_KEY_PREFIX;
   return redisConfig;
 }
@@ -65,7 +65,7 @@ function loadAllowedOrigins(): string[] | undefined {
  * @returns MisoClient configuration object.
  * @throws Error when required environment variables are missing.
  */
-export function loadConfig(): MisoClientConfig {
+function buildBaseConfig(): MisoClientConfig {
   const config: MisoClientConfig = {
     controllerUrl: process.env.MISO_CONTROLLER_URL || "https://controller.aifabrix.ai",
     clientId: process.env.MISO_CLIENTID || process.env.MISO_CLIENT_ID || "",
@@ -73,18 +73,15 @@ export function loadConfig(): MisoClientConfig {
     logLevel: (process.env.MISO_LOG_LEVEL as "debug" | "info" | "warn" | "error") || "debug",
   };
 
-  // Controller URLs
   if (process.env.MISO_WEB_SERVER_URL) config.controllerPublicUrl = process.env.MISO_WEB_SERVER_URL;
   if (process.env.MISO_CONTROLLER_URL) {
     config.controllerPrivateUrl = process.env.MISO_CONTROLLER_URL;
     config.controllerUrl = process.env.MISO_CONTROLLER_URL;
   }
+  return config;
+}
 
-  // Validate required fields
-  if (!config.clientId) throw new Error("MISO_CLIENTID environment variable is required");
-  if (!config.clientSecret) throw new Error("MISO_CLIENTSECRET environment variable is required");
-
-  // Optional configurations
+function applyOptionalConfig(config: MisoClientConfig): void {
   const redis = loadRedisConfig();
   if (redis) config.redis = redis;
   if (process.env.API_KEY) config.apiKey = process.env.API_KEY;
@@ -98,7 +95,6 @@ export function loadConfig(): MisoClientConfig {
   const allowedOrigins = loadAllowedOrigins();
   if (allowedOrigins) config.allowedOrigins = allowedOrigins;
 
-  // Response validation (default: true in dev, false in prod)
   config.validateResponses = process.env.MISO_VALIDATE_RESPONSES !== undefined
     ? process.env.MISO_VALIDATE_RESPONSES.toLowerCase() === "true"
     : process.env.NODE_ENV !== "production";
@@ -106,6 +102,12 @@ export function loadConfig(): MisoClientConfig {
   const keycloak = loadKeycloakConfig();
   if (keycloak) config.keycloak = keycloak;
   if (process.env.ENCRYPTION_KEY) config.encryptionKey = process.env.ENCRYPTION_KEY;
+}
 
+export function loadConfig(): MisoClientConfig {
+  const config = buildBaseConfig();
+  if (!config.clientId) throw new Error("MISO_CLIENTID environment variable is required");
+  if (!config.clientSecret) throw new Error("MISO_CLIENTSECRET environment variable is required");
+  applyOptionalConfig(config);
   return config;
 }

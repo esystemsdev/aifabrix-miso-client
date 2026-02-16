@@ -39,6 +39,19 @@ const ERROR_TITLE_MAP: Record<number, string> = {
   429: "Too Many Requests", 500: "Internal Server Error", 503: "Service Unavailable",
 };
 
+/** Optional AppError constructor options (reduces param count for max-params rule) */
+export interface AppErrorOptions {
+  validationErrors?: ValidationError[];
+  errorType?: string;
+  instance?: string;
+  correlationId?: string;
+}
+
+function normalizeAppErrorOptions(opts?: AppErrorOptions | ValidationError[]): AppErrorOptions {
+  if (!opts) return {};
+  return Array.isArray(opts) ? { validationErrors: opts } : opts;
+}
+
 export class AppError extends Error implements ApiError {
   public readonly statusCode: number;
   public readonly isOperational: boolean;
@@ -48,16 +61,19 @@ export class AppError extends Error implements ApiError {
   public readonly correlationId?: string;
 
   constructor(
-    message: string, statusCode: number = 500, isOperational: boolean = true,
-    validationErrors?: ValidationError[], errorType?: string, instance?: string, correlationId?: string,
+    message: string,
+    statusCode: number = 500,
+    isOperational: boolean = true,
+    options?: AppErrorOptions | ValidationError[],
   ) {
     super(message);
+    const opts = normalizeAppErrorOptions(options);
     this.statusCode = statusCode;
     this.isOperational = isOperational;
-    this.validationErrors = validationErrors || [];
-    this.errorType = errorType;
-    this.instance = instance;
-    this.correlationId = correlationId;
+    this.validationErrors = opts.validationErrors || [];
+    this.errorType = opts.errorType;
+    this.instance = opts.instance;
+    this.correlationId = opts.correlationId;
     Error.captureStackTrace(this, this.constructor);
   }
 

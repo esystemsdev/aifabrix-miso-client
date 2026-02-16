@@ -3,8 +3,18 @@
  * Tests handleOAuthCallback and related security features
  */
 
+jest.mock("../../src/utils/console-logger", () => ({
+  writeWarn: jest.fn(),
+  writeErr: jest.fn(),
+  logErrorWithContext: jest.fn(),
+}));
+
 import { handleOAuthCallback } from "../../src/utils/data-client-auth";
 import { DataClientConfig } from "../../src/types/data-client.types";
+import * as consoleLogger from "../../src/utils/console-logger";
+
+const mockWriteWarn = consoleLogger.writeWarn as jest.Mock;
+const mockWriteErr = consoleLogger.writeErr as jest.Mock;
 
 describe("handleOAuthCallback", () => {
   let mockWindow: {
@@ -24,9 +34,6 @@ describe("handleOAuthCallback", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(console, "warn").mockImplementation(() => {});
-    jest.spyOn(console, "error").mockImplementation(() => {});
-    jest.spyOn(console, "log").mockImplementation(() => {});
 
     // Mock localStorage
     mockLocalStorage = {};
@@ -215,14 +222,11 @@ describe("handleOAuthCallback", () => {
 
       expect(result).toBeNull();
       expect(mockLocalStorage["token"]).toBeUndefined();
-      expect(console.error).toHaveBeenCalledWith(
-        "[handleOAuthCallback] Invalid token format - token rejected",
-        expect.objectContaining({
-          tokenLength: 4,
-          isEmpty: false,
-          tooShort: true,
-          expectedFormat: "Non-empty string with at least 5 characters",
-        }),
+      expect(mockWriteErr).toHaveBeenCalledWith(
+        expect.stringContaining("[handleOAuthCallback] Invalid token format - token rejected"),
+      );
+      expect(mockWriteErr).toHaveBeenCalledWith(
+        expect.stringMatching(/tokenLength|tooShort/),
       );
     });
 
@@ -263,9 +267,8 @@ describe("handleOAuthCallback", () => {
       // After cleanup, hash should be empty
       expect(mockWindow.history.replaceState).toHaveBeenCalled();
       // Verify no warning about hash cleanup failure
-      expect(console.warn).not.toHaveBeenCalledWith(
+      expect(mockWriteWarn).not.toHaveBeenCalledWith(
         expect.stringContaining("Hash cleanup may have failed"),
-        expect.anything(),
       );
     });
 
@@ -291,9 +294,8 @@ describe("handleOAuthCallback", () => {
 
       // Should still return token even if cleanup fails
       expect(result).toBe(token);
-      expect(console.warn).toHaveBeenCalledWith(
-        "[handleOAuthCallback] Failed to clean up hash:",
-        expect.any(Error),
+      expect(mockWriteWarn).toHaveBeenCalledWith(
+        expect.stringContaining("[handleOAuthCallback] Failed to clean up hash:"),
       );
     });
   });
@@ -342,9 +344,8 @@ describe("handleOAuthCallback", () => {
       expect(result).toBe(token);
       expect(mockLocalStorage["token"]).toBe(token);
       expect(mockLocalStorage["accessToken"]).toBeUndefined();
-      expect(console.warn).toHaveBeenCalledWith(
-        "[handleOAuthCallback] Failed to store token in key accessToken:",
-        expect.any(Error),
+      expect(mockWriteWarn).toHaveBeenCalledWith(
+        expect.stringContaining("[handleOAuthCallback] Failed to store token in key accessToken:"),
       );
 
       // Restore original implementation
@@ -391,7 +392,7 @@ describe("handleOAuthCallback", () => {
 
       expect(result).toBeNull();
       expect(mockLocalStorage["token"]).toBeUndefined();
-      expect(console.error).toHaveBeenCalledWith(
+      expect(mockWriteErr).toHaveBeenCalledWith(
         "[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production",
       );
       expect(mockWindow.history.replaceState).toHaveBeenCalled();
@@ -408,7 +409,7 @@ describe("handleOAuthCallback", () => {
 
       expect(result).toBe(token);
       expect(mockLocalStorage["token"]).toBe(token);
-      expect(console.error).not.toHaveBeenCalledWith(
+      expect(mockWriteErr).not.toHaveBeenCalledWith(
         "[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production",
       );
     });
@@ -424,7 +425,7 @@ describe("handleOAuthCallback", () => {
 
       expect(result).toBe(token);
       expect(mockLocalStorage["token"]).toBe(token);
-      expect(console.error).not.toHaveBeenCalledWith(
+      expect(mockWriteErr).not.toHaveBeenCalledWith(
         "[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production",
       );
     });
@@ -440,7 +441,7 @@ describe("handleOAuthCallback", () => {
 
       expect(result).toBe(token);
       expect(mockLocalStorage["token"]).toBe(token);
-      expect(console.error).not.toHaveBeenCalledWith(
+      expect(mockWriteErr).not.toHaveBeenCalledWith(
         "[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production",
       );
     });
@@ -525,12 +526,11 @@ describe("handleOAuthCallback", () => {
 
       // Should still return token even if some storage operations fail
       expect(result).toBe(token);
-      expect(console.warn).toHaveBeenCalledWith(
-        "[handleOAuthCallback] Failed to store token in key accessToken:",
-        expect.any(Error),
+      expect(mockWriteWarn).toHaveBeenCalledWith(
+        expect.stringContaining("[handleOAuthCallback] Failed to store token in key accessToken:"),
       );
       // Verify error message doesn't contain token
-      const warnCall = (console.warn as jest.Mock).mock.calls.find((call) =>
+      const warnCall = mockWriteWarn.mock.calls.find((call) =>
         call[0]?.includes("Failed to store token in key"),
       );
       expect(warnCall).toBeDefined();
@@ -558,7 +558,7 @@ describe("handleOAuthCallback", () => {
       // errors from accessing storage or other unexpected errors.
       // So this test should verify that individual failures are handled gracefully
       expect(result).toBe(token); // Token is still returned even if storage fails
-      expect(console.warn).toHaveBeenCalled();
+      expect(mockWriteWarn).toHaveBeenCalled();
 
       // Restore original implementation
       jest.restoreAllMocks();
@@ -611,13 +611,11 @@ describe("handleOAuthCallback", () => {
 
       handleOAuthCallback(config);
 
-      expect(console.log).toHaveBeenCalledWith(
-        "[handleOAuthCallback] OAuth token extracted and stored securely",
-        expect.objectContaining({
-          tokenLength: expect.any(Number),
-          tokenKeys: expect.any(Array),
-          storedInKeys: expect.any(Number),
-        }),
+      expect(mockWriteWarn).toHaveBeenCalledWith(
+        expect.stringContaining("[handleOAuthCallback] OAuth token extracted and stored securely"),
+      );
+      expect(mockWriteWarn).toHaveBeenCalledWith(
+        expect.stringMatching(/tokenLength|tokenKeys|storedInKeys/),
       );
     });
 
@@ -632,8 +630,8 @@ describe("handleOAuthCallback", () => {
 
       handleOAuthCallback(config);
 
-      expect(console.log).not.toHaveBeenCalledWith(
-        "[handleOAuthCallback] OAuth token extracted and stored securely",
+      expect(mockWriteWarn).not.toHaveBeenCalledWith(
+        expect.stringContaining("[handleOAuthCallback] OAuth token extracted and stored securely"),
       );
     });
   });

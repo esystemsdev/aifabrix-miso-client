@@ -11,6 +11,8 @@ import {
 } from "../types/config.types";
 import { extractUserIdFromToken } from "../utils/browser-jwt-decoder";
 import { ApplicationContextService } from "./application-context.service";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 interface PermissionCacheData {
   permissions: string[];
@@ -88,19 +90,13 @@ export class PermissionService {
       await this.cache.set<PermissionCacheData>(`permissions:${userId}`, { permissions, timestamp: Date.now() }, this.permissionTTL);
       return permissions;
     } catch (error) {
-      const statusCode =
-        (error as { statusCode?: number })?.statusCode ||
-        (error as { response?: { status?: number } })?.response?.status;
-      console.error("Failed to get permissions:", {
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: "/api/auth/permissions",
         method: "GET",
-        path: "/api/auth/permissions",
-        statusCode,
-        ipAddress: "unknown",
         correlationId: (error as { correlationId?: string })?.correlationId,
-        userId: extractUserIdFromToken(token) || undefined,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stackTrace: error instanceof Error ? error.stack : undefined,
-      }); // eslint-disable-line no-console
+      });
+      errorInfo.message = `Failed to get permissions: ${errorInfo.message}`;
+      logErrorWithContext(errorInfo, "[PermissionService]");
       return [];
     }
   }
@@ -185,19 +181,13 @@ export class PermissionService {
       await this.cache.set<PermissionCacheData>(`permissions:${userId}`, { permissions, timestamp: Date.now() }, this.permissionTTL);
       return permissions;
     } catch (error) {
-      const statusCode =
-        (error as { statusCode?: number })?.statusCode ||
-        (error as { response?: { status?: number } })?.response?.status;
-      console.error("Failed to refresh permissions:", {
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: "/api/auth/permissions/refresh",
         method: "POST",
-        path: "/api/auth/permissions/refresh",
-        statusCode,
-        ipAddress: "unknown",
         correlationId: (error as { correlationId?: string })?.correlationId,
-        userId: extractUserIdFromToken(token) || undefined,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stackTrace: error instanceof Error ? error.stack : undefined,
-      }); // eslint-disable-line no-console
+      });
+      errorInfo.message = `Failed to refresh permissions: ${errorInfo.message}`;
+      logErrorWithContext(errorInfo, "[PermissionService]");
       return [];
     }
   }
@@ -215,19 +205,13 @@ export class PermissionService {
       if (!userId) return;
       await this.cache.delete(`permissions:${userId}`);
     } catch (error) {
-      const statusCode =
-        (error as { statusCode?: number })?.statusCode ||
-        (error as { response?: { status?: number } })?.response?.status;
-      console.error("Failed to clear permissions cache:", {
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: "/cache/permissions",
         method: "DELETE",
-        path: "/cache/permissions",
-        statusCode,
-        ipAddress: "unknown",
         correlationId: (error as { correlationId?: string })?.correlationId,
-        userId: extractUserIdFromToken(token) || undefined,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stackTrace: error instanceof Error ? error.stack : undefined,
-      }); // eslint-disable-line no-console
+      });
+      errorInfo.message = `Failed to clear permissions cache: ${errorInfo.message}`;
+      logErrorWithContext(errorInfo, "[PermissionService]");
     }
   }
 }

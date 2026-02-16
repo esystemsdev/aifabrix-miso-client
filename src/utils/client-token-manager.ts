@@ -105,13 +105,50 @@ export function formatTokenFetchError(
   );
 }
 
-/**
- * Fetch client token from controller using clientSecret (server-side only)
- * @param config - MisoClient configuration
- * @param tokenState - Token state to update
- * @returns Fetched token string
- * @throws MisoClientError if fetch fails
- */
+async function executeTokenRequest(config: MisoClientConfig): Promise<{
+  data: ClientTokenResponse;
+  status: number;
+}> {
+  const requestTimeout = 30000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
+  if (typeof timeoutId.unref === "function") timeoutId.unref();
+
+  const controllerUrl = resolveControllerUrl(config);
+  const isHttps = controllerUrl.startsWith("https://");
+  const httpAgent = await createHttpAgent(isHttps, requestTimeout);
+
+  const tempAxios = axios.create({
+    baseURL: controllerUrl,
+    timeout: requestTimeout,
+    signal: controller.signal,
+    httpAgent: !isHttps ? httpAgent : undefined,
+    httpsAgent: isHttps ? httpAgent : undefined,
+    headers: {
+      "Content-Type": "application/json",
+      "x-client-id": config.clientId,
+      "x-client-secret": config.clientSecret,
+    },
+  });
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    const t = setTimeout(() => reject(new Error(`Request timeout after ${requestTimeout}ms`)), requestTimeout);
+    if (typeof t.unref === "function") t.unref();
+  });
+
+  try {
+    const response = await Promise.race([
+      tempAxios.post<ClientTokenResponse>(config.clientTokenUri || "/api/v1/auth/token"),
+      timeoutPromise,
+    ]);
+    clearTimeout(timeoutId);
+    return response;
+  } catch (e) {
+    clearTimeout(timeoutId);
+    throw e;
+  }
+}
+
 export async function fetchClientToken(
   config: MisoClientConfig,
   tokenState: TokenState,
@@ -122,53 +159,9 @@ export async function fetchClientToken(
 
   const correlationId = generateCorrelationId(config.clientId);
   const clientId = config.clientId;
-  const requestTimeout = 30000;
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
-    if (typeof timeoutId.unref === "function") {
-      timeoutId.unref();
-    }
-    const controllerUrl = resolveControllerUrl(config);
-    const isHttps = controllerUrl.startsWith("https://");
-    const httpAgent = await createHttpAgent(isHttps, requestTimeout);
-
-    const tempAxios = axios.create({
-      baseURL: controllerUrl,
-      timeout: requestTimeout,
-      signal: controller.signal,
-      httpAgent: !isHttps ? httpAgent : undefined,
-      httpsAgent: isHttps ? httpAgent : undefined,
-      headers: {
-        "Content-Type": "application/json",
-        "x-client-id": config.clientId,
-        "x-client-secret": config.clientSecret,
-      },
-    });
-
-    const timeoutPromise = new Promise<never>((_, reject) => {
-      const rejectTimeout = setTimeout(
-        () => reject(new Error(`Request timeout after ${requestTimeout}ms`)),
-        requestTimeout,
-      );
-      if (typeof rejectTimeout.unref === "function") {
-        rejectTimeout.unref();
-      }
-    });
-
-    let response;
-    try {
-      response = await Promise.race([
-        tempAxios.post<ClientTokenResponse>(config.clientTokenUri || "/api/v1/auth/token"),
-        timeoutPromise,
-      ]);
-      clearTimeout(timeoutId);
-    } catch (requestError) {
-      clearTimeout(timeoutId);
-      throw requestError;
-    }
-
+    const response = await executeTokenRequest(config);
     const token = extractTokenFromResponse(response, tokenState);
     if (token) return token;
 

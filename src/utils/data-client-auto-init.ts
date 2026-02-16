@@ -208,57 +208,48 @@ async function fetchConfigResponse(
   return fetchWithTimeout(fullUrl, "GET", timeout);
 }
 
+function parseErrorDetails(details: unknown): string | undefined {
+  if (typeof details === "string") return details;
+  if (details && typeof details === "object") {
+    const d = details as Record<string, unknown>;
+    if (typeof d.suggestion === "string") return d.suggestion;
+    if (typeof d.controllerUrl === "string") return `Controller URL: ${d.controllerUrl}`;
+  }
+  return undefined;
+}
+
+async function extractJsonError(response: Response): Promise<{ message: string; details?: string }> {
+  const errorData = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!errorData) return { message: `Failed to fetch config: ${response.status} ${response.statusText}` };
+
+  const message =
+    (typeof errorData.message === "string" ? errorData.message : null) ||
+    (typeof errorData.error === "string" ? errorData.error : null) ||
+    `Failed to fetch config: ${response.status} ${response.statusText}`;
+  const details = errorData.details ? parseErrorDetails(errorData.details) : undefined;
+  return { message, details };
+}
+
 async function buildHttpErrorMessage(response: Response): Promise<string> {
   let errorMessage = `Failed to fetch config: ${response.status} ${response.statusText}`;
   let errorDetails: string | undefined;
 
   try {
     const contentType = response.headers.get("content-type");
-    if (contentType && contentType.includes("application/json")) {
-      const errorData =
-        (await response.json().catch(() => null)) as Record<string, unknown> | null;
-      if (errorData) {
-        if (typeof errorData.message === "string") {
-          errorMessage = errorData.message;
-        } else if (typeof errorData.error === "string") {
-          errorMessage = errorData.error;
-        }
-
-        if (errorData.details) {
-          if (typeof errorData.details === "string") {
-            errorDetails = errorData.details;
-          } else if (
-            typeof errorData.details === "object" &&
-            errorData.details !== null
-          ) {
-            const details = errorData.details as Record<string, unknown>;
-            if (typeof details.suggestion === "string") {
-              errorDetails = details.suggestion;
-            } else if (typeof details.controllerUrl === "string") {
-              errorDetails = `Controller URL: ${details.controllerUrl}`;
-            }
-          }
-        }
-      }
+    if (contentType?.includes("application/json")) {
+      const parsed = await extractJsonError(response);
+      errorMessage = parsed.message;
+      errorDetails = parsed.details;
     } else {
-      const errorText = await response.text().catch(
-        () => "Unable to read error response",
-      );
+      const errorText = await response.text().catch(() => "Unable to read error response");
       if (errorText && errorText !== "Unable to read error response") {
         errorMessage = `${errorMessage}. ${errorText}`;
       }
     }
   } catch {
-    try {
-      const errorText = await response.text().catch(() => "");
-      if (errorText) {
-        errorMessage = `${errorMessage}. ${errorText}`;
-      }
-    } catch {
-      // Ignore errors reading response
-    }
+    const errorText = await response.text().catch(() => "");
+    if (errorText) errorMessage = `${errorMessage}. ${errorText}`;
   }
-
   return errorDetails ? `${errorMessage}. ${errorDetails}` : errorMessage;
 }
 
@@ -299,6 +290,30 @@ async function fetchConfig(
   }
 }
 
+function resolveBaseUrl(opts: { baseUrl?: string }): string {
+  const baseUrl =
+    opts.baseUrl ||
+    (isBrowser()
+      ? (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin
+      : "");
+  if (!baseUrl) {
+    throw new Error("Unable to detect baseUrl. Please provide baseUrl option.");
+  }
+  return baseUrl;
+}
+
+function buildDataClientConfig(config: DataClientConfigResponse): DataClientConfig {
+  return {
+    baseUrl: config.baseUrl,
+    misoConfig: {
+      clientId: config.clientId,
+      controllerUrl: config.controllerUrl,
+      controllerPublicUrl: config.controllerPublicUrl,
+      clientTokenUri: config.clientTokenUri,
+    },
+  };
+}
+
 /**
  * Auto-initialize DataClient with server-provided configuration
  *
@@ -324,7 +339,6 @@ async function fetchConfig(
 export async function autoInitializeDataClient(
   options?: AutoInitOptions,
 ): Promise<DataClient> {
-  // Check if running in browser
   if (!isBrowser()) {
     throw new Error(
       "autoInitializeDataClient() is only available in browser environment",
@@ -339,61 +353,20 @@ export async function autoInitializeDataClient(
   };
 
   try {
-    // Auto-detect baseUrl from window.location if not provided
-    const baseUrl =
-      opts.baseUrl ||
-      (isBrowser()
-        ? (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin
-        : "");
+    const baseUrl = resolveBaseUrl(opts);
+    let config: DataClientConfigResponse | null = opts.cacheConfig
+      ? getCachedConfig()?.config ?? null
+      : null;
 
-    if (!baseUrl) {
-      throw new Error(
-        "Unable to detect baseUrl. Please provide baseUrl option.",
-      );
-    }
-
-    let config: DataClientConfigResponse | null = null;
-
-    // Check cache first if enabled
-    if (opts.cacheConfig) {
-      const cached = getCachedConfig();
-      if (cached) {
-        config = cached.config;
-      }
-    }
-
-    // Fetch from server if not cached
     if (!config) {
       config = await fetchConfig(baseUrl, opts.clientTokenUri);
-
-      // Cache config if enabled (use expiresIn from token response if available)
-      // Default to 30 minutes (1800 seconds) if not available
-      if (opts.cacheConfig) {
-        cacheConfig(config, 1800);
-      }
+      if (opts.cacheConfig) cacheConfig(config, 1800);
     }
 
-    // Build DataClient config
-    const dataClientConfig: DataClientConfig = {
-      baseUrl: config.baseUrl,
-      misoConfig: {
-        clientId: config.clientId,
-        controllerUrl: config.controllerUrl,
-        controllerPublicUrl: config.controllerPublicUrl,
-        clientTokenUri: config.clientTokenUri,
-      },
-    };
-
-    // Initialize and return DataClient
-    return new DataClient(dataClientConfig);
+    return new DataClient(buildDataClientConfig(config));
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-
-    // Call error callback if provided
-    if (opts.onError) {
-      opts.onError(err);
-    }
-
+    opts.onError?.(err);
     throw err;
   }
 }

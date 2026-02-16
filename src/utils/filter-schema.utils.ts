@@ -53,66 +53,42 @@ function isValidTimestamp(value: string): boolean {
   return !isNaN(date.getTime());
 }
 
-/**
- * Coerce a value to the appropriate type based on field definition.
- * @param value - Value to coerce
- * @param fieldDef - Field definition with type information
- * @returns Coerced value
- * @throws Error if value cannot be coerced
- */
-export function coerceValue(
-  value: unknown,
-  fieldDef: FilterFieldDefinition,
-): unknown {
-  if (value === null) return null;
-  switch (fieldDef.type) {
-    case "number": {
-      if (Array.isArray(value)) {
-        return value.map((v) => {
-          const num = Number(v);
-          if (isNaN(num)) {
-            throw new Error(`Cannot coerce "${v}" to number`);
-          }
-          return num;
-        });
-      }
-      const num = Number(value);
-      if (isNaN(num)) {
-        throw new Error(`Cannot coerce "${value}" to number`);
-      }
+function coerceNumber(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((v) => {
+      const num = Number(v);
+      if (isNaN(num)) throw new Error(`Cannot coerce "${v}" to number`);
       return num;
-    }
-
-    case "boolean": {
-      if (typeof value === "boolean") {
-        return value;
-      }
-      if (value === "true" || value === "1") {
-        return true;
-      }
-      if (value === "false" || value === "0") {
-        return false;
-      }
-      throw new Error(`Cannot coerce "${value}" to boolean`);
-    }
-
-    case "timestamp": {
-      if (typeof value === "string") {
-        const date = new Date(value);
-        if (isNaN(date.getTime())) {
-          throw new Error(`Cannot coerce "${value}" to timestamp`);
-        }
-        return date.toISOString();
-      }
-      return value;
-    }
-
-    case "uuid":
-    case "string":
-    case "enum":
-    default:
-      return value;
+    });
   }
+  const num = Number(value);
+  if (isNaN(num)) throw new Error(`Cannot coerce "${value}" to number`);
+  return num;
+}
+
+function coerceBoolean(value: unknown): unknown {
+  if (typeof value === "boolean") return value;
+  if (value === "true" || value === "1") return true;
+  if (value === "false" || value === "0") return false;
+  throw new Error(`Cannot coerce "${value}" to boolean`);
+}
+
+function coerceTimestamp(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const date = new Date(value);
+  if (isNaN(date.getTime())) throw new Error(`Cannot coerce "${value}" to timestamp`);
+  return date.toISOString();
+}
+
+export function coerceValue(value: unknown, fieldDef: FilterFieldDefinition): unknown {
+  if (value === null) return null;
+  const coercers: Record<string, (v: unknown) => unknown> = {
+    number: coerceNumber,
+    boolean: coerceBoolean,
+    timestamp: coerceTimestamp,
+  };
+  const fn = coercers[fieldDef.type];
+  return fn ? fn(value) : value;
 }
 
 /**
@@ -208,6 +184,65 @@ function validateFieldValue(
 /**
  * Validate a single value against field definition.
  */
+function validateUuidValue(value: unknown, fieldName: string): FilterValidationError | null {
+  if (typeof value !== "string" || !isValidUUID(value)) {
+    return createFilterError(
+      FilterErrorCode.INVALID_UUID,
+      `Invalid UUID value for field '${fieldName}': ${value}`,
+      { field: fieldName, value },
+    );
+  }
+  return null;
+}
+
+function validateTimestampValue(value: unknown, fieldName: string): FilterValidationError | null {
+  if (typeof value !== "string" || !isValidTimestamp(value)) {
+    return createFilterError(
+      FilterErrorCode.INVALID_DATE,
+      `Invalid timestamp value for field '${fieldName}': ${value}`,
+      { field: fieldName, value },
+    );
+  }
+  return null;
+}
+
+function validateNumberValue(value: unknown, fieldName: string): FilterValidationError | null {
+  if (typeof value !== "number" && isNaN(Number(value))) {
+    return createFilterError(
+      FilterErrorCode.INVALID_TYPE,
+      `Expected number for field '${fieldName}', got ${typeof value}`,
+      { field: fieldName, value },
+    );
+  }
+  return null;
+}
+
+function validateBooleanValue(value: unknown, fieldName: string): FilterValidationError | null {
+  if (typeof value !== "boolean" && value !== "true" && value !== "false") {
+    return createFilterError(
+      FilterErrorCode.INVALID_TYPE,
+      `Expected boolean for field '${fieldName}', got ${typeof value}`,
+      { field: fieldName, value },
+    );
+  }
+  return null;
+}
+
+function validateEnumValue(
+  value: unknown,
+  fieldDef: FilterFieldDefinition,
+  fieldName: string,
+): FilterValidationError | null {
+  if (fieldDef.enumValues && !fieldDef.enumValues.includes(String(value))) {
+    return createFilterError(
+      FilterErrorCode.INVALID_ENUM,
+      `Invalid value '${value}' for field '${fieldName}'. Allowed: ${fieldDef.enumValues.join(", ")}`,
+      { field: fieldName, value, allowedValues: fieldDef.enumValues },
+    );
+  }
+  return null;
+}
+
 function validateSingleValue(
   value: unknown,
   fieldDef: FilterFieldDefinition,
@@ -215,57 +250,18 @@ function validateSingleValue(
 ): FilterValidationError | null {
   switch (fieldDef.type) {
     case "uuid":
-      if (typeof value !== "string" || !isValidUUID(value)) {
-        return createFilterError(
-          FilterErrorCode.INVALID_UUID,
-          `Invalid UUID value for field '${fieldName}': ${value}`,
-          { field: fieldName, value },
-        );
-      }
-      break;
-
+      return validateUuidValue(value, fieldName);
     case "timestamp":
-      if (typeof value !== "string" || !isValidTimestamp(value)) {
-        return createFilterError(
-          FilterErrorCode.INVALID_DATE,
-          `Invalid timestamp value for field '${fieldName}': ${value}`,
-          { field: fieldName, value },
-        );
-      }
-      break;
-
+      return validateTimestampValue(value, fieldName);
     case "number":
-      if (typeof value !== "number" && isNaN(Number(value))) {
-        return createFilterError(
-          FilterErrorCode.INVALID_TYPE,
-          `Expected number for field '${fieldName}', got ${typeof value}`,
-          { field: fieldName, value },
-        );
-      }
-      break;
-
+      return validateNumberValue(value, fieldName);
     case "boolean":
-      if (typeof value !== "boolean" && value !== "true" && value !== "false") {
-        return createFilterError(
-          FilterErrorCode.INVALID_TYPE,
-          `Expected boolean for field '${fieldName}', got ${typeof value}`,
-          { field: fieldName, value },
-        );
-      }
-      break;
-
+      return validateBooleanValue(value, fieldName);
     case "enum":
-      if (fieldDef.enumValues && !fieldDef.enumValues.includes(String(value))) {
-        return createFilterError(
-          FilterErrorCode.INVALID_ENUM,
-          `Invalid value '${value}' for field '${fieldName}'. Allowed: ${fieldDef.enumValues.join(", ")}`,
-          { field: fieldName, value, allowedValues: fieldDef.enumValues },
-        );
-      }
-      break;
+      return validateEnumValue(value, fieldDef, fieldName);
+    default:
+      return null;
   }
-
-  return null;
 }
 
 /**
@@ -447,84 +443,4 @@ export function createFilterSchema(
   };
 }
 
-/**
- * Load a filter schema from a JSON object.
- * @param json - JSON object representing a filter schema
- * @returns Parsed FilterSchema
- * @throws Error if schema format is invalid
- */
-export function loadFilterSchema(json: unknown): FilterSchema {
-  const obj = getFilterSchemaObject(json);
-  const parsedFields = parseFilterFields(obj.fields);
-
-  return {
-    resource: obj.resource,
-    version: typeof obj.version === "string" ? obj.version : undefined,
-    fields: parsedFields,
-  };
-}
-
-function getFilterSchemaObject(json: unknown): {
-  resource: string;
-  version?: string;
-  fields: Record<string, unknown>;
-} {
-  if (typeof json !== "object" || json === null) {
-    throw new Error("Invalid filter schema: expected object");
-  }
-
-  const obj = json as Record<string, unknown>;
-  if (typeof obj.resource !== "string") {
-    throw new Error("Invalid filter schema: missing 'resource' field");
-  }
-  if (typeof obj.fields !== "object" || obj.fields === null) {
-    throw new Error("Invalid filter schema: missing 'fields' object");
-  }
-
-  return {
-    resource: obj.resource,
-    version: typeof obj.version === "string" ? obj.version : undefined,
-    fields: obj.fields as Record<string, unknown>,
-  };
-}
-
-function parseFilterFields(
-  fields: Record<string, unknown>,
-): Record<string, FilterFieldDefinition> {
-  const parsedFields: Record<string, FilterFieldDefinition> = {};
-
-  for (const [fieldName, fieldDef] of Object.entries(fields)) {
-    parsedFields[fieldName] = parseFilterField(fieldName, fieldDef);
-  }
-
-  return parsedFields;
-}
-
-function parseFilterField(
-  fieldName: string,
-  fieldDef: unknown,
-): FilterFieldDefinition {
-  if (typeof fieldDef !== "object" || fieldDef === null) {
-    throw new Error(`Invalid filter schema: field '${fieldName}' must be an object`);
-  }
-
-  const def = fieldDef as Record<string, unknown>;
-  if (typeof def.column !== "string") {
-    throw new Error(`Invalid filter schema: field '${fieldName}' missing 'column'`);
-  }
-  if (typeof def.type !== "string") {
-    throw new Error(`Invalid filter schema: field '${fieldName}' missing 'type'`);
-  }
-  if (!Array.isArray(def.operators)) {
-    throw new Error(`Invalid filter schema: field '${fieldName}' missing 'operators' array`);
-  }
-
-  return {
-    column: def.column,
-    type: def.type as FilterFieldDefinition["type"],
-    operators: def.operators as FilterOperator[],
-    enumValues: Array.isArray(def.enumValues) ? (def.enumValues as string[]) : undefined,
-    nullable: typeof def.nullable === "boolean" ? def.nullable : undefined,
-    description: typeof def.description === "string" ? def.description : undefined,
-  };
-}
+export { loadFilterSchema } from "./filter-schema-loader";

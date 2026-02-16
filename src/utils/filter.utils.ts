@@ -217,6 +217,43 @@ export function buildQueryString(options: FilterQuery): string {
   return params.toString();
 }
 
+function matchesFilter<T extends Record<string, unknown>>(item: T, f: FilterOption): boolean {
+  const v = item[f.field];
+  const value = f.value;
+  if (f.op === "isNull") return v === null || v === undefined;
+  if (f.op === "isNotNull") return v !== null && v !== undefined;
+  if (Array.isArray(value)) {
+    return f.op === "in"
+      ? value.includes(v as string | number)
+      : !value.includes(v as string | number);
+  }
+  return matchesScalarFilter(v, f.op, value);
+}
+
+function matchesScalarFilter(v: unknown, op: FilterOperator, value: unknown): boolean {
+  switch (op) {
+    case "eq":
+      return v === value;
+    case "neq":
+      return v !== value;
+    case "gt":
+      return (v as number) > (value as number);
+    case "lt":
+      return (v as number) < (value as number);
+    case "gte":
+      return (v as number) >= (value as number);
+    case "lte":
+      return (v as number) <= (value as number);
+    case "contains":
+      return String(v).includes(String(value));
+    case "like":
+    case "ilike":
+      return new RegExp(String(value), "i").test(String(v));
+    default:
+      return true;
+  }
+}
+
 /**
  * Apply filters locally to an array (used for mocks/tests).
  * Supports all operators including isNull and isNotNull.
@@ -228,44 +265,7 @@ export function applyFilters<T extends Record<string, unknown>>(
   data: T[],
   filters: FilterOption[],
 ): T[] {
-  return data.filter((item) =>
-    filters.every((f) => {
-      const v = item[f.field];
-      const value = f.value;
-      if (f.op === "isNull") {
-        return v === null || v === undefined;
-      }
-      if (f.op === "isNotNull") {
-        return v !== null && v !== undefined;
-      }
-      if (Array.isArray(value)) {
-        return f.op === "in"
-          ? value.includes(v as string | number)
-          : !value.includes(v as string | number);
-      }
-      switch (f.op) {
-        case "eq":
-          return v === value;
-        case "neq":
-          return v !== value;
-        case "gt":
-          return (v as number) > (value as number);
-        case "lt":
-          return (v as number) < (value as number);
-        case "gte":
-          return (v as number) >= (value as number);
-        case "lte":
-          return (v as number) <= (value as number);
-        case "contains":
-          return String(v).includes(String(value));
-        case "like":
-        case "ilike":
-          return new RegExp(String(value), "i").test(String(v));
-        default:
-          return true;
-      }
-    }),
-  );
+  return data.filter((item) => filters.every((f) => matchesFilter(item, f)));
 }
 
 /**

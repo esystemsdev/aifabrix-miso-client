@@ -53,8 +53,7 @@ export const stream = {
 export const util = {
   inherits: () => {},
   inspect: () => '',
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  promisify: (fn: any) => fn,
+  promisify: <T>(fn: T) => fn,
 };
 
 // Crypto stub - browser uses Web Crypto API instead

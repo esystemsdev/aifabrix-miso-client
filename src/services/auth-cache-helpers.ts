@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import { CacheService } from "./cache.service";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /**
  * Extract userId from JWT token without verification.
@@ -61,9 +63,10 @@ export function clearTokenCache(cache: CacheService, token: string): void {
     const cacheKey = getTokenCacheKey(token);
     void cache.delete(cacheKey);
   } catch (error) {
-    console.warn("Failed to clear token cache:", {
-      errorMessage: error instanceof Error ? error.message : String(error),
-    });
+    logErrorWithContext(
+      extractErrorInfo(error, { endpoint: "clearTokenCache" }),
+      "[AuthCacheHelpers]",
+    );
   }
 }
 
@@ -77,8 +80,9 @@ export function clearUserCache(cache: CacheService, token: string): void {
       void cache.delete(`user:${userId}`);
     }
   } catch (error) {
-    console.warn("Failed to clear user cache:", {
-      errorMessage: error instanceof Error ? error.message : String(error),
-    });
+    logErrorWithContext(
+      extractErrorInfo(error, { endpoint: "clearUserCache" }),
+      "[AuthCacheHelpers]",
+    );
   }
 }

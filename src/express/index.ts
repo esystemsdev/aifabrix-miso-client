@@ -16,7 +16,7 @@ export { ValidationHelper } from "./validation-helper";
 
 // Error handling - Types
 export { AppError, createSuccessResponse, createErrorResponse } from "./error-types";
-export type { ApiError, ValidationError, ApiResponse } from "./error-types";
+export type { ApiError, ValidationError, ApiResponse, AppErrorOptions } from "./error-types";
 
 // Error handling - Utilities
 export { setErrorLogger, handleRouteError } from "./error-handler";

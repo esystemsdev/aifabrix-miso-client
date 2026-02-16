@@ -9,6 +9,70 @@ import { validateOrigin } from "./origin-validator";
 import { DataMasker } from "./data-masker";
 import { resolveControllerUrl } from "./controller-url-resolver";
 
+function getOrigin(req: Request): string {
+  return (req.headers.origin || req.headers.referer || "unknown") as string;
+}
+
+async function rejectOriginValidation(
+  misoClient: MisoClient,
+  req: Request,
+  errorMessage: string,
+  origin: string,
+  allowedOrigins: string[] | undefined,
+): Promise<never> {
+  const logger = misoClient.log.forRequest(req);
+  await logger
+    .addContext("origin", origin)
+    .addContext("allowedOrigins", allowedOrigins || [])
+    .addContext("reason", "origin_validation_failed")
+    .error(errorMessage);
+  await logger
+    .addContext("reason", "origin_validation_failed")
+    .addContext("origin", origin)
+    .addContext("allowedOrigins", allowedOrigins || [])
+    .audit("client.token.request.rejected", "environment-token");
+  throw new Error(errorMessage);
+}
+
+async function logTokenSuccess(
+  misoClient: MisoClient,
+  req: Request,
+  config: ReturnType<MisoClient["getConfig"]>,
+): Promise<void> {
+  const maskedClientId = DataMasker.maskSensitiveData({ clientId: config.clientId }) as { clientId: string };
+  const maskedClientSecret = config.clientSecret
+    ? (DataMasker.maskSensitiveData({ clientSecret: config.clientSecret }) as { clientSecret: string })
+    : { clientSecret: undefined };
+  await misoClient.log
+    .forRequest(req)
+    .addContext("clientId", maskedClientId.clientId)
+    .addContext("clientSecret", maskedClientSecret.clientSecret)
+    .addContext("origin", getOrigin(req))
+    .audit("client.token.request.success", "environment-token");
+}
+
+async function logTokenFailure(
+  misoClient: MisoClient,
+  req: Request,
+  config: ReturnType<MisoClient["getConfig"]>,
+  errorMessage: string,
+  stack?: string,
+): Promise<void> {
+  const maskedClientId = DataMasker.maskSensitiveData({ clientId: config.clientId }) as { clientId: string };
+  const logger = misoClient.log.forRequest(req);
+  await logger
+    .addContext("clientId", maskedClientId.clientId)
+    .addContext("origin", getOrigin(req))
+    .addContext("reason", "token_fetch_failed")
+    .error(`Failed to get environment token: ${errorMessage}`, stack);
+  await logger
+    .addContext("reason", "token_fetch_failed")
+    .addContext("error", errorMessage)
+    .addContext("clientId", maskedClientId.clientId)
+    .addContext("origin", getOrigin(req))
+    .audit("client.token.request.failed", "environment-token");
+}
+
 /**
  * Get environment token with origin validation and audit logging
  * Validates request origin before calling controller
@@ -24,88 +88,33 @@ export async function getEnvironmentToken(
   req: Request,
 ): Promise<string> {
   const config = misoClient.getConfig();
-  const allowedOrigins = config.allowedOrigins;
+  const validation = validateOrigin(req, config.allowedOrigins);
 
-  // Validate origin first (security-first approach)
-  const validation = validateOrigin(req, allowedOrigins);
   if (!validation.valid) {
-    // Log error and audit event before throwing (never call controller if origin invalid)
     const errorMessage = `Origin validation failed: ${validation.error}`;
-    const origin = req.headers.origin || req.headers.referer || "unknown";
-
-    // Log error with full request context (automatic extraction via forRequest)
-    await misoClient.log
-      .forRequest(req)  // Auto-extracts: IP, method, path, userAgent, correlationId, userId
-      .addContext("origin", origin)
-      .addContext("allowedOrigins", allowedOrigins || [])
-      .addContext("reason", "origin_validation_failed")
-      .error(errorMessage);
-
-    // Log audit event (ISO 27001 compliance) with full request context
-    await misoClient.log
-      .forRequest(req)
-      .addContext("reason", "origin_validation_failed")
-      .addContext("origin", origin)
-      .addContext("allowedOrigins", allowedOrigins || [])
-      .audit("client.token.request.rejected", "environment-token");
-
-    throw new Error(errorMessage);
+    await rejectOriginValidation(
+      misoClient,
+      req,
+      errorMessage,
+      getOrigin(req),
+      config.allowedOrigins,
+    );
   }
 
-  // Origin is valid, proceed with token fetch
   try {
-    // Fetch token from controller
-    // Use resolveControllerUrl to properly resolve URL (handles controllerPrivateUrl/controllerPublicUrl/controllerUrl)
-    resolveControllerUrl(config); // Resolve URL for validation
+    resolveControllerUrl(config);
     const token = await misoClient.getEnvironmentToken();
-
-    // Log audit event with masked client credentials (ISO 27001 compliance)
-    const maskedClientId = DataMasker.maskSensitiveData({
-      clientId: config.clientId,
-    }) as { clientId: string };
-    const maskedClientSecret = config.clientSecret
-      ? (DataMasker.maskSensitiveData({
-          clientSecret: config.clientSecret,
-        }) as { clientSecret: string })
-      : { clientSecret: undefined };
-
-    // Log audit event with full request context (automatic extraction via forRequest)
-    await misoClient.log
-      .forRequest(req)  // Auto-extracts: IP, method, path, userAgent, correlationId, userId
-      .addContext("clientId", maskedClientId.clientId)
-      .addContext("clientSecret", maskedClientSecret.clientSecret)
-      .addContext("origin", req.headers.origin || req.headers.referer || "unknown")
-      .audit("client.token.request.success", "environment-token");
-
+    await logTokenSuccess(misoClient, req, config);
     return token;
   } catch (error) {
-    // Log error and audit event for token fetch failure
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-    const maskedClientId = DataMasker.maskSensitiveData({
-      clientId: config.clientId,
-    }) as { clientId: string };
-
-    // Log error with full request context (automatic extraction via forRequest)
-    await misoClient.log
-      .forRequest(req)  // Auto-extracts: IP, method, path, userAgent, correlationId, userId
-      .addContext("clientId", maskedClientId.clientId)
-      .addContext("origin", req.headers.origin || req.headers.referer || "unknown")
-      .addContext("reason", "token_fetch_failed")
-      .error(
-        `Failed to get environment token: ${errorMessage}`,
-        error instanceof Error ? error.stack : undefined,
-      );
-
-    // Log audit event (ISO 27001 compliance) with full request context
-    await misoClient.log
-      .forRequest(req)
-      .addContext("reason", "token_fetch_failed")
-      .addContext("error", errorMessage)
-      .addContext("clientId", maskedClientId.clientId)
-      .addContext("origin", req.headers.origin || req.headers.referer || "unknown")
-      .audit("client.token.request.failed", "environment-token");
-
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    await logTokenFailure(
+      misoClient,
+      req,
+      config,
+      errorMessage,
+      error instanceof Error ? error.stack : undefined,
+    );
     throw error;
   }
 }

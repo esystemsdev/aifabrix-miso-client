@@ -128,12 +128,9 @@ export class ResponseHelper {
     validationErrors?: unknown,
     errorType?: string,
   ): never {
-    throw new AppError(
-      message,
-      statusCode,
-      isOperational,
-      validationErrors as never,
+    throw new AppError(message, statusCode, isOperational, {
+      validationErrors: validationErrors as import("./error-types").ValidationError[] | undefined,
       errorType,
-    );
+    });
   }
 }

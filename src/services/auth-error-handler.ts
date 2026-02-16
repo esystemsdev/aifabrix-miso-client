@@ -5,6 +5,8 @@
 
 import { MisoClientError } from "../utils/errors";
 import { AxiosError } from "axios";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /**
  * Format error details for logging/throwing
@@ -69,10 +71,13 @@ export function handleAuthErrorSilent(
   correlationId: string,
   clientId: string,
 ): null {
-  console.error(
-    formatAuthError(error, operation, correlationId, clientId),
-    { correlationId, clientId, operation },
-  );
+  const errorInfo = extractErrorInfo(error, {
+    endpoint: operation,
+    method: "AUTH",
+    correlationId,
+  });
+  errorInfo.message = formatAuthError(error, operation, correlationId, clientId);
+  logErrorWithContext(errorInfo, "[Auth]");
   return null;
 }
 

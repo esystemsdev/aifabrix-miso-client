@@ -29,23 +29,22 @@ describe("data-client-audit", () => {
     const token = "test-token";
     mockedJwtDecode.mockReturnValue({ sub: "user-123" });
 
-    await logDataClientAudit(
-      "GET",
-      "/api/users",
-      200,
-      120,
+    await logDataClientAudit({
+      method: "GET",
+      url: "/api/users",
+      statusCode: 200,
+      duration: 120,
       misoClient,
       auditConfig,
-      () => true,
-      () => token,
-      120,
-      240,
-      undefined,
-      { "x-test": "req" },
-      { "x-test": "res" },
-      { query: "value" },
-      { data: "value" },
-    );
+      hasAnyToken: () => true,
+      getToken: () => token,
+      requestSize: 120,
+      responseSize: 240,
+      requestHeaders: { "x-test": "req" },
+      responseHeaders: { "x-test": "res" },
+      requestBody: { query: "value" },
+      responseBody: { data: "value" },
+    });
 
     const auditCall = (misoClient.log.audit as jest.Mock).mock.calls[0];
     expect(auditCall[0]).toBe("http.request.get");
@@ -67,23 +66,22 @@ describe("data-client-audit", () => {
     const misoClient = createMisoClient();
     const auditConfig: AuditConfig = { enabled: true, level: "standard" };
 
-    await logDataClientAudit(
-      "POST",
-      "/api/users",
-      201,
-      80,
+    await logDataClientAudit({
+      method: "POST",
+      url: "/api/users",
+      statusCode: 201,
+      duration: 80,
       misoClient,
       auditConfig,
-      () => true,
-      () => null,
-      64,
-      128,
-      undefined,
-      { "x-request": "value" },
-      { "x-response": "value" },
-      { payload: "request" },
-      { payload: "response" },
-    );
+      hasAnyToken: () => true,
+      getToken: () => null,
+      requestSize: 64,
+      responseSize: 128,
+      requestHeaders: { "x-request": "value" },
+      responseHeaders: { "x-response": "value" },
+      requestBody: { payload: "request" },
+      responseBody: { payload: "response" },
+    });
 
     const auditCall = (misoClient.log.audit as jest.Mock).mock.calls[0];
     expect(auditCall[2]).toMatchObject({
@@ -104,18 +102,18 @@ describe("data-client-audit", () => {
     const misoClient = createMisoClient();
     const auditConfig: AuditConfig = { enabled: true, level: "detailed" };
 
-    await logDataClientAudit(
-      "PUT",
-      "/api/users/1",
-      200,
-      45,
+    await logDataClientAudit({
+      method: "PUT",
+      url: "/api/users/1",
+      statusCode: 200,
+      duration: 45,
       misoClient,
       auditConfig,
-      () => true,
-      () => null,
-      512,
-      1024,
-    );
+      hasAnyToken: () => true,
+      getToken: () => null,
+      requestSize: 512,
+      responseSize: 1024,
+    });
 
     const auditCall = (misoClient.log.audit as jest.Mock).mock.calls[0];
     expect(auditCall[2]).toMatchObject({
@@ -129,19 +127,17 @@ describe("data-client-audit", () => {
     const auditConfig: AuditConfig = { enabled: true, level: "standard" };
     const error = new Error("Failure");
 
-    await logDataClientAudit(
-      "DELETE",
-      "/api/users/2",
-      500,
-      20,
+    await logDataClientAudit({
+      method: "DELETE",
+      url: "/api/users/2",
+      statusCode: 500,
+      duration: 20,
       misoClient,
       auditConfig,
-      () => true,
-      () => null,
-      undefined,
-      undefined,
+      hasAnyToken: () => true,
+      getToken: () => null,
       error,
-    );
+    });
 
     const auditCall = (misoClient.log.audit as jest.Mock).mock.calls[0];
     const context = auditCall[2] as Record<string, unknown>;
@@ -157,16 +153,16 @@ describe("data-client-audit", () => {
     const misoClient = createMisoClient();
     const auditConfig: AuditConfig = { enabled: true, level: "standard" };
 
-    await logDataClientAudit(
-      "GET",
-      "/api/users",
-      200,
-      25,
+    await logDataClientAudit({
+      method: "GET",
+      url: "/api/users",
+      statusCode: 200,
+      duration: 25,
       misoClient,
       auditConfig,
-      () => false,
-      () => null,
-    );
+      hasAnyToken: () => false,
+      getToken: () => null,
+    });
 
     expect(misoClient.log.audit).not.toHaveBeenCalled();
   });

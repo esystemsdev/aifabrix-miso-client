@@ -95,101 +95,69 @@ export class AuditLogQueue {
    * @param _sync - Reserved for future use (wait for flush to complete for shutdown)
    */
   async flush(_sync: boolean = false): Promise<void> {
-    if (this.isFlushing) {
+    if (this.isFlushing || this.queue.length === 0) {
       return;
     }
-
-    // Clear flush timer
     if (this.flushTimer) {
       clearTimeout(this.flushTimer);
       this.flushTimer = null;
     }
 
-    if (this.queue.length === 0) {
-      return;
-    }
-
     this.isFlushing = true;
-
     try {
-      const entries = this.queue.splice(0); // Clear queue
-
+      const entries = this.queue.splice(0);
       if (entries.length === 0) {
-        this.isFlushing = false;
         return;
       }
-
       const logEntries = entries.map((e) => e.entry);
 
-      // If emitEvents is enabled, emit batch event and skip HTTP/Redis
-      if (this.config.emitEvents && this.eventEmitter) {
-        // Emit batch event - same payload structure as REST API
-        this.eventEmitter.emit("log:batch", logEntries);
-        this.isFlushing = false;
-        return;
-      }
-
-      // Try Redis first (if available)
-      if (this.redis.isConnected()) {
-        const queueName = `audit-logs:${this.config.clientId}`;
-        const success = await this.redis.rpush(
-          queueName,
-          JSON.stringify(logEntries),
-        );
-
-        if (success) {
-          this.isFlushing = false;
-          return; // Successfully queued in Redis
-        }
-      }
-
-      // Check circuit breaker - skip HTTP logging if we've had too many failures
-      const now = Date.now();
-      if (this.httpLoggingDisabledUntil && now < this.httpLoggingDisabledUntil) {
-        // Circuit breaker is open - skip HTTP logging attempt
-        return;
-      }
-
-      // Fallback to HTTP batch endpoint
-      try {
-        // Use ApiClient if available, otherwise fallback to HttpClient
-        if (this.apiClient) {
-          await this.apiClient.logs.createBatchLogs({
-            logs: logEntries.map((e) => ({
-              ...e,
-              // Remove fields that backend extracts from credentials
-              environment: undefined,
-              application: undefined,
-            })),
-          });
-        } else {
-          // Fallback to HttpClient (shouldn't happen after initialization)
-          await this.httpClient.request("POST", "/api/v1/logs/batch", {
-            logs: logEntries.map((e) => ({
-              ...e,
-              // Remove fields that backend extracts from credentials
-              environment: undefined,
-              application: undefined,
-            })),
-          });
-        }
-        // Success - reset failure counter
-        this.httpLoggingFailures = 0;
-        this.httpLoggingDisabledUntil = null;
-      } catch (error) {
-        // Failed to send logs - increment failure counter and open circuit breaker
-        this.httpLoggingFailures++;
-        if (this.httpLoggingFailures >= AuditLogQueue.MAX_FAILURES) {
-          // Open circuit breaker - disable HTTP logging for a period
-          this.httpLoggingDisabledUntil = now + AuditLogQueue.DISABLE_DURATION_MS;
-          this.httpLoggingFailures = 0; // Reset counter for next attempt after cooldown
-        }
-        // Silently fail to avoid infinite loops
-      }
-    } catch (error) {
+      if (await this.flushToEvents(logEntries)) return;
+      if (await this.flushToRedis(logEntries)) return;
+      await this.flushToHttp(logEntries);
+    } catch {
       // Silently swallow errors - never break logging
     } finally {
       this.isFlushing = false;
+    }
+  }
+
+  private async flushToEvents(logEntries: LogEntry[]): Promise<boolean> {
+    if (!this.config.emitEvents || !this.eventEmitter) return false;
+    this.eventEmitter.emit("log:batch", logEntries);
+    return true;
+  }
+
+  private async flushToRedis(logEntries: LogEntry[]): Promise<boolean> {
+    if (!this.redis.isConnected()) return false;
+    const queueName = `audit-logs:${this.config.clientId}`;
+    const success = await this.redis.rpush(queueName, JSON.stringify(logEntries));
+    return success;
+  }
+
+  private async flushToHttp(logEntries: LogEntry[]): Promise<void> {
+    const now = Date.now();
+    if (this.httpLoggingDisabledUntil && now < this.httpLoggingDisabledUntil) {
+      return;
+    }
+    const sanitizedLogs = logEntries.map((e) => ({
+      ...e,
+      environment: undefined,
+      application: undefined,
+    }));
+    try {
+      if (this.apiClient) {
+        await this.apiClient.logs.createBatchLogs({ logs: sanitizedLogs });
+      } else {
+        await this.httpClient.request("POST", "/api/v1/logs/batch", { logs: sanitizedLogs });
+      }
+      this.httpLoggingFailures = 0;
+      this.httpLoggingDisabledUntil = null;
+    } catch {
+      this.httpLoggingFailures++;
+      if (this.httpLoggingFailures >= AuditLogQueue.MAX_FAILURES) {
+        this.httpLoggingDisabledUntil = now + AuditLogQueue.DISABLE_DURATION_MS;
+        this.httpLoggingFailures = 0;
+      }
     }
   }
 

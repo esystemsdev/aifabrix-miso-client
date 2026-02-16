@@ -37,6 +37,64 @@ export interface ErrorExtractionOptions {
   correlationId?: string;
 }
 
+function applyBase(
+  info: StructuredErrorInfo,
+  errorType: string,
+  errorName: string,
+  message: string,
+  statusCode?: number,
+  stack?: string,
+): void {
+  info.errorType = errorType;
+  info.errorName = errorName;
+  info.message = message;
+  info.statusCode = statusCode;
+  info.stackTrace = stack;
+}
+
+function extractMisoClientError(error: MisoClientError, info: StructuredErrorInfo): void {
+  applyBase(info, "MisoClientError", error.name, error.message, error.statusCode, error.stack);
+  if (error.errorResponse && "correlationId" in error.errorResponse) {
+    info.correlationId =
+      info.correlationId || (error.errorResponse as { correlationId?: string }).correlationId;
+  }
+  if (error.errorResponse) {
+    info.responseBody = {
+      errors: error.errorResponse.errors,
+      type: error.errorResponse.type,
+      title: error.errorResponse.title,
+      statusCode: error.errorResponse.statusCode,
+      instance: error.errorResponse.instance,
+      correlationId: (error.errorResponse as { correlationId?: string }).correlationId,
+    };
+  } else if (error.errorBody) {
+    info.responseBody = error.errorBody;
+  }
+}
+
+function extractApiError(error: ApiError, info: StructuredErrorInfo): void {
+  applyBase(info, error.name, error.name, error.message, error.statusCode, error.stack);
+  info.originalError = error.originalError;
+  if (error.response) {
+    try {
+      info.responseBody = { status: error.statusCode, message: error.message };
+    } catch {
+      // Ignore extraction errors
+    }
+  }
+}
+
+function extractUnknownError(error: unknown, info: StructuredErrorInfo): void {
+  info.errorType = "Unknown";
+  info.errorName = "UnknownError";
+  info.message =
+    typeof error === "string"
+      ? error
+      : error && typeof error === "object" && "message" in error
+        ? String((error as { message: unknown }).message)
+        : "Unknown error occurred";
+}
+
 /**
  * Extract structured error information from any error type
  * Supports: MisoClientError, ApiError, AuthenticationError, NetworkError, TimeoutError, and generic Error
@@ -72,100 +130,20 @@ export function extractErrorInfo(
     correlationId: options?.correlationId,
   };
 
-  // Handle MisoClientError
   if (error instanceof MisoClientError) {
-    errorInfo.errorType = "MisoClientError";
-    errorInfo.errorName = error.name;
-    errorInfo.message = error.message;
-    errorInfo.statusCode = error.statusCode;
-    errorInfo.stackTrace = error.stack;
-
-    // Extract correlation ID from error response if available
-    // Note: correlationId may be in errorResponse or errorBody
-    if (error.errorResponse && 'correlationId' in error.errorResponse) {
-      errorInfo.correlationId =
-        errorInfo.correlationId || (error.errorResponse as { correlationId?: string }).correlationId;
-    }
-
-    // Extract response body if available
-    if (error.errorResponse) {
-      errorInfo.responseBody = {
-        errors: error.errorResponse.errors,
-        type: error.errorResponse.type,
-        title: error.errorResponse.title,
-        statusCode: error.errorResponse.statusCode,
-        instance: error.errorResponse.instance,
-        correlationId: (error.errorResponse as { correlationId?: string }).correlationId,
-      };
-    } else if (error.errorBody) {
-      errorInfo.responseBody = error.errorBody;
-    }
+    extractMisoClientError(error, errorInfo);
+  } else if (error instanceof ApiError) {
+    extractApiError(error, errorInfo);
+  } else if (error instanceof AuthenticationError) {
+    applyBase(errorInfo, "AuthenticationError", error.name, error.message, 401, error.stack);
+  } else if (error instanceof NetworkError) {
+    applyBase(errorInfo, "NetworkError", error.name, error.message, 0, error.stack);
+  } else if (error instanceof TimeoutError) {
+    applyBase(errorInfo, "TimeoutError", error.name, error.message, 408, error.stack);
+  } else if (error instanceof Error) {
+    applyBase(errorInfo, "Error", error.name, error.message, undefined, error.stack);
+  } else {
+    extractUnknownError(error, errorInfo);
   }
-  // Handle ApiError and subclasses
-  else if (error instanceof ApiError) {
-    errorInfo.errorType = error.name;
-    errorInfo.errorName = error.name;
-    errorInfo.message = error.message;
-    errorInfo.statusCode = error.statusCode;
-    errorInfo.stackTrace = error.stack;
-    errorInfo.originalError = error.originalError;
-
-    // Extract response body if available
-    if (error.response) {
-      try {
-        // Note: Response body extraction would need to clone response
-        // For now, we'll extract what we can from the error
-        errorInfo.responseBody = {
-          status: error.statusCode,
-          message: error.message,
-        };
-      } catch (e) {
-        // Ignore extraction errors
-      }
-    }
-  }
-  // Handle AuthenticationError
-  else if (error instanceof AuthenticationError) {
-    errorInfo.errorType = "AuthenticationError";
-    errorInfo.errorName = error.name;
-    errorInfo.message = error.message;
-    errorInfo.statusCode = 401;
-    errorInfo.stackTrace = error.stack;
-  }
-  // Handle NetworkError
-  else if (error instanceof NetworkError) {
-    errorInfo.errorType = "NetworkError";
-    errorInfo.errorName = error.name;
-    errorInfo.message = error.message;
-    errorInfo.statusCode = 0;
-    errorInfo.stackTrace = error.stack;
-  }
-  // Handle TimeoutError
-  else if (error instanceof TimeoutError) {
-    errorInfo.errorType = "TimeoutError";
-    errorInfo.errorName = error.name;
-    errorInfo.message = error.message;
-    errorInfo.statusCode = 408;
-    errorInfo.stackTrace = error.stack;
-  }
-  // Handle generic Error
-  else if (error instanceof Error) {
-    errorInfo.errorType = "Error";
-    errorInfo.errorName = error.name;
-    errorInfo.message = error.message;
-    errorInfo.stackTrace = error.stack;
-  }
-  // Handle unknown error types
-  else {
-    errorInfo.errorType = "Unknown";
-    errorInfo.errorName = "UnknownError";
-    errorInfo.message =
-      typeof error === "string"
-        ? error
-        : error && typeof error === "object" && "message" in error
-          ? String((error as { message: unknown }).message)
-          : "Unknown error occurred";
-  }
-
   return errorInfo;
 }

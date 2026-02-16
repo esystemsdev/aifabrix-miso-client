@@ -167,9 +167,10 @@ describe("asyncHandler", () => {
     });
 
     it("should handle errors with custom properties", async () => {
-      const error = new Error("Custom error");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (error as any).customProp = "customValue";
+      const error: Error & { customProp: string } = Object.assign(
+        new Error("Custom error"),
+        { customProp: "customValue" },
+      );
       const fn = jest.fn().mockRejectedValue(error);
       const handler = asyncHandler(fn);
 

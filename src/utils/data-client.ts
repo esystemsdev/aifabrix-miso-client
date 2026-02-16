@@ -35,6 +35,7 @@ import {
   initializeBrowserServices,
   warnIfClientSecretInBrowser,
 } from "./data-client-init";
+import { writeErr } from "./console-logger";
 import * as permissionHelpers from "./data-client-permissions";
 import * as roleHelpers from "./data-client-roles";
 import { BrowserPermissionService } from "../services/browser-permission.service";
@@ -210,12 +211,84 @@ export class DataClient {
   }
 
   /** Execute HTTP request with all middleware */
-  private executeRequest<T>(method: string, fullUrl: string, endpoint: string, cacheKey: string, cacheEnabled: boolean, startTime: number, options?: ApiRequestOptions): Promise<T> {
-    return executeHttpRequest<T>(
-      method, fullUrl, endpoint, this.config, this.cache, cacheKey, cacheEnabled, startTime,
-      this.misoClient, () => this.hasAnyToken(), () => this.getToken(),
-      () => this.handleAuthError(), () => this.refreshUserToken(), this.interceptors, this.metrics, options,
-    );
+  private executeRequest<T>(req: {
+    method: string;
+    fullUrl: string;
+    endpoint: string;
+    cacheKey: string;
+    cacheEnabled: boolean;
+    startTime: number;
+    options?: ApiRequestOptions;
+  }): Promise<T> {
+    return executeHttpRequest<T>({
+      ...req,
+      config: this.config,
+      cache: this.cache,
+      misoClient: this.misoClient,
+      hasAnyToken: () => this.hasAnyToken(),
+      getToken: () => this.getToken(),
+      handleAuthError: () => this.handleAuthError(),
+      refreshUserToken: () => this.refreshUserToken(),
+      interceptors: this.interceptors,
+      metrics: this.metrics,
+    });
+  }
+
+  private getCachedResponse<T>(
+    cacheEnabled: boolean,
+    cacheKey: string,
+  ): T | null {
+    if (!cacheEnabled) return null;
+    return getCachedEntry<T>(this.cache, cacheKey, this.metrics);
+  }
+
+  private getPendingGetRequest<T>(
+    isGetRequest: boolean,
+    cacheKey: string,
+  ): Promise<T> | null {
+    if (!isGetRequest) return null;
+    const pending = this.pendingRequests.get(cacheKey);
+    return pending ? (pending as Promise<T>) : null;
+  }
+
+  private createRequestPromise<T>(
+    isGetRequest: boolean,
+    cacheKey: string,
+    req: {
+      method: string;
+      fullUrl: string;
+      endpoint: string;
+      cacheKey: string;
+      cacheEnabled: boolean;
+      startTime: number;
+      options?: ApiRequestOptions;
+    },
+  ): Promise<T> {
+    const requestPromise = isGetRequest
+      ? (async () => {
+        try {
+          return await this.executeRequest<T>(req);
+        } finally {
+          this.pendingRequests.delete(cacheKey);
+        }
+      })()
+      : this.executeRequest<T>(req);
+    if (isGetRequest) this.pendingRequests.set(cacheKey, requestPromise);
+    return requestPromise;
+  }
+
+  private async resolveRequestPromise<T>(
+    requestPromise: Promise<T>,
+    cacheKey: string,
+  ): Promise<T> {
+    try {
+      const result = await requestPromise;
+      this.failedRequests.delete(cacheKey);
+      return result;
+    } catch (error) {
+      this.recordFailure(cacheKey, error as Error);
+      throw error;
+    }
   }
 
   private async request<T>(method: string, endpoint: string, options?: ApiRequestOptions): Promise<T> {
@@ -227,18 +300,15 @@ export class DataClient {
 
     this.checkCircuitBreaker(cacheKey);
 
-    // Check cache and pending requests for GET
-    if (cacheEnabled) { const cached = getCachedEntry<T>(this.cache, cacheKey, this.metrics); if (cached !== null) return cached; }
-    if (isGetRequest) { const pending = this.pendingRequests.get(cacheKey); if (pending) return pending as Promise<T>; }
+    const cached = this.getCachedResponse<T>(cacheEnabled, cacheKey);
+    if (cached !== null) return cached;
 
-    // Execute request (with deduplication for GET)
-    const requestPromise = isGetRequest
-      ? (async () => { try { return await this.executeRequest<T>(method, fullUrl, endpoint, cacheKey, cacheEnabled, startTime, options); } finally { this.pendingRequests.delete(cacheKey); } })()
-      : this.executeRequest<T>(method, fullUrl, endpoint, cacheKey, cacheEnabled, startTime, options);
-    if (isGetRequest) this.pendingRequests.set(cacheKey, requestPromise);
+    const pending = this.getPendingGetRequest<T>(isGetRequest, cacheKey);
+    if (pending) return pending;
 
-    try { const result = await requestPromise; this.failedRequests.delete(cacheKey); return result; }
-    catch (error) { this.recordFailure(cacheKey, error as Error); throw error; }
+    const req = { method, fullUrl, endpoint, cacheKey, cacheEnabled, startTime, options };
+    const requestPromise = this.createRequestPromise<T>(isGetRequest, cacheKey, req);
+    return this.resolveRequestPromise(requestPromise, cacheKey);
   }
 
   private async refreshUserToken(): Promise<{ token: string; expiresIn: number } | null> {
@@ -253,14 +323,14 @@ export class DataClient {
       }
       return result;
     } catch (error) {
-      console.error("Token refresh failed:", error);
+      writeErr(`Token refresh failed: ${String(error)}`);
       return null;
     }
   }
 
   private handleAuthError(): void {
     if (isBrowser()) {
-      this.redirectToLogin().catch((error) => console.error("Failed to redirect to login:", error));
+      this.redirectToLogin().catch((err) => writeErr(`Failed to redirect to login: ${String(err)}`));
     }
   }
 

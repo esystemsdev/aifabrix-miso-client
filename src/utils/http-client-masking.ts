@@ -138,6 +138,17 @@ export function truncateBodies(
   };
 }
 
+interface MaskingParams {
+  requestHeaders: Record<string, unknown>;
+  responseHeaders: Record<string, unknown>;
+  requestBody: unknown;
+  responseBody: unknown;
+  isSmallRequest: boolean;
+  isLargeRequest: boolean;
+  requestTruncated: boolean;
+  responseTruncated: boolean;
+}
+
 /**
  * Apply masking strategy based on request size and audit level
  */
@@ -170,44 +181,26 @@ export async function applyMaskingStrategy(
     maxResponseSize,
   );
 
-  if (auditLevel === "standard") {
-    return applyStandardMasking(
-      metadata.requestHeaders,
-      metadata.responseHeaders,
-      truncated.requestBody,
-      truncated.responseBody,
-      sizeInfo.isSmallRequest,
-      sizeInfo.isLargeRequest,
-      truncated.requestTruncated,
-      truncated.responseTruncated,
-    );
-  }
+  const params: MaskingParams = {
+    requestHeaders: metadata.requestHeaders,
+    responseHeaders: metadata.responseHeaders,
+    requestBody: truncated.requestBody,
+    responseBody: truncated.responseBody,
+    isSmallRequest: sizeInfo.isSmallRequest,
+    isLargeRequest: sizeInfo.isLargeRequest,
+    requestTruncated: truncated.requestTruncated,
+    responseTruncated: truncated.responseTruncated,
+  };
 
-  return applyDetailedMasking(
-    metadata.requestHeaders,
-    metadata.responseHeaders,
-    truncated.requestBody,
-    truncated.responseBody,
-    sizeInfo.isSmallRequest,
-    sizeInfo.isLargeRequest,
-    truncated.requestTruncated,
-    truncated.responseTruncated,
-  );
+  return auditLevel === "standard"
+    ? applyStandardMasking(params)
+    : applyDetailedMasking(params);
 }
 
 /**
  * Apply standard level masking (light masking)
  */
-export function applyStandardMasking(
-  requestHeaders: Record<string, unknown>,
-  responseHeaders: Record<string, unknown>,
-  requestBody: unknown,
-  responseBody: unknown,
-  isSmallRequest: boolean,
-  isLargeRequest: boolean,
-  requestTruncated: boolean,
-  responseTruncated: boolean,
-): {
+export function applyStandardMasking(p: MaskingParams): {
   headers: Record<string, unknown>;
   requestBody: unknown;
   responseBody: unknown;
@@ -215,50 +208,26 @@ export function applyStandardMasking(
   requestTruncated: boolean;
   responseTruncated: boolean;
 } {
-  const maskedHeaders = DataMasker.maskSensitiveData(requestHeaders) as Record<
-    string,
-    unknown
-  >;
-  const maskedResponseHeaders = DataMasker.maskSensitiveData(
-    responseHeaders,
-  ) as Record<string, unknown>;
-
-  let maskedRequestBody: unknown;
-  let maskedResponseBody: unknown;
-
-  if (isSmallRequest || !isLargeRequest) {
-    maskedRequestBody = DataMasker.maskSensitiveData(requestBody);
-    maskedResponseBody = DataMasker.maskSensitiveData(responseBody);
-  } else {
-    maskedRequestBody = { _message: "Request body too large, masking skipped" };
-    maskedResponseBody = {
-      _message: "Response body too large, masking skipped",
-    };
-  }
+  const maskedHeaders = DataMasker.maskSensitiveData(p.requestHeaders) as Record<string, unknown>;
+  const maskedResponseHeaders = DataMasker.maskSensitiveData(p.responseHeaders) as Record<string, unknown>;
+  const shouldMask = p.isSmallRequest || !p.isLargeRequest;
+  const maskedRequestBody = shouldMask ? DataMasker.maskSensitiveData(p.requestBody) : { _message: "Request body too large, masking skipped" };
+  const maskedResponseBody = shouldMask ? DataMasker.maskSensitiveData(p.responseBody) : { _message: "Response body too large, masking skipped" };
 
   return {
     headers: maskedHeaders,
     requestBody: maskedRequestBody,
     responseBody: maskedResponseBody,
     responseHeaders: maskedResponseHeaders,
-    requestTruncated,
-    responseTruncated,
+    requestTruncated: p.requestTruncated,
+    responseTruncated: p.responseTruncated,
   };
 }
 
 /**
  * Apply detailed/full level masking (with parallelization for medium objects)
  */
-export async function applyDetailedMasking(
-  requestHeaders: Record<string, unknown>,
-  responseHeaders: Record<string, unknown>,
-  requestBody: unknown,
-  responseBody: unknown,
-  isSmallRequest: boolean,
-  isLargeRequest: boolean,
-  requestTruncated: boolean,
-  responseTruncated: boolean,
-): Promise<{
+export async function applyDetailedMasking(params: MaskingParams): Promise<{
   headers: Record<string, unknown>;
   requestBody: unknown;
   responseBody: unknown;
@@ -266,33 +235,31 @@ export async function applyDetailedMasking(
   requestTruncated: boolean;
   responseTruncated: boolean;
 }> {
-  if (isLargeRequest) {
+  if (params.isLargeRequest) {
     return createSkippedMaskingResult(
-      requestHeaders,
-      responseHeaders,
-      requestTruncated,
-      responseTruncated,
+      params.requestHeaders,
+      params.responseHeaders,
+      params.requestTruncated,
+      params.responseTruncated,
     );
   }
-
-  if (isSmallRequest) {
+  if (params.isSmallRequest) {
     return applySequentialMasking(
-      requestHeaders,
-      responseHeaders,
-      requestBody,
-      responseBody,
-      requestTruncated,
-      responseTruncated,
+      params.requestHeaders,
+      params.responseHeaders,
+      params.requestBody,
+      params.responseBody,
+      params.requestTruncated,
+      params.responseTruncated,
     );
   }
-
   return applyParallelMasking(
-    requestHeaders,
-    responseHeaders,
-    requestBody,
-    responseBody,
-    requestTruncated,
-    responseTruncated,
+    params.requestHeaders,
+    params.responseHeaders,
+    params.requestBody,
+    params.responseBody,
+    params.requestTruncated,
+    params.responseTruncated,
   );
 }
 

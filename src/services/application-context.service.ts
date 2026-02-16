@@ -7,6 +7,8 @@
 import { HttpClient } from "../utils/http-client";
 import { extractClientTokenInfo } from "../utils/token-utils";
 import { isBrowser, getLocalStorage } from "../utils/data-client-utils";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /**
  * Application context information
@@ -60,15 +62,16 @@ export class ApplicationContextService {
 
       return { environment, application };
     } catch (error) {
-      console.warn("[ApplicationContextService] Failed to parse clientId format:", {
-        errorMessage: error instanceof Error ? error.message : String(error),
-      });
+      logErrorWithContext(
+        extractErrorInfo(error, { endpoint: "parseClientId" }),
+        "[ApplicationContextService]",
+      );
       return { environment: null, application: null };
     }
   }
 
   /**
-   * Extract client token from HttpClient's internal state, config, or browser localStorage
+   * Extract client token from config or browser localStorage.
    * @returns Client token string or null if not available
    */
   private getClientToken(): string | null {
@@ -86,25 +89,50 @@ export class ApplicationContextService {
         }
       }
 
-      // Try to access from internal client (private property access)
-      // This is a workaround since clientToken is private in InternalHttpClient
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const internalClient = (this.httpClient as any).internalClient;
-      if (internalClient) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const clientToken = (internalClient as any).clientToken;
-        if (clientToken && typeof clientToken === "string") {
-          return clientToken;
-        }
-      }
-
       return null;
     } catch (error) {
-      console.warn("[ApplicationContextService] Failed to get client token:", {
-        errorMessage: error instanceof Error ? error.message : String(error),
-      });
+      logErrorWithContext(
+        extractErrorInfo(error, { endpoint: "getClientToken" }),
+        "[ApplicationContextService]",
+      );
       return null;
     }
+  }
+
+  /**
+   * Extract context from client token.
+   */
+  private extractFromClientToken(
+    clientToken: string,
+  ): { application: string; applicationId: string; environment: string } {
+    const out = { application: "", applicationId: "", environment: "" };
+    try {
+      const tokenInfo = extractClientTokenInfo(clientToken);
+      if (tokenInfo.applicationId) out.applicationId = tokenInfo.applicationId;
+      if (tokenInfo.environment) out.environment = tokenInfo.environment;
+      if (tokenInfo.application) out.application = tokenInfo.application;
+    } catch (error) {
+      logErrorWithContext(
+        extractErrorInfo(error, { endpoint: "extractClientToken" }),
+        "[ApplicationContextService]",
+      );
+    }
+    return out;
+  }
+
+  /**
+   * Apply parsed clientId values as fallback when token fields are empty.
+   */
+  private applyClientIdFallback(
+    application: string,
+    environment: string,
+  ): { application: string; environment: string } {
+    if (application && environment) return { application, environment };
+    const parsed = this.parseClientIdFormat(this.httpClient.config.clientId);
+    return {
+      application: application || parsed.application || "",
+      environment: environment || parsed.environment || "",
+    };
   }
 
   /**
@@ -114,67 +142,27 @@ export class ApplicationContextService {
    * @returns Application context with application, applicationId, and environment
    */
   getApplicationContext(): ApplicationContext {
-    // Return cached context if available
-    if (this.cachedContext) {
-      return this.cachedContext;
-    }
+    if (this.cachedContext) return this.cachedContext;
 
-    let application: string = "";
-    let applicationId: string = "";
-    let environment: string = "";
+    let application = "";
+    let applicationId = "";
+    let environment = "";
 
-    // Step 1: Try to extract from client token
     const clientToken = this.getClientToken();
     if (clientToken) {
-      try {
-        const tokenInfo = extractClientTokenInfo(clientToken);
-
-        // Extract applicationId from client token
-        if (tokenInfo.applicationId) {
-          applicationId = tokenInfo.applicationId;
-        }
-
-        // Extract environment from client token (if available)
-        if (tokenInfo.environment) {
-          environment = tokenInfo.environment;
-        }
-
-        // Extract application from client token (if available)
-        if (tokenInfo.application) {
-          application = tokenInfo.application;
-        }
-      } catch (error) {
-        console.warn("[ApplicationContextService] Failed to extract from client token:", {
-          errorMessage: error instanceof Error ? error.message : String(error),
-        });
-      }
+      const fromToken = this.extractFromClientToken(clientToken);
+      applicationId = fromToken.applicationId;
+      application = fromToken.application;
+      environment = fromToken.environment;
     }
 
-    // Step 2: Fall back to parsing clientId format
-    // Only use parsed values if not already set from client token
-    if (!environment || !application) {
-      const parsed = this.parseClientIdFormat(this.httpClient.config.clientId);
-
-      if (!environment && parsed.environment) {
-        environment = parsed.environment;
-      }
-
-      if (!application && parsed.application) {
-        application = parsed.application;
-      }
-    }
-
-    // If still no values, use empty strings (don't throw errors)
-    const context: ApplicationContext = {
-      application: application || "",
+    const fallback = this.applyClientIdFallback(application, environment);
+    this.cachedContext = {
+      application: fallback.application,
       applicationId: applicationId || "",
-      environment: environment || "",
+      environment: fallback.environment,
     };
-
-    // Cache the result
-    this.cachedContext = context;
-
-    return context;
+    return this.cachedContext;
   }
 
   /**

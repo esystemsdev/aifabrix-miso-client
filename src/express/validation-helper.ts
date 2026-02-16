@@ -26,8 +26,7 @@ export class ValidationHelper {
         `${entityName} not found${id ? `: ${id}` : ""}`,
         404,
         true,
-        undefined,
-        "/Errors/NotFound",
+        { errorType: "/Errors/NotFound" },
       );
     }
     return entity;
@@ -51,8 +50,7 @@ export class ValidationHelper {
         `${entityName} already exists${identifier ? `: ${identifier}` : ""}`,
         409,
         true,
-        undefined,
-        "/Errors/Conflict",
+        { errorType: "/Errors/Conflict" },
       );
     }
   }
@@ -74,7 +72,7 @@ export class ValidationHelper {
       req.userRoles?.includes("admin") || req.userRoles?.includes("superuser");
 
     if (!isOwner && !isAdmin) {
-      throw new AppError(message, 403, true, undefined, "/Errors/Forbidden");
+      throw new AppError(message, 403, true, { errorType: "/Errors/Forbidden" });
     }
   }
 
@@ -96,8 +94,7 @@ export class ValidationHelper {
    * @throws AppError with 400 if required fields are missing
    */
   static validateRequiredFields(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data: Record<string, any>,
+    data: Record<string, unknown>,
     requiredFields: string[],
     entityName: string,
   ): void {
@@ -111,8 +108,7 @@ export class ValidationHelper {
         `Missing required fields for ${entityName}: ${missingFields.join(", ")}`,
         400,
         true,
-        undefined,
-        "/Errors/BadRequest",
+        { errorType: "/Errors/BadRequest" },
       );
     }
   }
@@ -128,8 +124,7 @@ export class ValidationHelper {
         "Authentication required",
         401,
         true,
-        undefined,
-        "/Errors/Unauthorized",
+        { errorType: "/Errors/Unauthorized" },
       );
     }
   }
@@ -153,8 +148,7 @@ export class ValidationHelper {
         `${fieldName} must be at least ${min} characters`,
         400,
         true,
-        undefined,
-        "/Errors/BadRequest",
+        { errorType: "/Errors/BadRequest" },
       );
     }
 
@@ -163,8 +157,7 @@ export class ValidationHelper {
         `${fieldName} must not exceed ${max} characters`,
         400,
         true,
-        undefined,
-        "/Errors/BadRequest",
+        { errorType: "/Errors/BadRequest" },
       );
     }
   }

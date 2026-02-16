@@ -15,6 +15,7 @@ import { ApiClient } from "../api";
 import { LoggerService } from "../services/logger";
 import { RedisService } from "../services/redis.service";
 import { isBrowser, getLocalStorage } from "./data-client-utils";
+import { writeWarn } from "./console-logger";
 
 /**
  * Result of DataClient initialization
@@ -93,8 +94,7 @@ export function initializeBrowserServices(
   const httpClient = new HttpClient(misoConfig, logger);
 
   // Update LoggerService to use the new HttpClient
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (logger as any).httpClient = httpClient;
+  logger.setHttpClient(httpClient);
 
   // Create ApiClient that wraps HttpClient
   const apiClient = new ApiClient(httpClient);
@@ -122,7 +122,7 @@ export function initializeBrowserServices(
  */
 export function warnIfClientSecretInBrowser(config: DataClientConfig): void {
   if (isBrowser() && config.misoConfig?.clientSecret) {
-    console.warn(
+    writeWarn(
       "⚠️ SECURITY WARNING: clientSecret detected in browser environment. " +
         "Client secrets should NEVER be exposed in client-side code. " +
         "Use the client token pattern instead (clientToken + onClientTokenRefresh). " +

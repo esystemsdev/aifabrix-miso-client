@@ -4,6 +4,7 @@
 
 import { extractClientTokenInfo, ClientTokenInfo } from "../../src/utils/token-utils";
 import jwt from "jsonwebtoken";
+import * as consoleLogger from "../../src/utils/console-logger";
 
 // Mock jsonwebtoken
 jest.mock("jsonwebtoken", () => ({
@@ -13,16 +14,13 @@ jest.mock("jsonwebtoken", () => ({
   },
 }));
 
+jest.spyOn(consoleLogger, "writeWarn").mockImplementation(() => {});
+
 const mockJwt = jwt as jest.Mocked<typeof jwt>;
 
 describe("token-utils", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    jest.spyOn(console, "warn").mockImplementation(() => {});
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
   });
 
   describe("extractClientTokenInfo", () => {
@@ -201,7 +199,7 @@ describe("token-utils", () => {
 
       const result = extractClientTokenInfo("invalid-token");
       expect(result).toEqual({});
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(consoleLogger.writeWarn).toHaveBeenCalledWith(
         "[extractClientTokenInfo] Failed to decode client token: Invalid token format",
       );
     });
@@ -220,7 +218,7 @@ describe("token-utils", () => {
 
       const result = extractClientTokenInfo("invalid-token");
       expect(result).toEqual({});
-      expect(console.warn).toHaveBeenCalled();
+      expect(consoleLogger.writeWarn).toHaveBeenCalled();
     });
 
     it("should ignore non-string field values", () => {

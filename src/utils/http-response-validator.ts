@@ -10,6 +10,17 @@ import {
 } from "./response-validator";
 import { MisoClientConfig } from "../types/config.types";
 
+function writeValidationWarning(
+  url: string,
+  summary: string,
+  expected: string,
+  actual: unknown,
+): void {
+  const msg = `Response validation failed for ${url}: ${summary} ${expected} Actual: ${JSON.stringify(actual)}\n`;
+  // eslint-disable-next-line no-console -- Validation warnings are intentionally logged for diagnostics
+  console.warn(msg);
+}
+
 /**
  * Validate response structure if validation is enabled
  * Logs warnings for validation failures but doesn't throw (non-breaking behavior)
@@ -36,30 +47,30 @@ export function validateHttpResponse(
   const responseType = getResponseType(data);
 
   if (responseType === "unknown") {
-    console.warn(
-      `Response validation failed for ${url}: Response structure doesn't match expected format.`,
-      `Expected: success response ({success, data?, message?, timestamp}) or paginated response ({data[], meta, links?}).`,
-      `Actual:`,
+    writeValidationWarning(
+      url,
+      "Response structure doesn't match expected format.",
+      "Expected: success response ({success, data?, message?, timestamp}) or paginated response ({data[], meta, links?}).",
       data,
     );
     return false;
   }
 
   if (responseType === "success" && !validateSuccessResponse(data)) {
-    console.warn(
-      `Response validation failed for ${url}: Success response structure invalid.`,
-      `Expected: {success: boolean, data?: T, message?: string, timestamp: string}.`,
-      `Actual:`,
+    writeValidationWarning(
+      url,
+      "Success response structure invalid.",
+      "Expected: {success: boolean, data?: T, message?: string, timestamp: string}.",
       data,
     );
     return false;
   }
 
   if (responseType === "paginated" && !validatePaginatedResponse(data)) {
-    console.warn(
-      `Response validation failed for ${url}: Paginated response structure invalid.`,
-      `Expected: {data: T[], meta: {totalItems, currentPage, pageSize, type}, links?}.`,
-      `Actual:`,
+    writeValidationWarning(
+      url,
+      "Paginated response structure invalid.",
+      "Expected: {data: T[], meta: {totalItems, currentPage, pageSize, type}, links?}.",
       data,
     );
     return false;

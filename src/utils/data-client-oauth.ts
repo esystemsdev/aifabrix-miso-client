@@ -6,7 +6,7 @@
 import { DataClientConfig } from "../types/data-client.types";
 import { isBrowser, setLocalStorage } from "./data-client-utils";
 import { extractErrorInfo } from "./error-extractor";
-import { logErrorWithContext } from "./console-logger";
+import { logErrorWithContext, writeWarn, writeErr } from "./console-logger";
 
 /**
  * Clean up hash fragment from URL (security measure)
@@ -20,13 +20,13 @@ function cleanupHash(): void {
       };
     };
     if (!window.window?.location || !window.window.history) {
-      console.warn("[handleOAuthCallback] window not available for hash cleanup");
+      writeWarn("[handleOAuthCallback] window not available for hash cleanup");
       return;
     }
     const cleanUrl = window.window.location.pathname + window.window.location.search;
     window.window.history.replaceState(null, "", cleanUrl);
   } catch (e) {
-    console.warn("[handleOAuthCallback] Failed to clean up hash:", e);
+    writeWarn(`[handleOAuthCallback] Failed to clean up hash: ${String(e)}`);
   }
 }
 
@@ -53,6 +53,93 @@ function isLocalhost(hostname: string): boolean {
   );
 }
 
+function parseHashParams(hash: string): URLSearchParams | null {
+  try {
+    return new URLSearchParams(hash.substring(1));
+  } catch (e) {
+    writeWarn(`[handleOAuthCallback] Failed to parse hash: ${String(e)}`);
+    return null;
+  }
+}
+
+function getTokenFromParams(params: URLSearchParams): string | null {
+  return params.get("token") || params.get("access_token") || params.get("accessToken");
+}
+
+function rejectInvalidToken(token: string): void {
+  writeErr(
+    `[handleOAuthCallback] Invalid token format - token rejected: ${JSON.stringify({
+      tokenLength: token.length,
+      isEmpty: !token || token.trim().length === 0,
+      tooShort: token.length > 0 && token.length < 5,
+      expectedFormat: "Non-empty string with at least 5 characters",
+    })}`,
+  );
+  cleanupHash();
+}
+
+function checkHttpsInProduction(protocol: string, hostname: string): boolean {
+  if (process.env.NODE_ENV !== "production") return true;
+  if (protocol === "https:") return true;
+  return isLocalhost(hostname);
+}
+
+function storeTokenSecurely(tokenKeys: string[], token: string): void {
+  tokenKeys.forEach((key) => {
+    try {
+      setLocalStorage(key, token);
+    } catch (e) {
+      writeWarn(`[handleOAuthCallback] Failed to store token in key ${key}: ${String(e)}`);
+    }
+  });
+}
+
+function resolveWindowLocation(): {
+  hash: string;
+  protocol: string;
+  hostname: string;
+  pathname: string;
+} | null {
+  const win = globalThis as unknown as {
+    window?: { location?: { hash: string; protocol: string; hostname?: string; pathname?: string } };
+  };
+  if (!win.window?.location) return null;
+  return {
+    hash: win.window.location.hash,
+    protocol: win.window.location.protocol,
+    hostname: win.window.location.hostname || "",
+    pathname: win.window.location.pathname || "/",
+  };
+}
+
+function resolveCallbackToken(hash: string): string | null {
+  if (!hash || hash.length <= 1) return null;
+  const hashParams = parseHashParams(hash);
+  if (!hashParams) return null;
+  const token = getTokenFromParams(hashParams);
+  if (!token) return null;
+  if (!isValidTokenFormat(token)) {
+    rejectInvalidToken(token);
+    return null;
+  }
+  return token;
+}
+
+function logStoredOAuthToken(
+  isDebug: boolean,
+  token: string,
+  tokenKeys: string[],
+): void {
+  if (!isDebug) return;
+  writeWarn(
+    `[handleOAuthCallback] OAuth token extracted and stored securely: ${JSON.stringify({
+      tokenLength: token.length,
+      tokenKeys,
+      storedInKeys: tokenKeys.length,
+    })}`,
+  );
+}
+
 /**
  * Handle OAuth callback with ISO 27001 compliant security
  * Extracts token from URL hash fragment and stores securely
@@ -69,83 +156,32 @@ function isLocalhost(hostname: string): boolean {
 export function handleOAuthCallback(config: DataClientConfig): string | null {
   if (!isBrowser()) return null;
 
-  const window = globalThis as unknown as {
-    window?: { location?: { hash: string; protocol: string; hostname?: string; pathname?: string; search?: string } };
-  };
-  if (!window.window?.location) return null;
+  const location = resolveWindowLocation();
+  if (!location) return null;
 
-  const hash = window.window.location.hash;
-  if (!hash || hash.length <= 1) return null;
-
-  // Parse hash synchronously
-  const hashString = hash.substring(1);
-  let hashParams: URLSearchParams;
-  try {
-    hashParams = new URLSearchParams(hashString);
-  } catch (e) {
-    console.warn("[handleOAuthCallback] Failed to parse hash:", e);
-    return null;
-  }
-
-  // Extract token from various possible parameter names
-  const token = hashParams.get("token") || hashParams.get("access_token") || hashParams.get("accessToken");
+  const token = resolveCallbackToken(location.hash);
   if (!token) return null;
 
-  // Validate token format
-  if (!isValidTokenFormat(token)) {
-    const tokenLength = token ? token.length : 0;
-    console.error("[handleOAuthCallback] Invalid token format - token rejected", {
-      tokenLength,
-      isEmpty: !token || token.trim().length === 0,
-      tooShort: tokenLength > 0 && tokenLength < 5,
-      expectedFormat: "Non-empty string with at least 5 characters",
-    });
+  if (!checkHttpsInProduction(location.protocol, location.hostname)) {
+    writeErr("[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production");
     cleanupHash();
     return null;
   }
 
-  // HTTPS enforcement in production (except localhost)
-  if (config.misoConfig?.logLevel === "debug" || process.env.NODE_ENV === "production") {
-    const isHttps = window.window.location.protocol === "https:";
-    const hostname = window.window.location.hostname || "";
-
-    if (!isHttps && process.env.NODE_ENV === "production" && !isLocalhost(hostname)) {
-      console.error("[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production");
-      cleanupHash();
-      return null;
-    }
-  }
-
-  // Clean up hash immediately
   cleanupHash();
-
-  // Store token in localStorage
   const tokenKeys = config.tokenKeys || ["token", "accessToken", "authToken"];
+
   try {
-    tokenKeys.forEach((key) => {
-      try {
-        setLocalStorage(key, token);
-      } catch (e) {
-        console.warn(`[handleOAuthCallback] Failed to store token in key ${key}:`, e);
-      }
-    });
-
-    // Debug logging
-    if (config.misoConfig?.logLevel === "debug") {
-      console.log("[handleOAuthCallback] OAuth token extracted and stored securely", {
-        tokenLength: token.length,
-        tokenKeys: tokenKeys,
-        storedInKeys: tokenKeys.length,
-      });
-    }
-
+    storeTokenSecurely(tokenKeys, token);
+    logStoredOAuthToken(config.misoConfig?.logLevel === "debug", token, tokenKeys);
     return token;
   } catch (e) {
     const error = e instanceof Error ? e : new Error(String(e));
-    const pathname = window.window.location.pathname || "/";
-    const errorInfo = extractErrorInfo(error, { endpoint: pathname, method: "GET" });
-    logErrorWithContext(errorInfo, "[DataClient] [AUTH] [OAuthCallback]");
-    console.error("[handleOAuthCallback] Failed to store token:", e);
+    logErrorWithContext(
+      extractErrorInfo(error, { endpoint: location.pathname, method: "GET" }),
+      "[DataClient] [AUTH] [OAuthCallback]",
+    );
+    writeErr(`[handleOAuthCallback] Failed to store token: ${String(e)}`);
     return null;
   }
 }

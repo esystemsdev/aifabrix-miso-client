@@ -90,149 +90,91 @@ function getDefaultFieldPatterns(): string[] {
   ];
 }
 
-/**
- * Load sensitive fields configuration from JSON file
- * Supports Node.js (fs) and browser environments (falls back to defaults in browser)
- */
+function resolveConfigPath(customPath?: string): string | null {
+  const envPath = customPath || process.env.MISO_SENSITIVE_FIELDS_CONFIG;
+  if (!envPath) return null;
+  return path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
+}
+
+function fieldsFromConfig(config: SensitiveFieldsConfig): Set<string> {
+  const allFields = new Set<string>();
+  Object.values(config.categories).forEach((fields: string[]) => {
+    fields.forEach((field) => allFields.add(field.toLowerCase()));
+  });
+  getDefaultSensitiveFields().forEach((field) => allFields.add(field));
+  return allFields;
+}
+
+function loadConfigFromPath(configPath: string): Set<string> | null {
+  if (!fs.existsSync(configPath)) return null;
+  const configContent = fs.readFileSync(configPath, "utf8");
+  const config: SensitiveFieldsConfig = JSON.parse(configContent);
+  return fieldsFromConfig(config);
+}
+
+function loadConfigFromModule(): Set<string> | null {
+  try {
+    const config = defaultConfig as unknown as SensitiveFieldsConfig;
+    return fieldsFromConfig(config);
+  } catch {
+    const configPath = path.join(__dirname, "sensitive-fields.config.json");
+    return loadConfigFromPath(configPath);
+  }
+}
+
 export function loadSensitiveFieldsConfig(customPath?: string): Set<string> {
-  // Browser environment - return defaults
   if (typeof globalThis !== "undefined" && "window" in globalThis) {
     const globalWindow = (globalThis as Record<string, unknown>).window;
-    if (typeof globalWindow !== "undefined") {
-      return getDefaultSensitiveFields();
-    }
+    if (typeof globalWindow !== "undefined") return getDefaultSensitiveFields();
   }
-  if (typeof process === "undefined" || !process.env) {
-    return getDefaultSensitiveFields();
-  }
+  if (typeof process === "undefined" || !process.env) return getDefaultSensitiveFields();
 
   try {
-    // If custom path provided, load from filesystem
-    if (customPath || process.env.MISO_SENSITIVE_FIELDS_CONFIG) {
-      let configPath: string;
-      if (customPath) {
-        configPath = path.isAbsolute(customPath)
-          ? customPath
-          : path.resolve(process.cwd(), customPath);
-      } else {
-        const envPath = process.env.MISO_SENSITIVE_FIELDS_CONFIG!;
-        configPath = path.isAbsolute(envPath)
-          ? envPath
-          : path.resolve(process.cwd(), envPath);
-      }
-
-      if (!fs.existsSync(configPath)) {
-        // Config file not found, use defaults
-        return getDefaultSensitiveFields();
-      }
-
-      const configContent = fs.readFileSync(configPath, "utf8");
-      const config: SensitiveFieldsConfig = JSON.parse(configContent);
-
-      // Combine all categories into a single set (lowercase for case-insensitive matching)
-      const allFields = new Set<string>();
-      Object.values(config.categories).forEach((fields: string[]) => {
-        fields.forEach((field) => allFields.add(field.toLowerCase()));
-      });
-
-      // Also add default fields to ensure we have all base fields
-      const defaults = getDefaultSensitiveFields();
-      defaults.forEach((field) => allFields.add(field));
-
-      return allFields;
+    const configPath = resolveConfigPath(customPath);
+    if (configPath) {
+      const result = loadConfigFromPath(configPath);
+      if (result) return result;
     }
-
-    // No custom path - try to load default config as module (works in compiled code)
-    try {
-      const config = defaultConfig as unknown as SensitiveFieldsConfig;
-      const allFields = new Set<string>();
-      Object.values(config.categories).forEach((fields: string[]) => {
-        fields.forEach((field) => allFields.add(field.toLowerCase()));
-      });
-      // Also add default fields to ensure we have all base fields
-      const defaults = getDefaultSensitiveFields();
-      defaults.forEach((field) => allFields.add(field));
-      return allFields;
-    } catch {
-      // If module import fails, try filesystem path (for development/source code)
-      const configPath = path.join(__dirname, "sensitive-fields.config.json");
-      if (fs.existsSync(configPath)) {
-        const configContent = fs.readFileSync(configPath, "utf8");
-        const config: SensitiveFieldsConfig = JSON.parse(configContent);
-        const allFields = new Set<string>();
-        Object.values(config.categories).forEach((fields: string[]) => {
-          fields.forEach((field) => allFields.add(field.toLowerCase()));
-        });
-        const defaults = getDefaultSensitiveFields();
-        defaults.forEach((field) => allFields.add(field));
-        return allFields;
-      }
-    }
-
-    // Fallback to defaults if nothing worked
-    return getDefaultSensitiveFields();
-  } catch (error) {
-    // Failed to load config, use defaults
+    const moduleResult = loadConfigFromModule();
+    return moduleResult ?? getDefaultSensitiveFields();
+  } catch {
     return getDefaultSensitiveFields();
   }
 }
 
-/**
- * Get field patterns for pattern matching
- */
+function loadFieldPatternsFromPath(configPath: string): string[] | null {
+  if (!fs.existsSync(configPath)) return null;
+  const configContent = fs.readFileSync(configPath, "utf8");
+  const config: SensitiveFieldsConfig = JSON.parse(configContent);
+  return config.fieldPatterns || getDefaultFieldPatterns();
+}
+
+function loadFieldPatternsFromModule(): string[] | null {
+  try {
+    const config = defaultConfig as unknown as SensitiveFieldsConfig;
+    return config.fieldPatterns || getDefaultFieldPatterns();
+  } catch {
+    const configPath = path.join(__dirname, "sensitive-fields.config.json");
+    return loadFieldPatternsFromPath(configPath);
+  }
+}
+
 export function getFieldPatterns(customPath?: string): string[] {
-  // Browser environment - return defaults
   if (typeof globalThis !== "undefined" && "window" in globalThis) {
     const globalWindow = (globalThis as Record<string, unknown>).window;
-    if (typeof globalWindow !== "undefined") {
-      return getDefaultFieldPatterns();
-    }
+    if (typeof globalWindow !== "undefined") return getDefaultFieldPatterns();
   }
-  if (typeof process === "undefined" || !process.env) {
-    return getDefaultFieldPatterns();
-  }
+  if (typeof process === "undefined" || !process.env) return getDefaultFieldPatterns();
 
   try {
-    // If custom path provided, load from filesystem
-    if (customPath || process.env.MISO_SENSITIVE_FIELDS_CONFIG) {
-      let configPath: string;
-      if (customPath) {
-        configPath = path.isAbsolute(customPath)
-          ? customPath
-          : path.resolve(process.cwd(), customPath);
-      } else {
-        const envPath = process.env.MISO_SENSITIVE_FIELDS_CONFIG!;
-        configPath = path.isAbsolute(envPath)
-          ? envPath
-          : path.resolve(process.cwd(), envPath);
-      }
-
-      if (!fs.existsSync(configPath)) {
-        return getDefaultFieldPatterns();
-      }
-
-      const configContent = fs.readFileSync(configPath, "utf8");
-      const config: SensitiveFieldsConfig = JSON.parse(configContent);
-      return config.fieldPatterns || getDefaultFieldPatterns();
+    const configPath = resolveConfigPath(customPath);
+    if (configPath) {
+      const result = loadFieldPatternsFromPath(configPath);
+      if (result) return result;
     }
-
-    // No custom path - try to load default config as module (works in compiled code)
-    try {
-      const config = defaultConfig as unknown as SensitiveFieldsConfig;
-      return config.fieldPatterns || getDefaultFieldPatterns();
-    } catch {
-      // If module import fails, try filesystem path (for development/source code)
-      const configPath = path.join(__dirname, "sensitive-fields.config.json");
-      if (fs.existsSync(configPath)) {
-        const configContent = fs.readFileSync(configPath, "utf8");
-        const config: SensitiveFieldsConfig = JSON.parse(configContent);
-        return config.fieldPatterns || getDefaultFieldPatterns();
-      }
-    }
-
-    return getDefaultFieldPatterns();
-  } catch (error) {
-    // Failed to load config, use defaults
+    const moduleResult = loadFieldPatternsFromModule();
+    return moduleResult ?? getDefaultFieldPatterns();
+  } catch {
     return getDefaultFieldPatterns();
   }
 }

@@ -12,6 +12,8 @@ import {
 } from "../types/config.types";
 import { decodeJWT } from "../utils/browser-jwt-decoder";
 import { ApplicationContextService } from "./application-context.service";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 interface PermissionCacheData {
   permissions: string[];
@@ -33,10 +35,22 @@ export class BrowserPermissionService {
     this.applicationContextService = new ApplicationContextService(httpClient);
   }
 
-  /**
-   * Extract userId from JWT token without making API call
-   * Uses browser-compatible JWT decoder
-   */
+  private logPermissionError(
+    error: unknown,
+    token: string,
+    operation: string,
+    method: string,
+    path: string,
+  ): void {
+    const errorInfo = extractErrorInfo(error, {
+      endpoint: path,
+      method,
+      correlationId: (error as { correlationId?: string })?.correlationId,
+    });
+    errorInfo.message = `Failed to ${operation}: ${errorInfo.message}`;
+    logErrorWithContext(errorInfo, "[BrowserPermissionService]");
+  }
+
   /**
    * Extract userId from JWT token without verification.
    */
@@ -59,6 +73,27 @@ export class BrowserPermissionService {
     }
   }
 
+  private buildAuthStrategyWithToken(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): AuthStrategy {
+    const base = authStrategy || this.httpClient.config.authStrategy;
+    return base ? { ...base, bearerToken: token } : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+  }
+
+  private async resolveUserId(token: string, authStrategy?: AuthStrategy): Promise<string | null> {
+    const userInfo = await this.apiClient.auth.validateToken(
+      { token },
+      this.buildAuthStrategyWithToken(token, authStrategy),
+    );
+    return userInfo.data?.user?.id || null;
+  }
+
+  private getPermissionsQueryParams(): { environment: string } | undefined {
+    const context = this.applicationContextService.getApplicationContext();
+    return context.environment ? { environment: context.environment } : undefined;
+  }
+
   /**
    * Get user permissions with caching
    * Optimized to extract userId from token first to check cache before API call
@@ -70,77 +105,35 @@ export class BrowserPermissionService {
     authStrategy?: AuthStrategy,
   ): Promise<string[]> {
     try {
-      // Extract userId from token to check cache first (avoids API call on cache hit)
       let userId = this.extractUserIdFromToken(token);
       const cacheKey = userId ? `permissions:${userId}` : null;
 
-      // Check cache first if we have userId
       if (cacheKey) {
         const cached = await this.cache.get<PermissionCacheData>(cacheKey);
-        if (cached) {
-          return cached.permissions || [];
-        }
+        if (cached) return cached.permissions || [];
       }
 
-      // Cache miss or no userId in token - fetch from controller
-      // If we don't have userId, get it from validate endpoint
       if (!userId) {
-    const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-        const authStrategyWithToken: AuthStrategy = authStrategyToUse
-          ? { ...authStrategyToUse, bearerToken: token }
-          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-
-        const userInfo = await this.apiClient.auth.validateToken(
-          { token },
-          authStrategyWithToken,
-        );
-        userId = userInfo.data?.user?.id || null;
-        if (!userId) {
-          return [];
-        }
+        userId = await this.resolveUserId(token, authStrategy);
+        if (!userId) return [];
       }
 
-      // Cache miss - fetch from controller using ApiClient
-    const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-      const authStrategyWithToken = authStrategyToUse
-        ? { ...authStrategyToUse, bearerToken: token }
-          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-
-      // Extract environment from application context service
-      const context = this.applicationContextService.getApplicationContext();
-      const queryParams = context.environment ? { environment: context.environment } : undefined;
-
+      const authStrategyWithToken = this.buildAuthStrategyWithToken(token, authStrategy);
+      const queryParams = this.getPermissionsQueryParams();
       const permissionResult = await this.apiClient.permissions.getPermissions(
         queryParams,
         authStrategyWithToken,
       );
-
       const permissions = permissionResult.data?.permissions || [];
 
-      // Cache the result (use userId-based key)
-      const finalCacheKey = `permissions:${userId}`;
       await this.cache.set<PermissionCacheData>(
-        finalCacheKey,
+        `permissions:${userId}`,
         { permissions, timestamp: Date.now() },
         this.permissionTTL,
       );
-
       return permissions;
     } catch (error) {
-      // eslint-disable-next-line no-console
-      const statusCode =
-        (error as { statusCode?: number })?.statusCode ||
-        (error as { response?: { status?: number } })?.response?.status;
-      console.error("Failed to get permissions:", {
-        method: "GET",
-        path: "/api/auth/permissions",
-        statusCode,
-        ipAddress: "unknown",
-        correlationId: (error as { correlationId?: string })?.correlationId,
-        userId: this.extractUserIdFromToken(token) || undefined,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stackTrace: error instanceof Error ? error.stack : undefined,
-      });
+      this.logPermissionError(error, token, "getPermissions", "GET", "/api/auth/permissions");
       return [];
     }
   }
@@ -243,20 +236,7 @@ export class BrowserPermissionService {
 
       return permissions;
     } catch (error) {
-      // eslint-disable-next-line no-console
-      const statusCode =
-        (error as { statusCode?: number })?.statusCode ||
-        (error as { response?: { status?: number } })?.response?.status;
-      console.error("Failed to refresh permissions:", {
-        method: "POST",
-        path: "/api/auth/permissions/refresh",
-        statusCode,
-        ipAddress: "unknown",
-        correlationId: (error as { correlationId?: string })?.correlationId,
-        userId: this.extractUserIdFromToken(token) || undefined,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stackTrace: error instanceof Error ? error.stack : undefined,
-      });
+      this.logPermissionError(error, token, "refreshPermissions", "POST", "/api/auth/permissions/refresh");
       return [];
     }
   }
@@ -271,41 +251,12 @@ export class BrowserPermissionService {
     authStrategy?: AuthStrategy,
   ): Promise<void> {
     try {
-      // Get user info to extract userId
-      const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-      const authStrategyWithToken = authStrategyToUse
-        ? { ...authStrategyToUse, bearerToken: token }
-          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+      const userId = await this.resolveUserId(token, authStrategy);
+      if (!userId) return;
 
-      const userInfo = await this.apiClient.auth.validateToken(
-        { token },
-        authStrategyWithToken,
-      );
-
-      if (!userInfo.data?.user?.id) {
-        return;
-      }
-
-      const userId = userInfo.data.user.id;
-      const cacheKey = `permissions:${userId}`;
-
-      // Clear from cache
-      await this.cache.delete(cacheKey);
+      await this.cache.delete(`permissions:${userId}`);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      const statusCode =
-        (error as { statusCode?: number })?.statusCode ||
-        (error as { response?: { status?: number } })?.response?.status;
-      console.error("Failed to clear permissions cache:", {
-        method: "DELETE",
-        path: "/cache/permissions",
-        statusCode,
-        ipAddress: "unknown",
-        correlationId: (error as { correlationId?: string })?.correlationId,
-        userId: this.extractUserIdFromToken(token) || undefined,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stackTrace: error instanceof Error ? error.stack : undefined,
-      });
+      this.logPermissionError(error, token, "clearPermissionsCache", "DELETE", "/cache/permissions");
     }
   }
 }

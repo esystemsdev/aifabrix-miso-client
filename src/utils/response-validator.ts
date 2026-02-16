@@ -67,6 +67,28 @@ export function validateSuccessResponse<T = unknown>(
   return true;
 }
 
+function validatePaginatedMeta(meta: unknown): boolean {
+  if (!meta || typeof meta !== "object") return false;
+  const m = meta as Record<string, unknown>;
+  return (
+    typeof m.totalItems === "number" &&
+    typeof m.currentPage === "number" &&
+    typeof m.pageSize === "number" &&
+    typeof m.type === "string"
+  );
+}
+
+function validatePaginatedLinks(links: unknown): boolean {
+  if (links === undefined) return true;
+  if (typeof links !== "object" || links === null) return false;
+  const l = links as Record<string, unknown>;
+  if (l.first !== undefined && typeof l.first !== "string") return false;
+  if (l.prev !== undefined && typeof l.prev !== "string") return false;
+  if (l.next !== undefined && typeof l.next !== "string") return false;
+  if (l.last !== undefined && typeof l.last !== "string") return false;
+  return true;
+}
+
 /**
  * Validate paginated response structure
  * @param data - Response data to validate
@@ -75,71 +97,11 @@ export function validateSuccessResponse<T = unknown>(
 export function validatePaginatedResponse<T = unknown>(
   data: unknown,
 ): data is PaginatedResponse<T> {
-  if (!data || typeof data !== "object") {
-    return false;
-  }
-
+  if (!data || typeof data !== "object") return false;
   const obj = data as Record<string, unknown>;
-
-  // Check required data array
-  if (!Array.isArray(obj.data)) {
-    return false;
-  }
-
-  // Check required meta object
-  if (!obj.meta || typeof obj.meta !== "object") {
-    return false;
-  }
-
-  const meta = obj.meta as Record<string, unknown>;
-
-  // Check required meta fields
-  if (typeof meta.totalItems !== "number") {
-    return false;
-  }
-
-  if (typeof meta.currentPage !== "number") {
-    return false;
-  }
-
-  if (typeof meta.pageSize !== "number") {
-    return false;
-  }
-
-  if (typeof meta.type !== "string") {
-    return false;
-  }
-
-  // Check optional links object
-  if (obj.links !== undefined) {
-    if (typeof obj.links !== "object" || obj.links === null) {
-      return false;
-    }
-
-    const links = obj.links as Record<string, unknown>;
-
-    // All link fields are optional strings
-    if (
-      links.first !== undefined &&
-      typeof links.first !== "string"
-    ) {
-      return false;
-    }
-
-    if (links.prev !== undefined && typeof links.prev !== "string") {
-      return false;
-    }
-
-    if (links.next !== undefined && typeof links.next !== "string") {
-      return false;
-    }
-
-    if (links.last !== undefined && typeof links.last !== "string") {
-      return false;
-    }
-  }
-
-  return true;
+  if (!Array.isArray(obj.data)) return false;
+  if (!validatePaginatedMeta(obj.meta)) return false;
+  return validatePaginatedLinks(obj.links);
 }
 
 /**

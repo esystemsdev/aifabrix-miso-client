@@ -78,6 +78,13 @@ export function extractEnvironmentMetadata(): Partial<LogEntry> {
   return metadata as Partial<LogEntry>;
 }
 
+export interface GetLogWithRequestOptions {
+  applicationContextService: ApplicationContextService;
+  generateCorrelationId: () => string;
+  maskSensitiveData: boolean;
+  clientId?: string;
+}
+
 /**
  * Get LogEntry object with request context extracted
  * Extracts IP, method, path, userAgent, correlationId, userId from Express Request
@@ -87,28 +94,22 @@ export function extractEnvironmentMetadata(): Partial<LogEntry> {
  * @param message - Log message
  * @param level - Optional log level (defaults to 'info')
  * @param context - Optional additional context
- * @param applicationContextService - ApplicationContextService for application/environment extraction
- * @param generateCorrelationId - Function to generate correlation ID
- * @param maskSensitiveData - Whether to mask sensitive data
- * @param clientId - Client ID to use as fallback when application is empty
+ * @param options - Options with applicationContextService, generateCorrelationId, maskSensitiveData, clientId
  * @returns Complete LogEntry object with all request context extracted
- *
- * @example
- * ```typescript
- * const logEntry = getLogWithRequest(req, 'User action', 'info', { action: 'login' }, applicationContextService, generateCorrelationId, true, config.clientId);
- * await myCustomLogger.save(logEntry);
- * ```
  */
 export function getLogWithRequest(
   req: Request,
   message: string,
   level: LogEntry["level"] = "info",
   context: Record<string, unknown> | undefined,
-  applicationContextService: ApplicationContextService,
-  generateCorrelationId: () => string,
-  maskSensitiveData: boolean,
-  clientId?: string,
+  options: GetLogWithRequestOptions,
 ): LogEntry {
+  const {
+    applicationContextService,
+    generateCorrelationId,
+    maskSensitiveData,
+    clientId,
+  } = options;
   const requestContext = extractRequestContext(req);
   const jwtContext = extractJwtContext(
     req.headers.authorization?.replace("Bearer ", ""),
@@ -151,6 +152,13 @@ export function getLogWithRequest(
   };
 }
 
+export interface GetWithContextOptions {
+  applicationContextService: ApplicationContextService;
+  generateCorrelationId: () => string;
+  maskSensitiveData: boolean;
+  clientId?: string;
+}
+
 /**
  * Get LogEntry object with provided context
  * Generates correlation ID automatically and extracts metadata from environment
@@ -158,15 +166,12 @@ export function getLogWithRequest(
  * @param context - Context object to include in logs
  * @param message - Log message
  * @param level - Optional log level (defaults to 'info')
- * @param applicationContextService - ApplicationContextService for application/environment extraction
- * @param generateCorrelationId - Function to generate correlation ID
- * @param maskSensitiveData - Whether to mask sensitive data
- * @param clientId - Client ID to use as fallback when application is empty
+ * @param options - Options with applicationContextService, generateCorrelationId, maskSensitiveData, clientId
  * @returns Complete LogEntry object
  *
  * @example
  * ```typescript
- * const logEntry = getWithContext({ operation: 'sync' }, 'Sync started', 'info', applicationContextService, generateCorrelationId, true, config.clientId);
+ * const logEntry = getWithContext({ operation: 'sync' }, 'Sync started', 'info', { applicationContextService, generateCorrelationId, maskSensitiveData: true, clientId: config.clientId });
  * await myCustomLogger.save(logEntry);
  * ```
  */
@@ -174,11 +179,9 @@ export function getWithContext(
   context: Record<string, unknown>,
   message: string,
   level: LogEntry["level"] = "info",
-  applicationContextService: ApplicationContextService,
-  generateCorrelationId: () => string,
-  maskSensitiveData: boolean,
-  clientId?: string,
+  options: GetWithContextOptions,
 ): LogEntry {
+  const { applicationContextService, generateCorrelationId, maskSensitiveData, clientId } = options;
   const metadata = extractEnvironmentMetadata();
   const correlationId = generateCorrelationId();
   const appContext = applicationContextService.getApplicationContext();

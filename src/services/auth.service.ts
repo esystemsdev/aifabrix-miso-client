@@ -25,6 +25,8 @@ import {
   getCacheTtlFromToken,
   getTokenCacheKey,
 } from "./auth-cache-helpers";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /** Cache data structure for token validation results */
 interface TokenCacheData { authenticated: boolean; timestamp: number; }
@@ -297,20 +299,14 @@ export class AuthService {
     method: "GET" | "POST" = "POST",
   ): void {
     const userId = extractUserIdFromToken(token);
-    const statusCode =
-      (error as { statusCode?: number })?.statusCode ||
-      (error as { response?: { status?: number } })?.response?.status;
-    console.error(`${operation} failed`, {
-      operation,
-      path,
+    const errorInfo = extractErrorInfo(error, {
+      endpoint: path,
       method,
-      ipAddress: "unknown",
-      userId: userId || undefined,
-      statusCode,
       correlationId: (error as { correlationId?: string })?.correlationId,
-      errorMessage: error instanceof Error ? error.message : String(error),
-      stackTrace: error instanceof Error ? error.stack : undefined,
     });
+    const suffix = userId ? ` (userId: ${userId})` : "";
+    errorInfo.message = `${operation} failed${suffix}: ${errorInfo.message}`;
+    logErrorWithContext(errorInfo, "[AuthService]");
   }
 
   /**
@@ -393,9 +389,8 @@ export class AuthService {
     } catch (error) {
       // Gracefully handle 400 Bad Request (no session, already logged out, etc.)
       if (isHttpStatus(error, 400)) {
-        console.warn("Logout: No active session (400)", {
-          correlationId,
-        });
+        // eslint-disable-next-line no-console -- Architecture-approved auth service warning log
+        console.warn(`[Auth] Logout: No active session (400) [${correlationId}]`);
         this.clearTokenCache(params.token);
         this.clearUserCache(params.token);
         return { success: true, message: "Logout successful (no active session)", timestamp: new Date().toISOString() };

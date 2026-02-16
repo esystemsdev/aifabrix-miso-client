@@ -8,6 +8,7 @@ import { AuditConfig } from "../types/data-client.types";
 import { LoggerContextStorage } from "../services/logger/logger-context-storage";
 import { DataMasker } from "./data-masker";
 import { truncatePayload, extractUserIdFromToken } from "./data-client-utils";
+import { writeWarn } from "./console-logger";
 
 /**
  * Check if endpoint should skip audit logging
@@ -31,169 +32,45 @@ export type HasAnyTokenFn = () => boolean;
  */
 export type GetTokenFn = () => string | null;
 
-/**
- * Log audit event (ISO 27001 compliance)
- * Skips audit logging if no authentication token is available (user token OR client token)
- */
-export async function logDataClientAudit(
-  method: string,
-  url: string,
-  statusCode: number,
-  duration: number,
-  misoClient: MisoClient | null,
-  auditConfig: AuditConfig | undefined,
-  hasAnyToken: HasAnyTokenFn,
-  getToken: GetTokenFn,
-  requestSize?: number,
-  responseSize?: number,
-  error?: Error,
-  requestHeaders?: Record<string, string>,
-  responseHeaders?: Record<string, string>,
-  requestBody?: unknown,
-  responseBody?: unknown,
-): Promise<void> {
-  if (shouldSkipAudit(url, auditConfig) || !misoClient) return;
+/** Internal options for logDataClientAudit */
+interface LogAuditOpts {
+  method: string;
+  url: string;
+  statusCode: number;
+  duration: number;
+  misoClient: MisoClient;
+  auditConfig: AuditConfig | undefined;
+  getToken: GetTokenFn;
+  requestSize?: number;
+  responseSize?: number;
+  error?: Error;
+  requestHeaders?: Record<string, string>;
+  responseHeaders?: Record<string, string>;
+  requestBody?: unknown;
+  responseBody?: unknown;
+}
 
-  // Skip audit logging if no authentication token is available
-  // This prevents 401 errors when attempting to audit log unauthenticated requests
-  if (!hasAnyToken()) {
-    // Silently skip audit logging for unauthenticated requests
-    // This is expected behavior and prevents 401 errors
-    return;
-  }
+function maskPayload(data: unknown, maxSize: number, mask: boolean): unknown {
+  const truncated = truncatePayload(data, maxSize);
+  return mask && !truncated.truncated
+    ? DataMasker.maskSensitiveData(truncated.data)
+    : truncated.data;
+}
 
-  try {
-    const token = getToken();
-    const userId = token ? extractUserIdFromToken(token) : undefined;
-    const auditLevel = auditConfig?.level || "standard";
-
-    // Build audit context based on level
-    const auditContext: Record<string, unknown> = {
-      method,
-      url,
-      statusCode,
-      duration,
-    };
-
-    if (userId) {
-      auditContext.userId = userId;
-    }
-
-    // Minimal level: only basic info
-    if (auditLevel === "minimal") {
-      await runWithTokenContext(token, async () => {
-        await misoClient.log.audit(
-          `http.request.${method.toLowerCase()}`,
-          url,
-          auditContext,
-        );
-      });
-      return;
-    }
-
-    // Standard/Detailed/Full levels: include headers and bodies (masked)
-    const maxResponseSize = auditConfig?.maxResponseSize || 10000;
-    const maxMaskingSize = auditConfig?.maxMaskingSize || 50000;
-
-    // Truncate and mask request body
-    let maskedRequestBody: unknown = undefined;
-    if (requestBody !== undefined) {
-      const truncated = truncatePayload(requestBody, maxMaskingSize);
-      if (!truncated.truncated) {
-        maskedRequestBody = DataMasker.maskSensitiveData(truncated.data);
-      } else {
-        maskedRequestBody = truncated.data;
-      }
-    }
-
-    // Truncate and mask response body (for standard, detailed, full levels)
-    let maskedResponseBody: unknown = undefined;
-    if (responseBody !== undefined) {
-      const truncated = truncatePayload(responseBody, maxResponseSize);
-      if (!truncated.truncated) {
-        maskedResponseBody = DataMasker.maskSensitiveData(truncated.data);
-      } else {
-        maskedResponseBody = truncated.data;
-      }
-    }
-
-    // Mask headers
-    const maskedRequestHeaders = requestHeaders
-      ? (DataMasker.maskSensitiveData(requestHeaders) as Record<
-          string,
-          string
-        >)
-      : undefined;
-    const maskedResponseHeaders = responseHeaders
-      ? (DataMasker.maskSensitiveData(responseHeaders) as Record<
-          string,
-          string
-        >)
-      : undefined;
-
-    // Add to context based on level (standard, detailed, full all include headers/bodies)
-    if (maskedRequestHeaders) auditContext.requestHeaders = maskedRequestHeaders;
-    if (maskedResponseHeaders) auditContext.responseHeaders = maskedResponseHeaders;
-    if (maskedRequestBody !== undefined) auditContext.requestBody = maskedRequestBody;
-    if (maskedResponseBody !== undefined) auditContext.responseBody = maskedResponseBody;
-
-    // Add sizes for detailed/full levels
-    if (auditLevel === "detailed" || auditLevel === "full") {
-      if (requestSize !== undefined) auditContext.requestSize = requestSize;
-      if (responseSize !== undefined) auditContext.responseSize = responseSize;
-    }
-
-    if (error) {
-      const maskedError = DataMasker.maskSensitiveData({
-        message: error.message,
-        name: error.name,
-        stack: error.stack,
-      });
-      auditContext.error = maskedError;
-    }
-
-    await runWithTokenContext(token, async () => {
-      await misoClient.log.audit(
-        `http.request.${method.toLowerCase()}`,
-        url,
-        auditContext,
-      );
-    });
-  } catch (auditError) {
-    // Handle audit logging errors gracefully
-    // Don't fail main request if audit logging fails
-    const error = auditError as Error & {
-      statusCode?: number;
-      response?: { status?: number };
-      code?: string;
-      message?: string;
-    };
-    const statusCode = error.statusCode || error.response?.status;
-    const errorMessage = error.message || String(auditError);
-    const errorCode = error.code;
-
-    // Silently skip for expected error conditions:
-    // - 401: User not authenticated (expected for unauthenticated requests)
-    // - Network errors: Connection refused, ECONNREFUSED, ERR_CONNECTION_REFUSED
-    // - These are expected when server is unavailable or misconfigured
-    const isNetworkError =
-      errorCode === 'ECONNREFUSED' ||
-      errorCode === 'ENOTFOUND' ||
-      errorMessage.includes('ERR_CONNECTION_REFUSED') ||
-      errorMessage.includes('Failed to fetch') ||
-      errorMessage.includes('NetworkError') ||
-      errorMessage.includes('network error');
-
-    if (statusCode === 401 || isNetworkError) {
-      // Silently skip to avoid noise - these are expected conditions
-      // 401: User not authenticated (we already check hasAnyToken() before attempting)
-      // Network errors: Server unavailable or misconfigured (expected in demo/dev environments)
-      return;
-    }
-
-    // Other unexpected errors - log warning but don't fail request
-    console.warn("Failed to log audit event:", auditError);
-  }
+function isExpectedAuditError(
+  err: Error & { statusCode?: number; response?: { status?: number }; code?: string },
+): boolean {
+  const statusCode = err.statusCode || err.response?.status;
+  const msg = err.message || String(err);
+  const code = err.code;
+  const isNetwork =
+    code === "ECONNREFUSED" ||
+    code === "ENOTFOUND" ||
+    msg.includes("ERR_CONNECTION_REFUSED") ||
+    msg.includes("Failed to fetch") ||
+    msg.includes("NetworkError") ||
+    msg.includes("network error");
+  return statusCode === 401 || Boolean(isNetwork);
 }
 
 async function runWithTokenContext(
@@ -204,7 +81,111 @@ async function runWithTokenContext(
     await handler();
     return;
   }
-  const contextStorage = LoggerContextStorage.getInstance();
-  await contextStorage.runWithContextAsync({ token }, handler);
+  const ctx = LoggerContextStorage.getInstance();
+  await ctx.runWithContextAsync({ token }, handler);
 }
 
+async function performAudit(
+  misoClient: MisoClient,
+  token: string | null,
+  method: string,
+  url: string,
+  auditContext: Record<string, unknown>,
+): Promise<void> {
+  await runWithTokenContext(token, async () => {
+    await misoClient.log.audit(`http.request.${method.toLowerCase()}`, url, auditContext);
+  });
+}
+
+function addStandardAuditContext(
+  ctx: Record<string, unknown>,
+  opts: LogAuditOpts,
+): void {
+  const maxResp = opts.auditConfig?.maxResponseSize || 10000;
+  const maxMask = opts.auditConfig?.maxMaskingSize || 50000;
+  ctx.requestBody = opts.requestBody !== undefined ? maskPayload(opts.requestBody, maxMask, true) : undefined;
+  ctx.responseBody = opts.responseBody !== undefined ? maskPayload(opts.responseBody, maxResp, true) : undefined;
+  ctx.requestHeaders = opts.requestHeaders ? (DataMasker.maskSensitiveData(opts.requestHeaders) as Record<string, string>) : undefined;
+  ctx.responseHeaders = opts.responseHeaders ? (DataMasker.maskSensitiveData(opts.responseHeaders) as Record<string, string>) : undefined;
+}
+
+function addDetailedAuditContext(
+  ctx: Record<string, unknown>,
+  opts: LogAuditOpts,
+  level: string,
+): void {
+  if (level !== "detailed" && level !== "full") return;
+  if (opts.requestSize !== undefined) ctx.requestSize = opts.requestSize;
+  if (opts.responseSize !== undefined) ctx.responseSize = opts.responseSize;
+}
+
+function buildFullContext(opts: LogAuditOpts): Record<string, unknown> {
+  const { method, url, statusCode, duration } = opts;
+  const token = opts.getToken();
+  const userId = token ? extractUserIdFromToken(token) : undefined;
+  const level = opts.auditConfig?.level || "standard";
+  const ctx: Record<string, unknown> = { method, url, statusCode, duration, ...(userId && { userId }) };
+  if (level === "minimal") return ctx;
+
+  addStandardAuditContext(ctx, opts);
+  addDetailedAuditContext(ctx, opts, level);
+  if (opts.error) ctx.error = DataMasker.maskSensitiveData({ message: opts.error.message, name: opts.error.name, stack: opts.error.stack });
+  return ctx;
+}
+
+async function logAuditInternal(opts: LogAuditOpts): Promise<void> {
+  const { method, url, misoClient, getToken } = opts;
+  const ctx = buildFullContext(opts);
+  await performAudit(misoClient, getToken(), method, url, ctx);
+}
+
+/** Parameters for logDataClientAudit */
+export interface LogDataClientAuditParams {
+  method: string;
+  url: string;
+  statusCode: number;
+  duration: number;
+  misoClient: MisoClient | null;
+  auditConfig: AuditConfig | undefined;
+  hasAnyToken: HasAnyTokenFn;
+  getToken: GetTokenFn;
+  requestSize?: number;
+  responseSize?: number;
+  error?: Error;
+  requestHeaders?: Record<string, string>;
+  responseHeaders?: Record<string, string>;
+  requestBody?: unknown;
+  responseBody?: unknown;
+}
+
+/**
+ * Log audit event (ISO 27001 compliance)
+ * Skips audit logging if no authentication token is available (user token OR client token)
+ */
+export async function logDataClientAudit(params: LogDataClientAuditParams): Promise<void> {
+  const { url, auditConfig, misoClient, hasAnyToken } = params;
+  if (shouldSkipAudit(url, auditConfig) || !misoClient || !hasAnyToken()) return;
+
+  try {
+    await logAuditInternal({
+      method: params.method,
+      url,
+      statusCode: params.statusCode,
+      duration: params.duration,
+      misoClient,
+      auditConfig,
+      getToken: params.getToken,
+      requestSize: params.requestSize,
+      responseSize: params.responseSize,
+      error: params.error,
+      requestHeaders: params.requestHeaders,
+      responseHeaders: params.responseHeaders,
+      requestBody: params.requestBody,
+      responseBody: params.responseBody,
+    });
+  } catch (auditError) {
+    const err = auditError as Error & { statusCode?: number; response?: { status?: number }; code?: string };
+    if (isExpectedAuditError(err)) return;
+    writeWarn(`Failed to log audit event: ${String(auditError)}`);
+  }
+}

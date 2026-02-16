@@ -125,35 +125,22 @@ async function handleStandardOrDetailedAudit(
       : { requestSize: undefined, responseSize: undefined };
 
   const auditContext = buildAuditContext(
-    {
-      method: metadata.method,
-      fullUrl: metadata.fullUrl,
-      duration: metadata.duration,
-      statusCode: metadata.statusCode,
-      userId: metadata.userId,
-    },
+    { method: metadata.method, fullUrl: metadata.fullUrl, duration: metadata.duration, statusCode: metadata.statusCode, userId: metadata.userId },
     sizes,
     masked,
     auditLevel,
     error,
   );
 
-  const token = metadata.userId
-    ? undefined
-    : metadata.authHeader?.replace("Bearer ", "");
+  const token = metadata.userId ? undefined : metadata.authHeader?.replace("Bearer ", "");
   await runWithTokenContext(token, async () => {
-    await logger.audit(
-      `http.request.${metadata.method}`,
-      metadata.url,
-      auditContext,
-    );
+    await logger.audit(`http.request.${metadata.method}`, metadata.url, auditContext);
   });
 
-  // Log debug event if debug mode enabled
   if (config.logLevel === "debug") {
     try {
       await logDebugEvent(metadata, masked, sizes, error, logger);
-    } catch (debugError) {
+    } catch {
       // Silently swallow debug logging errors to not break audit logging
     }
   }

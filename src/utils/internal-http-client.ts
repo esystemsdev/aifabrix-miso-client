@@ -87,7 +87,10 @@ export class InternalHttpClient {
           if (token) {
             config.headers["x-client-token"] = token;
           } else {
-            console.warn("Client token is not available. Ensure clientSecret or onClientTokenRefresh is configured.");
+            // eslint-disable-next-line no-console -- Operational warning for missing client token configuration
+            console.warn(
+              "Client token is not available. Ensure clientSecret or onClientTokenRefresh is configured.",
+            );
           }
         }
         return config;

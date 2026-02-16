@@ -43,14 +43,7 @@ export function isColonFormat(str: string): boolean {
   return !trimmed.startsWith("{") && !trimmed.startsWith("[");
 }
 
-/**
- * Parse colon format filter string into FilterOption.
- * Format: field:operator:value or field:operator:value1,value2 (for in/nin)
- * @param filterStr - Colon format filter string (e.g., "status:eq:active")
- * @returns Parsed FilterOption
- * @throws Error if format is invalid
- */
-export function parseColonFilter(filterStr: string): FilterOption {
+function parseColonFilterParts(filterStr: string): { field: string; opStr: string; valueStr: string } {
   const firstColonIndex = filterStr.indexOf(":");
   if (firstColonIndex === -1) {
     throw new Error(
@@ -67,53 +60,54 @@ export function parseColonFilter(filterStr: string): FilterOption {
 
   const rest = filterStr.substring(firstColonIndex + 1);
   const secondColonIndex = rest.indexOf(":");
-
-  let opStr: string;
-  let valueStr: string;
-
-  if (secondColonIndex === -1) {
-    opStr = rest;
-    valueStr = "";
-  } else {
-    opStr = rest.substring(0, secondColonIndex);
-    valueStr = rest.substring(secondColonIndex + 1);
-  }
+  const opStr = secondColonIndex === -1 ? rest : rest.substring(0, secondColonIndex);
+  const valueStr = secondColonIndex === -1 ? "" : rest.substring(secondColonIndex + 1);
 
   if (!opStr) {
     throw new Error(
       `Invalid colon filter format: missing operator. Got: "${filterStr}". Expected: "field:op:value"`,
     );
   }
+  return { field, opStr, valueStr };
+}
 
-  const op = normalizeOperator(opStr);
-  let value: string | number | boolean | Array<string | number> | null;
-
-  if (op === "isNull" || op === "isNotNull") {
-    value = null;
-  } else if (op === "in" || op === "nin") {
-    if (!valueStr) {
-      value = [];
-    } else {
-      value = valueStr.split(",").map((v) => {
-        const trimmed = v.trim();
-        const num = Number(trimmed);
-        return !isNaN(num) && trimmed !== "" ? num : trimmed;
-      });
-    }
-  } else if (valueStr === "") {
+function parseColonFilterValue(
+  op: FilterOperator,
+  valueStr: string,
+  filterStr: string,
+): string | number | boolean | Array<string | number> | null {
+  if (op === "isNull" || op === "isNotNull") return null;
+  if (op === "in" || op === "nin") {
+    return valueStr
+      ? valueStr.split(",").map((v) => {
+          const trimmed = v.trim();
+          const num = Number(trimmed);
+          return !isNaN(num) && trimmed !== "" ? num : trimmed;
+        })
+      : [];
+  }
+  if (valueStr === "") {
     throw new Error(
       `Invalid colon filter format: missing value for operator '${op}'. Got: "${filterStr}". Expected: "field:${op}:value"`,
     );
-  } else if (valueStr === "true") {
-    value = true;
-  } else if (valueStr === "false") {
-    value = false;
-  } else if (valueStr === "null") {
-    value = null;
-  } else {
-    const num = Number(valueStr);
-    value = !isNaN(num) && valueStr !== "" ? num : valueStr;
   }
+  if (valueStr === "true") return true;
+  if (valueStr === "false") return false;
+  if (valueStr === "null") return null;
+  const num = Number(valueStr);
+  return !isNaN(num) && valueStr !== "" ? num : valueStr;
+}
 
+/**
+ * Parse colon format filter string into FilterOption.
+ * Format: field:operator:value or field:operator:value1,value2 (for in/nin)
+ * @param filterStr - Colon format filter string (e.g., "status:eq:active")
+ * @returns Parsed FilterOption
+ * @throws Error if format is invalid
+ */
+export function parseColonFilter(filterStr: string): FilterOption {
+  const { field, opStr, valueStr } = parseColonFilterParts(filterStr);
+  const op = normalizeOperator(opStr);
+  const value = parseColonFilterValue(op, valueStr, filterStr);
   return { field, op, value };
 }

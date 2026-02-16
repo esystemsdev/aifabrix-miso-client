@@ -46,27 +46,40 @@ export function logErrorWithContext(
   // Build final message
   const message = parts.join(" | ");
 
-  // Log with correlation ID prefix
+  // eslint-disable-next-line no-console -- Architecture-approved error logging utility
   console.error(`${prefix} [${correlationId}] ${message}`);
 
   // Log response body if available
   if (errorInfo.responseBody) {
+    // eslint-disable-next-line no-console -- Architecture-approved error logging utility
     console.error(
-      `${prefix} [${correlationId}] Response Body:`,
-      JSON.stringify(errorInfo.responseBody, null, 2),
+      `${prefix} [${correlationId}] Response Body: ${JSON.stringify(errorInfo.responseBody, null, 2)}`,
     );
   }
 
   // Log stack trace if available
   if (errorInfo.stackTrace) {
-    console.error(`${prefix} [${correlationId}] Stack Trace:`, errorInfo.stackTrace);
+    // eslint-disable-next-line no-console -- Architecture-approved error logging utility
+    console.error(`${prefix} [${correlationId}] Stack Trace: ${errorInfo.stackTrace}`);
   }
 
   // Log original error if available
   if (errorInfo.originalError) {
+    // eslint-disable-next-line no-console -- Architecture-approved error logging utility
     console.error(
-      `${prefix} [${correlationId}] Original Error:`,
-      errorInfo.originalError,
+      `${prefix} [${correlationId}] Original Error: ${String(errorInfo.originalError)}`,
     );
   }
+}
+
+/** Write warning to console. */
+export function writeWarn(msg: string): void {
+  // eslint-disable-next-line no-console -- Architecture-approved warning logging utility
+  console.warn(msg);
+}
+
+/** Write error to console. */
+export function writeErr(msg: string): void {
+  // eslint-disable-next-line no-console -- Architecture-approved error logging utility
+  console.error(msg);
 }

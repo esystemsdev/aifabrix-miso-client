@@ -285,15 +285,7 @@ describe("error-handler", () => {
     });
 
     it("should use AppError correlationId if available", async () => {
-      const error = new AppError(
-        "Error",
-        400,
-        true,
-        undefined,
-        undefined,
-        undefined,
-        "app-error-correlation-id",
-      );
+      const error = new AppError("Error", 400, true, { correlationId: "app-error-correlation-id" });
 
       await handleRouteError(error, mockReq as Request, mockRes as Response);
 

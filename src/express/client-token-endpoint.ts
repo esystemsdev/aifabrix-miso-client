@@ -72,24 +72,32 @@ export function hasConfig(response: ClientTokenResponse): response is ClientToke
   return response.config !== undefined;
 }
 
+/** Parse HTTP status from error message */
+function parseStatusFromMessage(msg: string): number | undefined {
+  const m = msg.match(/status:\s*(\d+)/i) || msg.match(/status code\s+(\d+)/i) || msg.match(/status\s+(\d+)/i);
+  return m ? parseInt(m[1], 10) : undefined;
+}
+
+/** Get status/isNetwork from axios error */
+function getAxiosResult(axiosError: import("axios").AxiosError): { status?: number; isNetworkError: boolean } {
+  if (axiosError.response) return { status: axiosError.response.status, isNetworkError: false };
+  if (axiosError.request && !axiosError.response) return { status: undefined, isNetworkError: true };
+  return { status: undefined, isNetworkError: false };
+}
+
 /** Extract HTTP status from error message or axios error chain */
 function extractHttpStatus(tokenError: unknown): { status?: number; isNetworkError: boolean } {
-  const errorMessage = tokenError instanceof Error ? tokenError.message : "Unknown error";
-  const httpStatusMatch = errorMessage.match(/status:\s*(\d+)/i) || errorMessage.match(/status code\s+(\d+)/i) || errorMessage.match(/status\s+(\d+)/i);
-  let status = httpStatusMatch ? parseInt(httpStatusMatch[1], 10) : undefined;
-  let isNetworkError = false;
+  const msg = tokenError instanceof Error ? tokenError.message : "Unknown error";
+  const status = parseStatusFromMessage(msg);
+  const isNetworkError = false;
 
-  // Walk error chain for axios details
-  let currentError: unknown = tokenError;
-  for (let i = 0; i < 5 && currentError; i++) {
-    if (currentError && typeof currentError === "object" && "isAxiosError" in currentError && currentError.isAxiosError) {
-      const axiosError = currentError as import("axios").AxiosError;
-      if (axiosError.response) { status = axiosError.response.status; break; }
-      if (axiosError.request && !axiosError.response) { isNetworkError = true; break; }
+  let cur: unknown = tokenError;
+  for (let i = 0; i < 5 && cur; i++) {
+    if (cur && typeof cur === "object" && "isAxiosError" in cur && cur.isAxiosError) {
+      const r = getAxiosResult(cur as import("axios").AxiosError);
+      if (r.status !== undefined || r.isNetworkError) return { status: r.status, isNetworkError: r.isNetworkError };
     }
-    if (currentError && typeof currentError === "object" && "cause" in currentError) {
-      currentError = (currentError as { cause?: unknown }).cause;
-    } else break;
+    cur = cur && typeof cur === "object" && "cause" in cur ? (cur as { cause?: unknown }).cause : null;
   }
   return { status, isNetworkError };
 }
@@ -99,6 +107,14 @@ function isNetworkOrTimeoutError(errorMessage: string, isAxiosNetworkError: bool
   const isNetwork = isAxiosNetworkError || /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|connect|Network Error|network error|getaddrinfo/i.test(errorMessage);
   const isTimeout = errorMessage.includes("Request timeout: Failed to get environment token") || /timeout/i.test(errorMessage);
   return { isNetwork, isTimeout };
+}
+
+/** Fetch token with 5s timeout */
+async function fetchTokenWithTimeout(req: Request, misoClient: MisoClient): Promise<string> {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error("Request timeout: Failed to get environment token within 5 seconds")), 5000);
+  });
+  return Promise.race([getEnvironmentToken(misoClient, req), timeoutPromise]);
 }
 
 /** Handle token fetch error and send appropriate response */
@@ -140,6 +156,58 @@ function buildConfigResponse(req: Request, misoClient: MisoClient, clientTokenUr
   };
 }
 
+/** Send error for generic handler catch (non-token-fetch errors) */
+function sendHandlerError(error: Error, req: Request, res: Response): void {
+  const msg = error.message;
+  if (msg.includes("Origin validation failed")) {
+    sendErrorResponse(res, createErrorResponse(msg, 403, req));
+    return;
+  }
+  if (/timeout/i.test(msg)) {
+    sendErrorResponse(res, createErrorResponse("Failed to get environment token: Request timed out", 504, req));
+    return;
+  }
+  sendErrorResponse(res, createErrorResponse(msg, 500, req));
+}
+
+/** Core handler logic - fetch token and build response */
+async function runClientTokenHandler(
+  req: Request,
+  res: Response,
+  misoClient: MisoClient,
+  opts: Required<ClientTokenEndpointOptions>,
+): Promise<void> {
+  const isSent = () => res.headersSent || res.writableEnded;
+  if (!misoClient.isInitialized()) {
+    if (!isSent()) sendErrorResponse(res, createErrorResponse("MisoClient is not initialized", 503, req));
+    return;
+  }
+
+  let token: string;
+  try {
+    token = await fetchTokenWithTimeout(req, misoClient);
+  } catch (tokenError) {
+    if (!isSent()) handleTokenError(tokenError, req, res, misoClient);
+    return;
+  }
+
+  if (!token) {
+    if (!isSent()) sendErrorResponse(res, createErrorResponse("Request timeout: Failed to get environment token", 504, req));
+    return;
+  }
+
+  const response: ClientTokenResponse = { token, expiresIn: opts.expiresIn };
+  if (opts.includeConfig) {
+    const configResponse = buildConfigResponse(req, misoClient, opts.clientTokenUri);
+    if (!configResponse) {
+      if (!isSent()) sendErrorResponse(res, createErrorResponse("Controller URL not configured", 500, req));
+      return;
+    }
+    response.config = configResponse;
+  }
+  if (!isSent()) res.json(response);
+}
+
 /**
  * Create Express route handler for client-token endpoint
  * @param misoClient - MisoClient instance (must be initialized)
@@ -150,73 +218,22 @@ export function createClientTokenEndpoint(
   misoClient: MisoClient,
   options?: ClientTokenEndpointOptions,
 ): RequestHandler {
-  const opts = { clientTokenUri: "/api/v1/auth/client-token", expiresIn: 1800, includeConfig: true, ...options };
-
-  const handler = async (req: Request, res: Response): Promise<void> => {
-    const isResponseSent = () => res.headersSent || res.writableEnded;
-
-    try {
-      if (!misoClient.isInitialized()) {
-        if (!isResponseSent()) sendErrorResponse(res, createErrorResponse("MisoClient is not initialized", 503, req));
-        return;
-      }
-
-      // Fetch token with timeout
-      let timeoutId: ReturnType<typeof setTimeout> | null = null;
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId = setTimeout(
-          () =>
-            reject(
-              new Error(
-                "Request timeout: Failed to get environment token within 5 seconds",
-              ),
-            ),
-          5000,
-        );
-      });
-      let token: string;
-      try {
-        token = await Promise.race([
-          getEnvironmentToken(misoClient, req),
-          timeoutPromise,
-        ]);
-      } catch (tokenError) {
-        if (!isResponseSent()) handleTokenError(tokenError, req, res, misoClient);
-        return;
-      } finally {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
-      }
-
-      if (!token) {
-        throw new Error("Request timeout: Failed to get environment token");
-      }
-
-      // Build response
-      const response: ClientTokenResponse = { token, expiresIn: opts.expiresIn };
-      if (opts.includeConfig) {
-        const configResponse = buildConfigResponse(req, misoClient, opts.clientTokenUri);
-        if (!configResponse) {
-          if (!isResponseSent()) sendErrorResponse(res, createErrorResponse("Controller URL not configured", 500, req));
-          return;
-        }
-        response.config = configResponse;
-      }
-
-      if (!isResponseSent()) res.json(response);
-    } catch (error) {
-      if (isResponseSent()) return;
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      if (errorMessage.includes("Origin validation failed")) { sendErrorResponse(res, createErrorResponse(errorMessage, 403, req)); return; }
-      if (/timeout/i.test(errorMessage)) { sendErrorResponse(res, createErrorResponse("Failed to get environment token: Request timed out", 504, req)); return; }
-      sendErrorResponse(res, createErrorResponse(errorMessage, 500, req));
-    }
+  const opts: Required<ClientTokenEndpointOptions> = {
+    clientTokenUri: "/api/v1/auth/client-token",
+    expiresIn: 1800,
+    includeConfig: true,
+    ...options,
   };
 
   return asyncHandler(
     async (req: Request, res: Response): Promise<void> => {
-      await handler(req, res);
+      try {
+        await runClientTokenHandler(req, res, misoClient, opts);
+      } catch (error) {
+        if (!res.headersSent && !res.writableEnded) {
+          sendHandlerError(error instanceof Error ? error : new Error(String(error)), req, res);
+        }
+      }
     },
     "createClientTokenEndpoint",
   );

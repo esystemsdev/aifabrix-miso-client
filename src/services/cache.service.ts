@@ -3,6 +3,8 @@
  */
 
 import { RedisService } from "./redis.service";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 interface CacheEntry<T> {
   value: T;
@@ -52,6 +54,21 @@ export class CacheService {
     }
   }
 
+  private parseAndCacheRedisValue<T>(key: string, cached: string): T | null {
+    try {
+      const parsed = JSON.parse(cached) as T;
+      this.setInMemory(key, parsed, 300);
+      return parsed;
+    } catch (error) {
+      logErrorWithContext(
+        extractErrorInfo(error, { endpoint: key, method: "parseCache" }),
+        "[CacheService]",
+      );
+      void this.delete(key);
+      return null;
+    }
+  }
+
   /**
    * Get cached value
    * Checks Redis first, then falls back to memory cache
@@ -60,48 +77,23 @@ export class CacheService {
    */
   async get<T>(key: string): Promise<T | null> {
     try {
-      // Try Redis first if available
       if (this.redis && this.redis.isConnected()) {
         const cached = await this.redis.get(key);
-        if (cached) {
-          try {
-            const parsed = JSON.parse(cached) as T;
-            // Also cache in memory for faster subsequent access
-            // We don't know the TTL from Redis, so we'll use a default 5 minutes
-            // This is just for optimization, Redis is still the source of truth
-            this.setInMemory(key, parsed, 300);
-            return parsed;
-          } catch (error) {
-            // Invalid JSON, remove from cache
-            console.warn("Failed to parse cached data:", {
-              key,
-              errorMessage: error instanceof Error ? error.message : String(error),
-            });
-            await this.delete(key);
-            return null;
-          }
-        }
+        if (cached) return this.parseAndCacheRedisValue<T>(key, cached);
       }
 
-      // Fallback to memory cache
       const entry = this.memoryCache.get(key);
       if (entry) {
-        // Check if expired
         if (entry.expiresAt < Date.now()) {
           this.memoryCache.delete(key);
           return null;
         }
         return entry.value as T;
       }
-
       return null;
-    } catch (error) {
-      // On error, try memory cache
+    } catch {
       const entry = this.memoryCache.get(key);
-      if (entry && entry.expiresAt >= Date.now()) {
-        return entry.value as T;
-      }
-      return null;
+      return entry && entry.expiresAt >= Date.now() ? (entry.value as T) : null;
     }
   }
 
@@ -135,10 +127,10 @@ export class CacheService {
         this.setInMemory(key, value, ttl);
         return false; // Indicate Redis failed, but memory cache set
       } catch (memoryError) {
-        console.error("Failed to cache value:", {
-          key,
-          errorMessage: error instanceof Error ? error.message : String(error),
-        });
+        logErrorWithContext(
+          extractErrorInfo(error, { endpoint: key, method: "setCache" }),
+          "[CacheService]",
+        );
         return false;
       }
     }

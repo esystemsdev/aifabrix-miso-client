@@ -140,11 +140,8 @@ describe("AuditLogQueue", () => {
       const entry = createLogEntry();
       await auditLogQueue.add(entry);
 
-      // Fast-forward time
-      jest.advanceTimersByTime(100);
-
-      // Wait for flush
-      await Promise.resolve();
+      // Fast-forward time and wait for async flush to complete
+      await jest.advanceTimersByTimeAsync(100);
 
       expect(auditLogQueue.getQueueSize()).toBe(0);
       expect(mockHttpClient.request).toHaveBeenCalled();
@@ -348,8 +345,7 @@ describe("AuditLogQueue", () => {
       await queue.add(createLogEntry());
 
       // Should use default interval (100ms)
-      jest.advanceTimersByTime(100);
-      await Promise.resolve();
+      await jest.advanceTimersByTimeAsync(100);
 
       expect(mockHttpClient.request).toHaveBeenCalled();
     });

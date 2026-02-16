@@ -110,8 +110,19 @@ function createErrorResponseFromError(
   );
 }
 
+/** Options for logError */
+interface LogErrorOptions {
+  errorInfo: ReturnType<typeof extractErrorInfo>;
+  logMessage: string;
+  req: Request;
+  correlationId: string;
+  statusCode: number;
+  operationName: string;
+}
+
 /** Log error using custom logger or stderr */
-async function logError(error: unknown, errorInfo: ReturnType<typeof extractErrorInfo>, logMessage: string, req: Request, correlationId: string, statusCode: number, operationName: string): Promise<void> {
+async function logError(error: unknown, opts: LogErrorOptions): Promise<void> {
+  const { errorInfo, logMessage, req, correlationId, statusCode, operationName } = opts;
   logErrorWithContext(errorInfo, "[Express]");
 
   if (customErrorLogger) {
@@ -123,12 +134,18 @@ async function logError(error: unknown, errorInfo: ReturnType<typeof extractErro
       });
     } catch (logError) {
       const logErr = logError instanceof Error ? logError : new Error(String(logError));
-      process.stderr.write(`[ERROR] Failed to log error: ${logErr.message}\n`);
-      process.stderr.write(`[ERROR] Original error: ${extractErrorMessage(error)}\n`);
+      // eslint-disable-next-line no-console -- Fallback logging when injected logger fails
+      console.error(`Failed to log error: ${logErr.message}`);
+      // eslint-disable-next-line no-console -- Preserve original error context for diagnostics
+      console.error(`Original error: ${extractErrorMessage(error)}`);
     }
   } else {
-    process.stderr.write(`[ERROR] ${logMessage}\n`);
-    if (error instanceof Error && error.stack) process.stderr.write(`[ERROR] Stack: ${error.stack}\n`);
+    // eslint-disable-next-line no-console -- Default error logging when no custom logger is configured
+    console.error(logMessage);
+    if (error instanceof Error && error.stack) {
+      // eslint-disable-next-line no-console -- Include stack for operational debugging
+      console.error(`Stack: ${error.stack}`);
+    }
   }
 }
 
@@ -148,7 +165,9 @@ export async function handleRouteError(error: unknown, req: Request, res: Respon
   const operationName = operation || "unknown operation";
 
   const errorInfo = extractErrorInfo(error, { endpoint: req.originalUrl || req.path, method: req.method, correlationId });
-  await logError(error, errorInfo, `${operationName} failed: ${errorMessage}`, req, correlationId, statusCode, operationName);
+  await logError(error, {
+    errorInfo, logMessage: `${operationName} failed: ${errorMessage}`, req, correlationId, statusCode, operationName,
+  });
 
   const errorResponse = createErrorResponseFromError(error, statusCode, req, correlationId);
   if (error instanceof AppError && error.correlationId) errorResponse.correlationId = error.correlationId;

@@ -19,6 +19,7 @@ import {
   getLogWithRequest,
   getWithContext,
 } from "./logger-context";
+import { isAuthError, sendAuditLogPayload } from "./logger-http-utils";
 
 export interface ClientLoggingOptions {
   maskSensitiveData?: boolean;
@@ -78,6 +79,11 @@ export class LoggerService extends EventEmitter {
         this,
       );
     }
+  }
+
+  setHttpClient(httpClient: HttpClient): void {
+    this.httpClient = httpClient;
+    this.applicationContextService = new ApplicationContextService(httpClient);
   }
 
   /**
@@ -206,7 +212,7 @@ export class LoggerService extends EventEmitter {
       loggerContext.correlationId || this.generateCorrelationId();
     const maskedContext = this.maskContext(context, options);
     const appContext = this.applicationContextService.getApplicationContext();
-    const logEntry = this.buildLogEntry(
+    const logEntry = this.buildLogEntry({
       level,
       message,
       maskedContext,
@@ -217,7 +223,7 @@ export class LoggerService extends EventEmitter {
       appContext,
       loggerContext,
       correlationId,
-    );
+    });
 
     if (this.httpClient.config.emitEvents) {
       this.emit("log", logEntry);
@@ -258,54 +264,53 @@ export class LoggerService extends EventEmitter {
   /**
    * Build LogEntry from inputs and context.
    */
-  private buildLogEntry(
-    level: LogEntry["level"],
-    message: string,
-    maskedContext: Record<string, unknown> | undefined,
-    stackTrace: string | undefined,
-    options: ClientLoggingOptions | undefined,
-    jwtContext: ReturnType<typeof extractJwtContext>,
-    metadata: ReturnType<typeof extractEnvironmentMetadata>,
-    appContext: ReturnType<ApplicationContextService["getApplicationContext"]>,
-    loggerContext: ReturnType<LoggerContextStorage["getContext"]> | null,
-    correlationId: string,
-  ): LogEntry {
+  private buildLogEntry(params: {
+    level: LogEntry["level"];
+    message: string;
+    maskedContext: Record<string, unknown> | undefined;
+    stackTrace: string | undefined;
+    options: ClientLoggingOptions | undefined;
+    jwtContext: ReturnType<typeof extractJwtContext>;
+    metadata: ReturnType<typeof extractEnvironmentMetadata>;
+    appContext: ReturnType<ApplicationContextService["getApplicationContext"]>;
+    loggerContext: ReturnType<LoggerContextStorage["getContext"]> | null;
+    correlationId: string;
+  }): LogEntry {
+    const p = params;
     const applicationId = this.resolveApplicationId(
-      jwtContext,
-      appContext,
-      loggerContext,
+      p.jwtContext, p.appContext, p.loggerContext,
     );
 
     return {
       timestamp: new Date().toISOString(),
-      level,
-      environment: appContext.environment || "unknown",
-      application: appContext.application || this.httpClient.config.clientId,
+      level: p.level,
+      environment: p.appContext.environment || "unknown",
+      application: p.appContext.application || this.httpClient.config.clientId,
       applicationId,
-      message,
-      context: maskedContext,
-      stackTrace,
-      correlationId,
-      userId: loggerContext?.userId || jwtContext.userId,
-      sessionId: loggerContext?.sessionId || jwtContext.sessionId,
-      requestId: loggerContext?.requestId,
-      ipAddress: loggerContext?.ipAddress || metadata.ipAddress,
-      userAgent: loggerContext?.userAgent || metadata.userAgent,
-      referer: loggerContext?.referer,
-      ...metadata,
-      sourceKey: options?.sourceKey,
-      sourceDisplayName: options?.sourceDisplayName,
-      externalSystemKey: options?.externalSystemKey,
-      externalSystemDisplayName: options?.externalSystemDisplayName,
-      recordKey: options?.recordKey,
-      recordDisplayName: options?.recordDisplayName,
-      credentialId: options?.credentialId,
-      credentialType: options?.credentialType,
-      requestSize: loggerContext?.requestSize,
-      responseSize: options?.responseSize,
-      durationMs: options?.durationMs,
-      errorCategory: options?.errorCategory,
-      httpStatusCategory: options?.httpStatusCategory,
+      message: p.message,
+      context: p.maskedContext,
+      stackTrace: p.stackTrace,
+      correlationId: p.correlationId,
+      userId: p.loggerContext?.userId || p.jwtContext.userId,
+      sessionId: p.loggerContext?.sessionId || p.jwtContext.sessionId,
+      requestId: p.loggerContext?.requestId,
+      ipAddress: p.loggerContext?.ipAddress || p.metadata.ipAddress,
+      userAgent: p.loggerContext?.userAgent || p.metadata.userAgent,
+      referer: p.loggerContext?.referer,
+      ...p.metadata,
+      sourceKey: p.options?.sourceKey,
+      sourceDisplayName: p.options?.sourceDisplayName,
+      externalSystemKey: p.options?.externalSystemKey,
+      externalSystemDisplayName: p.options?.externalSystemDisplayName,
+      recordKey: p.options?.recordKey,
+      recordDisplayName: p.options?.recordDisplayName,
+      credentialId: p.options?.credentialId,
+      credentialType: p.options?.credentialType,
+      requestSize: p.loggerContext?.requestSize,
+      responseSize: p.options?.responseSize,
+      durationMs: p.options?.durationMs,
+      errorCategory: p.options?.errorCategory,
+      httpStatusCategory: p.options?.httpStatusCategory,
     };
   }
 
@@ -412,19 +417,6 @@ export class LoggerService extends EventEmitter {
   }
 
   /**
-   * Detect auth-related HTTP errors for circuit breaker logic.
-   */
-  private isAuthError(error: unknown): boolean {
-    if (!(error instanceof Error)) {
-      return false;
-    }
-    if (error.message.includes("401") || error.message.includes("Unauthorized")) {
-      return true;
-    }
-    return (error as { statusCode?: number }).statusCode === 401;
-  }
-
-  /**
    * Send log entry to controller via API client.
    */
   private async sendToHttp(
@@ -434,51 +426,13 @@ export class LoggerService extends EventEmitter {
     const now = Date.now();
     try {
       if (!this.apiClient) {
-        throw new Error(
-          "ApiClient not initialized. Call setApiClient() before logging.",
-        );
+        throw new Error("ApiClient not initialized. Call setApiClient() before logging.");
       }
-
       const { logType, logLevel } = this.mapLogType(level);
       const enrichedContext = this.buildEnrichedContext(logEntry);
 
       if (level === "audit") {
-        const auditAction = enrichedContext.action as string | undefined;
-        const auditResource = enrichedContext.resource as string | undefined;
-        const providedEntityType = enrichedContext.entityType as string | undefined;
-        const providedEntityId = enrichedContext.entityId as string | undefined;
-        const providedOldValues = enrichedContext.oldValues as Record<string, unknown> | undefined;
-        const providedNewValues = enrichedContext.newValues as Record<string, unknown> | undefined;
-
-        delete enrichedContext.action;
-        delete enrichedContext.resource;
-        delete enrichedContext.entityType;
-        delete enrichedContext.entityId;
-        delete enrichedContext.oldValues;
-        delete enrichedContext.newValues;
-
-        const entityType =
-          providedEntityType ||
-          (auditResource && auditResource.startsWith("/api/")
-            ? "API Endpoint"
-            : "HTTP Request");
-        const entityId = providedEntityId || auditResource || "unknown";
-        const action = auditAction || "unknown";
-
-        await this.apiClient.logs.createLog({
-          type: logType,
-          data: {
-            level: logLevel,
-            message: logEntry.message,
-            context: enrichedContext,
-            correlationId: logEntry.correlationId,
-            entityType,
-            entityId,
-            action,
-            oldValues: providedOldValues,
-            newValues: providedNewValues,
-          },
-        });
+        await sendAuditLogPayload(this.apiClient, logEntry, enrichedContext, logType, logLevel);
       } else {
         await this.apiClient.logs.createLog({
           type: logType,
@@ -490,11 +444,10 @@ export class LoggerService extends EventEmitter {
           },
         });
       }
-
       this.httpLoggingFailures = 0;
       this.httpLoggingDisabledUntil = null;
     } catch (error) {
-      if (!this.isAuthError(error)) {
+      if (!isAuthError(error)) {
         this.httpLoggingFailures++;
         if (this.httpLoggingFailures >= LoggerService.MAX_FAILURES) {
           this.httpLoggingDisabledUntil = now + LoggerService.DISABLE_DURATION_MS;
@@ -516,12 +469,22 @@ export class LoggerService extends EventEmitter {
 
   /** Get LogEntry with request context extracted */
   getLogWithRequest(req: Request, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
-    return getLogWithRequest(req, message, level, context, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.httpClient.config.clientId);
+    return getLogWithRequest(req, message, level, context, {
+      applicationContextService: this.applicationContextService,
+      generateCorrelationId: () => this.generateCorrelationId(),
+      maskSensitiveData: this.maskSensitiveData,
+      clientId: this.httpClient.config.clientId,
+    });
   }
 
   /** Get LogEntry with provided context */
   getWithContext(context: Record<string, unknown>, message: string, level: LogEntry["level"] = "info"): LogEntry {
-    return getWithContext(context, message, level, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.httpClient.config.clientId);
+    return getWithContext(context, message, level, {
+      applicationContextService: this.applicationContextService,
+      generateCorrelationId: () => this.generateCorrelationId(),
+      maskSensitiveData: this.maskSensitiveData,
+      clientId: this.httpClient.config.clientId,
+    });
   }
 
   /** Get LogEntry with request context (alias) */

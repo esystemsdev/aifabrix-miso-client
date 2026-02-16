@@ -17,6 +17,45 @@ import {
 import { extractErrorInfo } from '../utils/error-extractor';
 import { logErrorWithContext } from '../utils/console-logger';
 
+/** Transform nested data format to ClientTokenResponse */
+function toClientTokenResponse(response: Record<string, unknown>): ClientTokenResponse {
+  const data = response.data as Record<string, unknown> | undefined;
+  if (!data || typeof data.token !== 'string') {
+    throw new Error(`Unexpected response format from client-token endpoint: ${JSON.stringify(response)}`);
+  }
+  return {
+    success: true,
+    data: {
+      token: data.token,
+      expiresIn: typeof data.expiresIn === 'number' ? data.expiresIn : 0,
+      expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : new Date().toISOString(),
+    },
+    timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+  };
+}
+
+/** Transform legacy endpoint response (nested data) to ClientTokenLegacyResponse */
+function toLegacyFromData(response: Record<string, unknown>, data: Record<string, unknown>): ClientTokenLegacyResponse {
+  return {
+    success: true,
+    token: data.token as string,
+    expiresIn: typeof data.expiresIn === 'number' ? data.expiresIn : 0,
+    expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : new Date().toISOString(),
+    timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+  };
+}
+
+/** Transform flat response to ClientTokenLegacyResponse */
+function toLegacyFromFlat(response: Record<string, unknown>): ClientTokenLegacyResponse {
+  return {
+    success: true,
+    token: response.token as string,
+    expiresIn: typeof response.expiresIn === 'number' ? response.expiresIn : 0,
+    expiresAt: typeof response.expiresAt === 'string' ? response.expiresAt : new Date().toISOString(),
+    timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+  };
+}
+
 /**
  * Auth Token API class
  * Handles token-related endpoints
@@ -62,28 +101,8 @@ export class AuthTokenApi {
         },
       );
 
-      // Transform response to match ClientTokenResponse format
-      // Handle both formats: {success: true, data: {token: ...}} and {data: {token: ...}}
-      if (response.success !== undefined) {
-        // Already in expected format
-        return response as unknown as ClientTokenResponse;
-      } else if (response.data && typeof response.data === 'object') {
-        const data = response.data as Record<string, unknown>;
-        if (typeof data.token === 'string') {
-          // New nested format without success field - add it
-          return {
-            success: true,
-            data: {
-              token: data.token,
-              expiresIn: typeof data.expiresIn === 'number' ? data.expiresIn : 0,
-              expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : new Date().toISOString(),
-            },
-            timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
-          };
-        }
-      }
-
-      // If we get here, response format is unexpected
+      if (response.success !== undefined) return response as unknown as ClientTokenResponse;
+      if (response.data && typeof response.data === 'object') return toClientTokenResponse(response);
       throw new Error(`Unexpected response format from client-token endpoint: ${JSON.stringify(response)}`);
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
@@ -127,35 +146,12 @@ export class AuthTokenApi {
         },
       );
 
-      // Transform response to match ClientTokenLegacyResponse format
-      // Handle both formats: {success: true, token: ...} and {data: {token: ...}}
-      if (response.success !== undefined) {
-        // Already in legacy format
-        return response as unknown as ClientTokenLegacyResponse;
-      } else if (response.data && typeof response.data === 'object') {
+      if (response.success !== undefined) return response as unknown as ClientTokenLegacyResponse;
+      if (response.data && typeof response.data === 'object') {
         const data = response.data as Record<string, unknown>;
-        if (typeof data.token === 'string') {
-          // New nested format - transform to legacy format
-          return {
-            success: true,
-            token: data.token,
-            expiresIn: typeof data.expiresIn === 'number' ? data.expiresIn : 0,
-            expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : new Date().toISOString(),
-            timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
-          };
-        }
-      } else if (typeof response.token === 'string') {
-        // Flat format without success field - add it
-        return {
-          success: true,
-          token: response.token,
-          expiresIn: typeof response.expiresIn === 'number' ? response.expiresIn : 0,
-          expiresAt: typeof response.expiresAt === 'string' ? response.expiresAt : new Date().toISOString(),
-          timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
-        };
+        if (typeof data.token === 'string') return toLegacyFromData(response, data);
       }
-
-      // If we get here, response format is unexpected
+      if (typeof response.token === 'string') return toLegacyFromFlat(response);
       throw new Error(`Unexpected response format from token endpoint: ${JSON.stringify(response)}`);
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {

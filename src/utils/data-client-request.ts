@@ -22,6 +22,7 @@ import {
   handleAuthErrorCleanup,
   waitForRetry,
 } from "./data-client-response";
+import { writeWarn } from "./console-logger";
 
 /**
  * Token refresh callback function type
@@ -85,6 +86,42 @@ export function mergeSignals(signal1: AbortSignal, signal2: AbortSignal): AbortS
   return controller.signal;
 }
 
+function applyOptionHeaders(
+  headers: Headers,
+  optionHeaders?: Headers | Record<string, string> | string[][] | Record<string, string | readonly string[]>,
+): void {
+  if (!optionHeaders) return;
+  if (optionHeaders instanceof Headers) {
+    optionHeaders.forEach((value, key) => headers.set(key, value));
+    return;
+  }
+  Object.entries(optionHeaders).forEach(([key, value]) => {
+    headers.set(key, String(value));
+  });
+}
+
+function createRequestSignal(
+  timeout: number,
+  externalSignal?: AbortSignal,
+): { signal: AbortSignal; timeoutId: NodeJS.Timeout } {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  if (typeof timeoutId.unref === "function") {
+    timeoutId.unref();
+  }
+  const signal = externalSignal
+    ? mergeSignals(controller.signal, externalSignal)
+    : controller.signal;
+  return { signal, timeoutId };
+}
+
+function normalizeFetchOptions(
+  options?: ApiRequestOptions,
+): Omit<ApiRequestOptions, "cache" | "skipAuth" | "retries" | "skipAudit" | "timeout"> {
+  const { cache: _c, skipAuth: _s, retries: _r, skipAudit: _a, timeout: _t, ...fetchOptions } = options || {};
+  return fetchOptions;
+}
+
 /**
  * Make fetch request with timeout and authentication
  */
@@ -96,15 +133,7 @@ export async function makeFetchRequest(
   options?: ApiRequestOptions,
 ): Promise<Response> {
   const headers = new Headers(config.defaultHeaders);
-  if (options?.headers) {
-    if (options.headers instanceof Headers) {
-      options.headers.forEach((value, key) => headers.set(key, value));
-    } else {
-      Object.entries(options.headers).forEach(([key, value]) => {
-        headers.set(key, String(value));
-      });
-    }
-  }
+  applyOptionHeaders(headers, options?.headers);
 
   if (!options?.skipAuth) {
     const token = getToken();
@@ -112,17 +141,8 @@ export async function makeFetchRequest(
   }
 
   const timeout = options?.timeout || config.timeout || 30000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
-  if (typeof timeoutId.unref === "function") {
-    timeoutId.unref();
-  }
-
-  const signal = options?.signal
-    ? mergeSignals(controller.signal, options.signal)
-    : controller.signal;
-
-  const { cache: _c, skipAuth: _s, retries: _r, skipAudit: _a, timeout: _t, ...fetchOptions } = options || {};
+  const { signal, timeoutId } = createRequestSignal(timeout, options?.signal);
+  const fetchOptions = normalizeFetchOptions(options);
 
   try {
     const response = await fetch(url, { method, headers, body: fetchOptions.body, signal, ...fetchOptions });
@@ -253,7 +273,7 @@ async function handleAuthResponse<T>(
         return attemptRequest<T>({ ...params, attempt: attempt + 1 });
       }
     } catch (refreshError) {
-      console.warn("Token refresh failed, redirecting to login:", refreshError);
+      writeWarn(`Token refresh failed, redirecting to login: ${String(refreshError)}`);
       state.authErrorDetected = true;
     }
   }
@@ -264,20 +284,20 @@ async function handleAuthResponse<T>(
       ? new AuthenticationError("Authentication required", params.response)
       : new ApiError("Forbidden", 403, params.response);
 
-  handleAuthErrorCleanup(
-    authError,
+  handleAuthErrorCleanup({
+    error: authError,
     responseStatus,
-    params.method,
-    params.endpoint,
-    params.startTime,
-    params.config,
-    params.misoClient,
-    params.hasAnyToken,
-    params.getToken,
-    params.handleAuthError,
-    params.metrics,
-    params.options,
-  );
+    method: params.method,
+    endpoint: params.endpoint,
+    startTime: params.startTime,
+    config: params.config,
+    misoClient: params.misoClient,
+    hasAnyToken: params.hasAnyToken,
+    getToken: params.getToken,
+    handleAuthError: params.handleAuthError,
+    metrics: params.metrics,
+    options: params.options,
+  });
   throw authError;
 }
 
@@ -310,20 +330,20 @@ async function handleAttemptError<T>(
     }
 
     params.metrics.totalFailures++;
-    await handleNonRetryableError(
-      error as Error,
-      params.method,
-      params.endpoint,
-      params.startTime,
+    await handleNonRetryableError({
+      error: error as Error,
+      method: params.method,
+      endpoint: params.endpoint,
+      startTime: params.startTime,
       statusCode,
       responseStatus,
-      params.config,
-      params.misoClient,
-      params.hasAnyToken,
-      params.getToken,
-      params.metrics,
-      params.options,
-    );
+      config: params.config,
+      misoClient: params.misoClient,
+      hasAnyToken: params.hasAnyToken,
+      getToken: params.getToken,
+      metrics: params.metrics,
+      options: params.options,
+    });
   }
 
   if (state.authErrorDetected) {
@@ -356,23 +376,23 @@ async function attemptRequest<T>(params: AttemptRequestParams): Promise<T> {
     }
 
     const data = await parseResponse<T>(response);
-    return await processSuccessfulResponse<T>(
+    return await processSuccessfulResponse<T>({
       response,
       data,
-      params.method,
-      params.endpoint,
-      params.startTime,
-      params.config,
-      params.cache,
-      params.cacheKey,
-      params.cacheEnabled,
-      params.misoClient,
-      params.hasAnyToken,
-      params.getToken,
-      params.interceptors,
-      params.metrics,
-      params.options,
-    );
+      method: params.method,
+      endpoint: params.endpoint,
+      startTime: params.startTime,
+      config: params.config,
+      cache: params.cache,
+      cacheKey: params.cacheKey,
+      cacheEnabled: params.cacheEnabled,
+      misoClient: params.misoClient,
+      hasAnyToken: params.hasAnyToken,
+      getToken: params.getToken,
+      interceptors: params.interceptors,
+      metrics: params.metrics,
+      options: params.options,
+    });
   } catch (error) {
     return handleAttemptError<T>({
       ...params,
@@ -396,50 +416,40 @@ async function handleFinalError(
   throw error;
 }
 
+/** Options for executeHttpRequest */
+export interface ExecuteHttpRequestOptions {
+  method: string;
+  fullUrl: string;
+  endpoint: string;
+  config: DataClientConfig;
+  cache: Map<string, CacheEntry>;
+  cacheKey: string;
+  cacheEnabled: boolean;
+  startTime: number;
+  misoClient: MisoClient | null;
+  hasAnyToken: HasAnyTokenFn;
+  getToken: GetTokenFn;
+  handleAuthError: () => void;
+  refreshUserToken: RefreshUserTokenFn;
+  interceptors: InterceptorConfig;
+  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] };
+  options?: ApiRequestOptions;
+}
+
 export async function executeHttpRequest<T>(
-  method: string,
-  fullUrl: string,
-  endpoint: string,
-  config: DataClientConfig,
-  cache: Map<string, CacheEntry>,
-  cacheKey: string,
-  cacheEnabled: boolean,
-  startTime: number,
-  misoClient: MisoClient | null,
-  hasAnyToken: HasAnyTokenFn,
-  getToken: GetTokenFn,
-  handleAuthError: () => void,
-  refreshUserToken: RefreshUserTokenFn,
-  interceptors: InterceptorConfig,
-  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] },
-  options?: ApiRequestOptions,
+  opts: ExecuteHttpRequestOptions,
 ): Promise<T> {
-  const retryConfig = resolveRetryConfig(config, options);
+  const retryConfig = resolveRetryConfig(opts.config, opts.options);
   const state: RequestRetryState = { authErrorDetected: false, tokenRefreshAttempted: false };
 
   try {
     return await attemptRequest<T>({
       attempt: 0,
-      method,
-      fullUrl,
-      endpoint,
-      config,
-      cache,
-      cacheKey,
-      cacheEnabled,
-      startTime,
-      misoClient,
-      hasAnyToken,
-      getToken,
-      handleAuthError,
-      refreshUserToken,
-      interceptors,
-      metrics,
-      options,
+      ...opts,
       retryConfig,
       state,
     });
   } catch (error) {
-    return handleFinalError(error, interceptors, metrics);
+    return handleFinalError(error, opts.interceptors, opts.metrics);
   }
 }

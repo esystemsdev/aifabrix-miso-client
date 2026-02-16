@@ -6,14 +6,14 @@ import { logErrorWithContext } from "../../../src/utils/console-logger";
 import { StructuredErrorInfo } from "../../../src/utils/error-extractor";
 
 describe("logErrorWithContext", () => {
-  let consoleErrorSpy: jest.SpyInstance;
+  let stderrWriteSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation();
+    stderrWriteSpy = jest.spyOn(process.stderr, "write").mockImplementation(() => true);
   });
 
   afterEach(() => {
-    consoleErrorSpy.mockRestore();
+    stderrWriteSpy.mockRestore();
   });
 
   describe("basic logging", () => {
@@ -26,8 +26,8 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[MisoClient] [no-correlation-id] Error: Test error",
+      expect(stderrWriteSpy).toHaveBeenCalledWith(
+        "[MisoClient] [no-correlation-id] Error: Test error\n",
       );
     });
 
@@ -41,8 +41,8 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo, "[DataClient]");
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[DataClient] [corr-123] Error: Test error",
+      expect(stderrWriteSpy).toHaveBeenCalledWith(
+        "[DataClient] [corr-123] Error: Test error\n",
       );
     });
 
@@ -56,8 +56,8 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[MisoClient] [test-correlation-id] Error: Test error",
+      expect(stderrWriteSpy).toHaveBeenCalledWith(
+        "[MisoClient] [test-correlation-id] Error: Test error\n",
       );
     });
 
@@ -70,8 +70,8 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[MisoClient] [no-correlation-id] Error: Test error",
+      expect(stderrWriteSpy).toHaveBeenCalledWith(
+        "[MisoClient] [no-correlation-id] Error: Test error\n",
       );
     });
   });
@@ -87,8 +87,8 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[MisoClient] [no-correlation-id] ApiError: Request failed | Status: 400",
+      expect(stderrWriteSpy).toHaveBeenCalledWith(
+        "[MisoClient] [no-correlation-id] ApiError: Request failed | Status: 400\n",
       );
     });
 
@@ -101,8 +101,8 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[MisoClient] [no-correlation-id] Error: Test error",
+      expect(stderrWriteSpy).toHaveBeenCalledWith(
+        "[MisoClient] [no-correlation-id] Error: Test error\n",
       );
     });
   });
@@ -120,8 +120,8 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[MisoClient] [no-correlation-id] ApiError: Request failed | Status: 400 | Endpoint: POST /api/users",
+      expect(stderrWriteSpy).toHaveBeenCalledWith(
+        "[MisoClient] [no-correlation-id] ApiError: Request failed | Status: 400 | Endpoint: POST /api/users\n",
       );
     });
 
@@ -135,8 +135,8 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[MisoClient] [no-correlation-id] ApiError: Request failed | Endpoint: /api/users",
+      expect(stderrWriteSpy).toHaveBeenCalledWith(
+        "[MisoClient] [no-correlation-id] ApiError: Request failed | Endpoint: /api/users\n",
       );
     });
 
@@ -150,8 +150,8 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[MisoClient] [no-correlation-id] ApiError: Request failed | Method: POST",
+      expect(stderrWriteSpy).toHaveBeenCalledWith(
+        "[MisoClient] [no-correlation-id] ApiError: Request failed | Method: POST\n",
       );
     });
 
@@ -164,8 +164,8 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        "[MisoClient] [no-correlation-id] Error: Test error",
+      expect(stderrWriteSpy).toHaveBeenCalledWith(
+        "[MisoClient] [no-correlation-id] Error: Test error\n",
       );
     });
   });
@@ -185,15 +185,14 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
+      expect(stderrWriteSpy).toHaveBeenCalledTimes(2);
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(
         1,
-        "[MisoClient] [corr-123] ApiError: Request failed",
+        "[MisoClient] [corr-123] ApiError: Request failed\n",
       );
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(
         2,
-        "[MisoClient] [corr-123] Response Body:",
-        JSON.stringify(errorInfo.responseBody, null, 2),
+        `[MisoClient] [corr-123] Response Body: ${JSON.stringify(errorInfo.responseBody, null, 2)}\n`,
       );
     });
 
@@ -206,7 +205,7 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(stderrWriteSpy).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -222,15 +221,14 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
+      expect(stderrWriteSpy).toHaveBeenCalledTimes(2);
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(
         1,
-        "[MisoClient] [corr-123] Error: Test error",
+        "[MisoClient] [corr-123] Error: Test error\n",
       );
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(
         2,
-        "[MisoClient] [corr-123] Stack Trace:",
-        errorInfo.stackTrace,
+        `[MisoClient] [corr-123] Stack Trace: ${errorInfo.stackTrace}\n`,
       );
     });
 
@@ -243,7 +241,7 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(stderrWriteSpy).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -260,15 +258,14 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
+      expect(stderrWriteSpy).toHaveBeenCalledTimes(2);
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(
         1,
-        "[MisoClient] [corr-123] ApiError: Request failed",
+        "[MisoClient] [corr-123] ApiError: Request failed\n",
       );
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(
         2,
-        "[MisoClient] [corr-123] Original Error:",
-        originalError,
+        `[MisoClient] [corr-123] Original Error: ${String(originalError)}\n`,
       );
     });
 
@@ -281,7 +278,7 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo);
 
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+      expect(stderrWriteSpy).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -305,25 +302,22 @@ describe("logErrorWithContext", () => {
 
       logErrorWithContext(errorInfo, "[DataClient] [AUTH]");
 
-      expect(consoleErrorSpy).toHaveBeenCalledTimes(4);
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
+      expect(stderrWriteSpy).toHaveBeenCalledTimes(4);
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(
         1,
-        "[DataClient] [AUTH] [corr-123] ApiError: Request failed | Status: 400 | Endpoint: POST /api/users",
+        "[DataClient] [AUTH] [corr-123] ApiError: Request failed | Status: 400 | Endpoint: POST /api/users\n",
       );
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(
         2,
-        "[DataClient] [AUTH] [corr-123] Response Body:",
-        JSON.stringify(errorInfo.responseBody, null, 2),
+        `[DataClient] [AUTH] [corr-123] Response Body: ${JSON.stringify(errorInfo.responseBody, null, 2)}\n`,
       );
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(
         3,
-        "[DataClient] [AUTH] [corr-123] Stack Trace:",
-        errorInfo.stackTrace,
+        `[DataClient] [AUTH] [corr-123] Stack Trace: ${errorInfo.stackTrace}\n`,
       );
-      expect(consoleErrorSpy).toHaveBeenNthCalledWith(
+      expect(stderrWriteSpy).toHaveBeenNthCalledWith(
         4,
-        "[DataClient] [AUTH] [corr-123] Original Error:",
-        originalError,
+        `[DataClient] [AUTH] [corr-123] Original Error: ${String(originalError)}\n`,
       );
     });
   });

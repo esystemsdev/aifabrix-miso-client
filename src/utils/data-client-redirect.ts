@@ -7,6 +7,7 @@ import { MisoClient } from "../index";
 import { DataClientConfig } from "../types/data-client.types";
 import { getControllerUrl } from "./data-client-auth";
 import { isBrowser } from "./data-client-utils";
+import { writeWarn } from "./console-logger";
 
 /**
  * Validate redirect URL for safety and format
@@ -21,8 +22,15 @@ function validateRedirectUrl(url: string | null): string | null {
 
   const trimmedUrl = url.trim();
 
-  // Check for dangerous protocols (javascript:, data:, etc.)
-  const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:', 'about:'];
+  // Check for dangerous protocols
+  const dangerousProtocols = [
+    // eslint-disable-next-line no-script-url -- Intentional protocol blocklist entry for URL validation
+    "javascript:",
+    "data:",
+    "vbscript:",
+    "file:",
+    "about:",
+  ];
   const lowerUrl = trimmedUrl.toLowerCase();
   for (const protocol of dangerousProtocols) {
     if (lowerUrl.startsWith(protocol)) {
@@ -80,6 +88,18 @@ export function getValidatedRedirectUrl(url: string | null, fallbackUrl?: string
   return null;
 }
 
+function resolveLoginPath(config: DataClientConfig): string {
+  const path = config.loginUrl || "/login";
+  if (path.startsWith("/api/")) {
+    writeWarn(
+      `⚠️ Warning: loginUrl is set to an API endpoint (${path}). ` +
+      "redirectToLogin() should redirect to a login PAGE (e.g., '/login'), not an API endpoint. Using default '/login'.",
+    );
+    return "/login";
+  }
+  return path;
+}
+
 /**
  * Redirect to controller login page
  * Redirects user browser directly to controller's login URL with client token
@@ -107,64 +127,61 @@ export async function redirectToLogin(
   getClientTokenFn: () => Promise<string | null>,
   redirectUrl?: string,
 ): Promise<void> {
-  if (!isBrowser()) {
-    return;
-  }
+  if (!isBrowser()) return;
 
-  const currentUrl = (globalThis as unknown as { window: { location: { href: string } } }).window.location.href;
+  const currentUrl = getWindowLocation().href;
   const finalRedirectUrl = redirectUrl || currentUrl;
-
-  // Get controller public URL (for browser environments)
   const controllerUrl = getControllerUrl(config.misoConfig);
 
   if (!controllerUrl) {
-    const error = new Error("Controller URL is not configured. Please configure controllerUrl or controllerPublicUrl in your DataClient configuration.") as Error & { details?: unknown };
-    error.details = {
+    const err = new Error("Controller URL is not configured. Please configure controllerUrl or controllerPublicUrl in your DataClient configuration.") as Error & { details?: unknown };
+    err.details = {
       hasMisoConfig: !!config.misoConfig,
       controllerUrl: config.misoConfig?.controllerUrl,
       controllerPublicUrl: config.misoConfig?.controllerPublicUrl,
       controllerPrivateUrl: config.misoConfig?.controllerPrivateUrl,
     };
-    throw error;
+    throw err;
   }
 
-  // Get client token
   const clientToken = await getClientTokenFn();
+  const loginPath = resolveLoginPath(config);
+  const loginUrl = /^https?:\/\//i.test(loginPath)
+    ? new URL(loginPath)
+    : new URL(loginPath, controllerUrl);
 
-  // Get login URL from config (defaults to '/login')
-  // Validate that loginUrl is not an API endpoint (should be a page, not /api/...)
-  let loginPath = config.loginUrl || '/login';
+  loginUrl.searchParams.set("redirect", finalRedirectUrl);
+  if (clientToken) loginUrl.searchParams.set("x-client-token", clientToken);
+  performRedirect(loginUrl.toString());
+}
 
-  // Warn if loginUrl looks like an API endpoint (common mistake)
-  if (loginPath.startsWith('/api/')) {
-    console.warn(
-      `⚠️ Warning: loginUrl is set to an API endpoint (${loginPath}). ` +
-      `redirectToLogin() should redirect to a login PAGE (e.g., '/login'), not an API endpoint. ` +
-      `Using default '/login' instead.`
-    );
-    loginPath = '/login';
-  }
+function getWindowLocation(): { href: string; origin: string } {
+  return (globalThis as unknown as { window: { location: { href: string; origin: string } } })
+    .window.location;
+}
 
-  // Build full controller login URL
-  // If loginPath is already a full URL, use it; otherwise prepend controllerUrl
-  let loginUrl: URL;
-  if (/^https?:\/\//i.test(loginPath)) {
-    loginUrl = new URL(loginPath);
-  } else {
-    loginUrl = new URL(loginPath, controllerUrl);
-  }
+function performRedirect(url: string): void {
+  getWindowLocation().href = url;
+}
 
-  // Add redirect parameter
-  loginUrl.searchParams.set('redirect', finalRedirectUrl);
+function clearLocalStorageTokens(keys: string[]): void {
+  const storage = (globalThis as unknown as { localStorage?: { removeItem: (k: string) => void } })
+    .localStorage;
+  if (!storage) return;
+  keys.forEach((key) => {
+    try {
+      storage.removeItem(key);
+    } catch {
+      // Ignore localStorage errors
+    }
+  });
+}
 
-  // Add client token as query parameter (controller will read it)
-  if (clientToken) {
-    loginUrl.searchParams.set('x-client-token', clientToken);
-  }
-
-  // Redirect user directly to controller login page
-  // Controller handles OAuth flow and redirects back after authentication
-  (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = loginUrl.toString();
+function buildAbsoluteRedirectUrl(relativeOrAbsolute: string): string {
+  if (/^https?:\/\//i.test(relativeOrAbsolute)) return relativeOrAbsolute;
+  const origin = getWindowLocation().origin;
+  const path = relativeOrAbsolute.startsWith("/") ? relativeOrAbsolute : `/${relativeOrAbsolute}`;
+  return `${origin}${path}`;
 }
 
 /**
@@ -190,82 +207,28 @@ export async function logout(
 ): Promise<void> {
   if (!isBrowser()) return;
 
-  // Get tokens BEFORE clearing (needed for passing to controller)
   const token = getTokenFn();
   const clientToken = await getClientTokenFn();
-
-  // Clear tokens from localStorage
-  const keys = config.tokenKeys || ["token", "accessToken", "authToken"];
-  keys.forEach(key => {
-    try {
-      const storage = (globalThis as unknown as { localStorage: { removeItem: (key: string) => void } }).localStorage;
-      if (storage) {
-        storage.removeItem(key);
-      }
-    } catch (e) {
-      // Ignore localStorage errors (SSR, private browsing, etc.)
-    }
-  });
-
-  // Clear HTTP cache
+  clearLocalStorageTokens(config.tokenKeys || ["token", "accessToken", "authToken"]);
   clearCacheFn();
 
-  // Get controller public URL (for browser environments)
   const controllerUrl = getControllerUrl(config.misoConfig);
+  const finalRedirectUrl = redirectUrl || config.logoutUrl || config.loginUrl || "/login";
 
   if (!controllerUrl) {
-    // Fallback to local redirect if controller URL not configured
-    const finalRedirectUrl = redirectUrl || config.logoutUrl || config.loginUrl || "/login";
-    const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
-    const fullUrl = /^https?:\/\//i.test(finalRedirectUrl)
-      ? finalRedirectUrl
-      : `${origin}${finalRedirectUrl.startsWith("/") ? finalRedirectUrl : `/${finalRedirectUrl}`}`;
-
+    const fullUrl = buildAbsoluteRedirectUrl(finalRedirectUrl);
     const validatedUrl = getValidatedRedirectUrl(fullUrl);
-    if (validatedUrl) {
-      (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = validatedUrl;
-    }
+    if (validatedUrl) performRedirect(validatedUrl);
     return;
   }
 
-  // Get logout URL from config (defaults to '/logout' or falls back to '/login')
-  const logoutPath = config.logoutUrl || config.loginUrl || '/logout';
+  const logoutPath = config.logoutUrl || config.loginUrl || "/logout";
+  const logoutUrl = /^https?:\/\//i.test(logoutPath)
+    ? new URL(logoutPath)
+    : new URL(logoutPath, controllerUrl);
 
-  // Build full controller logout URL
-  // If logoutPath is already a full URL, use it; otherwise prepend controllerUrl
-  let logoutUrl: URL;
-  if (/^https?:\/\//i.test(logoutPath)) {
-    logoutUrl = new URL(logoutPath);
-  } else {
-    logoutUrl = new URL(logoutPath, controllerUrl);
-  }
-
-  // Determine redirect URL: redirectUrl param > logoutUrl config > loginUrl config > '/login'
-  const finalRedirectUrl = redirectUrl || config.logoutUrl || config.loginUrl || "/login";
-
-  // Construct full redirect URL (if relative, make absolute)
-  let fullRedirectUrl: string;
-  if (/^https?:\/\//i.test(finalRedirectUrl)) {
-    fullRedirectUrl = finalRedirectUrl;
-  } else {
-    const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
-    fullRedirectUrl = `${origin}${finalRedirectUrl.startsWith("/") ? finalRedirectUrl : `/${finalRedirectUrl}`}`;
-  }
-
-  logoutUrl.searchParams.set('redirect', fullRedirectUrl);
-
-  // Add client token as query parameter (controller will read it)
-  if (clientToken) {
-    logoutUrl.searchParams.set('x-client-token', clientToken);
-  }
-
-  // Add user token as query parameter if available (controller will read it)
-  // Token was retrieved before clearing localStorage
-  if (token) {
-    logoutUrl.searchParams.set('token', token);
-  }
-
-  // Redirect user directly to controller logout page
-  // Controller handles logout process and redirects back
-  (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = logoutUrl.toString();
+  logoutUrl.searchParams.set("redirect", buildAbsoluteRedirectUrl(finalRedirectUrl));
+  if (clientToken) logoutUrl.searchParams.set("x-client-token", clientToken);
+  if (token) logoutUrl.searchParams.set("token", token);
+  performRedirect(logoutUrl.toString());
 }

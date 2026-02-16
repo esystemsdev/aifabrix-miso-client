@@ -199,13 +199,28 @@ describe('Redirect to Login Integration Tests', () => {
       removeItem: jest.Mock;
       clear: jest.Mock;
     }
+    type GlobalWithWindow = typeof globalThis & {
+      window?: MockWindow;
+      localStorage?: MockLocalStorage;
+    };
+    type DataClientWithInternalToken = DataClient & {
+      getClientToken: () => Promise<string | null>;
+    };
+
+    function mockInternalClientToken(
+      client: DataClient,
+      impl: () => Promise<string | null>,
+    ): jest.SpyInstance<Promise<string | null>, []> {
+      return jest
+        .spyOn(client as unknown as DataClientWithInternalToken, 'getClientToken')
+        .mockImplementation(impl);
+    }
+
     let mockWindow: MockWindow;
     let mockLocation: MockLocation;
     let originalFetch: typeof global.fetch | undefined;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let originalWindow: any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let originalLocalStorage: any;
+    let originalWindow: MockWindow | undefined;
+    let originalLocalStorage: MockLocalStorage | undefined;
     let consoleErrorSpy: jest.SpyInstance;
     beforeEach(() => {
       // Mock console.error to capture errors (but allow console.log for debugging)
@@ -213,10 +228,9 @@ describe('Redirect to Login Integration Tests', () => {
 
       // Save originals
       originalFetch = global.fetch;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      originalWindow = (global as any).window;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      originalLocalStorage = (global as any).localStorage;
+      const runtime = global as GlobalWithWindow;
+      originalWindow = runtime.window;
+      originalLocalStorage = runtime.localStorage;
 
       // Create mock window.location with proper getter/setter
       mockLocation = {
@@ -251,18 +265,14 @@ describe('Redirect to Login Integration Tests', () => {
         delete (global as unknown as { fetch?: typeof fetch }).fetch;
       }
       if (originalWindow !== undefined) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (global as any).window = originalWindow;
+        (global as GlobalWithWindow).window = originalWindow;
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        delete (global as any).window;
+        delete (global as GlobalWithWindow).window;
       }
       if (originalLocalStorage !== undefined) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (global as any).localStorage = originalLocalStorage;
+        (global as GlobalWithWindow).localStorage = originalLocalStorage;
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        delete (global as any).localStorage;
+        delete (global as GlobalWithWindow).localStorage;
       }
       consoleErrorSpy.mockRestore();
     });
@@ -286,8 +296,7 @@ describe('Redirect to Login Integration Tests', () => {
         const mockGetClientToken = jest
           .fn()
           .mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
+        mockInternalClientToken(dataClient, mockGetClientToken);
 
         console.log('[TEST] Calling redirectToLogin...');
         await dataClient.redirectToLogin('http://localhost:3000/dashboard');
@@ -331,8 +340,7 @@ describe('Redirect to Login Integration Tests', () => {
 
       const dataClient = new DataClient(config);
       const mockGetClientToken = jest.fn().mockResolvedValue(null);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
+      mockInternalClientToken(dataClient, mockGetClientToken);
 
       await dataClient.redirectToLogin();
 
@@ -356,8 +364,7 @@ describe('Redirect to Login Integration Tests', () => {
       const mockGetClientToken = jest
         .fn()
         .mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
+      mockInternalClientToken(dataClient, mockGetClientToken);
 
       await dataClient.redirectToLogin('http://localhost:3000/dashboard');
 
@@ -395,8 +402,7 @@ describe('Redirect to Login Integration Tests', () => {
       const mockGetClientToken = jest
         .fn()
         .mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
+      mockInternalClientToken(dataClient, mockGetClientToken);
 
       await dataClient.redirectToLogin();
 
@@ -423,8 +429,7 @@ describe('Redirect to Login Integration Tests', () => {
       const mockGetClientToken = jest
         .fn()
         .mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
+      mockInternalClientToken(dataClient, mockGetClientToken);
 
       await dataClient.redirectToLogin();
 
@@ -450,8 +455,7 @@ describe('Redirect to Login Integration Tests', () => {
       const mockGetClientToken = jest
         .fn()
         .mockResolvedValue('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test-token');
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      jest.spyOn(dataClient as any, 'getClientToken').mockImplementation(mockGetClientToken);
+      mockInternalClientToken(dataClient, mockGetClientToken);
 
       await dataClient.redirectToLogin('http://localhost:3000/dashboard');
 

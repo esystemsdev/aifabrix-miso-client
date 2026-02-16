@@ -11,6 +11,8 @@ import {
 } from "../types/config.types";
 import { extractUserIdFromToken } from "../utils/browser-jwt-decoder";
 import { ApplicationContextService } from "./application-context.service";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 interface RoleCacheData {
   roles: string[];
@@ -88,19 +90,13 @@ export class RoleService {
       await this.cache.set<RoleCacheData>(`roles:${userId}`, { roles, timestamp: Date.now() }, this.roleTTL);
       return roles;
     } catch (error) {
-      const statusCode =
-        (error as { statusCode?: number })?.statusCode ||
-        (error as { response?: { status?: number } })?.response?.status;
-      console.error("Failed to get roles:", {
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: "/api/auth/roles",
         method: "GET",
-        path: "/api/auth/roles",
-        statusCode,
-        ipAddress: "unknown",
         correlationId: (error as { correlationId?: string })?.correlationId,
-        userId: extractUserIdFromToken(token) || undefined,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stackTrace: error instanceof Error ? error.stack : undefined,
-      }); // eslint-disable-line no-console
+      });
+      errorInfo.message = `Failed to get roles: ${errorInfo.message}`;
+      logErrorWithContext(errorInfo, "[RoleService]");
       return [];
     }
   }
@@ -181,19 +177,13 @@ export class RoleService {
       await this.cache.set<RoleCacheData>(`roles:${userId}`, { roles, timestamp: Date.now() }, this.roleTTL);
       return roles;
     } catch (error) {
-      const statusCode =
-        (error as { statusCode?: number })?.statusCode ||
-        (error as { response?: { status?: number } })?.response?.status;
-      console.error("Failed to refresh roles:", {
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: "/api/auth/roles/refresh",
         method: "POST",
-        path: "/api/auth/roles/refresh",
-        statusCode,
-        ipAddress: "unknown",
         correlationId: (error as { correlationId?: string })?.correlationId,
-        userId: extractUserIdFromToken(token) || undefined,
-        errorMessage: error instanceof Error ? error.message : String(error),
-        stackTrace: error instanceof Error ? error.stack : undefined,
-      }); // eslint-disable-line no-console
+      });
+      errorInfo.message = `Failed to refresh roles: ${errorInfo.message}`;
+      logErrorWithContext(errorInfo, "[RoleService]");
       return [];
     }
   }
