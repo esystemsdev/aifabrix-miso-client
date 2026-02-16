@@ -13,7 +13,7 @@ import { resolveControllerUrl } from "./controller-url-resolver";
  * Get environment token with origin validation and audit logging
  * Validates request origin before calling controller
  * Logs audit events for ISO 27001 compliance
- * 
+ *
  * @param misoClient - MisoClient instance
  * @param req - Express Request object
  * @returns Client token string

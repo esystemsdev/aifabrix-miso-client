@@ -19,27 +19,27 @@ export interface AuditConfig {
    * - full: Complete audit trail with all details
    */
   level?: "minimal" | "standard" | "detailed" | "full";
-  
+
   /**
    * Batch size for queued audit logs (default: 10)
    */
   batchSize?: number;
-  
+
   /**
    * Maximum response size to include in audit logs (default: 10000)
    */
   maxResponseSize?: number;
-  
+
   /**
    * Maximum size before skipping masking (default: 50000)
    */
   maxMaskingSize?: number;
-  
+
   /**
    * Endpoints to skip audit logging (e.g., ['/health', '/metrics'])
    */
   skipEndpoints?: string[];
-  
+
   /**
    * Enable/disable audit logging (default: true)
    */
@@ -54,12 +54,12 @@ export interface CacheConfig {
    * Default TTL in seconds (default: 300 = 5 minutes)
    */
   defaultTTL?: number;
-  
+
   /**
    * Maximum cache size in entries (default: 100)
    */
   maxSize?: number;
-  
+
   /**
    * Enable cache (default: true)
    */
@@ -74,17 +74,17 @@ export interface RetryConfig {
    * Maximum number of retries (default: 3)
    */
   maxRetries?: number;
-  
+
   /**
    * Base delay in milliseconds for exponential backoff (default: 1000)
    */
   baseDelay?: number;
-  
+
   /**
    * Maximum delay in milliseconds (default: 10000)
    */
   maxDelay?: number;
-  
+
   /**
    * Enable retry logic (default: true)
    */
@@ -99,52 +99,52 @@ export interface DataClientConfig {
    * Base URL for API requests
    */
   baseUrl: string;
-  
+
   /**
    * MisoClient configuration (required for authentication and audit logging)
    */
   misoConfig: MisoClientConfig;
-  
+
   /**
    * Token storage keys in localStorage (default: ['token', 'accessToken', 'authToken'])
    */
   tokenKeys?: string[];
-  
+
   /**
    * Login redirect URL (default: '/login')
    */
   loginUrl?: string;
-  
+
   /**
    * Logout redirect URL (default: falls back to loginUrl or '/login')
    */
   logoutUrl?: string;
-  
+
   /**
    * Cache configuration
    */
   cache?: CacheConfig;
-  
+
   /**
    * Retry configuration
    */
   retry?: RetryConfig;
-  
+
   /**
    * ISO 27001 audit logging configuration
    */
   audit?: AuditConfig;
-  
+
   /**
    * Default request timeout in milliseconds (default: 30000)
    */
   timeout?: number;
-  
+
   /**
    * Default headers to include in all requests
    */
   defaultHeaders?: Record<string, string>;
-  
+
   /**
    * Callback to refresh user token when expired (for browser usage)
    * Called automatically when a request receives 401 Unauthorized
@@ -163,22 +163,22 @@ export interface ApiRequestOptions extends Omit<RequestInit, "cache"> {
    * Skip authentication for this request
    */
   skipAuth?: boolean;
-  
+
   /**
    * Override retry count for this request
    */
   retries?: number;
-  
+
   /**
    * AbortController signal for cancellation
    */
   signal?: AbortSignal;
-  
+
   /**
    * Request timeout in milliseconds
    */
   timeout?: number;
-  
+
   /**
    * Cache options (DataClient-specific; overrides RequestInit.cache)
    */
@@ -187,18 +187,18 @@ export interface ApiRequestOptions extends Omit<RequestInit, "cache"> {
      * Enable caching for this request (default: true for GET requests)
      */
     enabled?: boolean;
-    
+
     /**
      * Cache TTL in seconds
      */
     ttl?: number;
-    
+
     /**
      * Cache key (auto-generated if not provided)
      */
     key?: string;
   };
-  
+
   /**
    * Skip audit logging for this request
    */
@@ -237,12 +237,12 @@ export interface InterceptorConfig {
    * Request interceptor
    */
   onRequest?: RequestInterceptor;
-  
+
   /**
    * Response interceptor
    */
   onResponse?: ResponseInterceptor;
-  
+
   /**
    * Error interceptor
    */
@@ -257,17 +257,17 @@ export interface RequestMetrics {
    * Total number of requests
    */
   totalRequests: number;
-  
+
   /**
    * Total number of failed requests
    */
   totalFailures: number;
-  
+
   /**
    * Average response time in milliseconds
    */
   averageResponseTime: number;
-  
+
   /**
    * Response time distribution (in milliseconds)
    */
@@ -278,12 +278,12 @@ export interface RequestMetrics {
     p95: number;
     p99: number;
   };
-  
+
   /**
    * Error rate (0-1)
    */
   errorRate: number;
-  
+
   /**
    * Cache hit rate (0-1)
    */
@@ -298,12 +298,12 @@ export interface CacheEntry {
    * Cached data
    */
   data: unknown;
-  
+
   /**
    * Expiration timestamp
    */
   expiresAt: number;
-  
+
   /**
    * Cache key
    */

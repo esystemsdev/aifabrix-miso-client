@@ -60,12 +60,12 @@ export class LogsCreateApi {
         LogsCreateApi.LOGS_ENDPOINT,
         logEntry,
       );
-      
+
       // Transform response to match CreateLogResponse format
       // Handle both formats: {success: true, ...} and {data: {...}} or just {...}
       if (response.success !== undefined) {
         return response as unknown as CreateLogResponse;
-      } else {
+      }
         // New format without success field - add it
         return {
           success: true,
@@ -73,12 +73,12 @@ export class LogsCreateApi {
           message: typeof response.message === 'string' ? response.message : 'Log created successfully',
           timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
         };
-      }
+
     } catch (error) {
       // Suppress logging for 401 errors (token expired) - these are expected
       // and will be automatically refreshed. Logging them creates noise.
       const isAuthError = error instanceof MisoClientError && error.statusCode === 401;
-      
+
       if (!isAuthError) {
         const errorInfo = extractErrorInfo(error, {
           endpoint: LogsCreateApi.LOGS_ENDPOINT,
@@ -124,12 +124,12 @@ export class LogsCreateApi {
         LogsCreateApi.LOGS_BATCH_ENDPOINT,
         logs,
       );
-      
+
       // Transform response to match BatchLogResponse format
       // Handle both formats: {success: true, ...} and {data: {...}} or just {...}
       if (response.success !== undefined) {
         return response as unknown as BatchLogResponse;
-      } else {
+      }
         // New format without success field - add it
         // BatchLogResponse format: {success, message, processed, failed, errors?, timestamp}
         const data = response.data && typeof response.data === 'object' ? response.data as Record<string, unknown> : undefined;
@@ -141,12 +141,12 @@ export class LogsCreateApi {
           errors: Array.isArray(data?.errors) ? data.errors : Array.isArray(response.errors) ? response.errors : undefined,
           timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
         };
-      }
+
     } catch (error) {
       // Suppress logging for 401 errors (token expired) - these are expected
       // and will be automatically refreshed. Logging them creates noise.
       const isAuthError = error instanceof MisoClientError && error.statusCode === 401;
-      
+
       if (!isAuthError) {
         const errorInfo = extractErrorInfo(error, {
           endpoint: LogsCreateApi.LOGS_BATCH_ENDPOINT,

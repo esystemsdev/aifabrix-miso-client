@@ -272,7 +272,7 @@ export class AuthService {
 
     try {
       const authStrategyWithToken = this.buildAuthStrategyWithToken(token, authStrategy);
-      
+
       const result = await this.apiClient.auth.validateToken(
         { token },
         authStrategyWithToken,
@@ -338,7 +338,7 @@ export class AuthService {
 
       // Cache miss - fetch from controller
       const authStrategyWithToken = this.buildAuthStrategyWithToken(token, authStrategy);
-      
+
       const result = await this.apiClient.auth.getUser(authStrategyWithToken);
 
       if (result.data?.authenticated && result.data.user) {

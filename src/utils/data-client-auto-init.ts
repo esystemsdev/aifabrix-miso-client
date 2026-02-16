@@ -1,7 +1,7 @@
 /**
  * DataClient Auto-Initialization Helper
  * Automatically fetches configuration from server and initializes DataClient
- * 
+ *
  * Provides zero-config client-side setup for DataClient initialization
  */
 
@@ -16,13 +16,13 @@ import { DataClientConfigResponse, ClientTokenResponse, hasConfig } from "../exp
 export interface AutoInitOptions {
   /** Client token endpoint URI (default: '/api/v1/auth/client-token') */
   clientTokenUri?: string;
-  
+
   /** Override baseUrl detection (auto-detected from window.location if not provided) */
   baseUrl?: string;
-  
+
   /** Error callback */
   onError?: (error: Error) => void;
-  
+
   /** Whether to cache config in localStorage (default: true) */
   cacheConfig?: boolean;
 }
@@ -37,7 +37,7 @@ interface CachedConfig {
 
 /**
  * Get cached config from localStorage
- * 
+ *
  * @returns Cached config or null if not found or expired
  */
 function getCachedConfig(): CachedConfig | null {
@@ -52,7 +52,7 @@ function getCachedConfig(): CachedConfig | null {
     }
 
     const cached: CachedConfig = JSON.parse(cachedStr);
-    
+
     // Check if expired
     if (cached.expiresAt && cached.expiresAt < Date.now()) {
       removeLocalStorage("miso:dataclient-config");
@@ -69,16 +69,16 @@ function getCachedConfig(): CachedConfig | null {
 
 /**
  * Get cached DataClient configuration from localStorage
- * 
+ *
  * Returns the cached configuration that was stored by autoInitializeDataClient.
  * Useful for reading configuration without re-initializing DataClient.
- * 
+ *
  * @returns Cached config or null if not found or expired
- * 
+ *
  * @example
  * ```typescript
  * import { getCachedDataClientConfig } from '@aifabrix/miso-client';
- * 
+ *
  * const cachedConfig = getCachedDataClientConfig();
  * if (cachedConfig) {
  *   console.log('Base URL:', cachedConfig.baseUrl);
@@ -94,7 +94,7 @@ export function getCachedDataClientConfig(): DataClientConfigResponse | null {
 
 /**
  * Cache config in localStorage
- * 
+ *
  * @param config - Config to cache
  * @param expiresIn - Expiration time in seconds
  */
@@ -264,7 +264,7 @@ async function buildHttpErrorMessage(response: Response): Promise<string> {
 
 /**
  * Fetch config from server endpoint
- * 
+ *
  * @param baseUrl - Base URL for the API
  * @param clientTokenUri - Client token endpoint URI
  * @returns Config response
@@ -301,22 +301,22 @@ async function fetchConfig(
 
 /**
  * Auto-initialize DataClient with server-provided configuration
- * 
+ *
  * Automatically:
  * 1. Detects if running in browser
  * 2. Checks localStorage cache first
  * 3. Fetches config from server endpoint if needed
  * 4. Initializes DataClient with server-provided config
  * 5. Caches config for future use
- * 
+ *
  * @param options - Optional configuration
  * @returns Initialized DataClient instance
  * @throws Error if initialization fails
- * 
+ *
  * @example
  * ```typescript
  * import { autoInitializeDataClient } from '@aifabrix/miso-client';
- * 
+ *
  * // One line - everything is automatic
  * const dataClient = await autoInitializeDataClient();
  * ```
@@ -365,7 +365,7 @@ export async function autoInitializeDataClient(
     // Fetch from server if not cached
     if (!config) {
       config = await fetchConfig(baseUrl, opts.clientTokenUri);
-      
+
       // Cache config if enabled (use expiresIn from token response if available)
       // Default to 30 minutes (1800 seconds) if not available
       if (opts.cacheConfig) {
@@ -388,12 +388,12 @@ export async function autoInitializeDataClient(
     return new DataClient(dataClientConfig);
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
-    
+
     // Call error callback if provided
     if (opts.onError) {
       opts.onError(err);
     }
-    
+
     throw err;
   }
 }

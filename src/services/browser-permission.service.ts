@@ -59,7 +59,6 @@ export class BrowserPermissionService {
     }
   }
 
-
   /**
    * Get user permissions with caching
    * Optimized to extract userId from token first to check cache before API call
@@ -87,10 +86,10 @@ export class BrowserPermissionService {
       // If we don't have userId, get it from validate endpoint
       if (!userId) {
     const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-        const authStrategyWithToken: AuthStrategy = authStrategyToUse 
+        const authStrategyWithToken: AuthStrategy = authStrategyToUse
           ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-        
+
         const userInfo = await this.apiClient.auth.validateToken(
           { token },
           authStrategyWithToken,
@@ -103,14 +102,14 @@ export class BrowserPermissionService {
 
       // Cache miss - fetch from controller using ApiClient
     const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-      const authStrategyWithToken = authStrategyToUse 
+      const authStrategyWithToken = authStrategyToUse
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-      
+
       // Extract environment from application context service
       const context = this.applicationContextService.getApplicationContext();
       const queryParams = context.environment ? { environment: context.environment } : undefined;
-      
+
       const permissionResult = await this.apiClient.permissions.getPermissions(
         queryParams,
         authStrategyWithToken,
@@ -207,10 +206,10 @@ export class BrowserPermissionService {
     try {
       // Get user info to extract userId
       const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-      const authStrategyWithToken = authStrategyToUse 
+      const authStrategyWithToken = authStrategyToUse
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-      
+
       const userInfo = await this.apiClient.auth.validateToken(
         { token },
         authStrategyWithToken,
@@ -226,7 +225,7 @@ export class BrowserPermissionService {
       // Extract environment from application context service
       const context = this.applicationContextService.getApplicationContext();
       const queryParams = context.environment ? { environment: context.environment } : undefined;
-      
+
       // Fetch fresh permissions from controller using refresh endpoint via ApiClient
       const permissionResult = await this.apiClient.permissions.refreshPermissions(
         queryParams,
@@ -274,10 +273,10 @@ export class BrowserPermissionService {
     try {
       // Get user info to extract userId
       const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-      const authStrategyWithToken = authStrategyToUse 
+      const authStrategyWithToken = authStrategyToUse
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-      
+
       const userInfo = await this.apiClient.auth.validateToken(
         { token },
         authStrategyWithToken,

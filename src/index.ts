@@ -161,7 +161,7 @@ export class MisoClient {
   /**
    * Validate request origin against configured allowed origins
    * Uses allowedOrigins from client configuration if not provided
-   * 
+   *
    * @param req - Express Request object
    * @param allowedOrigins - Optional array of allowed origins (defaults to config.allowedOrigins)
    * @returns Validation result with valid flag and optional error message

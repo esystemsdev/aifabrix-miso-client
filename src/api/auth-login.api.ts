@@ -165,7 +165,7 @@ export class AuthLoginApi {
         undefined,
         { params },
       );
-      
+
       // Transform response to match DiagnosticsResponse format
       // Handle both formats: {success: true, data: {...}} and {data: {...}}
       if (response.success !== undefined) {
@@ -184,7 +184,7 @@ export class AuthLoginApi {
           timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
         };
       }
-      
+
       // If we get here, response format is unexpected
       throw new Error(`Unexpected response format from login diagnostics endpoint: ${JSON.stringify(response)}`);
     } catch (error) {

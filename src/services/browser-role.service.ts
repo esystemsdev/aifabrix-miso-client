@@ -59,7 +59,6 @@ export class BrowserRoleService {
     }
   }
 
-
   /**
    * Get user roles with caching
    * Optimized to extract userId from token first to check cache before API call
@@ -87,10 +86,10 @@ export class BrowserRoleService {
       // If we don't have userId, get it from validate endpoint
       if (!userId) {
     const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-        const authStrategyWithToken: AuthStrategy = authStrategyToUse 
+        const authStrategyWithToken: AuthStrategy = authStrategyToUse
           ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-        
+
         const userInfo = await this.apiClient.auth.validateToken(
           { token },
           authStrategyWithToken,
@@ -103,14 +102,14 @@ export class BrowserRoleService {
 
       // Cache miss - fetch from controller using ApiClient
     const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-      const authStrategyWithToken = authStrategyToUse 
+      const authStrategyWithToken = authStrategyToUse
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-      
+
       // Extract environment from application context service
       const context = this.applicationContextService.getApplicationContext();
       const queryParams = context.environment ? { environment: context.environment } : undefined;
-      
+
       const roleResult = await this.apiClient.roles.getRoles(
         queryParams,
         authStrategyWithToken,
@@ -203,10 +202,10 @@ export class BrowserRoleService {
     try {
       // Get user info to extract userId
       const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-      const authStrategyWithToken = authStrategyToUse 
+      const authStrategyWithToken = authStrategyToUse
         ? { ...authStrategyToUse, bearerToken: token }
           : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-      
+
       const userInfo = await this.apiClient.auth.validateToken(
         { token },
         authStrategyWithToken,
@@ -270,10 +269,10 @@ export class BrowserRoleService {
     try {
       // Get user info to extract userId
       const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
-      const authStrategyWithToken = authStrategyToUse 
+      const authStrategyWithToken = authStrategyToUse
         ? { ...authStrategyToUse, bearerToken: token }
         : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
-      
+
       const userInfo = await this.apiClient.auth.validateToken(
         { token },
         authStrategyWithToken,

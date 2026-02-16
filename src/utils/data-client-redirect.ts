@@ -84,20 +84,20 @@ export function getValidatedRedirectUrl(url: string | null, fallbackUrl?: string
  * Redirect to controller login page
  * Redirects user browser directly to controller's login URL with client token
  * NO API CALLS - just browser redirect
- * 
+ *
  * Flow:
  * 1. User visits: http://localhost:4111/dataplane/
  * 2. redirectToLogin() redirects to: {controllerPublicUrl}{loginUrl}?redirect={redirectUrl}&x-client-token={token}
  * 3. Controller handles OAuth flow and redirects back after authentication
  * 4. Controller redirects to: {redirectUrl}#token={userToken}
  * 5. DataClient.handleOAuthCallback() extracts token from hash and stores securely
- * 
+ *
  * Security:
  * - Token is passed in hash fragment (#token=...) not query parameter
  * - Hash fragments are NOT sent to server (not in logs)
  * - Hash fragments are NOT stored in browser history
  * - Token is immediately removed from URL after extraction
- * 
+ *
  * @param config - DataClient configuration
  * @param getClientTokenFn - Function to get client token
  * @param redirectUrl - Optional redirect URL to return to after login (defaults to current page URL)
@@ -113,7 +113,7 @@ export async function redirectToLogin(
 
   const currentUrl = (globalThis as unknown as { window: { location: { href: string } } }).window.location.href;
   const finalRedirectUrl = redirectUrl || currentUrl;
-  
+
   // Get controller public URL (for browser environments)
   const controllerUrl = getControllerUrl(config.misoConfig);
 
@@ -127,14 +127,14 @@ export async function redirectToLogin(
     };
     throw error;
   }
-  
+
   // Get client token
   const clientToken = await getClientTokenFn();
-  
+
   // Get login URL from config (defaults to '/login')
   // Validate that loginUrl is not an API endpoint (should be a page, not /api/...)
   let loginPath = config.loginUrl || '/login';
-  
+
   // Warn if loginUrl looks like an API endpoint (common mistake)
   if (loginPath.startsWith('/api/')) {
     console.warn(
@@ -144,7 +144,7 @@ export async function redirectToLogin(
     );
     loginPath = '/login';
   }
-  
+
   // Build full controller login URL
   // If loginPath is already a full URL, use it; otherwise prepend controllerUrl
   let loginUrl: URL;
@@ -153,15 +153,15 @@ export async function redirectToLogin(
   } else {
     loginUrl = new URL(loginPath, controllerUrl);
   }
-  
+
   // Add redirect parameter
   loginUrl.searchParams.set('redirect', finalRedirectUrl);
-  
+
   // Add client token as query parameter (controller will read it)
   if (clientToken) {
     loginUrl.searchParams.set('x-client-token', clientToken);
   }
-  
+
   // Redirect user directly to controller login page
   // Controller handles OAuth flow and redirects back after authentication
   (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = loginUrl.toString();
@@ -172,7 +172,7 @@ export async function redirectToLogin(
  * Clears tokens from localStorage, clears cache, and redirects to controller logout URL
  * NO API CALLS - just browser redirect
  * Controller handles the logout process
- * 
+ *
  * @param config - DataClient configuration
  * @param getTokenFn - Function to get user token
  * @param getClientTokenFn - Function to get client token
@@ -189,11 +189,11 @@ export async function logout(
   _misoClient?: MisoClient | null,
 ): Promise<void> {
   if (!isBrowser()) return;
-  
+
   // Get tokens BEFORE clearing (needed for passing to controller)
   const token = getTokenFn();
   const clientToken = await getClientTokenFn();
-  
+
   // Clear tokens from localStorage
   const keys = config.tokenKeys || ["token", "accessToken", "authToken"];
   keys.forEach(key => {
@@ -206,13 +206,13 @@ export async function logout(
       // Ignore localStorage errors (SSR, private browsing, etc.)
     }
   });
-  
+
   // Clear HTTP cache
   clearCacheFn();
-  
+
   // Get controller public URL (for browser environments)
   const controllerUrl = getControllerUrl(config.misoConfig);
-  
+
   if (!controllerUrl) {
     // Fallback to local redirect if controller URL not configured
     const finalRedirectUrl = redirectUrl || config.logoutUrl || config.loginUrl || "/login";
@@ -220,17 +220,17 @@ export async function logout(
     const fullUrl = /^https?:\/\//i.test(finalRedirectUrl)
       ? finalRedirectUrl
       : `${origin}${finalRedirectUrl.startsWith("/") ? finalRedirectUrl : `/${finalRedirectUrl}`}`;
-    
+
     const validatedUrl = getValidatedRedirectUrl(fullUrl);
     if (validatedUrl) {
       (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = validatedUrl;
     }
     return;
   }
-  
+
   // Get logout URL from config (defaults to '/logout' or falls back to '/login')
   const logoutPath = config.logoutUrl || config.loginUrl || '/logout';
-  
+
   // Build full controller logout URL
   // If logoutPath is already a full URL, use it; otherwise prepend controllerUrl
   let logoutUrl: URL;
@@ -239,10 +239,10 @@ export async function logout(
   } else {
     logoutUrl = new URL(logoutPath, controllerUrl);
   }
-  
+
   // Determine redirect URL: redirectUrl param > logoutUrl config > loginUrl config > '/login'
   const finalRedirectUrl = redirectUrl || config.logoutUrl || config.loginUrl || "/login";
-  
+
   // Construct full redirect URL (if relative, make absolute)
   let fullRedirectUrl: string;
   if (/^https?:\/\//i.test(finalRedirectUrl)) {
@@ -251,20 +251,20 @@ export async function logout(
     const origin = (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin;
     fullRedirectUrl = `${origin}${finalRedirectUrl.startsWith("/") ? finalRedirectUrl : `/${finalRedirectUrl}`}`;
   }
-  
+
   logoutUrl.searchParams.set('redirect', fullRedirectUrl);
-  
+
   // Add client token as query parameter (controller will read it)
   if (clientToken) {
     logoutUrl.searchParams.set('x-client-token', clientToken);
   }
-  
+
   // Add user token as query parameter if available (controller will read it)
   // Token was retrieved before clearing localStorage
   if (token) {
     logoutUrl.searchParams.set('token', token);
   }
-  
+
   // Redirect user directly to controller logout page
   // Controller handles logout process and redirects back
   (globalThis as unknown as { window: { location: { href: string } } }).window.location.href = logoutUrl.toString();

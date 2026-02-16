@@ -137,9 +137,9 @@ export class TokenValidationService {
 
     if (tokenType === "keycloak") {
       return this.validateKeycloakToken(token, options);
-    } else {
-      return this.validateDelegatedToken(token, issuer, options);
     }
+      return this.validateDelegatedToken(token, issuer, options);
+
   }
 
   /**
@@ -176,7 +176,7 @@ export class TokenValidationService {
     // Use resolved URL for JWKS fetching (private on server, public on browser)
     const resolvedKeycloakUrl = resolveKeycloakUrl(this.keycloakConfig);
     const jwksUri = `${resolvedKeycloakUrl}/realms/${this.keycloakConfig.realm}/protocol/openid-connect/certs`;
-    
+
     // For issuer validation, use public URL (matches token's iss claim)
     // Tokens are always issued with the public URL in the iss claim
     const issuerUrl = this.keycloakConfig.authServerPublicUrl || this.keycloakConfig.authServerUrl;

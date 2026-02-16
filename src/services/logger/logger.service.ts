@@ -524,7 +524,6 @@ export class LoggerService extends EventEmitter {
     return getWithContext(context, message, level, this.applicationContextService, () => this.generateCorrelationId(), this.maskSensitiveData, this.httpClient.config.clientId);
   }
 
-
   /** Get LogEntry with request context (alias) */
   getForRequest(req: Request, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
     return this.getLogWithRequest(req, message, level, context);

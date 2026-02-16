@@ -23,10 +23,10 @@ export function isBrowser(): boolean {
 /**
  * Validate URL format
  * Ensures URL is a valid HTTP or HTTPS URL
- * 
+ *
  * @param url - URL string to validate
  * @returns true if URL is valid HTTP or HTTPS, false otherwise
- * 
+ *
  * @example
  * ```typescript
  * validateUrl('https://example.com'); // true
@@ -46,12 +46,12 @@ export function validateUrl(url: string): boolean {
 
 /**
  * Resolve controller URL based on environment and configuration
- * 
+ *
  * Priority order:
  * 1. Environment-specific URL (controllerPublicUrl for browser, controllerPrivateUrl for server)
  * 2. Fallback to controllerUrl if environment-specific URL not provided
  * 3. Throw error if no URL available
- * 
+ *
  * @param config - MisoClientConfig object
  * @returns Resolved controller URL string
  * @throws Error if no valid URL is available
@@ -101,16 +101,16 @@ export function resolveControllerUrl(config: MisoClientConfig): string {
 
 /**
  * Resolve Keycloak URL based on environment and configuration
- * 
+ *
  * Priority order:
  * 1. Environment-specific URL (authServerPublicUrl for browser, authServerPrivateUrl for server)
  * 2. Fallback to authServerUrl if environment-specific URL not provided
  * 3. Throw error if no URL available
- * 
+ *
  * @param config - KeycloakConfig object
  * @returns Resolved Keycloak URL string
  * @throws Error if no valid URL is available
- * 
+ *
  * @example
  * ```typescript
  * // Server environment - uses private URL
@@ -120,7 +120,7 @@ export function resolveControllerUrl(config: MisoClientConfig): string {
  *   realm: 'my-realm'
  * };
  * const url = resolveKeycloakUrl(config); // Returns: 'http://127.0.0.1:8080'
- * 
+ *
  * // Browser environment - uses public URL
  * const browserConfig: KeycloakConfig = {
  *   authServerUrl: 'https://keycloak.example.com',

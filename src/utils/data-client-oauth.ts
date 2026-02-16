@@ -56,13 +56,13 @@ function isLocalhost(hostname: string): boolean {
 /**
  * Handle OAuth callback with ISO 27001 compliant security
  * Extracts token from URL hash fragment and stores securely
- * 
+ *
  * Security features:
  * - Immediate hash cleanup (< 100ms)
  * - Token format validation
  * - HTTPS enforcement check
  * - Secure error handling
- * 
+ *
  * @param config - DataClient configuration
  * @returns Extracted token or null if not found/invalid
  */

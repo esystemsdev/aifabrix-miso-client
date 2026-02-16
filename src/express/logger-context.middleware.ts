@@ -41,12 +41,12 @@ function buildLoggerContext(req: Request): Parameters<typeof setLoggerContext>[0
 /**
  * Express middleware to set logger context from request.
  * Extracts context from Request object and sets it in AsyncLocalStorage.
- * 
+ *
  * ⚠️ SECURITY: SERVER-SIDE ONLY middleware. ISO 27001 compliant:
  * - Trustworthy: IP, method, path (from server request)
  * - Validated: userId, sessionId, applicationId (from server-validated JWT)
  * - Client-provided (logging only): correlationId, userAgent, referer, requestSize
- * 
+ *
  * @example
  * app.use(loggerContextMiddleware);
  * app.get('/api/users', async (req, res) => {

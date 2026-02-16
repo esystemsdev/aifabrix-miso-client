@@ -39,10 +39,10 @@ export class LoggerChain {
 
   /**
    * Add indexed logging context fields for fast queries
-   * 
+   *
    * @param context - Indexed logging context with source, external system, and record fields
    * @returns LoggerChain instance for method chaining
-   * 
+   *
    * @example
    * ```typescript
    * await logger
@@ -67,11 +67,11 @@ export class LoggerChain {
 
   /**
    * Add credential context for audit logging
-   * 
+   *
    * @param credentialId - Optional credential identifier
    * @param credentialType - Optional credential type (e.g., 'oauth2', 'api-key')
    * @returns LoggerChain instance for method chaining
-   * 
+   *
    * @example
    * ```typescript
    * await logger
@@ -87,11 +87,11 @@ export class LoggerChain {
 
   /**
    * Add response metrics for performance logging
-   * 
+   *
    * @param responseSize - Optional response size in bytes
    * @param durationMs - Optional request duration in milliseconds
    * @returns LoggerChain instance for method chaining
-   * 
+   *
    * @example
    * ```typescript
    * await logger

@@ -28,7 +28,7 @@ function decodeJWT(token: string): Record<string, unknown> | null {
       if (parts.length !== 3) {
         return null;
       }
-      
+
       // Decode payload (handle base64url encoding)
       let payloadStr = parts[1];
       // Add padding if needed
@@ -37,7 +37,7 @@ function decodeJWT(token: string): Record<string, unknown> | null {
       }
       // Replace URL-safe characters
       payloadStr = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
-      
+
       const decoded = JSON.parse(atob(payloadStr));
       return decoded as Record<string, unknown>;
     } catch (error) {
@@ -59,7 +59,7 @@ function decodeJWT(token: string): Record<string, unknown> | null {
  * Extract client token information from JWT token
  * Decodes the token without verification (no secret available)
  * Supports multiple field name variations for flexibility
- * 
+ *
  * @param clientToken - JWT client token string
  * @returns Extracted token information or empty object if decoding fails
  */

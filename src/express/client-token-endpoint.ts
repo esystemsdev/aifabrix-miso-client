@@ -1,7 +1,7 @@
 /**
  * Client Token Endpoint Helper
  * Express route handler that automatically enriches client-token response with DataClient configuration
- * 
+ *
  * Provides zero-config server-side setup for DataClient initialization
  */
 
@@ -19,16 +19,16 @@ import { createErrorResponse, sendErrorResponse } from "./error-response";
 export interface DataClientConfigResponse {
   /** API base URL (derived from request) */
   baseUrl: string;
-  
+
   /** MISO Controller URL (from misoClient config) */
   controllerUrl: string;
-  
+
   /** Public controller URL for browser environments (if set) */
   controllerPublicUrl?: string;
-  
+
   /** Client ID (from misoClient config) */
   clientId: string;
-  
+
   /** Client token endpoint URI */
   clientTokenUri: string;
 }
@@ -40,10 +40,10 @@ export interface DataClientConfigResponse {
 export interface ClientTokenResponse {
   /** Client token string */
   token: string;
-  
+
   /** Token expiration time in seconds */
   expiresIn: number;
-  
+
   /** DataClient configuration (included when includeConfig is true) */
   config?: DataClientConfigResponse;
 }
@@ -54,17 +54,17 @@ export interface ClientTokenResponse {
 export interface ClientTokenEndpointOptions {
   /** Client token endpoint URI (default: '/api/v1/auth/client-token') */
   clientTokenUri?: string;
-  
+
   /** Token expiration time in seconds (default: 1800) */
   expiresIn?: number;
-  
+
   /** Whether to include DataClient config in response (default: true) */
   includeConfig?: boolean;
 }
 
 /**
  * Type guard to check if response includes config
- * 
+ *
  * @param response - Client token response
  * @returns True if response includes config
  */

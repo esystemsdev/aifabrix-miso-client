@@ -100,9 +100,9 @@ function decodeTokenExpiration(token: string): number | null {
  */
 function isCachedTokenValid(cachedToken: string | null, expiresAtStr: string | null): boolean {
   if (!cachedToken) return false;
-  
+
   const now = Date.now();
-  
+
   // Check explicit expiration timestamp
   if (expiresAtStr) {
     const expiresAt = parseInt(expiresAtStr, 10);
@@ -111,13 +111,13 @@ function isCachedTokenValid(cachedToken: string | null, expiresAtStr: string | n
     }
     return true;
   }
-  
+
   // Check JWT expiration
   const jwtExpiresAt = decodeTokenExpiration(cachedToken);
   if (jwtExpiresAt && jwtExpiresAt <= now) {
     return false; // Expired
   }
-  
+
   return true; // Valid or can't determine expiration
 }
 

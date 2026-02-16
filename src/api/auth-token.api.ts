@@ -61,7 +61,7 @@ export class AuthTokenApi {
           },
         },
       );
-      
+
       // Transform response to match ClientTokenResponse format
       // Handle both formats: {success: true, data: {token: ...}} and {data: {token: ...}}
       if (response.success !== undefined) {
@@ -82,7 +82,7 @@ export class AuthTokenApi {
           };
         }
       }
-      
+
       // If we get here, response format is unexpected
       throw new Error(`Unexpected response format from client-token endpoint: ${JSON.stringify(response)}`);
     } catch (error) {
@@ -126,7 +126,7 @@ export class AuthTokenApi {
           },
         },
       );
-      
+
       // Transform response to match ClientTokenLegacyResponse format
       // Handle both formats: {success: true, token: ...} and {data: {token: ...}}
       if (response.success !== undefined) {
@@ -154,7 +154,7 @@ export class AuthTokenApi {
           timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
         };
       }
-      
+
       // If we get here, response format is unexpected
       throw new Error(`Unexpected response format from token endpoint: ${JSON.stringify(response)}`);
     } catch (error) {

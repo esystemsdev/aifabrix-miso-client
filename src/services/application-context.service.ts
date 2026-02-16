@@ -45,7 +45,7 @@ export class ApplicationContextService {
       }
 
       const parts = clientId.split("-");
-      
+
       // Expect pattern: ["miso", "controller", "{env}", "{app}", ...]
       // Minimum 4 parts required: miso-controller-{env}-{app}
       if (parts.length < 4 || parts[0] !== "miso" || parts[1] !== "controller") {
@@ -54,7 +54,7 @@ export class ApplicationContextService {
 
       // Extract environment from index 2
       const environment = parts[2] || null;
-      
+
       // Extract application from remaining parts (index 3+), joined with '-'
       const application = parts.slice(3).join("-") || null;
 
@@ -128,7 +128,7 @@ export class ApplicationContextService {
     if (clientToken) {
       try {
         const tokenInfo = extractClientTokenInfo(clientToken);
-        
+
         // Extract applicationId from client token
         if (tokenInfo.applicationId) {
           applicationId = tokenInfo.applicationId;
@@ -154,11 +154,11 @@ export class ApplicationContextService {
     // Only use parsed values if not already set from client token
     if (!environment || !application) {
       const parsed = this.parseClientIdFormat(this.httpClient.config.clientId);
-      
+
       if (!environment && parsed.environment) {
         environment = parsed.environment;
       }
-      
+
       if (!application && parsed.application) {
         application = parsed.application;
       }

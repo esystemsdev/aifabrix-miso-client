@@ -52,7 +52,7 @@ export interface AuthStrategy {
 export interface MisoClientConfig {
   // REQUIRED: clientId is always required
   clientId: string;
-  
+
   // URL Configuration: At least one URL must be provided
   // controllerUrl is optional but recommended for backward compatibility
   // If not provided, controllerPublicUrl (browser) or controllerPrivateUrl (server) must be provided
@@ -69,10 +69,10 @@ export interface MisoClientConfig {
 
   // Optional: Pre-obtained client token (for browser usage - avoids exposing clientSecret)
   clientToken?: string;
-  
+
   // Optional: Client token expiration time
   clientTokenExpiresAt?: Date | string;
-  
+
   // Optional: Callback to refresh client token when expired (for browser usage)
   onClientTokenRefresh?: () => Promise<{ token: string; expiresIn: number }>;
 

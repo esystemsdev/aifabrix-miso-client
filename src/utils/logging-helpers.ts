@@ -31,13 +31,13 @@ export interface IndexedLoggingContext {
 
 /**
  * Extract indexed logging context from source, record, and external system objects
- * 
+ *
  * @param options - Options object containing source, record, and externalSystem
  * @param options.source - Source object with key, displayName, and optional externalSystem
  * @param options.record - Record object with key and optional displayName
  * @param options.externalSystem - External system object with key and optional displayName
  * @returns IndexedLoggingContext with extracted fields
- * 
+ *
  * @example
  * ```typescript
  * const context = extractLoggingContext({

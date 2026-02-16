@@ -340,7 +340,7 @@ function operatorToSql(
  * @param logic - Logic operator to join clauses ("and" or "or"), defaults to "and"
  * @returns CompiledFilter with SQL string and params array
  * @throws Error if a filter references an unknown field
- * 
+ *
  * @example
  * ```typescript
  * const schema: FilterSchema = {
@@ -350,12 +350,12 @@ function operatorToSql(
  *     status: { column: "status", type: "enum", operators: ["eq", "in"], enumValues: ["active", "disabled"] }
  *   }
  * };
- * 
+ *
  * const filters = [
  *   { field: "status", op: "eq", value: "active" },
  *   { field: "name", op: "ilike", value: "%test%" }
  * ];
- * 
+ *
  * const result = compileFilter(filters, schema);
  * // result.sql = "status = $1 AND name ILIKE $2"
  * // result.params = ["active", "%test%"]

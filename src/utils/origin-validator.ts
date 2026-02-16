@@ -62,7 +62,7 @@ function matchOrigin(requestOrigin: string, allowedOrigin: string): boolean {
 /**
  * Validate request origin against allowed origins list
  * Checks origin header first, then falls back to referer header
- * 
+ *
  * @param req - Express Request object
  * @param allowedOrigins - Array of allowed origins (supports wildcard ports like http://localhost:*)
  * @returns Validation result with valid flag and optional error message
@@ -86,7 +86,7 @@ export function validateOrigin(
     const referer = Array.isArray(req.headers.referer)
       ? req.headers.referer[0]
       : req.headers.referer;
-    
+
     if (referer && typeof referer === "string") {
       // Extract origin from referer URL
       try {
