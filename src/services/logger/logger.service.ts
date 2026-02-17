@@ -113,17 +113,11 @@ export class LoggerService extends EventEmitter {
   setMasking(enabled: boolean): void {
     this.maskSensitiveData = enabled;
   }
-
   /**
    * Generate unique correlation ID for request tracking
    * Public method to allow other modules to generate consistent correlation IDs
    *
    * @returns Unique correlation ID string
-   *
-   * @example
-   * ```typescript
-   * const correlationId = loggerService.generateCorrelationId();
-   * ```
    */
   public generateCorrelationId(): string {
     this.correlationCounter = (this.correlationCounter + 1) % 10000;
@@ -133,7 +127,6 @@ export class LoggerService extends EventEmitter {
     const clientPrefix = this.httpClient.config.clientId.substring(0, 10);
     return `${clientPrefix}-${timestamp}-${this.correlationCounter}-${random}`;
   }
-
   /**
    * Log error message with optional stack trace and enhanced options
    */
@@ -145,7 +138,6 @@ export class LoggerService extends EventEmitter {
   ): Promise<void> {
     await this.log("error", message, context, stackTrace, options);
   }
-
   /**
    * Log audit event with enhanced options
    */
@@ -168,7 +160,6 @@ export class LoggerService extends EventEmitter {
       options,
     );
   }
-
   /**
    * Log info message with enhanced options
    */
@@ -179,7 +170,6 @@ export class LoggerService extends EventEmitter {
   ): Promise<void> {
     await this.log("info", message, context, undefined, options);
   }
-
   /**
    * Log debug message with enhanced options
    */
@@ -192,7 +182,6 @@ export class LoggerService extends EventEmitter {
       await this.log("debug", message, context, undefined, options);
     }
   }
-
   /**
    * Internal log method with enhanced features
    */
@@ -277,6 +266,14 @@ export class LoggerService extends EventEmitter {
     correlationId: string;
   }): LogEntry {
     const p = params;
+    const contextEnvironment =
+      typeof p.maskedContext?.environment === "string"
+        ? p.maskedContext.environment
+        : undefined;
+    const contextApplication =
+      typeof p.maskedContext?.application === "string"
+        ? p.maskedContext.application
+        : undefined;
     const applicationId = this.resolveApplicationId(
       p.jwtContext, p.appContext, p.loggerContext,
     );
@@ -284,8 +281,11 @@ export class LoggerService extends EventEmitter {
     return {
       timestamp: new Date().toISOString(),
       level: p.level,
-      environment: p.appContext.environment || "unknown",
-      application: p.appContext.application || this.httpClient.config.clientId,
+      environment: contextEnvironment || p.appContext.environment || "unknown",
+      application:
+        contextApplication ||
+        p.appContext.application ||
+        this.httpClient.config.clientId,
       applicationId,
       message: p.message,
       context: p.maskedContext,

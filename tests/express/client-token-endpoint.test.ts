@@ -25,6 +25,7 @@ describe("client-token-endpoint", () => {
   let nextSpy: jest.Mock;
 
   beforeEach(() => {
+    jest.useFakeTimers();
     jest.clearAllMocks();
 
     mockMisoClient = {
@@ -65,6 +66,8 @@ describe("client-token-endpoint", () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 

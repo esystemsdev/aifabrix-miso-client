@@ -240,7 +240,7 @@ describe("AuditLogQueue", () => {
       expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
     });
 
-    it("should remove environment and application fields from logs", async () => {
+    it("should preserve environment and application fields in HTTP batch payload", async () => {
       const entry = createLogEntry();
       await auditLogQueue.add(entry);
 
@@ -252,12 +252,85 @@ describe("AuditLogQueue", () => {
         expect.objectContaining({
           logs: expect.arrayContaining([
             expect.objectContaining({
-              environment: undefined,
-              application: undefined,
+              environment: "test",
+              application: config.clientId,
             }),
           ]),
         }),
       );
+    });
+
+    it("should preserve all top-level log fields in HTTP batch payload", async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      const entry: LogEntry = {
+        ...createLogEntry("Preserve fields"),
+        environment: "dev",
+        application: "miso-controller",
+        applicationId: "app-123",
+        userId: "user-123",
+        sessionId: "session-123",
+        requestId: "req-123",
+        correlationId: "corr-123",
+        ipAddress: "203.0.113.10",
+        userAgent: "repro-client/1.0",
+        hostname: "host-123",
+        sourceKey: "source-123",
+        sourceDisplayName: "Source System",
+        externalSystemKey: "ext-123",
+        externalSystemDisplayName: "External System",
+        recordKey: "record-123",
+        recordDisplayName: "Record Name",
+        credentialId: "cred-123",
+        credentialType: "api-key",
+        requestSize: 256,
+        responseSize: 512,
+        durationMs: 42,
+        errorCategory: "network",
+        httpStatusCategory: "5xx",
+        context: {
+          environment: "dev",
+          application: "miso-controller",
+          action: "audit.test",
+        },
+      };
+
+      await auditLogQueue.add(entry);
+      await auditLogQueue.flush();
+
+      const payload = (mockHttpClient.request as jest.Mock).mock.calls[0]?.[2] as {
+        logs: LogEntry[];
+      };
+      expect(payload.logs).toHaveLength(1);
+      expect(payload.logs[0]).toMatchObject({
+        environment: "dev",
+        application: "miso-controller",
+        applicationId: "app-123",
+        userId: "user-123",
+        sessionId: "session-123",
+        requestId: "req-123",
+        correlationId: "corr-123",
+        ipAddress: "203.0.113.10",
+        userAgent: "repro-client/1.0",
+        hostname: "host-123",
+        sourceKey: "source-123",
+        sourceDisplayName: "Source System",
+        externalSystemKey: "ext-123",
+        externalSystemDisplayName: "External System",
+        recordKey: "record-123",
+        recordDisplayName: "Record Name",
+        credentialId: "cred-123",
+        credentialType: "api-key",
+        requestSize: 256,
+        responseSize: 512,
+        durationMs: 42,
+        errorCategory: "network",
+        httpStatusCategory: "5xx",
+        context: {
+          environment: "dev",
+          application: "miso-controller",
+          action: "audit.test",
+        },
+      });
     });
   });
 
@@ -598,6 +671,80 @@ describe("AuditLogQueue", () => {
         expect(entry).toHaveProperty("environment", "test");
         expect(entry).toHaveProperty("application", "ctrl-dev-test-app");
         expect(entry).toHaveProperty("message");
+      });
+    });
+
+    it("should preserve all top-level fields in emitted batch payload", async () => {
+      const eventSpy = jest.fn();
+      eventEmitter.on("log:batch", eventSpy);
+
+      const entry: LogEntry = {
+        ...createLogEntry("Preserve fields"),
+        environment: "dev",
+        application: "miso-controller",
+        applicationId: "app-123",
+        userId: "user-123",
+        sessionId: "session-123",
+        requestId: "req-123",
+        correlationId: "corr-123",
+        ipAddress: "203.0.113.10",
+        userAgent: "repro-client/1.0",
+        hostname: "host-123",
+        sourceKey: "source-123",
+        sourceDisplayName: "Source System",
+        externalSystemKey: "ext-123",
+        externalSystemDisplayName: "External System",
+        recordKey: "record-123",
+        recordDisplayName: "Record Name",
+        credentialId: "cred-123",
+        credentialType: "api-key",
+        requestSize: 256,
+        responseSize: 512,
+        durationMs: 42,
+        errorCategory: "network",
+        httpStatusCategory: "5xx",
+        context: {
+          environment: "dev",
+          application: "miso-controller",
+          action: "audit.test",
+        },
+      };
+
+      await auditLogQueue.add(entry);
+      await auditLogQueue.flush();
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      const emittedBatch = eventSpy.mock.calls[0]?.[0] as LogEntry[];
+      expect(emittedBatch).toHaveLength(1);
+      expect(emittedBatch[0]).toMatchObject({
+        environment: "dev",
+        application: "miso-controller",
+        applicationId: "app-123",
+        userId: "user-123",
+        sessionId: "session-123",
+        requestId: "req-123",
+        correlationId: "corr-123",
+        ipAddress: "203.0.113.10",
+        userAgent: "repro-client/1.0",
+        hostname: "host-123",
+        sourceKey: "source-123",
+        sourceDisplayName: "Source System",
+        externalSystemKey: "ext-123",
+        externalSystemDisplayName: "External System",
+        recordKey: "record-123",
+        recordDisplayName: "Record Name",
+        credentialId: "cred-123",
+        credentialType: "api-key",
+        requestSize: 256,
+        responseSize: 512,
+        durationMs: 42,
+        errorCategory: "network",
+        httpStatusCategory: "5xx",
+        context: {
+          environment: "dev",
+          application: "miso-controller",
+          action: "audit.test",
+        },
       });
     });
 

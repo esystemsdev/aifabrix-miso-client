@@ -139,16 +139,11 @@ export class AuditLogQueue {
     if (this.httpLoggingDisabledUntil && now < this.httpLoggingDisabledUntil) {
       return;
     }
-    const sanitizedLogs = logEntries.map((e) => ({
-      ...e,
-      environment: undefined,
-      application: undefined,
-    }));
     try {
       if (this.apiClient) {
-        await this.apiClient.logs.createBatchLogs({ logs: sanitizedLogs });
+        await this.apiClient.logs.createBatchLogs({ logs: logEntries });
       } else {
-        await this.httpClient.request("POST", "/api/v1/logs/batch", { logs: sanitizedLogs });
+        await this.httpClient.request("POST", "/api/v1/logs/batch", { logs: logEntries });
       }
       this.httpLoggingFailures = 0;
       this.httpLoggingDisabledUntil = null;

@@ -286,6 +286,30 @@ describe("LoggerService", () => {
       }
     });
 
+    it("should use context environment and application in log entry", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      await loggerService.info("Test", {
+        environment: "dev",
+        application: "miso-controller",
+      });
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string) as {
+          environment?: string;
+          application?: string;
+          context?: { environment?: string; application?: string };
+        };
+        expect(logEntry.environment).toBe("dev");
+        expect(logEntry.application).toBe("miso-controller");
+        expect(logEntry.context?.environment).toBe("dev");
+        expect(logEntry.context?.application).toBe("miso-controller");
+      }
+    });
+
     it("should include hostname from environment metadata", async () => {
       const originalHostname = process.env.HOSTNAME;
       process.env.HOSTNAME = "test-host";
@@ -309,6 +333,73 @@ describe("LoggerService", () => {
           hostname?: string;
         };
         expect(logEntry.hostname).toBe("test-host");
+      }
+    });
+
+    it("should preserve all top-level fields in non-audit log entry", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      await loggerService.info("Preserve fields", {
+        environment: "dev",
+        application: "miso-controller",
+        action: "log.test",
+      }, {
+        sourceKey: "source-123",
+        sourceDisplayName: "Source System",
+        externalSystemKey: "ext-123",
+        externalSystemDisplayName: "External System",
+        recordKey: "record-123",
+        recordDisplayName: "Record Name",
+        credentialId: "cred-123",
+        credentialType: "api-key",
+        responseSize: 512,
+        durationMs: 42,
+        errorCategory: "network",
+        httpStatusCategory: "5xx",
+      });
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string) as {
+          level?: string;
+          environment?: string;
+          application?: string;
+          sourceKey?: string;
+          sourceDisplayName?: string;
+          externalSystemKey?: string;
+          externalSystemDisplayName?: string;
+          recordKey?: string;
+          recordDisplayName?: string;
+          credentialId?: string;
+          credentialType?: string;
+          responseSize?: number;
+          durationMs?: number;
+          errorCategory?: string;
+          httpStatusCategory?: string;
+          context?: { environment?: string; application?: string; action?: string };
+        };
+        expect(logEntry.level).toBe("info");
+        expect(logEntry.environment).toBe("dev");
+        expect(logEntry.application).toBe("miso-controller");
+        expect(logEntry.sourceKey).toBe("source-123");
+        expect(logEntry.sourceDisplayName).toBe("Source System");
+        expect(logEntry.externalSystemKey).toBe("ext-123");
+        expect(logEntry.externalSystemDisplayName).toBe("External System");
+        expect(logEntry.recordKey).toBe("record-123");
+        expect(logEntry.recordDisplayName).toBe("Record Name");
+        expect(logEntry.credentialId).toBe("cred-123");
+        expect(logEntry.credentialType).toBe("api-key");
+        expect(logEntry.responseSize).toBe(512);
+        expect(logEntry.durationMs).toBe(42);
+        expect(logEntry.errorCategory).toBe("network");
+        expect(logEntry.httpStatusCategory).toBe("5xx");
+        expect(logEntry.context).toMatchObject({
+          environment: "dev",
+          application: "miso-controller",
+          action: "log.test",
+        });
       }
     });
   });
@@ -866,6 +957,70 @@ describe("LoggerService", () => {
       expect(emittedLog).toHaveProperty("sessionId", "session-456");
       expect(emittedLog).toHaveProperty("requestId", "req-789");
       expect(emittedLog).toHaveProperty("correlationId");
+    });
+
+    it("should preserve top-level fields in non-audit emitted log", async () => {
+      const eventSpy = jest.fn();
+      loggerService.on("log", eventSpy);
+
+      await loggerService.info("Preserve fields", {
+        environment: "dev",
+        application: "miso-controller",
+        action: "log.test",
+      }, {
+        sourceKey: "source-123",
+        sourceDisplayName: "Source System",
+        externalSystemKey: "ext-123",
+        externalSystemDisplayName: "External System",
+        recordKey: "record-123",
+        recordDisplayName: "Record Name",
+        credentialId: "cred-123",
+        credentialType: "api-key",
+        responseSize: 512,
+        durationMs: 42,
+        errorCategory: "network",
+        httpStatusCategory: "5xx",
+      });
+
+      expect(eventSpy).toHaveBeenCalledTimes(1);
+      const emittedLog = eventSpy.mock.calls[0][0] as {
+        level?: string;
+        environment?: string;
+        application?: string;
+        sourceKey?: string;
+        sourceDisplayName?: string;
+        externalSystemKey?: string;
+        externalSystemDisplayName?: string;
+        recordKey?: string;
+        recordDisplayName?: string;
+        credentialId?: string;
+        credentialType?: string;
+        responseSize?: number;
+        durationMs?: number;
+        errorCategory?: string;
+        httpStatusCategory?: string;
+        context?: { environment?: string; application?: string; action?: string };
+      };
+      expect(emittedLog.level).toBe("info");
+      expect(emittedLog.environment).toBe("dev");
+      expect(emittedLog.application).toBe("miso-controller");
+      expect(emittedLog.sourceKey).toBe("source-123");
+      expect(emittedLog.sourceDisplayName).toBe("Source System");
+      expect(emittedLog.externalSystemKey).toBe("ext-123");
+      expect(emittedLog.externalSystemDisplayName).toBe("External System");
+      expect(emittedLog.recordKey).toBe("record-123");
+      expect(emittedLog.recordDisplayName).toBe("Record Name");
+      expect(emittedLog.credentialId).toBe("cred-123");
+      expect(emittedLog.credentialType).toBe("api-key");
+      expect(emittedLog.responseSize).toBe(512);
+      expect(emittedLog.durationMs).toBe(42);
+      expect(emittedLog.errorCategory).toBe("network");
+      expect(emittedLog.httpStatusCategory).toBe("5xx");
+      expect(emittedLog.context).toMatchObject({
+        environment: "dev",
+        application: "miso-controller",
+        action: "log.test",
+      });
     });
 
     it("should maintain backward compatibility when emitEvents is false", async () => {
