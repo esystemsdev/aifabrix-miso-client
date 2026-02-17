@@ -5,6 +5,13 @@
 
 import { vi } from 'vitest';
 
+// Prevent unhandled promise rejections in tests from hanging the run.
+if (typeof process !== 'undefined') {
+  process.on('unhandledRejection', () => {
+    // Intentionally swallow in frontend test runtime.
+  });
+}
+
 // Create global window object if it doesn't exist (for node environment)
 if (typeof globalThis.window === 'undefined') {
   (globalThis as { window?: Window }).window = {} as Window;

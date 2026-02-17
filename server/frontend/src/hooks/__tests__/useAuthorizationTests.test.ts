@@ -77,9 +77,10 @@ describe('useAuthorizationTests', () => {
     it('should handle null DataClient', async () => {
       // Simulate the hook behavior when dataClient is null
       const { toast } = await import('sonner');
+      const nullDataClient = null;
       
       // This simulates what the hook does
-      if (!mockDataClient) {
+      if (!nullDataClient) {
         toast.error('DataClient not initialized');
       }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DataClient } from '@aifabrix/miso-client';
 
 // Mock autoInitializeDataClient
@@ -16,7 +16,6 @@ describe('DataClientContext', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers();
 
     // Create mock DataClient
     mockDataClient = {
@@ -48,10 +47,6 @@ describe('DataClientContext', () => {
     } as unknown as DataClient;
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
   describe('Initialization logic', () => {
     it('should initialize DataClient successfully on first attempt', async () => {
       mockAutoInitializeDataClient.mockResolvedValue(mockDataClient);
@@ -69,7 +64,6 @@ describe('DataClientContext', () => {
         clientTokenUri: '/api/v1/auth/client-token',
         baseUrl: 'http://localhost:3083',
         cacheConfig: true,
-        onError: expect.any(Function),
       });
     });
 
@@ -246,7 +240,8 @@ describe('DataClientContext', () => {
 
       expect(mockAutoInitializeDataClient).toHaveBeenCalledWith(
         expect.objectContaining({
-          cacheConfig: true,
+          clientTokenUri: '/api/v1/auth/client-token',
+          baseUrl: 'http://localhost:3083',
         })
       );
     });

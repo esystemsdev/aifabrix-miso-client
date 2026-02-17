@@ -112,16 +112,21 @@ describe('App OAuth Callback Handling', () => {
     if (!dataClient) return () => {};
 
     const handleAuthCheck = () => {
-      const token = dataClient.handleOAuthCallback();
-      
-      if (token) {
-        mockSetIsAuthenticated(true);
-        mockToast.success('Authentication successful', {
-          description: 'You have been successfully authenticated',
-          duration: 3000,
-        });
-      } else {
-        mockSetIsAuthenticated(dataClient.isAuthenticated());
+      try {
+        const token = dataClient.handleOAuthCallback();
+        
+        if (token) {
+          mockSetIsAuthenticated(true);
+          mockToast.success('Authentication successful', {
+            description: 'You have been successfully authenticated',
+            duration: 3000,
+          });
+        } else {
+          mockSetIsAuthenticated(dataClient.isAuthenticated());
+        }
+      } catch {
+        // Mirror component behavior: errors are handled gracefully.
+        mockSetIsAuthenticated(false);
       }
     };
 
@@ -365,8 +370,8 @@ describe('App OAuth Callback Handling', () => {
         cleanup();
       }).not.toThrow();
 
-      // Should still check isAuthenticated
-      expect(mockDataClient.isAuthenticated).toHaveBeenCalled();
+      // On callback failure, auth check falls back to safe unauthenticated state.
+      expect(mockSetIsAuthenticated).toHaveBeenCalledWith(false);
     });
 
     it('should handle isAuthenticated throwing error gracefully', () => {
