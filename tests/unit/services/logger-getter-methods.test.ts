@@ -328,6 +328,7 @@ describe("LoggerService Getter Methods", () => {
       const levels: LogEntry["level"][] = [
         "debug",
         "info",
+        "warn",
         "error",
         "audit",
       ];

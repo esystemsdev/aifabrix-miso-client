@@ -196,6 +196,7 @@ describe("UnifiedLoggerService", () => {
 
     // Mock methods
     mockLoggerService.info = jest.fn().mockResolvedValue(undefined);
+    mockLoggerService.warn = jest.fn().mockResolvedValue(undefined);
     mockLoggerService.error = jest.fn().mockResolvedValue(undefined);
     mockLoggerService.debug = jest.fn().mockResolvedValue(undefined);
     mockLoggerService.audit = jest.fn().mockResolvedValue(undefined);
@@ -277,11 +278,12 @@ describe("UnifiedLoggerService", () => {
     it("should log warning message", async () => {
       await unifiedLogger.warn("Warning message");
 
-      expect(mockLoggerService.info).toHaveBeenCalledWith(
+      expect(mockLoggerService.warn).toHaveBeenCalledWith(
         "Warning message",
         undefined,
         expect.any(Object),
       );
+      expect(mockLoggerService.info).not.toHaveBeenCalled();
     });
   });
 

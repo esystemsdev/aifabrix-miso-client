@@ -138,14 +138,12 @@ export class UnifiedLoggerService implements UnifiedLogger {
 
   /**
    * Log warning message
-   * Note: LoggerService doesn't have a warn method, so we use info level
    */
   async warn(message: string): Promise<void> {
     try {
       const context = this.getContext();
       const options = this.buildLoggingOptions(context);
-      // LoggerService doesn't have warn, use info level
-      await this.loggerService.info(message, undefined, options);
+      await this.loggerService.warn(message, undefined, options);
     } catch (error) {
       // Error handling in logger should be silent (catch and swallow)
     }

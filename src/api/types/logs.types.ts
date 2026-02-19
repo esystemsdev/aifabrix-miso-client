@@ -21,7 +21,7 @@ export interface ForeignKeyReference {
  */
 export interface LogEntry {
   timestamp: string;
-  level: 'error' | 'audit' | 'info' | 'debug';
+  level: 'error' | 'warn' | 'audit' | 'info' | 'debug';
   message: string;
   environment?: string;
   application?: string;
@@ -129,7 +129,7 @@ export interface CreateLogResponse {
  */
 export interface BatchLogEntry {
   timestamp: string;
-  level: 'error' | 'audit' | 'info' | 'debug';
+  level: 'error' | 'warn' | 'audit' | 'info' | 'debug';
   message: string;
   environment?: string;
   application?: string;

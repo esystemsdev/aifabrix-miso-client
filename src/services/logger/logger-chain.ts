@@ -173,6 +173,14 @@ export class LoggerChain {
   }
 
   /**
+   * Log warning message.
+   * @param message - Warning message.
+   */
+  async warn(message: string): Promise<void> {
+    await this.logger.warn(message, this.context, this.options);
+  }
+
+  /**
    * Log audit event.
    * @param action - Audit action.
    * @param resource - Resource type.

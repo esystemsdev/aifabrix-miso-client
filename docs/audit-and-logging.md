@@ -41,10 +41,11 @@ await client.log
 
 Do not log errors without context (no bare `log.error('Failed')`).
 
-## Info and debug
+## Info, warn, and debug
 
 ```typescript
 await client.log.info('User accessed dashboard', { userId: user?.id });
+await client.log.warn('Unusual activity detected', { signal: 'multiple_failed_attempts' });
 await client.log.debug('Processing request', { requestId: req.id });
 ```
 
@@ -58,13 +59,17 @@ await client.log.forRequest(req).info('Users list accessed');
 
 When you use the recommended Express pattern ([errors.md](errors.md)), route errors are formatted as RFC 7807 Problem Details and logged with full context by `handleRouteError`. Use that instead of ad-hoc error logging in route handlers where possible.
 
+## Migration note
+
+If you previously encoded warnings as `info` (for example `info + originalLevel=warn` in context), you can now switch to native `client.log.warn(...)`.
+
 ## When to use what
 
 | Need | Use |
 |------|-----|
 | Compliance/security events | `client.log.audit(action, resource, context)` |
 | Errors in Express routes | `handleRouteError` + `forRequest(req)` when logging manually |
-| General info/debug | `client.log.info` / `client.log.debug` with context |
+| General info/warn/debug | `client.log.info` / `client.log.warn` / `client.log.debug` with context |
 | Request-scoped context | `client.log.forRequest(req)` then `.info()` / `.error()` |
 
 **Log destination:** By default logs go to Redis and/or the controller. To receive logs in your own code (e.g. save to your DB), use [event emission mode](configuration.md#optional-event-emission-mode) in [configuration.md](configuration.md).

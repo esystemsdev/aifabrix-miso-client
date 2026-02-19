@@ -171,6 +171,16 @@ export class LoggerService extends EventEmitter {
     await this.log("info", message, context, undefined, options);
   }
   /**
+   * Log warning message with enhanced options
+   */
+  async warn(
+    message: string,
+    context?: Record<string, unknown>,
+    options?: ClientLoggingOptions,
+  ): Promise<void> {
+    await this.log("warn", message, context, undefined, options);
+  }
+  /**
    * Log debug message with enhanced options
    */
   async debug(
@@ -329,9 +339,6 @@ export class LoggerService extends EventEmitter {
     return jwtContext.applicationId || "";
   }
 
-  /**
-   * Attempt to enqueue log entry in Redis.
-   */
   private async sendToRedis(logEntry: LogEntry): Promise<boolean> {
     if (!this.redis.isConnected()) {
       return false;
@@ -344,39 +351,39 @@ export class LoggerService extends EventEmitter {
     return Boolean(success);
   }
 
-  /**
-   * Check if HTTP logging circuit breaker is open.
-   */
   private isCircuitOpen(): boolean {
     const now = Date.now();
     return Boolean(
       this.httpLoggingDisabledUntil && now < this.httpLoggingDisabledUntil,
     );
   }
-
-  /**
-   * Map internal log level to API log type/level.
-   */
-  private mapLogType(level: LogEntry["level"]): {
-    logType: "audit" | "error" | "general";
-    logLevel: "info" | "error" | "debug";
-  } {
+  private mapLogType(level: LogEntry["level"]): { logType: "audit" | "error" | "general"; logLevel: "info" | "warn" | "error" | "debug" } {
     const logType =
       level === "audit" ? "audit" : level === "error" ? "error" : "general";
-    const logLevel =
-      level === "audit"
-        ? "info"
-        : level === "error"
-          ? "error"
-          : level === "info"
-            ? "info"
-            : "debug";
+    let logLevel: "info" | "warn" | "error" | "debug";
+    switch (level) {
+      case "audit":
+      case "info":
+        logLevel = "info";
+        break;
+      case "warn":
+        logLevel = "warn";
+        break;
+      case "error":
+        logLevel = "error";
+        break;
+      case "debug":
+        logLevel = "debug";
+        break;
+      default:
+        logLevel = this.assertNever(level);
+    }
+
     return { logType, logLevel };
   }
-
-  /**
-   * Build enriched context for API payload.
-   */
+  private assertNever(value: never): never {
+    throw new Error(`Unhandled log level: ${String(value)}`);
+  }
   private buildEnrichedContext(logEntry: LogEntry): Record<string, unknown> {
     const enrichedContext: Record<string, unknown> = {
       ...logEntry.context,
@@ -416,13 +423,7 @@ export class LoggerService extends EventEmitter {
     return enrichedContext;
   }
 
-  /**
-   * Send log entry to controller via API client.
-   */
-  private async sendToHttp(
-    level: LogEntry["level"],
-    logEntry: LogEntry,
-  ): Promise<void> {
+  private async sendToHttp(level: LogEntry["level"], logEntry: LogEntry): Promise<void> {
     const now = Date.now();
     try {
       if (!this.apiClient) {

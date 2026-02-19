@@ -195,6 +195,43 @@ describe("LoggerService", () => {
     });
   });
 
+  describe("warn", () => {
+    it("should log warn message", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      await loggerService.warn("Test warn");
+
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"level":"warn"'),
+      );
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"message":"Test warn"'),
+      );
+    });
+
+    it("should preserve warn level in HTTP payload", async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      mockHttpClient.request.mockResolvedValue({});
+
+      await loggerService.warn("Warn over HTTP");
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        "POST",
+        "/api/v1/logs",
+        expect.objectContaining({
+          type: "general",
+          data: expect.objectContaining({
+            level: "warn",
+            message: "Warn over HTTP",
+          }),
+        }),
+      );
+    });
+  });
+
   describe("debug", () => {
     it("should log debug message when logLevel is debug", async () => {
       mockRedisService.isConnected.mockReturnValue(true);
@@ -540,6 +577,23 @@ describe("LoggerService", () => {
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
         "logs:ctrl-dev-test-app",
         expect.stringContaining('"userId":"123"'),
+      );
+    });
+
+    it("should execute warn with chain context", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      const chain = loggerService.withContext({ action: "warn-test" });
+      await chain.warn("Warning message");
+
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"level":"warn"'),
+      );
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"action":"warn-test"'),
       );
     });
 

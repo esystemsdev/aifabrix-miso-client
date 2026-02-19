@@ -23,6 +23,12 @@ export type AuthMethod =
   | "api-key";
 
 /**
+ * Supported general log levels across SDK public APIs.
+ */
+export const LOG_LEVELS = ["debug", "info", "warn", "error"] as const;
+export type LogLevel = (typeof LOG_LEVELS)[number];
+
+/**
  * Authentication strategy configuration
  * Defines which authentication methods to try and in what order
  */
@@ -80,7 +86,7 @@ export interface MisoClientConfig {
   redis?: RedisConfig;
 
   // Optional: Logging
-  logLevel?: "debug" | "info" | "warn" | "error";
+  logLevel?: LogLevel;
 
   // Optional: HTTP request timeout in milliseconds (default: 30000)
   timeout?: number;
@@ -179,7 +185,7 @@ export interface AuthResult {
  */
 export interface LogEntry {
   timestamp: string;
-  level: "error" | "audit" | "info" | "debug";
+  level: LogLevel | "audit";
   environment: string;
   application: string;
   applicationId: string;

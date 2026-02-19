@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2026-02-19
+
+### Added
+
+- **First-class warning logs** - Added native `warn` support across SDK logging APIs.
+  - `LoggerService.warn(message, context?, options?)`
+  - `LoggerChain.warn(message)` for fluent logging parity
+  - `LogLevel` shared contract (`LOG_LEVELS`) with `warn` included
+
+### Changed
+
+- **Unified logger behavior** - `UnifiedLogger.warn(...)` now forwards to `LoggerService.warn(...)` instead of remapping to `info`.
+- **Transport and API typing alignment** - `warn` is now preserved through logger HTTP payload typing and log type contracts (`LogEntry`, batch entries).
+- **Documentation** - Updated audit/logging guide with explicit `warn` usage and migration guidance from `info + originalLevel=warn`.
+
+### Fixed
+
+- **Warn level remapping regression** - Removed silent `warn -> info` downgrade in logging flow.
+- **Warn payload preservation** - Ensured warn level is transmitted unchanged in HTTP logger payloads.
+
+### Technical
+
+- **Exhaustive level mapping guard** - Added explicit level mapping handling in logger internals to reduce future contract drift.
+- **Test coverage expansion** - Added/updated unit tests for core warn behavior, unified warn forwarding, fluent warn chain usage, and warn level acceptance in getter-level type checks.
+
 ## [4.4.4] - 2026-02-17
 
 ### Fixed

@@ -17,7 +17,7 @@ export async function sendAuditLogPayload(
   logEntry: LogEntry,
   enrichedContext: Record<string, unknown>,
   logType: "audit" | "error" | "general",
-  logLevel: string,
+  logLevel: "info" | "warn" | "error" | "debug",
 ): Promise<void> {
   const auditResource = enrichedContext.resource as string | undefined;
   const providedOldValues = enrichedContext.oldValues as Record<string, unknown> | undefined;
@@ -37,7 +37,7 @@ export async function sendAuditLogPayload(
   await apiClient.logs.createLog({
     type: logType,
     data: {
-      level: logLevel as "info" | "error" | "debug",
+      level: logLevel,
       message: logEntry.message,
       context: enrichedContext,
       correlationId: logEntry.correlationId,
