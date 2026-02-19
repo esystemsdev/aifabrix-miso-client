@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.4] - 2026-02-17
+
+### Fixed
+
+- **Logging environment routing** - Preserved `context.environment` and `context.application` as top-level log fields to prevent misrouting to default environments.
+- **Audit batch payloads** - Stopped stripping `environment` and `application` in HTTP batch submissions so audit logs retain routing fields.
+
+### Technical
+
+- **Logging field preservation tests** - Expanded logger/audit tests to assert all top-level fields remain intact across Redis, HTTP batch, and event emit paths.
+- **Client-token endpoint test stability** - Switched express tests to fake timers to avoid timeout flakiness.
+
 ## [4.4.3] - 2026-02-16
 
 ### Changed
