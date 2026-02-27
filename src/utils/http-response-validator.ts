@@ -21,6 +21,27 @@ function writeValidationWarning(
   console.warn(msg);
 }
 
+function isLogsEndpoint(url: string): boolean {
+  return url.includes("/api/v1/logs") || url.includes("/api/logs");
+}
+
+function isMinimalLogsResponse(data: unknown): boolean {
+  if (!data || typeof data !== "object") return false;
+  const obj = data as Record<string, unknown>;
+  if (obj.data === null) return true;
+  if (typeof obj.processed === "number" && typeof obj.failed === "number") {
+    return true;
+  }
+  if (obj.data && typeof obj.data === "object") {
+    const dataObj = obj.data as Record<string, unknown>;
+    return (
+      typeof dataObj.processed === "number" &&
+      typeof dataObj.failed === "number"
+    );
+  }
+  return false;
+}
+
 /**
  * Validate response structure if validation is enabled
  * Logs warnings for validation failures but doesn't throw (non-breaking behavior)
@@ -42,6 +63,10 @@ export function validateHttpResponse(
     if (data && typeof data === "object" && "data" in (data as Record<string, unknown>)) {
       return true;
     }
+  }
+
+  if (isLogsEndpoint(url) && isMinimalLogsResponse(data)) {
+    return true;
   }
 
   const responseType = getResponseType(data);
