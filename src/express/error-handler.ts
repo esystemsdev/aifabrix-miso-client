@@ -43,6 +43,7 @@ const MESSAGE_PATTERN_MAP: Array<{ pattern: RegExp; status: number }> = [
   { pattern: /validation|invalid/i, status: 400 },
   { pattern: /unauthorized|authentication/i, status: 401 },
   { pattern: /forbidden|permission/i, status: 403 },
+  { pattern: /too many requests|rate limit/i, status: 429 },
 ];
 
 /** Map error to appropriate HTTP status code */

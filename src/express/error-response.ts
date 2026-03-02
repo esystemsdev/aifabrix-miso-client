@@ -121,7 +121,9 @@ export function createErrorResponse(
   const finalCorrelationId =
     correlationId ||
     (request as Request & { correlationId?: string })?.correlationId ||
-    (request?.headers["x-correlation-id"] as string);
+    (request?.headers["x-correlation-id"] as string) ||
+    (request?.headers["x-request-id"] as string) ||
+    (request?.headers["request-id"] as string);
 
   const errorResponse: ErrorResponse = {
     type: getErrorTypeUri(statusCode),

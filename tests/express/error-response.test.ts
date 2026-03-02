@@ -46,6 +46,7 @@ describe("error-response", () => {
       expect(getErrorTypeUri(404)).toBe("/Errors/NotFound");
       expect(getErrorTypeUri(409)).toBe("/Errors/Conflict");
       expect(getErrorTypeUri(422)).toBe("/Errors/UnprocessableEntity");
+      expect(getErrorTypeUri(429)).toBe("/Errors/TooManyRequests");
       expect(getErrorTypeUri(500)).toBe("/Errors/InternalServerError");
     });
 
@@ -62,6 +63,7 @@ describe("error-response", () => {
       expect(getErrorTitle(403)).toBe("Forbidden");
       expect(getErrorTitle(404)).toBe("Not Found");
       expect(getErrorTitle(409)).toBe("Conflict");
+      expect(getErrorTitle(429)).toBe("Too Many Requests");
       expect(getErrorTitle(500)).toBe("Internal Server Error");
     });
 
@@ -140,6 +142,13 @@ describe("error-response", () => {
       const response = createErrorResponse("Error", 500, mockReq as Request);
 
       expect(response.correlationId).toBe("header-corr-id");
+    });
+
+    it("should fallback to x-request-id header for correlation ID", () => {
+      mockReq.headers = { "x-request-id": "request-id-corr" };
+      const response = createErrorResponse("Error", 500, mockReq as Request);
+
+      expect(response.correlationId).toBe("request-id-corr");
     });
 
     it("should prefer parameter over request property", () => {

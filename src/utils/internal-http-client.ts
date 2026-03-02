@@ -21,12 +21,14 @@ import {
   fetchClientToken,
   refreshClientTokenFromCallback,
 } from "./client-token-manager";
+import { LoggerContextStorage } from "../services/logger/logger-context-storage";
 
 export class InternalHttpClient {
   private axios: AxiosInstance;
   public readonly config: MisoClientConfig;
   private tokenState: TokenState = { token: null, expiresAt: null };
   private tokenRefreshPromise: Promise<string> | null = null;
+  private loggerContextStorage = LoggerContextStorage.getInstance();
 
   constructor(config: MisoClientConfig) {
     this.config = config;
@@ -82,6 +84,7 @@ export class InternalHttpClient {
     this.axios.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         config.headers = config.headers || {};
+        this.attachTraceHeaders(config);
         if (!config.headers["x-client-token"] && !config.headers["x-client-id"]) {
           const token = await this.getClientToken();
           if (token) {
@@ -108,6 +111,21 @@ export class InternalHttpClient {
         return Promise.reject(error);
       },
     );
+  }
+
+  /** Attach correlation headers from async logger context when available. */
+  private attachTraceHeaders(config: InternalAxiosRequestConfig): void {
+    const context = this.loggerContextStorage.getContext();
+    if (!context) return;
+
+    const correlationId = context.correlationId || context.requestId;
+    if (correlationId && !config.headers["x-correlation-id"]) {
+      config.headers["x-correlation-id"] = correlationId;
+    }
+
+    if (context.requestId && !config.headers["x-request-id"]) {
+      config.headers["x-request-id"] = context.requestId;
+    }
   }
 
   /** Handle 401 error by setting helpful message and clearing token */

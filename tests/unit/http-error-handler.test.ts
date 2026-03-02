@@ -165,6 +165,63 @@ describe("http-error-handler", () => {
       expect(result).toBeDefined();
       expect(result?.authMethod).toBe("client-token");
     });
+
+    it("should parse RFC 7807 object with status/detail fields", () => {
+      const error = {
+        config: { url: "/api/resource", headers: {} },
+        message: "Forbidden",
+        name: "AxiosError",
+        isAxiosError: true,
+        toJSON: jest.fn(),
+        response: {
+          status: 403,
+          statusText: "Forbidden",
+          data: {
+            type: "/Errors/Forbidden",
+            title: "Forbidden",
+            status: 403,
+            detail: "Insufficient permissions",
+            instance: "/api/resource",
+          },
+          headers: {},
+          config: {} as never,
+        },
+      } as unknown as AxiosError;
+
+      const result = parseErrorResponse(error, "/api/resource");
+      expect(result).toBeDefined();
+      expect(result?.statusCode).toBe(403);
+      expect(result?.errors).toEqual(["Insufficient permissions"]);
+      expect(result?.type).toBe("/Errors/Forbidden");
+      expect(result?.title).toBe("Forbidden");
+    });
+
+    it("should parse RFC 7807 JSON string with status/detail fields", () => {
+      const error = {
+        config: { url: "/api/resource", headers: {} },
+        message: "Unauthorized",
+        name: "AxiosError",
+        isAxiosError: true,
+        toJSON: jest.fn(),
+        response: {
+          status: 401,
+          statusText: "Unauthorized",
+          data: JSON.stringify({
+            type: "/Errors/Unauthorized",
+            title: "Unauthorized",
+            status: 401,
+            detail: "Bearer token is expired",
+          }),
+          headers: {},
+          config: {} as never,
+        },
+      } as unknown as AxiosError;
+
+      const result = parseErrorResponse(error, "/api/resource");
+      expect(result).toBeDefined();
+      expect(result?.statusCode).toBe(401);
+      expect(result?.errors).toEqual(["Bearer token is expired"]);
+    });
   });
 
   describe("createMisoClientError with authMethod", () => {
@@ -363,6 +420,36 @@ describe("http-error-handler", () => {
       expect(result).toBeInstanceOf(MisoClientError);
       // Should use authMethod from response, not from header detection
       expect(result.authMethod).toBe("client-credentials");
+    });
+
+    it("should preserve status code across reliability matrix errors", () => {
+      const statusCodes = [400, 401, 403, 404, 409, 422, 429, 500, 503];
+
+      for (const statusCode of statusCodes) {
+        const error = {
+          config: { url: `/test-${statusCode}`, headers: {} },
+          message: `Error ${statusCode}`,
+          name: "AxiosError",
+          isAxiosError: true,
+          toJSON: jest.fn(),
+          response: {
+            status: statusCode,
+            statusText: `HTTP ${statusCode}`,
+            data: {
+              errors: [`status-${statusCode}`],
+              type: "/Errors/Test",
+              title: `Status ${statusCode}`,
+              statusCode,
+            },
+            headers: {},
+            config: {} as never,
+          },
+        } as unknown as AxiosError;
+
+        const result = createMisoClientError(error, `/test-${statusCode}`);
+        expect(result.statusCode).toBe(statusCode);
+        expect(result.errorResponse?.statusCode).toBe(statusCode);
+      }
     });
   });
 

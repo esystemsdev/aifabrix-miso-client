@@ -49,6 +49,7 @@ import axios, {
   AxiosResponse,
   InternalAxiosRequestConfig,
 } from "axios";
+import { LoggerContextStorage } from "../../src/services/logger/logger-context-storage";
 
 describe("InternalHttpClient", () => {
   let httpClient: InternalHttpClient;
@@ -112,6 +113,48 @@ describe("InternalHttpClient", () => {
 
     jest.clearAllMocks();
     httpClient = new InternalHttpClient(config);
+  });
+
+  afterEach(() => {
+    LoggerContextStorage.getInstance().clearContext();
+  });
+
+  describe("trace header propagation", () => {
+    it("should propagate x-correlation-id and x-request-id from logger context", async () => {
+      LoggerContextStorage.getInstance().setContext({
+        correlationId: "corr-123",
+        requestId: "req-456",
+      });
+
+      expect(requestInterceptorFn).not.toBeNull();
+      const inputConfig = {
+        headers: { "x-client-id": "client-id-header" },
+      } as unknown as InternalAxiosRequestConfig;
+
+      const updatedConfig = await requestInterceptorFn!(inputConfig);
+      expect(updatedConfig.headers["x-correlation-id"]).toBe("corr-123");
+      expect(updatedConfig.headers["x-request-id"]).toBe("req-456");
+    });
+
+    it("should not override existing correlation headers", async () => {
+      LoggerContextStorage.getInstance().setContext({
+        correlationId: "corr-from-context",
+        requestId: "req-from-context",
+      });
+
+      expect(requestInterceptorFn).not.toBeNull();
+      const inputConfig = {
+        headers: {
+          "x-client-id": "client-id-header",
+          "x-correlation-id": "corr-existing",
+          "x-request-id": "req-existing",
+        },
+      } as unknown as InternalAxiosRequestConfig;
+
+      const updatedConfig = await requestInterceptorFn!(inputConfig);
+      expect(updatedConfig.headers["x-correlation-id"]).toBe("corr-existing");
+      expect(updatedConfig.headers["x-request-id"]).toBe("req-existing");
+    });
   });
 
   describe("constructor", () => {
@@ -1366,6 +1409,20 @@ describe("InternalHttpClient", () => {
       (mockAxiosInstance.get as jest.Mock).mockRejectedValue(error);
 
       await expect(httpClient.get("/test")).rejects.toThrow("Network error");
+    });
+
+    it("should timeout when request exceeds configured timeout", async () => {
+      const timeoutConfig = { ...config, timeout: 5 };
+      const timeoutClient = new InternalHttpClient(timeoutConfig);
+      const timeoutAxiosInstance = timeoutClient.getAxiosInstance();
+
+      (timeoutAxiosInstance.get as jest.Mock).mockImplementation(
+        () => new Promise(() => {}),
+      );
+
+      await expect(timeoutClient.get("/timeout-test")).rejects.toThrow(
+        "Request timeout after 5ms",
+      );
     });
   });
 

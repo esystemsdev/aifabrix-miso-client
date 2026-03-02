@@ -74,7 +74,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 - Tests use async patterns where needed
 - Tests follow cursor rules for testing
 - Tests properly mock HttpClient, RedisService, axios, ioredis, jsonwebtoken
-- Tests complete in less than 0.5 seconds
+- Unit tests are properly mocked; each individual unit test should complete in less than 0.5 seconds
 
 ### 4. Code Quality Validation
 
@@ -95,7 +95,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
    - Run `pnpm test` AFTER lint
    - Verify all tests pass
    - Report test failures
-   - Check test execution time (< 0.5 seconds for unit tests)
+   - Check test execution time guidance (each individual unit test < 0.5 seconds; full-suite runtime may be higher)
 
 **Validates Code Against Cursor Rules**:
 
@@ -172,7 +172,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 
 **STEP 1 - FORMAT**: ✅/❌ PASSED
 **STEP 2 - LINT**: ✅/❌ PASSED (0 errors, 0 warnings)
-**STEP 3 - TEST**: ✅/❌ PASSED (all tests pass, < 0.5 seconds)
+**STEP 3 - TEST**: ✅/❌ PASSED (all tests pass; per-test unit runtime guideline < 0.5 seconds)
 
 ### Cursor Rules Compliance
 
@@ -237,7 +237,7 @@ Run this command in chat with `/validate-implementation [plan-file-path]`
 - **All tasks must be completed** for full validation
 - **All files must exist** for full validation
 - **Tests must exist** for new/modified code
-- **Tests must complete in < 0.5 seconds** (all mocked)
+- **Unit test performance guidance**: each individual unit test should complete in < 0.5 seconds (all mocked). Full-suite runtime is validated separately and may exceed 0.5 seconds.
 
 ## Notes
 

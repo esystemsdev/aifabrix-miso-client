@@ -20,6 +20,7 @@ import {
   getWithContext,
 } from "./logger-context";
 import { isAuthError, sendAuditLogPayload } from "./logger-http-utils";
+import { shouldLogLevel } from "./log-level-policy";
 
 export interface ClientLoggingOptions {
   maskSensitiveData?: boolean;
@@ -147,14 +148,16 @@ export class LoggerService extends EventEmitter {
     context?: Record<string, unknown>,
     options?: ClientLoggingOptions,
   ): Promise<void> {
+    const normalizedAction = action.trim() ? action : "unknown_action";
+    const normalizedResource = resource.trim() ? resource : "unknown_resource";
     const auditContext = {
-      action,
-      resource,
+      action: normalizedAction,
+      resource: normalizedResource,
       ...context,
     };
     await this.log(
       "audit",
-      `Audit: ${action} on ${resource}`,
+      `Audit: ${normalizedAction} on ${normalizedResource}`,
       auditContext,
       undefined,
       options,
@@ -202,6 +205,10 @@ export class LoggerService extends EventEmitter {
     stackTrace?: string,
     options?: ClientLoggingOptions,
   ): Promise<void> {
+    if (!shouldLogLevel(this.httpClient.config.logLevel, level)) {
+      return;
+    }
+
     const loggerContext = this.loggerContextStorage.getContext() || {};
     const jwtContext = loggerContext.token
       ? extractJwtContext(loggerContext.token)
@@ -457,17 +464,13 @@ export class LoggerService extends EventEmitter {
       }
     }
   }
-
   /** Method chaining with context */
   withContext(context: Record<string, unknown>): LoggerChain {
     return new LoggerChain(this, context);
   }
-
-  /** Method chaining without sensitive data masking */
   withoutMasking(): LoggerChain {
     return new LoggerChain(this, {}, { maskSensitiveData: false });
   }
-
   /** Get LogEntry with request context extracted */
   getLogWithRequest(req: Request, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
     return getLogWithRequest(req, message, level, context, {
@@ -477,7 +480,6 @@ export class LoggerService extends EventEmitter {
       clientId: this.httpClient.config.clientId,
     });
   }
-
   /** Get LogEntry with provided context */
   getWithContext(context: Record<string, unknown>, message: string, level: LogEntry["level"] = "info"): LogEntry {
     return getWithContext(context, message, level, {
@@ -487,12 +489,10 @@ export class LoggerService extends EventEmitter {
       clientId: this.httpClient.config.clientId,
     });
   }
-
   /** Get LogEntry with request context (alias) */
   getForRequest(req: Request, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
     return this.getLogWithRequest(req, message, level, context);
   }
-
   /** Create logger chain with request context pre-populated */
   forRequest(req: Request): LoggerChain {
     return new LoggerChain(this, {}, {}).withRequest(req);

@@ -21,6 +21,13 @@ await client.log.audit('post.created', 'content', {
 
 Log important actions: login/logout, permission checks, create/update/delete of sensitive data.
 
+Audit completeness rules in SDK:
+
+- Audit events are always emitted regardless of configured log level.
+- Empty audit inputs are normalized for traceability:
+  - empty `action` -> `unknown_action`
+  - empty `resource` -> `unknown_resource`
+
 ## Error logs
 
 Always include context. In Express, use request context so IP, method, path, userAgent, correlationId, and userId are added automatically:
@@ -49,6 +56,13 @@ await client.log.warn('Unusual activity detected', { signal: 'multiple_failed_at
 await client.log.debug('Processing request', { requestId: req.id });
 ```
 
+Level threshold behavior:
+
+- `logLevel=debug`: debug/info/warn/error/audit
+- `logLevel=info`: info/warn/error/audit
+- `logLevel=warn`: warn/error/audit
+- `logLevel=error`: error/audit
+
 With request context (Express):
 
 ```typescript
@@ -58,6 +72,22 @@ await client.log.forRequest(req).info('Users list accessed');
 ## RFC 7807 and errors
 
 When you use the recommended Express pattern ([errors.md](errors.md)), route errors are formatted as RFC 7807 Problem Details and logged with full context by `handleRouteError`. Use that instead of ad-hoc error logging in route handlers where possible.
+
+The SDK HTTP error adapter accepts both common structured formats:
+
+- SDK format: `statusCode`
+- RFC 7807 format: `status` + `detail`
+
+This preserves structured error context for mixed controller/Express response sources.
+
+## Trace propagation
+
+When async logger context contains trace identifiers, outbound controller requests automatically include:
+
+- `x-correlation-id`
+- `x-request-id` (if available)
+
+Existing headers are preserved and are not overwritten.
 
 ## Migration note
 

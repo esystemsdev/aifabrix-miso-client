@@ -23,7 +23,7 @@ When the `/validate-server-tests` command is used, the agent must automatically 
    - Re-run `pnpm test` until all tests pass (exit code 0)
    - Do not proceed until test step is green
    - **All tests MUST be mocked** - no real database connections, external API calls, or I/O operations
-   - **Each individual test MUST complete in less than 0.5 seconds** - if any individual test takes longer than 0.5 seconds, optimize by ensuring all external dependencies are properly mocked and using fake timers where appropriate
+   - **Each individual unit test SHOULD complete in less than 0.5 seconds** - if a unit test takes longer, optimize by ensuring external dependencies are mocked and using fake timers where appropriate. This does not apply to full-suite runtime.
    - **Server-specific considerations**:
      - Mock MisoClient initialization and methods
      - Mock Express Request/Response objects
@@ -57,13 +57,13 @@ When the `/validate-server-tests` command is used, the agent must automatically 
 - **Iterative Process**: Keep running each step and fixing errors until it passes
 - **No User Interaction**: Do NOT ask the user for input or show what's being done
 - **Silent Operation**: Work autonomously and only report completion when all steps are green
-- **Test Performance**: All tests must be mocked and each individual test must complete in less than 0.5 seconds
+- **Test Performance**: All tests must be mocked and individual unit tests should complete in less than 0.5 seconds (full-suite runtime can be higher)
 - **Final Verification**: Lint:fix and lint must be run again after tests pass, and if changes are made, tests must be re-run
 - **Server Context**: All commands must be run from the `server/` directory
 - **Complete Success**: The command is only complete when ALL steps pass AND final verification shows no changes:
   - ✅ `cd server && pnpm run lint:fix` passes (initial)
   - ✅ `cd server && pnpm run lint` passes (initial)
-  - ✅ `cd server && pnpm test` passes (initial, each test < 0.5 seconds, all mocked)
+  - ✅ `cd server && pnpm test` passes (initial; mocked tests, per-unit-test runtime guideline < 0.5 seconds)
   - ✅ `cd server && pnpm run lint:fix` passes (final, no changes)
   - ✅ `cd server && pnpm run lint` passes (final, no changes)
   - ✅ `cd server && pnpm test` passes (final, if lint:fix/lint made changes)
@@ -81,4 +81,4 @@ When the `/validate-server-tests` command is used, the agent must automatically 
 - Ensure all async operations are properly awaited in tests
 - Mock environment variables and configuration
 
-**Work is only done when all validation checks are green and working, final verification shows no changes, each individual test completes in under 0.5 seconds, build completes successfully, and the development server starts without errors.**
+**Work is only done when all validation checks are green and working, final verification shows no changes, unit tests meet the per-test runtime guideline (target < 0.5s per unit test), build completes successfully, and the development server starts without errors.**

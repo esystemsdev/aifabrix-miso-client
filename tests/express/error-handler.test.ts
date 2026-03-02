@@ -127,6 +127,19 @@ describe("error-handler", () => {
       );
     });
 
+    it('should map "too many requests" error message to 429', async () => {
+      const error = new Error("Too many requests");
+
+      await handleRouteError(error, mockReq as Request, mockRes as Response);
+
+      expect(sendErrorResponse).toHaveBeenCalledWith(
+        mockRes,
+        expect.objectContaining({
+          status: 429,
+        }),
+      );
+    });
+
     it("should default to 500 for unknown errors", async () => {
       const error = new Error("Something went wrong");
 

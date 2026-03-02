@@ -175,6 +175,26 @@ describe("LoggerService", () => {
         expect.stringContaining('"resource":"users"'),
       );
     });
+
+    it("should normalize empty action and resource for audit completeness", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      await loggerService.audit("   ", "", { userId: "123" });
+
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"message":"Audit: unknown_action on unknown_resource"'),
+      );
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"action":"unknown_action"'),
+      );
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"resource":"unknown_resource"'),
+      );
+    });
   });
 
   describe("info", () => {
@@ -257,6 +277,52 @@ describe("LoggerService", () => {
 
       expect(mockRedisService.rpush).not.toHaveBeenCalled();
       expect(mockHttpClient.request).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("log level threshold policy", () => {
+    it("should suppress info logs when logLevel is warn", async () => {
+      const warnConfig = { ...config, logLevel: "warn" as const };
+      setHttpClientConfig(mockHttpClient, warnConfig);
+      const thresholdLogger = new LoggerService(mockHttpClient, mockRedisService);
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      await thresholdLogger.info("Info should be suppressed");
+
+      expect(mockRedisService.rpush).not.toHaveBeenCalled();
+      expect(mockHttpClient.request).not.toHaveBeenCalled();
+    });
+
+    it("should suppress warn logs when logLevel is error", async () => {
+      const errorConfig = { ...config, logLevel: "error" as const };
+      setHttpClientConfig(mockHttpClient, errorConfig);
+      const thresholdLogger = new LoggerService(mockHttpClient, mockRedisService);
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      await thresholdLogger.warn("Warn should be suppressed");
+
+      expect(mockRedisService.rpush).not.toHaveBeenCalled();
+      expect(mockHttpClient.request).not.toHaveBeenCalled();
+    });
+
+    it("should always keep audit logs regardless of logLevel", async () => {
+      const errorConfig = { ...config, logLevel: "error" as const };
+      setHttpClientConfig(mockHttpClient, errorConfig);
+      const thresholdLogger = new LoggerService(mockHttpClient, mockRedisService);
+
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+
+      await thresholdLogger.audit("access.granted", "resource", { userId: "user-1" });
+
+      expect(mockRedisService.rpush).toHaveBeenCalledWith(
+        "logs:ctrl-dev-test-app",
+        expect.stringContaining('"level":"audit"'),
+      );
     });
   });
 

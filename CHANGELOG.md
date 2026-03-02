@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.0] - 2026-02-27
+
+### Added
+
+- **End-to-end trace propagation for controller calls** - Internal SDK HTTP pipeline now propagates request trace headers from async logger context.
+  - Automatically forwards `x-correlation-id` and `x-request-id` (when available) on controller-bound requests.
+  - Preserves explicitly provided headers (no overwrite behavior).
+- **ISO-aligned log-level policy module** - Added centralized log-level threshold evaluator in `log-level-policy.ts`.
+  - Enforces threshold for `debug/info/warn/error`.
+  - Keeps `audit` events always on for compliance traceability.
+
+### Changed
+
+- **Centralized error contract resilience** - SDK HTTP error adapter now supports both structured SDK errors (`statusCode`) and RFC 7807 (`status` + `detail`) shapes.
+- **Audit event normalization** - Empty audit action/resource values are normalized to `unknown_action` / `unknown_resource` to preserve complete audit records.
+- **Validation command guidance** - Updated Cursor validation command specs to apply `< 0.5s` runtime guidance per individual unit test (not full-suite runtime).
+- **Audit/logging documentation** - Updated `docs/audit-and-logging.md` with trace propagation, level-threshold behavior, and RFC 7807 compatibility guidance.
+
+### Fixed
+
+- **Rate-limit error mapping** - Added explicit mapping for rate-limit messages (`Too Many Requests` / `rate limit`) to HTTP `429` in Express error handling.
+- **Correlation fallback handling** - RFC 7807 error response builder now falls back to `x-request-id` / `request-id` when `x-correlation-id` is not present.
+- **Test typecheck compatibility** - Fixed strict test typing in `internal-http-client` interceptor tests for `tests:typecheck` stability.
+
+### Technical
+
+- **Reliability test matrix expansion** - Added regression coverage for status codes `400/401/403/404/409/422/429/500/503`.
+- **Timeout behavior verification** - Added explicit timeout-path tests for internal HTTP client request execution.
+- **Validation hardening** - Re-ran and passed validation pipeline (`tests:typecheck`, `lint:fix`, `lint`, `test`) with final verification loop.
+
 ## [4.5.0] - 2026-02-19
 
 ### Added

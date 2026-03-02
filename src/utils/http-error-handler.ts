@@ -7,6 +7,60 @@ import { AxiosError } from "axios";
 import { ErrorResponse, isErrorResponse, AuthMethod } from "../types/config.types";
 import { MisoClientError } from "./errors";
 
+interface Rfc7807LikeError {
+  type: string;
+  title: string;
+  status: number;
+  detail?: string;
+  instance?: string;
+  authMethod?: AuthMethod | null;
+}
+
+function isRfc7807LikeError(data: unknown): data is Rfc7807LikeError {
+  if (!data || typeof data !== "object") return false;
+  const obj = data as Record<string, unknown>;
+  return (
+    typeof obj.type === "string" &&
+    typeof obj.title === "string" &&
+    typeof obj.status === "number"
+  );
+}
+
+function toConfigErrorResponse(
+  data: ErrorResponse,
+  requestUrl?: string,
+): ErrorResponse {
+  const dataRecord = data as unknown as Record<string, unknown>;
+  return {
+    errors: data.errors,
+    type: data.type,
+    title: data.title,
+    statusCode: data.statusCode,
+    instance: data.instance || requestUrl,
+    authMethod: dataRecord.authMethod as AuthMethod | undefined,
+  };
+}
+
+function toRfc7807ErrorResponse(
+  data: Rfc7807LikeError,
+  requestUrl?: string,
+): ErrorResponse {
+  return {
+    errors: data.detail ? [data.detail] : [data.title],
+    type: data.type,
+    title: data.title,
+    statusCode: data.status,
+    instance: data.instance || requestUrl,
+    authMethod: data.authMethod ?? undefined,
+  };
+}
+
+function parseErrorLikeData(data: unknown, requestUrl?: string): ErrorResponse | null {
+  if (isErrorResponse(data)) return toConfigErrorResponse(data, requestUrl);
+  if (isRfc7807LikeError(data)) return toRfc7807ErrorResponse(data, requestUrl);
+  return null;
+}
+
 /**
  * Detect auth method from request headers (fallback when controller doesn't return authMethod).
  * This provides client-side detection when the controller doesn't include authMethod in the error response.
@@ -33,43 +87,17 @@ export function parseErrorResponse(
     if (!error.response?.data) return null;
 
     const data = error.response.data;
-
-    // If data is already an object, check if it matches ErrorResponse structure
-    if (typeof data === "object" && data !== null && isErrorResponse(data)) {
-      // Cast to unknown first, then to Record for authMethod extraction
-      const dataRecord = data as unknown as Record<string, unknown>;
-      return {
-        errors: (data as ErrorResponse).errors,
-        type: (data as ErrorResponse).type,
-        title: (data as ErrorResponse).title,
-        statusCode: (data as ErrorResponse).statusCode,
-        instance: (data as ErrorResponse).instance || requestUrl,
-        authMethod: dataRecord.authMethod as AuthMethod | undefined,
-      };
+    if (typeof data === "object" && data !== null) {
+      return parseErrorLikeData(data, requestUrl);
     }
+    if (typeof data !== "string") return null;
 
-    // If data is a string, try to parse as JSON
-    if (typeof data === "string") {
-      try {
-        const parsed = JSON.parse(data);
-        if (isErrorResponse(parsed)) {
-          // Cast to unknown first, then to Record for authMethod extraction
-          const parsedRecord = parsed as unknown as Record<string, unknown>;
-          return {
-            errors: parsed.errors,
-            type: parsed.type,
-            title: parsed.title,
-            statusCode: parsed.statusCode,
-            instance: parsed.instance || requestUrl,
-            authMethod: parsedRecord.authMethod as AuthMethod | undefined,
-          };
-        }
-      } catch {
-        return null;
-      }
+    try {
+      const parsed = JSON.parse(data);
+      return parseErrorLikeData(parsed, requestUrl);
+    } catch {
+      return null;
     }
-
-    return null;
   } catch {
     return null;
   }
