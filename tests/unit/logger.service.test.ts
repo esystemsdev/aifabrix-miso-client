@@ -1640,4 +1640,184 @@ describe("LoggerService", () => {
       }
     });
   });
+
+  describe("trace field serialization regression", () => {
+    it("should preserve non-empty context.applicationId in general HTTP payload", async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      mockHttpClient.request.mockResolvedValue({});
+
+      await loggerService.info("Context app id", {
+        applicationId: "ctx-app-123",
+      });
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        "POST",
+        "/api/v1/logs",
+        expect.objectContaining({
+          type: "general",
+          data: expect.objectContaining({
+            context: expect.objectContaining({
+              applicationId: "ctx-app-123",
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("should preserve non-empty context.applicationId in audit HTTP payload", async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      mockHttpClient.request.mockResolvedValue({});
+
+      await loggerService.audit("user.updated", "users", {
+        applicationId: "ctx-audit-app",
+      });
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        "POST",
+        "/api/v1/logs",
+        expect.objectContaining({
+          type: "audit",
+          data: expect.objectContaining({
+            context: expect.objectContaining({
+              applicationId: "ctx-audit-app",
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("should prevent empty context.applicationId from clobbering resolved non-empty value", async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      mockHttpClient.request.mockResolvedValue({});
+      LoggerContextStorage.getInstance().setContext({
+        applicationId: "resolved-app-id",
+      });
+
+      await loggerService.info("No clobber", {
+        applicationId: "   ",
+      });
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        "POST",
+        "/api/v1/logs",
+        expect.objectContaining({
+          data: expect.objectContaining({
+            context: expect.objectContaining({
+              applicationId: "resolved-app-id",
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("should prevent null context.applicationId from clobbering resolved non-empty value", async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      mockHttpClient.request.mockResolvedValue({});
+      LoggerContextStorage.getInstance().setContext({
+        applicationId: "resolved-app-id-null",
+      });
+
+      await loggerService.info("No null clobber", {
+        applicationId: null,
+      });
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        "POST",
+        "/api/v1/logs",
+        expect.objectContaining({
+          data: expect.objectContaining({
+            context: expect.objectContaining({
+              applicationId: "resolved-app-id-null",
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("should preserve nested context structure in audit payload while removing reserved audit keys", async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      mockHttpClient.request.mockResolvedValue({});
+
+      await loggerService.audit("user.updated", "users", {
+        applicationId: "ctx-struct-app",
+        nested: {
+          source: "sdk",
+          details: {
+            reason: "sync",
+          },
+        },
+        metadata: {
+          tags: ["a", "b"],
+        },
+      });
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        "POST",
+        "/api/v1/logs",
+        expect.objectContaining({
+          type: "audit",
+          data: expect.objectContaining({
+            context: expect.objectContaining({
+              applicationId: "ctx-struct-app",
+              nested: expect.objectContaining({
+                source: "sdk",
+                details: expect.objectContaining({
+                  reason: "sync",
+                }),
+              }),
+              metadata: expect.objectContaining({
+                tags: ["a", "b"],
+              }),
+            }),
+          }),
+        }),
+      );
+    });
+
+    it("should keep top-level applicationId in serialized log entry for forRequest path", async () => {
+      mockRedisService.isConnected.mockReturnValue(true);
+      mockRedisService.rpush.mockResolvedValue(true);
+      LoggerContextStorage.getInstance().setContext({
+        applicationId: "request-app-id",
+      });
+
+      const req = {
+        method: "GET",
+        path: "/api/resource",
+        headers: {
+          "x-correlation-id": "corr-req-1",
+        },
+        socket: { remoteAddress: "127.0.0.1" },
+      } as unknown as Request;
+
+      await loggerService.forRequest(req).info("forRequest info");
+
+      const rpushCall = mockRedisService.rpush.mock.calls[0];
+      expect(rpushCall).toBeDefined();
+      if (rpushCall && rpushCall[1]) {
+        const logEntry = JSON.parse(rpushCall[1] as string);
+        expect(logEntry.applicationId).toBe("request-app-id");
+      }
+    });
+
+    it("should keep applicationId parity between direct and withContext paths", async () => {
+      mockRedisService.isConnected.mockReturnValue(false);
+      mockHttpClient.request.mockResolvedValue({});
+
+      await loggerService.info("direct", { applicationId: "parity-app" });
+      const directPayload = mockHttpClient.request.mock.calls[0][2] as {
+        data?: { context?: Record<string, unknown> };
+      };
+
+      mockHttpClient.request.mockClear();
+
+      await loggerService.withContext({ applicationId: "parity-app" }).info("chain");
+      const chainPayload = mockHttpClient.request.mock.calls[0][2] as {
+        data?: { context?: Record<string, unknown> };
+      };
+
+      expect(directPayload.data?.context?.applicationId).toBe("parity-app");
+      expect(chainPayload.data?.context?.applicationId).toBe("parity-app");
+    });
+  });
 });

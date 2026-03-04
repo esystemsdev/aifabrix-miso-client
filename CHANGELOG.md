@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.1] - 2026-03-04
+
+### Added
+
+- **Deterministic trace-field normalization utilities** - Added shared logger trace helpers and centralized log entry builder modules.
+  - New `trace-field-utils.ts` for first-non-empty resolution.
+  - New `log-entry-builder.ts` to consolidate log entry construction and enriched context serialization.
+- **Production safety marker gate** - Added `check:forbidden-markers` script and scanner utility to prevent temporary debug/trace markers from shipping in production code paths.
+
+### Changed
+
+- **Logger serialization hardening** - Unified precedence and non-empty clobber protection for key trace fields across logger paths.
+  - `applicationId`, `correlationId`, `requestId`, `userId`, `application`, and `environment` now follow centralized resolution behavior.
+  - Empty or whitespace context values no longer overwrite resolved non-empty trace values.
+- **Unified logger parity** - `UnifiedLoggerService` now forwards traceability context to underlying logger methods for consistent behavior with direct, chain, and request-bound logging flows.
+- **Audit/logging documentation** - Added production-safety check guidance and marker-gate usage in `docs/audit-and-logging.md`.
+
+### Fixed
+
+- **Traceability regression coverage** - Added/expanded regression tests to verify serialized payload preservation of `applicationId` and path parity in audit/general/error flows.
+- **Context merge edge cases** - Added explicit test coverage for null/empty clobber scenarios and nested context preservation in audit payloads.
+
+### Technical
+
+- **Validation hardening** - Revalidated formatting/lint/tests and marker gate in release preparation pipeline.
+- **Plan and validation artifacts** - Updated implementation/validation plans for SDK-only scope and release readiness.
+
 ## [4.6.0] - 2026-02-27
 
 ### Added

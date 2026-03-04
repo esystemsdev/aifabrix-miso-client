@@ -21,6 +21,11 @@ import {
 } from "./logger-context";
 import { isAuthError, sendAuditLogPayload } from "./logger-http-utils";
 import { shouldLogLevel } from "./log-level-policy";
+import {
+  buildEnrichedLogContext,
+  buildLogEntryFromParams,
+  resolveCorrelationId,
+} from "./log-entry-builder";
 
 export interface ClientLoggingOptions {
   maskSensitiveData?: boolean;
@@ -214,11 +219,14 @@ export class LoggerService extends EventEmitter {
       ? extractJwtContext(loggerContext.token)
       : {};
     const metadata = extractEnvironmentMetadata();
-    const correlationId =
-      loggerContext.correlationId || this.generateCorrelationId();
+    const correlationId = resolveCorrelationId(
+      context,
+      loggerContext.correlationId,
+      () => this.generateCorrelationId(),
+    );
     const maskedContext = this.maskContext(context, options);
     const appContext = this.applicationContextService.getApplicationContext();
-    const logEntry = this.buildLogEntry({
+    const logEntry = buildLogEntryFromParams({
       level,
       message,
       maskedContext,
@@ -229,6 +237,7 @@ export class LoggerService extends EventEmitter {
       appContext,
       loggerContext,
       correlationId,
+      clientId: this.httpClient.config.clientId,
     });
 
     if (this.httpClient.config.emitEvents) {
@@ -266,86 +275,6 @@ export class LoggerService extends EventEmitter {
     }
     return DataMasker.maskSensitiveData(context) as Record<string, unknown>;
   }
-
-  /**
-   * Build LogEntry from inputs and context.
-   */
-  private buildLogEntry(params: {
-    level: LogEntry["level"];
-    message: string;
-    maskedContext: Record<string, unknown> | undefined;
-    stackTrace: string | undefined;
-    options: ClientLoggingOptions | undefined;
-    jwtContext: ReturnType<typeof extractJwtContext>;
-    metadata: ReturnType<typeof extractEnvironmentMetadata>;
-    appContext: ReturnType<ApplicationContextService["getApplicationContext"]>;
-    loggerContext: ReturnType<LoggerContextStorage["getContext"]> | null;
-    correlationId: string;
-  }): LogEntry {
-    const p = params;
-    const contextEnvironment =
-      typeof p.maskedContext?.environment === "string"
-        ? p.maskedContext.environment
-        : undefined;
-    const contextApplication =
-      typeof p.maskedContext?.application === "string"
-        ? p.maskedContext.application
-        : undefined;
-    const applicationId = this.resolveApplicationId(
-      p.jwtContext, p.appContext, p.loggerContext,
-    );
-
-    return {
-      timestamp: new Date().toISOString(),
-      level: p.level,
-      environment: contextEnvironment || p.appContext.environment || "unknown",
-      application:
-        contextApplication ||
-        p.appContext.application ||
-        this.httpClient.config.clientId,
-      applicationId,
-      message: p.message,
-      context: p.maskedContext,
-      stackTrace: p.stackTrace,
-      correlationId: p.correlationId,
-      userId: p.loggerContext?.userId || p.jwtContext.userId,
-      sessionId: p.loggerContext?.sessionId || p.jwtContext.sessionId,
-      requestId: p.loggerContext?.requestId,
-      ipAddress: p.loggerContext?.ipAddress || p.metadata.ipAddress,
-      userAgent: p.loggerContext?.userAgent || p.metadata.userAgent,
-      referer: p.loggerContext?.referer,
-      ...p.metadata,
-      sourceKey: p.options?.sourceKey,
-      sourceDisplayName: p.options?.sourceDisplayName,
-      externalSystemKey: p.options?.externalSystemKey,
-      externalSystemDisplayName: p.options?.externalSystemDisplayName,
-      recordKey: p.options?.recordKey,
-      recordDisplayName: p.options?.recordDisplayName,
-      credentialId: p.options?.credentialId,
-      credentialType: p.options?.credentialType,
-      requestSize: p.loggerContext?.requestSize,
-      responseSize: p.options?.responseSize,
-      durationMs: p.options?.durationMs,
-      errorCategory: p.options?.errorCategory,
-      httpStatusCategory: p.options?.httpStatusCategory,
-    };
-  }
-
-  /**
-   * Resolve applicationId from options, app context, or JWT context.
-   */
-  private resolveApplicationId(
-    jwtContext: ReturnType<typeof extractJwtContext>,
-    appContext: ReturnType<ApplicationContextService["getApplicationContext"]>,
-    loggerContext: ReturnType<LoggerContextStorage["getContext"]> | null,
-  ): string {
-    if (loggerContext?.applicationId) return loggerContext.applicationId;
-    if (appContext.applicationId) {
-      return appContext.applicationId;
-    }
-    return jwtContext.applicationId || "";
-  }
-
   private async sendToRedis(logEntry: LogEntry): Promise<boolean> {
     if (!this.redis.isConnected()) {
       return false;
@@ -391,45 +320,6 @@ export class LoggerService extends EventEmitter {
   private assertNever(value: never): never {
     throw new Error(`Unhandled log level: ${String(value)}`);
   }
-  private buildEnrichedContext(logEntry: LogEntry): Record<string, unknown> {
-    const enrichedContext: Record<string, unknown> = {
-      ...logEntry.context,
-      userId: logEntry.userId,
-      sessionId: logEntry.sessionId,
-      requestId: logEntry.requestId,
-      ipAddress: logEntry.ipAddress,
-      userAgent: logEntry.userAgent,
-      referer: logEntry.referer,
-      hostname: logEntry.hostname,
-      applicationId: logEntry.applicationId,
-      sourceKey: logEntry.sourceKey,
-      sourceDisplayName: logEntry.sourceDisplayName,
-      externalSystemKey: logEntry.externalSystemKey,
-      externalSystemDisplayName: logEntry.externalSystemDisplayName,
-      recordKey: logEntry.recordKey,
-      recordDisplayName: logEntry.recordDisplayName,
-      credentialId: logEntry.credentialId,
-      credentialType: logEntry.credentialType,
-      requestSize: logEntry.requestSize,
-      responseSize: logEntry.responseSize,
-      durationMs: logEntry.durationMs,
-      errorCategory: logEntry.errorCategory,
-      httpStatusCategory: logEntry.httpStatusCategory,
-    };
-
-    Object.keys(enrichedContext).forEach((key) => {
-      if (enrichedContext[key] === undefined) {
-        delete enrichedContext[key];
-      }
-    });
-
-    if (logEntry.stackTrace) {
-      enrichedContext.stackTrace = logEntry.stackTrace;
-    }
-
-    return enrichedContext;
-  }
-
   private async sendToHttp(level: LogEntry["level"], logEntry: LogEntry): Promise<void> {
     const now = Date.now();
     try {
@@ -437,7 +327,7 @@ export class LoggerService extends EventEmitter {
         throw new Error("ApiClient not initialized. Call setApiClient() before logging.");
       }
       const { logType, logLevel } = this.mapLogType(level);
-      const enrichedContext = this.buildEnrichedContext(logEntry);
+      const enrichedContext = buildEnrichedLogContext(logEntry);
 
       if (level === "audit") {
         await sendAuditLogPayload(this.apiClient, logEntry, enrichedContext, logType, logLevel);

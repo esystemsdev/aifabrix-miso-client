@@ -6,6 +6,7 @@
 
 import { LoggerService, ClientLoggingOptions } from "./logger.service";
 import { LoggerContextStorage, LoggerContext } from "./logger-context-storage";
+import { pickFirstNonEmpty } from "./trace-field-utils";
 
 /**
  * Unified Logger Interface
@@ -83,6 +84,33 @@ export class UnifiedLoggerService implements UnifiedLogger {
   }
 
   /**
+   * Build traceability context passed to LoggerService methods.
+   * Keeps logger paths consistent when context exists in AsyncLocalStorage.
+   */
+  private buildTraceContext(context: LoggerContext): Record<string, unknown> | undefined {
+    const traceContext: Record<string, unknown> = {};
+    const applicationId = pickFirstNonEmpty(context.applicationId);
+    const correlationId = pickFirstNonEmpty(context.correlationId);
+    const requestId = pickFirstNonEmpty(context.requestId);
+    const userId = pickFirstNonEmpty(context.userId);
+
+    if (applicationId) {
+      traceContext.applicationId = applicationId;
+    }
+    if (correlationId) {
+      traceContext.correlationId = correlationId;
+    }
+    if (requestId) {
+      traceContext.requestId = requestId;
+    }
+    if (userId) {
+      traceContext.userId = userId;
+    }
+
+    return Object.keys(traceContext).length > 0 ? traceContext : undefined;
+  }
+
+  /**
    * Extract error context from error object
    * Extracts stack trace, error name, and error message
    */
@@ -129,7 +157,11 @@ export class UnifiedLoggerService implements UnifiedLogger {
     try {
       const context = this.getContext();
       const options = this.buildLoggingOptions(context);
-      await this.loggerService.info(message, undefined, options);
+      await this.loggerService.info(
+        message,
+        this.buildTraceContext(context),
+        options,
+      );
     } catch (error) {
       // Error handling in logger should be silent (catch and swallow)
       // Per Logger Chain Pattern
@@ -143,7 +175,11 @@ export class UnifiedLoggerService implements UnifiedLogger {
     try {
       const context = this.getContext();
       const options = this.buildLoggingOptions(context);
-      await this.loggerService.warn(message, undefined, options);
+      await this.loggerService.warn(
+        message,
+        this.buildTraceContext(context),
+        options,
+      );
     } catch (error) {
       // Error handling in logger should be silent (catch and swallow)
     }
@@ -156,7 +192,11 @@ export class UnifiedLoggerService implements UnifiedLogger {
     try {
       const context = this.getContext();
       const options = this.buildLoggingOptions(context);
-      await this.loggerService.debug(message, undefined, options);
+      await this.loggerService.debug(
+        message,
+        this.buildTraceContext(context),
+        options,
+      );
     } catch (error) {
       // Error handling in logger should be silent (catch and swallow)
     }
@@ -170,9 +210,12 @@ export class UnifiedLoggerService implements UnifiedLogger {
       const context = this.getContext();
       const options = this.buildLoggingOptions(context);
       const errorContext = this.extractErrorContext(error);
+      const traceContext = this.buildTraceContext(context);
 
       // Build context with error details
-      const logContext: Record<string, unknown> = {};
+      const logContext: Record<string, unknown> = traceContext
+        ? { ...traceContext }
+        : {};
       if (errorContext.errorName) {
         logContext.errorName = errorContext.errorName;
       }
@@ -204,9 +247,11 @@ export class UnifiedLoggerService implements UnifiedLogger {
     try {
       const context = this.getContext();
       const options = this.buildLoggingOptions(context);
+      const traceContext = this.buildTraceContext(context);
 
       // Build audit context with entityId, oldValues, newValues
       const auditContext: Record<string, unknown> = {
+        ...(traceContext || {}),
         entityId: entityId || "unknown",
       };
 

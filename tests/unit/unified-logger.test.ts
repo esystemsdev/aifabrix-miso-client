@@ -217,6 +217,8 @@ describe("UnifiedLoggerService", () => {
       contextStorage.setContext({
         userId: "user-123",
         correlationId: "corr-456",
+        requestId: "req-789",
+        applicationId: "app-xyz",
         ipAddress: "192.168.1.1",
       });
 
@@ -224,7 +226,12 @@ describe("UnifiedLoggerService", () => {
 
       expect(mockLoggerService.info).toHaveBeenCalledWith(
         "Test message",
-        undefined,
+        expect.objectContaining({
+          userId: "user-123",
+          correlationId: "corr-456",
+          requestId: "req-789",
+          applicationId: "app-xyz",
+        }),
         expect.objectContaining({
           maskSensitiveData: true,
         }),
@@ -374,6 +381,30 @@ describe("UnifiedLoggerService", () => {
   });
 
   describe("audit", () => {
+    it("should include trace context fields for audit when available", async () => {
+      contextStorage.setContext({
+        applicationId: "app-1",
+        correlationId: "corr-1",
+        requestId: "req-1",
+        userId: "user-1",
+      });
+
+      await unifiedLogger.audit("CREATE", "User", "user-123");
+
+      expect(mockLoggerService.audit).toHaveBeenCalledWith(
+        "CREATE",
+        "User",
+        expect.objectContaining({
+          entityId: "user-123",
+          applicationId: "app-1",
+          correlationId: "corr-1",
+          requestId: "req-1",
+          userId: "user-1",
+        }),
+        expect.any(Object),
+      );
+    });
+
     it("should log audit event with entityId", async () => {
       await unifiedLogger.audit("CREATE", "User", "user-123");
 

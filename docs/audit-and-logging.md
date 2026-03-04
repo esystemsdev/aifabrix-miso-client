@@ -93,6 +93,16 @@ Existing headers are preserved and are not overwritten.
 
 If you previously encoded warnings as `info` (for example `info + originalLevel=warn` in context), you can now switch to native `client.log.warn(...)`.
 
+## Production safety check
+
+This SDK includes a CI/check gate to prevent temporary trace/debug artifacts from shipping in production code paths:
+
+```bash
+pnpm run check:forbidden-markers
+```
+
+The check scans `src/` and fails if forbidden temporary markers are found (for example `TEMP TRACE`, `DEBUG TRACE`, `TRACE SNAPSHOT`).
+
 ## When to use what
 
 | Need | Use |

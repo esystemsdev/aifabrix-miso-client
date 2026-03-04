@@ -9,6 +9,7 @@ import { LogEntry } from "../../types/config.types";
 import { DataMasker } from "../../utils/data-masker";
 import { extractRequestContext } from "../../utils/request-context";
 import { ApplicationContextService } from "../application-context.service";
+import { pickFirstNonEmpty } from "./trace-field-utils";
 
 /**
  * Extract JWT token information
@@ -85,6 +86,61 @@ export interface GetLogWithRequestOptions {
   clientId?: string;
 }
 
+function maskLogContext(
+  context: Record<string, unknown> | undefined,
+  maskSensitiveData: boolean,
+): Record<string, unknown> | undefined {
+  if (!maskSensitiveData || !context) {
+    return context;
+  }
+
+  return DataMasker.maskSensitiveData(context) as Record<string, unknown>;
+}
+
+function resolveRequestTraceFields(input: {
+  context: Record<string, unknown> | undefined;
+  appContext: ReturnType<ApplicationContextService["getApplicationContext"]>;
+  requestContext: ReturnType<typeof extractRequestContext>;
+  jwtContext: ReturnType<typeof extractJwtContext>;
+  clientId?: string;
+}): {
+  applicationId: string;
+  application: string;
+  environment: string;
+  requestId?: string;
+  userId?: string;
+} {
+  return {
+    applicationId:
+      pickFirstNonEmpty(
+        input.context?.applicationId,
+        input.appContext.applicationId,
+        input.jwtContext.applicationId,
+      ) || "",
+    application:
+      pickFirstNonEmpty(
+        input.context?.application,
+        input.appContext.application,
+        input.clientId,
+      ) || "",
+    environment:
+      pickFirstNonEmpty(
+        input.context?.environment,
+        input.appContext.environment,
+        "unknown",
+      ) || "unknown",
+    requestId: pickFirstNonEmpty(
+      input.context?.requestId,
+      input.requestContext.requestId,
+    ),
+    userId: pickFirstNonEmpty(
+      input.context?.userId,
+      input.requestContext.userId,
+      input.jwtContext.userId,
+    ),
+  };
+}
+
 /**
  * Get LogEntry object with request context extracted
  * Extracts IP, method, path, userAgent, correlationId, userId from Express Request
@@ -118,32 +174,29 @@ export function getLogWithRequest(
   const appContext = applicationContextService.getApplicationContext();
 
   const correlationId =
-    requestContext.correlationId || generateCorrelationId();
-
-  // Mask sensitive data in context if enabled
-  const maskedContext =
-    maskSensitiveData && context
-      ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
-      : context;
-
-  // Extract applicationId: try user JWT first, then client token
-  let applicationId = jwtContext.applicationId || "";
-  if (!applicationId && appContext.applicationId) {
-    applicationId = appContext.applicationId;
-  }
+    pickFirstNonEmpty(context?.correlationId, requestContext.correlationId) ||
+    generateCorrelationId();
+  const maskedContext = maskLogContext(context, maskSensitiveData);
+  const traceFields = resolveRequestTraceFields({
+    context,
+    appContext,
+    requestContext,
+    jwtContext,
+    clientId,
+  });
 
   return {
     timestamp: new Date().toISOString(),
     level,
-    environment: appContext.environment || "unknown",
-    application: appContext.application || clientId || "",
-    applicationId,
+    environment: traceFields.environment,
+    application: traceFields.application,
+    applicationId: traceFields.applicationId,
     message,
     context: maskedContext,
     correlationId,
-    userId: requestContext.userId || jwtContext.userId,
+    userId: traceFields.userId,
     sessionId: requestContext.sessionId || jwtContext.sessionId,
-    requestId: requestContext.requestId,
+    requestId: traceFields.requestId,
     ipAddress: requestContext.ipAddress || metadata.ipAddress,
     userAgent: requestContext.userAgent || metadata.userAgent,
     referer: requestContext.referer,
@@ -191,12 +244,27 @@ export function getWithContext(
     ? (DataMasker.maskSensitiveData(context) as Record<string, unknown>)
     : context;
 
+  const application =
+    pickFirstNonEmpty(
+      context.application,
+      appContext.application,
+      clientId,
+    ) || "";
+  const environment =
+    pickFirstNonEmpty(
+      context.environment,
+      appContext.environment,
+      "unknown",
+    ) || "unknown";
+  const applicationId =
+    pickFirstNonEmpty(context.applicationId, appContext.applicationId) || "";
+
   return {
     timestamp: new Date().toISOString(),
     level,
-    environment: appContext.environment || "unknown",
-    application: appContext.application || clientId || "",
-    applicationId: appContext.applicationId || "",
+    environment,
+    application,
+    applicationId,
     message,
     context: maskedContext,
     correlationId,

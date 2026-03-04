@@ -344,6 +344,33 @@ describe("MisoClient Integration", () => {
         }),
       );
     });
+
+    it("should preserve non-empty context applicationId when Redis fails and HTTP fallback is used", async () => {
+      mockAxiosInstance.post.mockResolvedValue({ data: {} });
+      mockRedis.connect.mockResolvedValue(undefined);
+      mockRedis.isConnected.mockReturnValue(true);
+      mockRedis.rpush.mockRejectedValue(new Error("Redis rpush failed"));
+
+      await client.initialize();
+      await client.log.info("Test info with app id", {
+        applicationId: "app-from-context",
+      });
+
+      expect(mockAxiosInstance.post).toHaveBeenCalledWith(
+        "/api/v1/logs",
+        expect.objectContaining({
+          type: "general",
+          data: expect.objectContaining({
+            context: expect.objectContaining({
+              applicationId: "app-from-context",
+            }),
+          }),
+        }),
+        expect.objectContaining({
+          signal: expect.anything(),
+        }),
+      );
+    });
   });
 
   describe("Configuration", () => {
