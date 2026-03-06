@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.2] - 2026-03-06
+
+### Changed
+
+- **Controller client authentication (breaking)** - miso-controller APIs accept **only** `x-client-token` for client authentication. `x-client-id` and `x-client-secret` are **not supported** on controller API endpoints. Obtain the client token via:
+  - Pre-provided token: `clientToken` and `clientTokenExpiresAt` in config (e.g. from app backend or env).
+  - Callback: `onClientTokenRefresh` to supply tokens from your backend or a dedicated token service.
+  - If using `clientTokenUri` with client credentials, it must point to a token issuer that accepts client id/secret (e.g. app backend), not necessarily the controller. If the controller's token endpoint does not accept client credentials, use `clientToken` or `onClientTokenRefresh` only.
+- **Project rules and README** - Documented client-token-only policy and recommended token acquisition patterns in project rules and docs.
+
+### Added
+
+- **User token exchange** - New `exchangeUserToken(externalToken)` API to exchange an external user token (e.g. Entra) for a Keycloak token. Uses client token only (`x-client-token`); no client id/secret sent to the controller. Exposed on `AuthTokenApi`, `AuthApi`, and `MisoClient`.
+- **Exchange types** - `ExchangeTokenRequest` and `ExchangeTokenResponse` interfaces in auth types; endpoint constant for `POST /api/v1/auth/token/exchange`.
+
+### Technical
+
+- **Client token manager** - Comment added that when `clientTokenUri` points at the controller, the controller may not accept client id/secret; prefer `clientToken` or `onClientTokenRefresh`.
+
 ## [4.6.1] - 2026-03-04
 
 ### Added

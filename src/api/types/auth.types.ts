@@ -143,6 +143,28 @@ export interface RefreshTokenResponse {
 }
 
 /**
+ * User token exchange request (external token e.g. Entra for Keycloak)
+ * POST /api/v1/auth/token/exchange
+ */
+export interface ExchangeTokenRequest {
+  token: string;
+}
+
+/**
+ * User token exchange response (Keycloak token and exchanged flag)
+ */
+export interface ExchangeTokenResponse {
+  success: boolean;
+  data: {
+    accessToken: string;
+    tokenExchanged: boolean;
+    expiresIn?: number;
+    expiresAt?: string;
+  };
+  timestamp: string;
+}
+
+/**
  * Client token response (for /api/v1/auth/client-token)
  */
 export interface ClientTokenResponse {

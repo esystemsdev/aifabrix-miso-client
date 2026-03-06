@@ -24,9 +24,9 @@ export function ApiTestingPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-border bg-white">
+      <div className="border-b border-border bg-background">
         <div className="px-8 py-6">
-          <h1 className="text-2xl">API Testing</h1>
+          <h1 className="text-2xl font-semibold text-foreground">API Testing</h1>
           <p className="text-muted-foreground mt-1">
             Test HTTP methods, authentication, and error handling
           </p>

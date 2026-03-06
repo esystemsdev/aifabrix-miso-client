@@ -10,6 +10,8 @@ import {
   ValidateTokenResponse,
   RefreshTokenRequest,
   RefreshTokenResponse,
+  ExchangeTokenRequest,
+  ExchangeTokenResponse,
   ClientTokenResponse,
   ClientTokenLegacyResponse,
 } from '../../../src/api/types/auth.types';
@@ -361,6 +363,85 @@ describe('AuthTokenApi', () => {
       expect(console.error).toHaveBeenCalledWith(
         expect.stringContaining('[AuthTokenApi]'),
         expect.stringContaining('Refresh token failed'),
+      );
+    });
+  });
+
+  describe('exchangeUserToken', () => {
+    it('should call HttpClient.request with body and no client id/secret when no authStrategy', async () => {
+      const request: ExchangeTokenRequest = {
+        token: 'external-entra-token',
+      };
+      const mockResponse: ExchangeTokenResponse = {
+        success: true,
+        data: {
+          accessToken: 'keycloak-access-token',
+          tokenExchanged: true,
+          expiresIn: 3600,
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await authTokenApi.exchangeUserToken(request);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'POST',
+        '/api/v1/auth/token/exchange',
+        request,
+      );
+      expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
+      const callConfig = mockHttpClient.request.mock.calls[0];
+      expect(callConfig[3]).toBeUndefined();
+      expect(result).toEqual(mockResponse);
+      expect(result.data.accessToken).toBe('keycloak-access-token');
+      expect(result.data.tokenExchanged).toBe(true);
+    });
+
+    it('should call HttpClient.requestWithAuthStrategy when authStrategy provided', async () => {
+      const request: ExchangeTokenRequest = {
+        token: 'external-token-456',
+      };
+      const authStrategy: AuthStrategy = {
+        methods: ['bearer'],
+      };
+      const mockResponse: ExchangeTokenResponse = {
+        success: true,
+        data: {
+          accessToken: 'keycloak-token-456',
+          tokenExchanged: false,
+          expiresIn: 1800,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.requestWithAuthStrategy.mockResolvedValue(mockResponse);
+
+      const result = await authTokenApi.exchangeUserToken(request, authStrategy);
+
+      expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
+        'POST',
+        '/api/v1/auth/token/exchange',
+        authStrategy,
+        request,
+      );
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should handle errors', async () => {
+      const request: ExchangeTokenRequest = {
+        token: 'invalid-external-token',
+      };
+      const error = new Error('Token exchange failed');
+
+      mockHttpClient.request.mockRejectedValue(error);
+
+      await expect(authTokenApi.exchangeUserToken(request)).rejects.toThrow('Token exchange failed');
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[AuthTokenApi]'),
+        expect.stringContaining('Token exchange failed'),
       );
     });
   });

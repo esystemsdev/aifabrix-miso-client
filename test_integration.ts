@@ -533,13 +533,9 @@ async function runIntegrationTests(): Promise<void> {
     await client.log.audit('test_action', 'test_resource', { test: 'integration' });
   });
 
-  await runner.runTest(
-    'debug logging',
-    async () => {
-      await client.log.debug('Integration test debug message', { test: 'integration' });
-    },
-    config.logLevel !== 'debug' // Skip if log level is not debug
-  );
+  await runner.runTest('debug logging', async () => {
+    await client.log.debug('Integration test debug message', { test: 'integration' });
+  });
 
   await runner.runTest('LoggerChain withContext user', async () => {
     await client.log

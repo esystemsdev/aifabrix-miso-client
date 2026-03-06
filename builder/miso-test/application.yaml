@@ -6,7 +6,8 @@ app:
 image:
   name: miso-test
   tag: latest
-  registry: ''
+  # Set your container registry (e.g. myacr.azurecr.io). Override at deploy time with: --image <registry>/miso-test:<tag>
+  registry: aifabrixdevacr.azurecr.io
   registryMode: external
 port: 3083
 requires:

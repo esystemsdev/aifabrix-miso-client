@@ -10,6 +10,8 @@ import {
   LoginResponse,
   ValidateTokenRequest,
   ValidateTokenResponse,
+  ExchangeTokenRequest,
+  ExchangeTokenResponse,
   GetUserResponse,
 } from '../../../src/api/types/auth.types';
 
@@ -203,5 +205,52 @@ describe('AuthApi', () => {
     });
   });
 
+  describe('exchangeUserToken', () => {
+    it('should call HttpClient.request with exchange body when no authStrategy', async () => {
+      const params: ExchangeTokenRequest = { token: 'external-token' };
+      const mockResponse: ExchangeTokenResponse = {
+        success: true,
+        data: {
+          accessToken: 'keycloak-token',
+          tokenExchanged: true,
+          expiresIn: 3600,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await authApi.exchangeUserToken(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'POST',
+        '/api/v1/auth/token/exchange',
+        params,
+      );
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should delegate to requestWithAuthStrategy when authStrategy provided', async () => {
+      const params: ExchangeTokenRequest = { token: 'external-token' };
+      const authStrategy: AuthStrategy = { methods: ['bearer'] };
+      const mockResponse: ExchangeTokenResponse = {
+        success: true,
+        data: { accessToken: 'kc', tokenExchanged: false },
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.requestWithAuthStrategy.mockResolvedValue(mockResponse);
+
+      const result = await authApi.exchangeUserToken(params, authStrategy);
+
+      expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
+        'POST',
+        '/api/v1/auth/token/exchange',
+        authStrategy,
+        params,
+      );
+      expect(result).toEqual(mockResponse);
+    });
+  });
 });
 

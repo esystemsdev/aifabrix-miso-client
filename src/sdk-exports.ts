@@ -53,6 +53,10 @@ export type {
   EncryptionStorage,
 } from "./api/types/encryption.types";
 export type {
+  ExchangeTokenRequest,
+  ExchangeTokenResponse,
+} from "./api/types/auth.types";
+export type {
   ApplicationStatus,
   UpdateSelfStatusRequest,
   UpdateSelfStatusResponse,

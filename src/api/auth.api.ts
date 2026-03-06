@@ -20,6 +20,8 @@ import {
   DeviceCodeRefreshRequest,
   ValidateTokenRequest,
   ValidateTokenResponse,
+  ExchangeTokenRequest,
+  ExchangeTokenResponse,
   GetUserResponse,
   LogoutResponse,
   RefreshTokenRequest,
@@ -108,6 +110,13 @@ export class AuthApi {
     authStrategy?: AuthStrategy,
   ): Promise<ValidateTokenResponse> {
     return this.tokenApi.validateToken(params, authStrategy);
+  }
+
+  async exchangeUserToken(
+    params: ExchangeTokenRequest,
+    authStrategy?: AuthStrategy,
+  ): Promise<ExchangeTokenResponse> {
+    return this.tokenApi.exchangeUserToken(params, authStrategy);
   }
 
   async refreshToken(

@@ -193,6 +193,30 @@ describe("API Endpoints Integration Tests", () => {
         expect(response).toBeDefined();
         expect(response.success).toBeDefined();
       });
+
+      test("POST /api/v1/auth/token/exchange - Exchange user token (client token only)", async () => {
+        if (shouldSkip() || !userToken) {
+          console.log("Skipping test - config or user token not available");
+          return;
+        }
+
+        // Exchange uses only x-client-token (no client id/secret). If controller does not
+        // implement the exchange endpoint yet, 404 is acceptable.
+        try {
+          const response = await client.exchangeUserToken(userToken);
+          expect(response).toBeDefined();
+          expect(response.success).toBe(true);
+          expect(response.data).toBeDefined();
+          expect(typeof response.data.accessToken).toBe("string");
+          expect(typeof response.data.tokenExchanged).toBe("boolean");
+        } catch (error) {
+          const is404 = error instanceof MisoClientError && error.statusCode === 404;
+          if (is404) {
+            return; // Endpoint not implemented on controller yet
+          }
+          throw error;
+        }
+      });
     });
 
     describe("Login Endpoints", () => {

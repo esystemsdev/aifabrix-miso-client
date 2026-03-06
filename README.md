@@ -263,6 +263,17 @@ if (token) {
 
 **Where to get tokens?** Users authenticate via Keycloak, then your app receives JWTs in the `Authorization` header.
 
+**Client token only:** All controller API calls use only the `x-client-token` header for client authentication. Obtain the client token via config (`clientToken`/`clientTokenExpiresAt`) or a callback (`onClientTokenRefresh`), e.g. from your app backend or a dedicated token service. Do not send client id/secret to the controller for normal APIs.
+
+**User token exchange:** To exchange an external token (e.g. Microsoft Entra) for a Keycloak token, use `exchangeUserToken`. The controller validates the external token and returns the Keycloak token and a `tokenExchanged` flag. Protected endpoints may also return the effective token in response headers (`X-Auth-Token`, `X-Token-Exchanged`).
+
+```typescript
+// Exchange external token (e.g. Entra) for Keycloak token
+const result = await client.exchangeUserToken(entraOrExternalToken);
+// result.data.accessToken - use as Bearer token for controller calls
+// result.data.tokenExchanged - true if controller exchanged the token
+```
+
 → [Complete authentication example](examples/step-3-authentication.ts)  
 → [Quick start example](examples/usage.ts)
 

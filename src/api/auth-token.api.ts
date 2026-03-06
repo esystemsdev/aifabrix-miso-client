@@ -6,11 +6,12 @@
 import { HttpClient } from '../utils/http-client';
 import { AuthStrategy } from '../types/config.types';
 import {
-
   ValidateTokenRequest,
   ValidateTokenResponse,
   RefreshTokenRequest,
   RefreshTokenResponse,
+  ExchangeTokenRequest,
+  ExchangeTokenResponse,
   ClientTokenResponse,
   ClientTokenLegacyResponse,
 } from './types/auth.types';
@@ -64,6 +65,7 @@ export class AuthTokenApi {
   // Centralize endpoint URLs as constants
   private static readonly CLIENT_TOKEN_ENDPOINT = '/api/v1/auth/client-token';
   private static readonly CLIENT_TOKEN_LEGACY_ENDPOINT = '/api/v1/auth/token';
+  private static readonly EXCHANGE_TOKEN_ENDPOINT = '/api/v1/auth/token/exchange';
   private static readonly VALIDATE_ENDPOINT = '/api/v1/auth/validate';
   private static readonly REFRESH_ENDPOINT = '/api/v1/auth/refresh';
 
@@ -185,6 +187,41 @@ export class AuthTokenApi {
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthTokenApi.VALIDATE_ENDPOINT,
+        method: 'POST',
+      });
+      logErrorWithContext(errorInfo, '[AuthTokenApi]');
+      throw error;
+    }
+  }
+
+  /**
+   * Exchange external user token (e.g. Entra) for Keycloak token.
+   * Uses client token only (x-client-token); no client id/secret sent to controller.
+   * @param request - Exchange request with external token
+   * @param authStrategy - Optional authentication strategy override
+   * @returns Exchange response with accessToken and tokenExchanged flag
+   */
+  async exchangeUserToken(
+    request: ExchangeTokenRequest,
+    authStrategy?: AuthStrategy,
+  ): Promise<ExchangeTokenResponse> {
+    try {
+      if (authStrategy) {
+        return await this.httpClient.requestWithAuthStrategy<ExchangeTokenResponse>(
+          'POST',
+          AuthTokenApi.EXCHANGE_TOKEN_ENDPOINT,
+          authStrategy,
+          request,
+        );
+      }
+      return await this.httpClient.request<ExchangeTokenResponse>(
+        'POST',
+        AuthTokenApi.EXCHANGE_TOKEN_ENDPOINT,
+        request,
+      );
+    } catch (error) {
+      const errorInfo = extractErrorInfo(error, {
+        endpoint: AuthTokenApi.EXCHANGE_TOKEN_ENDPOINT,
         method: 'POST',
       });
       logErrorWithContext(errorInfo, '[AuthTokenApi]');

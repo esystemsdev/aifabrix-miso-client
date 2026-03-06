@@ -94,11 +94,11 @@ Technologies:
 
 ### Token Management
 
-- **Client Token**: Automatically fetched and refreshed by `HttpClient` via interceptor
-  - Fetched from `POST /api/auth/token` with `x-client-id` and `x-client-secret`
-  - Stored in memory with expiration tracking
-  - Added to all requests as `x-client-token` header (lowercase)
-  - Refreshed automatically when expired or on 401 errors
+- **Controller policy**: All miso-controller API calls use **only** `x-client-token` for client authentication. The controller does not accept `x-client-id` or `x-client-secret` on normal API endpoints.
+- **Client Token**: Automatically added to all controller requests as `x-client-token` header (lowercase). Recommended ways to obtain the client token:
+  - Provide `clientToken` and `clientTokenExpiresAt` in config (e.g. from app backend or env).
+  - Use `onClientTokenRefresh` callback to supply tokens from your backend or a dedicated token service.
+  - If using `clientTokenUri` with client credentials, it must point to a token issuer that accepts client id/secret (e.g. app backend or dedicated token service), not necessarily the controller. If the controller’s token endpoint does not accept client credentials, use `clientToken` or `onClientTokenRefresh` only.
 - **User Token**: Provided by application, sent as `Authorization: Bearer <token>`
 - Never expose `clientId` or `clientSecret` to the client application - only the client token
 
@@ -110,7 +110,8 @@ All controller endpoints use `/api` prefix:
 - `/api/auth/logout` - User logout
 - `/api/auth/validate` - Validate user token
 - `/api/auth/user` - Get user info
-- `/api/auth/token` - Get client token (uses x-client-id/x-client-secret)
+- `/api/auth/token` - Get client token (legacy; may use x-client-id/x-client-secret only when issuer is not the controller or supports it)
+- `/api/auth/token/exchange` - Exchange external user token (e.g. Entra) for Keycloak token; client auth via x-client-token only
 - `/api/auth/roles` - Get user roles
 - `/api/auth/roles/refresh` - Refresh user roles
 - `/api/auth/permissions` - Get user permissions
@@ -693,6 +694,7 @@ export class AuthApi {
 
 ## Security Guidelines
 
+- **Client-token only on controller**: Never send `x-client-id` or `x-client-secret` to miso-controller for normal API calls. Only `x-client-token` is accepted by the controller. Obtain the client token via config (`clientToken`/`clientTokenExpiresAt`), callback (`onClientTokenRefresh`), or a non-controller token issuer.
 - Never log `clientId` or `clientSecret`
 - Never expose client credentials to client-side code
 - Mask sensitive data in logs (use DataMasker)

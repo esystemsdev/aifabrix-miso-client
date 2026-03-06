@@ -125,6 +125,20 @@ export class MisoClient {
     return this.auth.refreshToken(refreshToken, authStrategy);
   }
 
+  /**
+   * Exchange external user token (e.g. Entra) for Keycloak token.
+   * Uses client token only; no client id/secret sent to controller.
+   * @param token - External token to exchange
+   * @param authStrategy - Optional authentication strategy override
+   * @returns Exchange response with accessToken and tokenExchanged flag
+   */
+  async exchangeUserToken(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<import("./api/types/auth.types").ExchangeTokenResponse> {
+    return this.auth.exchangeUserToken(token, authStrategy);
+  }
+
   async validateTokenLocal(token: string, options?: TokenValidationOptions): Promise<TokenValidationResult> {
     return this.tokenValidation.validateTokenLocal(token, options);
   }

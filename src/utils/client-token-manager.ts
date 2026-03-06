@@ -105,6 +105,11 @@ export function formatTokenFetchError(
   );
 }
 
+/**
+ * Execute one-off client token request. When clientTokenUri points at the controller,
+ * the controller may not accept x-client-id/x-client-secret; prefer supplying the
+ * client token via config (clientToken/clientTokenExpiresAt) or onClientTokenRefresh.
+ */
 async function executeTokenRequest(config: MisoClientConfig): Promise<{
   data: ClientTokenResponse;
   status: number;

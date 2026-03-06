@@ -48,9 +48,9 @@ export function AuthorizationPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-b border-border bg-white">
+      <div className="border-b border-border bg-background">
         <div className="px-8 py-6">
-          <h1 className="text-2xl">Authorization</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Authorization</h1>
           <p className="text-muted-foreground mt-1">
             Test roles and permissions using DataClient methods
           </p>

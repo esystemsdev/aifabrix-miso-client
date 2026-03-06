@@ -41,7 +41,7 @@ function nodePolyfillsPlugin(): Plugin {
     'events', 'buffer', 'os', 'dns', 'assert', 'string_decoder', 'url', 'process',
     'http', 'https', 'http2', 'zlib', 'querystring', 'punycode', 'readline',
     'repl', 'vm', 'child_process', 'cluster', 'worker_threads', 'perf_hooks',
-    'timers', 'console', 'module', 'constants'
+    'timers', 'console', 'module', 'constants', 'async_hooks'
   ];
   
   const catchAllPath = path.resolve(__dirname, './src/stubs/catch-all.js');
@@ -369,6 +369,7 @@ export default defineConfig({
       'string_decoder': path.resolve(__dirname, './src/stubs/string_decoder.ts'),
       'url': path.resolve(__dirname, './src/stubs/url.ts'),
       'process': path.resolve(__dirname, './src/stubs/process.js'),
+      'async_hooks': path.resolve(__dirname, './src/stubs/async_hooks.js'),
       // Stub ioredis and redis-parser - Redis is server-side only
       'ioredis': path.resolve(__dirname, './src/stubs/ioredis.js'),
       'redis-parser': path.resolve(__dirname, './src/stubs/redis-parser.js'),
@@ -445,6 +446,12 @@ export default defineConfig({
             if (cleanId === 'dotenv' || cleanId === 'dotenv/config' || cleanId.startsWith('dotenv/')) {
               const stubPath = path.resolve(__dirname, './src/stubs/dotenv.js');
               console.log(`[rollup-plugin] resolveId: ${id} -> dotenv stub`);
+              return stubPath;
+            }
+            // Handle async_hooks (Node.js only - AsyncLocalStorage; use no-op stub in browser)
+            if (cleanId === 'async_hooks') {
+              const stubPath = path.resolve(__dirname, './src/stubs/async_hooks.js');
+              console.log(`[rollup-plugin] resolveId: ${id} -> async_hooks stub`);
               return stubPath;
             }
             // Handle services/logger directory imports - check root workspace dist first

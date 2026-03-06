@@ -12,6 +12,7 @@ import {
   LogoutResponse,
   RefreshTokenResponse,
 } from "../types/config.types";
+import type { ExchangeTokenResponse } from "../api/types/auth.types";
 import { handleAuthErrorSilent, isHttpStatus } from "./auth-error-handler";
 import {
   createEnvTokenClient,
@@ -443,6 +444,20 @@ export class AuthService {
     } catch (error) {
       return handleAuthErrorSilent(error, "Refresh token", correlationId, clientId);
     }
+  }
+
+  /**
+   * Exchange external user token (e.g. Entra) for Keycloak token.
+   * Uses client token only; no client id/secret sent to controller.
+   * @param token - External token (e.g. Entra) to exchange
+   * @param authStrategy - Optional authentication strategy override
+   * @returns Exchange response with accessToken and tokenExchanged
+   */
+  async exchangeUserToken(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<ExchangeTokenResponse> {
+    return this.apiClient.auth.exchangeUserToken({ token }, authStrategy);
   }
 
   /**
