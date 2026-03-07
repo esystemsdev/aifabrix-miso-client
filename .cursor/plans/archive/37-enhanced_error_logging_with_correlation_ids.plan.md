@@ -1,3 +1,10 @@
+---
+name: ""
+overview: ""
+todos: []
+isProject: false
+---
+
 # Enhanced Error Logging with Correlation IDs
 
 ## Problem Statement
@@ -29,6 +36,8 @@ flowchart TD
     ConsoleLog --> Output[Console Output]
     AuditLog --> Controller[Miso Controller]
 ```
+
+
 
 ## Implementation Steps
 
@@ -82,7 +91,6 @@ Create console logging utility with correlation ID prefixes:
   - Generate correlation ID if missing (prefer from error response)
   - Call `logErrorWithContext()` before throwing
   - Enhance audit log with structured error info (errorType, errorCategory, httpStatusCategory)
-
 - Update `handleAuthErrorCleanup()`:
   - Extract structured error info
   - Generate correlation ID if missing
@@ -155,7 +163,6 @@ catch (error) {
   - Generate correlation ID if missing
   - Use `logErrorWithContext()` with `[DataClient] [AUTH] [ClientToken]` prefix
   - Enhance audit log with structured error info
-
 - Update `handleOAuthCallback()` error handling:
   - Extract structured error info for OAuth callback failures
   - Use `[DataClient] [AUTH] [OAuthCallback]` prefix
@@ -177,35 +184,28 @@ Add public methods that return `LogEntry` objects instead of logging them. This 
 **New Methods**:
 
 1. `getLogWithRequest(req: Request, message: string, level?: LogEntry['level'], context?: Record<string, unknown>): LogEntry`
-
-   - Extracts IP, method, path, userAgent, correlationId, userId from Express Request
-   - Returns structured `LogEntry` object ready for external logger tables
-   - When MisoClient logger is configured, extracts all defaults automatically
-   - Parameters:
-     - `req` - Express Request object
-     - `message` - Log message
-     - `level` - Optional log level (defaults to 'info')
-     - `context` - Optional additional context
-   - Returns: Complete `LogEntry` object with all request context extracted
-
+  - Extracts IP, method, path, userAgent, correlationId, userId from Express Request
+  - Returns structured `LogEntry` object ready for external logger tables
+  - When MisoClient logger is configured, extracts all defaults automatically
+  - Parameters:
+    - `req` - Express Request object
+    - `message` - Log message
+    - `level` - Optional log level (defaults to 'info')
+    - `context` - Optional additional context
+  - Returns: Complete `LogEntry` object with all request context extracted
 2. `getWithContext(context: Record<string, unknown>, message: string, level?: LogEntry['level']): LogEntry`
-
-   - Returns `LogEntry` with provided context
-   - Generates correlation ID automatically
-   - Extracts metadata from environment
-   - Returns: Complete `LogEntry` object
-
+  - Returns `LogEntry` with provided context
+  - Generates correlation ID automatically
+  - Extracts metadata from environment
+  - Returns: Complete `LogEntry` object
 3. `getWithToken(token: string, message: string, level?: LogEntry['level'], context?: Record<string, unknown>): LogEntry`
-
-   - Extracts userId, sessionId, applicationId from JWT token
-   - Returns `LogEntry` with token context extracted
-   - Generates correlation ID automatically
-   - Returns: Complete `LogEntry` object with user context
-
+  - Extracts userId, sessionId, applicationId from JWT token
+  - Returns `LogEntry` with token context extracted
+  - Generates correlation ID automatically
+  - Returns: Complete `LogEntry` object with user context
 4. `getForRequest(req: Request, message: string, level?: LogEntry['level'], context?: Record<string, unknown>): LogEntry`
-
-   - Alias for `getLogWithRequest()` for consistency with existing `forRequest()` pattern
-   - Returns: Complete `LogEntry` object
+  - Alias for `getLogWithRequest()` for consistency with existing `forRequest()` pattern
+  - Returns: Complete `LogEntry` object
 
 **Usage Example**:
 
@@ -237,24 +237,19 @@ await myCustomLogger.save(logEntry);
 ## Testing Strategy
 
 1. **Unit Tests**:
-
-   - Test `extractErrorInfo()` with all error types
-   - Test correlation ID extraction from error responses
-   - Test `logErrorWithContext()` formatting
-   - Test correlation ID generation fallback
-
+  - Test `extractErrorInfo()` with all error types
+  - Test correlation ID extraction from error responses
+  - Test `logErrorWithContext()` formatting
+  - Test correlation ID generation fallback
 2. **Integration Tests**:
-
-   - Test authentication error logging end-to-end
-   - Verify correlation IDs appear in console logs
-   - Verify structured error info in audit logs
-   - Test error logging when correlation ID is missing vs present
-
+  - Test authentication error logging end-to-end
+  - Verify correlation IDs appear in console logs
+  - Verify structured error info in audit logs
+  - Test error logging when correlation ID is missing vs present
 3. **Manual Testing**:
-
-   - Trigger authentication errors and verify console output
-   - Verify correlation IDs are traceable through logs
-   - Check audit logs contain structured error information
+  - Trigger authentication errors and verify console output
+  - Verify correlation IDs are traceable through logs
+  - Check audit logs contain structured error information
 
 ## Rules and Standards
 
@@ -283,14 +278,14 @@ This plan must comply with the following rules from [Project Rules](.cursor/rule
 
 ## Before Development
 
-- [ ] Read Architecture Patterns - Logger Chain Pattern section from project-rules.mdc
-- [ ] Review existing LoggerService implementation and LoggerChain class
-- [ ] Review `extractRequestContext()` utility to understand request extraction
-- [ ] Review `LogEntry` type definition in `src/types/config.types.ts`
-- [ ] Review error handling patterns and RFC 7807 compliance requirements
-- [ ] Review existing logger tests to understand testing patterns
-- [ ] Review documentation structure in `docs/reference-services.md`
-- [ ] Understand how other projects might integrate with external logger tables
+- Read Architecture Patterns - Logger Chain Pattern section from project-rules.mdc
+- Review existing LoggerService implementation and LoggerChain class
+- Review `extractRequestContext()` utility to understand request extraction
+- Review `LogEntry` type definition in `src/types/config.types.ts`
+- Review error handling patterns and RFC 7807 compliance requirements
+- Review existing logger tests to understand testing patterns
+- Review documentation structure in `docs/reference-services.md`
+- Understand how other projects might integrate with external logger tables
 
 ## Definition of Done
 
@@ -428,14 +423,11 @@ This plan implements comprehensive error logging enhancements with correlation I
 ### Key Features Added
 
 1. **Public Getter Methods**: Four new public methods that return `LogEntry` objects instead of logging them:
-
-   - `getLogWithRequest()` - Extracts IP, method, path, userAgent, correlationId, userId from Express Request
-   - `getWithContext()` - Returns LogEntry with provided context
-   - `getWithToken()` - Extracts user context from JWT token
-   - `getForRequest()` - Alias for `getLogWithRequest()` for consistency
-
+  - `getLogWithRequest()` - Extracts IP, method, path, userAgent, correlationId, userId from Express Request
+  - `getWithContext()` - Returns LogEntry with provided context
+  - `getWithToken()` - Extracts user context from JWT token
+  - `getForRequest()` - Alias for `getLogWithRequest()` for consistency
 2. **External Logger Integration**: Enables other projects to use their own logger tables while getting default context automatically extracted from the system
-
 3. **Internal Consistency**: Refactor internal logging to use getter methods where appropriate
 
 ### Recommendations
@@ -637,31 +629,28 @@ Implementation is **100% complete**. All core functionality has been implemented
 **Minor Issues**:
 
 1. **Integration Test Recommendations** (OPTIONAL):
-
-   - Plan mentions integration tests for authentication error logging end-to-end
-   - **Status**: Unit tests provide comprehensive coverage
-   - **Recommendation**: Consider adding integration tests in future to verify correlation IDs appear in console logs end-to-end (optional enhancement)
-
+  - Plan mentions integration tests for authentication error logging end-to-end
+  - **Status**: Unit tests provide comprehensive coverage
+  - **Recommendation**: Consider adding integration tests in future to verify correlation IDs appear in console logs end-to-end (optional enhancement)
 2. **Test Coverage Metrics** (OPTIONAL):
-
-   - Unit tests provide comprehensive coverage of all error types and edge cases
-   - **Recommendation**: Consider adding coverage reporting to verify ≥80% coverage requirement (optional enhancement)
+  - Unit tests provide comprehensive coverage of all error types and edge cases
+  - **Recommendation**: Consider adding coverage reporting to verify ≥80% coverage requirement (optional enhancement)
 
 ### Final Validation Checklist
 
-- [x] All core files exist and are implemented
-- [x] All modified files updated with enhanced error logging
-- [x] Logger service getter methods implemented
-- [x] Code quality validation passes (format ✅, lint ✅, tests ✅)
-- [x] Cursor rules compliance verified
-- [x] Implementation complete for core functionality
-- [x] Test files created for new utilities (error-extractor: 18 tests, console-logger: 12 tests)
-- [x] Test files created for getter methods (31 tests)
-- [x] Documentation updated with getter methods (docs/reference-services.md)
-- [x] All tests pass (66 new tests, 1641 total)
-- [x] File size limits met (all files ≤500 lines)
-- [x] Method size limits met (all methods ≤30 lines)
-- [x] JSDoc documentation present for all public methods
-- [x] Backward compatibility maintained
+- All core files exist and are implemented
+- All modified files updated with enhanced error logging
+- Logger service getter methods implemented
+- Code quality validation passes (format ✅, lint ✅, tests ✅)
+- Cursor rules compliance verified
+- Implementation complete for core functionality
+- Test files created for new utilities (error-extractor: 18 tests, console-logger: 12 tests)
+- Test files created for getter methods (31 tests)
+- Documentation updated with getter methods (docs/reference-services.md)
+- All tests pass (66 new tests, 1641 total)
+- File size limits met (all files ≤500 lines)
+- Method size limits met (all methods ≤30 lines)
+- JSDoc documentation present for all public methods
+- Backward compatibility maintained
 
 **Result**: ✅ **VALIDATION COMPLETE** - All implementation tasks completed successfully. Core functionality implemented, all tests created and passing, documentation updated, code quality validation passes, and cursor rules compliance verified. Implementation is production-ready.
