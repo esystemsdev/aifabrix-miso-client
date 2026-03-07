@@ -277,7 +277,7 @@ describe('EncryptionService', () => {
     // 1. Encrypt cache miss: first encrypt calls API and cache.set with correct TTL
     it('encrypt cache miss: first encrypt calls API and cache.set with correct TTL', async () => {
       const mockCache = createMockCache();
-      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as unknown as CacheService, 300);
       (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
         value: 'kv://my-param',
         storage: 'keyvault',
@@ -300,7 +300,7 @@ describe('EncryptionService', () => {
       const mockCache = createMockCache();
       const cachedResult: EncryptResult = { value: 'kv://cached', storage: 'keyvault' };
       (mockCache.get as jest.Mock).mockResolvedValue(cachedResult);
-      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as unknown as CacheService, 300);
 
       const result = await svc.encrypt('secret', 'my-param');
 
@@ -312,7 +312,7 @@ describe('EncryptionService', () => {
     // 3. Decrypt cache miss: first decrypt calls API and cache.set with correct TTL
     it('decrypt cache miss: first decrypt calls API and cache.set with correct TTL', async () => {
       const mockCache = createMockCache();
-      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as unknown as CacheService, 300);
       (mockApiClient.encryption.decrypt as jest.Mock).mockResolvedValue({ plaintext: 'decrypted-secret' });
 
       const result = await svc.decrypt('kv://my-param', 'my-param');
@@ -331,7 +331,7 @@ describe('EncryptionService', () => {
     it('decrypt cache hit: second decrypt returns cached plaintext, API not called again', async () => {
       const mockCache = createMockCache();
       (mockCache.get as jest.Mock).mockResolvedValue('cached-plaintext');
-      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as unknown as CacheService, 300);
 
       const result = await svc.decrypt('kv://my-param', 'my-param');
 
@@ -343,7 +343,7 @@ describe('EncryptionService', () => {
     // 5. TTL: cache.set invoked with configured TTL
     it('TTL: cache.set invoked with configured encryptionCacheTTL', async () => {
       const mockCache = createMockCache();
-      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 600);
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as unknown as CacheService, 600);
       (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
         value: 'enc://v1:x',
         storage: 'local',
@@ -357,7 +357,7 @@ describe('EncryptionService', () => {
     // 6. Cache disabled (TTL 0): no cache.get or cache.set, API called every time
     it('cache disabled (TTL 0): no cache get/set, API called every time', async () => {
       const mockCache = createMockCache();
-      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 0);
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as unknown as CacheService, 0);
       (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
         value: 'enc://v1:a',
         storage: 'local',
@@ -388,7 +388,7 @@ describe('EncryptionService', () => {
     // 8. Controller error: cache.set is not called
     it('controller error on encrypt: cache.set is not called', async () => {
       const mockCache = createMockCache();
-      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as unknown as CacheService, 300);
       (mockApiClient.encryption.encrypt as jest.Mock).mockRejectedValue(new Error('API error'));
 
       await expect(svc.encrypt('secret', 'my-param')).rejects.toThrow('API error');
@@ -397,7 +397,7 @@ describe('EncryptionService', () => {
 
     it('controller error on decrypt: cache.set is not called', async () => {
       const mockCache = createMockCache();
-      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as unknown as CacheService, 300);
       (mockApiClient.encryption.decrypt as jest.Mock).mockRejectedValue(new Error('Decrypt failed'));
 
       await expect(svc.decrypt('kv://x', 'x')).rejects.toThrow('Decrypt failed');
@@ -407,7 +407,7 @@ describe('EncryptionService', () => {
     // 9. Validation error: no cache get/set (invalid param before any API call)
     it('validation error: no cache get or set', async () => {
       const mockCache = createMockCache();
-      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as unknown as CacheService, 300);
 
       await expect(svc.encrypt('secret', 'invalid name')).rejects.toThrow(EncryptionError);
 
