@@ -21,6 +21,8 @@ await client.log.audit('post.created', 'content', {
 
 Log important actions: login/logout, permission checks, create/update/delete of sensitive data.
 
+**Batching:** To reduce log endpoint calls, set `audit.batchSize` and/or `audit.batchInterval` in config. When set, audit logs are queued and sent in batches (defaults: batch size 10, interval 100 ms). See [redis.md](redis.md#performance-and-reducing-controller-calls).
+
 Audit completeness rules in SDK:
 
 - Audit events are always emitted regardless of configured log level.

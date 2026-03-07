@@ -5,9 +5,17 @@
 import { EncryptionService, EncryptResult } from '../../../src/services/encryption.service';
 import { EncryptionError } from '../../../src/utils/encryption-error';
 import { ApiClient } from '../../../src/api';
+import type { CacheService } from '../../../src/services/cache.service';
 
 // Mock ApiClient
 jest.mock('../../../src/api');
+
+function createMockCache(): jest.Mocked<Pick<CacheService, 'get' | 'set'>> {
+  return {
+    get: jest.fn().mockResolvedValue(null),
+    set: jest.fn().mockResolvedValue(true),
+  };
+}
 
 describe('EncryptionService', () => {
   let encryptionService: EncryptionService;
@@ -23,7 +31,7 @@ describe('EncryptionService', () => {
       },
     } as unknown as jest.Mocked<ApiClient>;
 
-    // Service with encryption key
+    // Service with encryption key (no cache)
     encryptionService = new EncryptionService(mockApiClient, testEncryptionKey);
     // Service without encryption key (for testing ENCRYPTION_KEY_REQUIRED)
     encryptionServiceWithoutKey = new EncryptionService(mockApiClient);
@@ -262,6 +270,150 @@ describe('EncryptionService', () => {
           ).rejects.toThrow(EncryptionError);
         });
       });
+    });
+  });
+
+  describe('encryption cache', () => {
+    // 1. Encrypt cache miss: first encrypt calls API and cache.set with correct TTL
+    it('encrypt cache miss: first encrypt calls API and cache.set with correct TTL', async () => {
+      const mockCache = createMockCache();
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
+        value: 'kv://my-param',
+        storage: 'keyvault',
+      });
+
+      const result = await svc.encrypt('secret', 'my-param');
+
+      expect(result).toEqual({ value: 'kv://my-param', storage: 'keyvault' });
+      expect(mockApiClient.encryption.encrypt).toHaveBeenCalledTimes(1);
+      expect(mockCache.set).toHaveBeenCalledTimes(1);
+      expect(mockCache.set).toHaveBeenCalledWith(
+        expect.stringMatching(/^encryption:encrypt:[a-f0-9]{64}$/),
+        { value: 'kv://my-param', storage: 'keyvault' },
+        300,
+      );
+    });
+
+    // 2. Encrypt cache hit: second encrypt with same input returns cached result, API not called again
+    it('encrypt cache hit: second encrypt returns cached result, API not called again', async () => {
+      const mockCache = createMockCache();
+      const cachedResult: EncryptResult = { value: 'kv://cached', storage: 'keyvault' };
+      (mockCache.get as jest.Mock).mockResolvedValue(cachedResult);
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+
+      const result = await svc.encrypt('secret', 'my-param');
+
+      expect(result).toEqual(cachedResult);
+      expect(mockApiClient.encryption.encrypt).not.toHaveBeenCalled();
+      expect(mockCache.get).toHaveBeenCalled();
+    });
+
+    // 3. Decrypt cache miss: first decrypt calls API and cache.set with correct TTL
+    it('decrypt cache miss: first decrypt calls API and cache.set with correct TTL', async () => {
+      const mockCache = createMockCache();
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      (mockApiClient.encryption.decrypt as jest.Mock).mockResolvedValue({ plaintext: 'decrypted-secret' });
+
+      const result = await svc.decrypt('kv://my-param', 'my-param');
+
+      expect(result).toBe('decrypted-secret');
+      expect(mockApiClient.encryption.decrypt).toHaveBeenCalledTimes(1);
+      expect(mockCache.set).toHaveBeenCalledTimes(1);
+      expect(mockCache.set).toHaveBeenCalledWith(
+        expect.stringMatching(/^encryption:decrypt:[a-f0-9]{64}$/),
+        'decrypted-secret',
+        300,
+      );
+    });
+
+    // 4. Decrypt cache hit: second decrypt returns cached plaintext, API not called again
+    it('decrypt cache hit: second decrypt returns cached plaintext, API not called again', async () => {
+      const mockCache = createMockCache();
+      (mockCache.get as jest.Mock).mockResolvedValue('cached-plaintext');
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+
+      const result = await svc.decrypt('kv://my-param', 'my-param');
+
+      expect(result).toBe('cached-plaintext');
+      expect(mockApiClient.encryption.decrypt).not.toHaveBeenCalled();
+      expect(mockCache.get).toHaveBeenCalled();
+    });
+
+    // 5. TTL: cache.set invoked with configured TTL
+    it('TTL: cache.set invoked with configured encryptionCacheTTL', async () => {
+      const mockCache = createMockCache();
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 600);
+      (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
+        value: 'enc://v1:x',
+        storage: 'local',
+      });
+
+      await svc.encrypt('x', 'p');
+
+      expect(mockCache.set).toHaveBeenCalledWith(expect.any(String), expect.any(Object), 600);
+    });
+
+    // 6. Cache disabled (TTL 0): no cache.get or cache.set, API called every time
+    it('cache disabled (TTL 0): no cache get/set, API called every time', async () => {
+      const mockCache = createMockCache();
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 0);
+      (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
+        value: 'enc://v1:a',
+        storage: 'local',
+      });
+
+      await svc.encrypt('a', 'p');
+      await svc.encrypt('a', 'p');
+
+      expect(mockCache.get).not.toHaveBeenCalled();
+      expect(mockCache.set).not.toHaveBeenCalled();
+      expect(mockApiClient.encryption.encrypt).toHaveBeenCalledTimes(2);
+    });
+
+    // 7. No CacheService: no cache read/write, API called every time
+    it('no CacheService: no cache read/write, API called every time', async () => {
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey);
+      (mockApiClient.encryption.encrypt as jest.Mock).mockResolvedValue({
+        value: 'enc://v1:b',
+        storage: 'local',
+      });
+
+      await svc.encrypt('b', 'p');
+      await svc.encrypt('b', 'p');
+
+      expect(mockApiClient.encryption.encrypt).toHaveBeenCalledTimes(2);
+    });
+
+    // 8. Controller error: cache.set is not called
+    it('controller error on encrypt: cache.set is not called', async () => {
+      const mockCache = createMockCache();
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      (mockApiClient.encryption.encrypt as jest.Mock).mockRejectedValue(new Error('API error'));
+
+      await expect(svc.encrypt('secret', 'my-param')).rejects.toThrow('API error');
+      expect(mockCache.set).not.toHaveBeenCalled();
+    });
+
+    it('controller error on decrypt: cache.set is not called', async () => {
+      const mockCache = createMockCache();
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+      (mockApiClient.encryption.decrypt as jest.Mock).mockRejectedValue(new Error('Decrypt failed'));
+
+      await expect(svc.decrypt('kv://x', 'x')).rejects.toThrow('Decrypt failed');
+      expect(mockCache.set).not.toHaveBeenCalled();
+    });
+
+    // 9. Validation error: no cache get/set (invalid param before any API call)
+    it('validation error: no cache get or set', async () => {
+      const mockCache = createMockCache();
+      const svc = new EncryptionService(mockApiClient, testEncryptionKey, mockCache as CacheService, 300);
+
+      await expect(svc.encrypt('secret', 'invalid name')).rejects.toThrow(EncryptionError);
+
+      expect(mockCache.get).not.toHaveBeenCalled();
+      expect(mockCache.set).not.toHaveBeenCalled();
+      expect(mockApiClient.encryption.encrypt).not.toHaveBeenCalled();
     });
   });
 });

@@ -87,7 +87,7 @@ See [encryption.md](encryption.md).
 
 ## Optional: Cache TTL
 
-Override default 15-minute cache TTL (seconds) for roles, permissions, token validation:
+Override default cache TTLs (seconds) for roles, permissions, token validation, user info, and encryption:
 
 ```typescript
 const client = new MisoClient({
@@ -96,9 +96,13 @@ const client = new MisoClient({
     roleTTL: 900,
     permissionTTL: 900,
     tokenValidationTTL: 900,
+    userTTL: 300,
+    encryptionCacheTTL: 300,  // 0 = disable encryption cache
   },
 });
 ```
+
+See [redis.md](redis.md) for performance and reducing controller calls (including audit log batching).
 
 ## Manual configuration
 

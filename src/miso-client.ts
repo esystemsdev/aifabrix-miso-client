@@ -61,7 +61,12 @@ export class MisoClient {
     this.roles = new RoleService(this.httpClient, this.apiClient, this.cacheService);
     this.permissions = new PermissionService(this.httpClient, this.apiClient, this.cacheService);
     this.tokenValidation = new TokenValidationService(config.keycloak);
-    this.encryptionService = new EncryptionService(this.apiClient, this.config.encryptionKey);
+    this.encryptionService = new EncryptionService(
+      this.apiClient,
+      this.config.encryptionKey,
+      this.cacheService,
+      this.config.cache?.encryptionCacheTTL ?? 300,
+    );
   }
 
   async initialize(): Promise<void> {

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.2] - 2026-03-07
+
+### Added
+
+- **Encryption response caching** - Encrypt and decrypt responses are now cached when `CacheService` is available and `cache.encryptionCacheTTL` is set (default 300 seconds). Cache keys use SHA-256 hashes of input and parameter name for security; same plaintext/ciphertext + parameter yields cached result and reduces controller call volume. Set `encryptionCacheTTL: 0` to disable.
+
+### Changed
+
+- **EncryptionService** - Optional `CacheService` and `encryptionCacheTTL`; cache-first for encrypt/decrypt with fallback to controller on miss or cache unavailable. Controller or validation errors are not cached.
+- **MisoClient** - Wires `EncryptionService` with shared `CacheService` and `config.cache?.encryptionCacheTTL ?? 300`.
+- **Configuration** - New optional `cache.encryptionCacheTTL` (seconds) in config types.
+
+### Technical
+
+- **Documentation** - Performance and reducing controller calls: cache usage, TTLs (`encryptionCacheTTL`), audit log batching (`audit.batchSize` / `audit.batchInterval`), and key-rotation guidance in `docs/configuration.md`, `docs/redis.md`, and `docs/audit-and-logging.md`.
+
 ## [4.7.1] - 2026-03-06
 
 ### Changed
