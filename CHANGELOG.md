@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.8.0] - 2026-03-13
+
+### Added
+
+- **Logs/audit id-based contracts** - Added `sourceId`, `externalSystemId`, `recordId`, and `clientId` coverage across SDK log/audit types and logger payload surfaces.
+- **Id-based list filtering** - Added `applicationId/sourceId/externalSystemId/recordId` filtering support for logs/audit list query contracts and wrapper pass-through.
+
+### Changed
+
+- **Logs/audit migration (breaking)** - Replaced legacy `*Key` fields with `*Id` fields in public logs/audit SDK contracts and logger context flows.
+- **API wrapper alignment** - Synchronized logs list wrappers and shared query parameter interfaces to preserve id-based filters end-to-end.
+- **Documentation** - Updated migration guidance in `docs/audit-and-logging.md` with before/after examples for `*Key -> *Id` and `application -> applicationId`.
+
+### Fixed
+
+- **Unhandled async cache-delete rejections** - Hardened auth cache helper fire-and-forget deletion paths with explicit rejection handling to avoid unhandled promise warnings in tests/runtime.
+- **Service-layer resilience** - Improved auth service fallback/error paths and expanded regression coverage for error handling behavior.
+
+### Technical
+
+- **Validation and reliability** - Revalidated release quality gates (`lint:fix`, `lint`, `test`, `build`) and expanded unit coverage for logs API pass-through, logger id fields, and migration regressions.
+- **Type-safety cleanup** - Updated encryption service tests to use stricter `unknown`-based mocking patterns.
+
 ## [4.7.2] - 2026-03-07
 
 ### Added
