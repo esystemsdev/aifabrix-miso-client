@@ -14,11 +14,11 @@ export interface BuildLogEntryParams {
   stackTrace: string | undefined;
   options:
     | {
-        sourceKey?: string;
+        sourceId?: string;
         sourceDisplayName?: string;
-        externalSystemKey?: string;
+        externalSystemId?: string;
         externalSystemDisplayName?: string;
-        recordKey?: string;
+        recordId?: string;
         recordDisplayName?: string;
         credentialId?: string;
         credentialType?: string;
@@ -119,11 +119,11 @@ export function buildLogEntryFromParams(params: BuildLogEntryParams): LogEntry {
     userAgent: params.loggerContext?.userAgent || params.metadata.userAgent,
     referer: params.loggerContext?.referer,
     ...params.metadata,
-    sourceKey: params.options?.sourceKey,
+    sourceId: params.options?.sourceId,
     sourceDisplayName: params.options?.sourceDisplayName,
-    externalSystemKey: params.options?.externalSystemKey,
+    externalSystemId: params.options?.externalSystemId,
     externalSystemDisplayName: params.options?.externalSystemDisplayName,
-    recordKey: params.options?.recordKey,
+    recordId: params.options?.recordId,
     recordDisplayName: params.options?.recordDisplayName,
     credentialId: params.options?.credentialId,
     credentialType: params.options?.credentialType,
@@ -149,11 +149,11 @@ function createBaseEnrichedContext(
     referer: logEntry.referer,
     hostname: logEntry.hostname,
     applicationId: logEntry.applicationId,
-    sourceKey: logEntry.sourceKey,
+    sourceId: logEntry.sourceId,
     sourceDisplayName: logEntry.sourceDisplayName,
-    externalSystemKey: logEntry.externalSystemKey,
+    externalSystemId: logEntry.externalSystemId,
     externalSystemDisplayName: logEntry.externalSystemDisplayName,
-    recordKey: logEntry.recordKey,
+    recordId: logEntry.recordId,
     recordDisplayName: logEntry.recordDisplayName,
     credentialId: logEntry.credentialId,
     credentialType: logEntry.credentialType,

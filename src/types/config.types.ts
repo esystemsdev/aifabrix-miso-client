@@ -206,11 +206,11 @@ export interface LogEntry {
   stackTrace?: string;
 
   // Indexed context fields (top-level for fast queries)
-  sourceKey?: string;
+  sourceId?: string;
   sourceDisplayName?: string;
-  externalSystemKey?: string;
+  externalSystemId?: string;
   externalSystemDisplayName?: string;
-  recordKey?: string;
+  recordId?: string;
   recordDisplayName?: string;
 
   // Credential context (optional)

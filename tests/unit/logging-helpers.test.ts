@@ -20,7 +20,7 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ source });
 
       expect(result).toEqual({
-        sourceKey: "datasource-1",
+        sourceId: "datasource-1",
         sourceDisplayName: "PostgreSQL DB",
       });
     });
@@ -33,7 +33,7 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ source });
 
       expect(result).toEqual({
-        sourceKey: "datasource-1",
+        sourceId: "datasource-1",
       });
     });
 
@@ -50,9 +50,9 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ source });
 
       expect(result).toEqual({
-        sourceKey: "datasource-1",
+        sourceId: "datasource-1",
         sourceDisplayName: "PostgreSQL DB",
-        externalSystemKey: "system-1",
+        externalSystemId: "system-1",
         externalSystemDisplayName: "External System",
       });
     });
@@ -68,8 +68,8 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ source });
 
       expect(result).toEqual({
-        sourceKey: "datasource-1",
-        externalSystemKey: "system-1",
+        sourceId: "datasource-1",
+        externalSystemId: "system-1",
       });
     });
 
@@ -82,7 +82,7 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ record });
 
       expect(result).toEqual({
-        recordKey: "record-123",
+        recordId: "record-123",
         recordDisplayName: "User Profile",
       });
     });
@@ -95,7 +95,7 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ record });
 
       expect(result).toEqual({
-        recordKey: "record-123",
+        recordId: "record-123",
       });
     });
 
@@ -108,7 +108,7 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ externalSystem });
 
       expect(result).toEqual({
-        externalSystemKey: "system-2",
+        externalSystemId: "system-2",
         externalSystemDisplayName: "Direct External System",
       });
     });
@@ -129,8 +129,8 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ source, externalSystem });
 
       expect(result).toEqual({
-        sourceKey: "datasource-1",
-        externalSystemKey: "system-2",
+        sourceId: "datasource-1",
+        externalSystemId: "system-2",
         externalSystemDisplayName: "Direct External System",
       });
     });
@@ -152,11 +152,11 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ source, record });
 
       expect(result).toEqual({
-        sourceKey: "datasource-1",
+        sourceId: "datasource-1",
         sourceDisplayName: "PostgreSQL DB",
-        externalSystemKey: "system-1",
+        externalSystemId: "system-1",
         externalSystemDisplayName: "External System",
-        recordKey: "record-123",
+        recordId: "record-123",
         recordDisplayName: "User Profile",
       });
     });
@@ -186,7 +186,7 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ source });
 
       expect(result).toEqual({
-        sourceKey: "",
+        sourceId: "",
         sourceDisplayName: "Empty Key Source",
       });
     });
@@ -200,7 +200,7 @@ describe("logging-helpers", () => {
       const result = extractLoggingContext({ source });
 
       expect(result).toEqual({
-        sourceKey: "datasource-1",
+        sourceId: "datasource-1",
         sourceDisplayName: "",
       });
     });

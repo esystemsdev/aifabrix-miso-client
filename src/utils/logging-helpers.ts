@@ -21,11 +21,11 @@ export interface HasExternalSystem extends HasKey {
  * Indexed logging context fields for fast queries
  */
 export interface IndexedLoggingContext {
-  sourceKey?: string;
+  sourceId?: string;
   sourceDisplayName?: string;
-  externalSystemKey?: string;
+  externalSystemId?: string;
   externalSystemDisplayName?: string;
-  recordKey?: string;
+  recordId?: string;
   recordDisplayName?: string;
 }
 
@@ -44,7 +44,7 @@ export interface IndexedLoggingContext {
  *   source: { key: 'datasource-1', displayName: 'PostgreSQL DB', externalSystem: { key: 'system-1' } },
  *   record: { key: 'record-123', displayName: 'User Profile' }
  * });
- * // Returns: { sourceKey: 'datasource-1', sourceDisplayName: 'PostgreSQL DB', externalSystemKey: 'system-1', recordKey: 'record-123', recordDisplayName: 'User Profile' }
+ * // Returns: { sourceId: 'datasource-1', sourceDisplayName: 'PostgreSQL DB', externalSystemId: 'system-1', recordId: 'record-123', recordDisplayName: 'User Profile' }
  * ```
  */
 export function extractLoggingContext(options: {
@@ -56,14 +56,14 @@ export function extractLoggingContext(options: {
 
   // Extract source fields
   if (options.source) {
-    context.sourceKey = options.source.key;
+    context.sourceId = options.source.key;
     if (options.source.displayName !== undefined) {
       context.sourceDisplayName = options.source.displayName;
     }
 
     // Extract external system from source if present
     if (options.source.externalSystem) {
-      context.externalSystemKey = options.source.externalSystem.key;
+      context.externalSystemId = options.source.externalSystem.key;
       if (options.source.externalSystem.displayName !== undefined) {
         context.externalSystemDisplayName = options.source.externalSystem.displayName;
       }
@@ -72,7 +72,7 @@ export function extractLoggingContext(options: {
 
   // Extract external system directly if provided (overrides source.externalSystem)
   if (options.externalSystem) {
-    context.externalSystemKey = options.externalSystem.key;
+    context.externalSystemId = options.externalSystem.key;
     if (options.externalSystem.displayName !== undefined) {
       context.externalSystemDisplayName = options.externalSystem.displayName;
     }
@@ -80,7 +80,7 @@ export function extractLoggingContext(options: {
 
   // Extract record fields
   if (options.record) {
-    context.recordKey = options.record.key;
+    context.recordId = options.record.key;
     if (options.record.displayName !== undefined) {
       context.recordDisplayName = options.record.displayName;
     }

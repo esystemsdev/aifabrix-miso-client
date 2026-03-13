@@ -10,7 +10,8 @@ import {
   CreateLogResponse,
   BatchLogRequest,
   BatchLogResponse,
-  ListLogsQueryParams,
+  LogsListQueryParams,
+  JobLogsQueryParams,
   PaginatedLogsResponse,
   GeneralLogEntry,
   AuditLogEntry,
@@ -173,7 +174,7 @@ describe('LogsApi', () => {
 
   describe('listGeneralLogs', () => {
     it('should call HttpClient.request with correct parameters', async () => {
-      const params: ListLogsQueryParams = {
+      const params: LogsListQueryParams = {
         page: 1,
         pageSize: 10,
         level: 'error',
@@ -211,7 +212,7 @@ describe('LogsApi', () => {
     });
 
     it('should handle authStrategy', async () => {
-      const params: ListLogsQueryParams = {
+      const params: LogsListQueryParams = {
         page: 1,
         pageSize: 10,
       };
@@ -274,7 +275,7 @@ describe('LogsApi', () => {
 
   describe('listAuditLogs', () => {
     it('should delegate to list.listAuditLogs', async () => {
-      const params: ListLogsQueryParams = {
+      const params: LogsListQueryParams = {
         page: 1,
         pageSize: 10,
       };
@@ -340,7 +341,7 @@ describe('LogsApi', () => {
 
   describe('listJobLogs', () => {
     it('should delegate to list.listJobLogs', async () => {
-      const params: ListLogsQueryParams = {
+      const params: JobLogsQueryParams = {
         page: 1,
         pageSize: 10,
       };

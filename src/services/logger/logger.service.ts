@@ -31,11 +31,11 @@ export interface ClientLoggingOptions {
   maskSensitiveData?: boolean;
 
   // Indexed context fields
-  sourceKey?: string;
+  sourceId?: string;
   sourceDisplayName?: string;
-  externalSystemKey?: string;
+  externalSystemId?: string;
   externalSystemDisplayName?: string;
-  recordKey?: string;
+  recordId?: string;
   recordDisplayName?: string;
 
   // Credential context

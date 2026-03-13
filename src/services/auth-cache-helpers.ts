@@ -61,7 +61,12 @@ export function getCacheTtlFromToken(
 export function clearTokenCache(cache: CacheService, token: string): void {
   try {
     const cacheKey = getTokenCacheKey(token);
-    void cache.delete(cacheKey);
+    void cache.delete(cacheKey).catch((error: unknown) => {
+      logErrorWithContext(
+        extractErrorInfo(error, { endpoint: "clearTokenCache", method: "delete" }),
+        "[AuthCacheHelpers]",
+      );
+    });
   } catch (error) {
     logErrorWithContext(
       extractErrorInfo(error, { endpoint: "clearTokenCache" }),
@@ -77,7 +82,12 @@ export function clearUserCache(cache: CacheService, token: string): void {
   try {
     const userId = extractUserIdFromToken(token);
     if (userId) {
-      void cache.delete(`user:${userId}`);
+      void cache.delete(`user:${userId}`).catch((error: unknown) => {
+        logErrorWithContext(
+          extractErrorInfo(error, { endpoint: "clearUserCache", method: "delete" }),
+          "[AuthCacheHelpers]",
+        );
+      });
     }
   } catch (error) {
     logErrorWithContext(

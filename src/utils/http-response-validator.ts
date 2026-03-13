@@ -9,6 +9,7 @@ import {
   getResponseType,
 } from "./response-validator";
 import { MisoClientConfig } from "../types/config.types";
+import { writeWarn } from "./console-logger";
 
 function writeValidationWarning(
   url: string,
@@ -17,8 +18,7 @@ function writeValidationWarning(
   actual: unknown,
 ): void {
   const msg = `Response validation failed for ${url}: ${summary} ${expected} Actual: ${JSON.stringify(actual)}\n`;
-  // eslint-disable-next-line no-console -- Validation warnings are intentionally logged for diagnostics
-  console.warn(msg);
+  writeWarn(msg);
 }
 
 function isLogsEndpoint(url: string): boolean {

@@ -448,11 +448,11 @@ describe("LoggerService", () => {
         application: "miso-controller",
         action: "log.test",
       }, {
-        sourceKey: "source-123",
+        sourceId: "source-123",
         sourceDisplayName: "Source System",
-        externalSystemKey: "ext-123",
+        externalSystemId: "ext-123",
         externalSystemDisplayName: "External System",
-        recordKey: "record-123",
+        recordId: "record-123",
         recordDisplayName: "Record Name",
         credentialId: "cred-123",
         credentialType: "api-key",
@@ -469,11 +469,11 @@ describe("LoggerService", () => {
           level?: string;
           environment?: string;
           application?: string;
-          sourceKey?: string;
+          sourceId?: string;
           sourceDisplayName?: string;
-          externalSystemKey?: string;
+          externalSystemId?: string;
           externalSystemDisplayName?: string;
-          recordKey?: string;
+          recordId?: string;
           recordDisplayName?: string;
           credentialId?: string;
           credentialType?: string;
@@ -486,11 +486,11 @@ describe("LoggerService", () => {
         expect(logEntry.level).toBe("info");
         expect(logEntry.environment).toBe("dev");
         expect(logEntry.application).toBe("miso-controller");
-        expect(logEntry.sourceKey).toBe("source-123");
+        expect(logEntry.sourceId).toBe("source-123");
         expect(logEntry.sourceDisplayName).toBe("Source System");
-        expect(logEntry.externalSystemKey).toBe("ext-123");
+        expect(logEntry.externalSystemId).toBe("ext-123");
         expect(logEntry.externalSystemDisplayName).toBe("External System");
-        expect(logEntry.recordKey).toBe("record-123");
+        expect(logEntry.recordId).toBe("record-123");
         expect(logEntry.recordDisplayName).toBe("Record Name");
         expect(logEntry.credentialId).toBe("cred-123");
         expect(logEntry.credentialType).toBe("api-key");
@@ -1088,11 +1088,11 @@ describe("LoggerService", () => {
         application: "miso-controller",
         action: "log.test",
       }, {
-        sourceKey: "source-123",
+        sourceId: "source-123",
         sourceDisplayName: "Source System",
-        externalSystemKey: "ext-123",
+        externalSystemId: "ext-123",
         externalSystemDisplayName: "External System",
-        recordKey: "record-123",
+        recordId: "record-123",
         recordDisplayName: "Record Name",
         credentialId: "cred-123",
         credentialType: "api-key",
@@ -1107,11 +1107,11 @@ describe("LoggerService", () => {
         level?: string;
         environment?: string;
         application?: string;
-        sourceKey?: string;
+        sourceId?: string;
         sourceDisplayName?: string;
-        externalSystemKey?: string;
+        externalSystemId?: string;
         externalSystemDisplayName?: string;
-        recordKey?: string;
+        recordId?: string;
         recordDisplayName?: string;
         credentialId?: string;
         credentialType?: string;
@@ -1124,11 +1124,11 @@ describe("LoggerService", () => {
       expect(emittedLog.level).toBe("info");
       expect(emittedLog.environment).toBe("dev");
       expect(emittedLog.application).toBe("miso-controller");
-      expect(emittedLog.sourceKey).toBe("source-123");
+      expect(emittedLog.sourceId).toBe("source-123");
       expect(emittedLog.sourceDisplayName).toBe("Source System");
-      expect(emittedLog.externalSystemKey).toBe("ext-123");
+      expect(emittedLog.externalSystemId).toBe("ext-123");
       expect(emittedLog.externalSystemDisplayName).toBe("External System");
-      expect(emittedLog.recordKey).toBe("record-123");
+      expect(emittedLog.recordId).toBe("record-123");
       expect(emittedLog.recordDisplayName).toBe("Record Name");
       expect(emittedLog.credentialId).toBe("cred-123");
       expect(emittedLog.credentialType).toBe("api-key");
@@ -1449,11 +1449,11 @@ describe("LoggerService", () => {
 
       const chain = loggerService.withContext({});
       chain.withIndexedContext({
-        sourceKey: "datasource-1",
+        sourceId: "datasource-1",
         sourceDisplayName: "PostgreSQL DB",
-        externalSystemKey: "system-1",
+        externalSystemId: "system-1",
         externalSystemDisplayName: "External System",
-        recordKey: "record-123",
+        recordId: "record-123",
         recordDisplayName: "User Profile",
       });
       await chain.info("Test with indexed context");
@@ -1462,11 +1462,11 @@ describe("LoggerService", () => {
       expect(rpushCall).toBeDefined();
       if (rpushCall && rpushCall[1]) {
         const logEntry = JSON.parse(rpushCall[1] as string);
-        expect(logEntry.sourceKey).toBe("datasource-1");
+        expect(logEntry.sourceId).toBe("datasource-1");
         expect(logEntry.sourceDisplayName).toBe("PostgreSQL DB");
-        expect(logEntry.externalSystemKey).toBe("system-1");
+        expect(logEntry.externalSystemId).toBe("system-1");
         expect(logEntry.externalSystemDisplayName).toBe("External System");
-        expect(logEntry.recordKey).toBe("record-123");
+        expect(logEntry.recordId).toBe("record-123");
         expect(logEntry.recordDisplayName).toBe("User Profile");
       }
     });
@@ -1477,8 +1477,8 @@ describe("LoggerService", () => {
 
       const chain = loggerService.withContext({});
       chain.withIndexedContext({
-        sourceKey: "datasource-1",
-        recordKey: "record-123",
+        sourceId: "datasource-1",
+        recordId: "record-123",
       });
       await chain.info("Test with partial indexed context");
 
@@ -1486,10 +1486,10 @@ describe("LoggerService", () => {
       expect(rpushCall).toBeDefined();
       if (rpushCall && rpushCall[1]) {
         const logEntry = JSON.parse(rpushCall[1] as string);
-        expect(logEntry.sourceKey).toBe("datasource-1");
-        expect(logEntry.recordKey).toBe("record-123");
+        expect(logEntry.sourceId).toBe("datasource-1");
+        expect(logEntry.recordId).toBe("record-123");
         expect(logEntry.sourceDisplayName).toBeUndefined();
-        expect(logEntry.externalSystemKey).toBeUndefined();
+        expect(logEntry.externalSystemId).toBeUndefined();
       }
     });
 
@@ -1568,8 +1568,8 @@ describe("LoggerService", () => {
       const chain = loggerService
         .withContext({ action: "sync" })
         .withIndexedContext({
-          sourceKey: "datasource-1",
-          externalSystemKey: "system-1",
+          sourceId: "datasource-1",
+          externalSystemId: "system-1",
         })
         .withCredentialContext("cred-123", "oauth2")
         .withResponseMetrics(2048, 150);
@@ -1580,8 +1580,8 @@ describe("LoggerService", () => {
       if (rpushCall && rpushCall[1]) {
         const logEntry = JSON.parse(rpushCall[1] as string);
         expect(logEntry.context.action).toBe("sync");
-        expect(logEntry.sourceKey).toBe("datasource-1");
-        expect(logEntry.externalSystemKey).toBe("system-1");
+        expect(logEntry.sourceId).toBe("datasource-1");
+        expect(logEntry.externalSystemId).toBe("system-1");
         expect(logEntry.credentialId).toBe("cred-123");
         expect(logEntry.credentialType).toBe("oauth2");
         expect(logEntry.responseSize).toBe(2048);
@@ -1596,8 +1596,8 @@ describe("LoggerService", () => {
       const chain = loggerService
         .withContext({})
         .withIndexedContext({
-          sourceKey: "datasource-1",
-          recordKey: "record-123",
+          sourceId: "datasource-1",
+          recordId: "record-123",
         })
         .withCredentialContext("cred-123", "api-key");
       await chain.audit("abac.authorization.grant", "external_record");
@@ -1607,8 +1607,8 @@ describe("LoggerService", () => {
       if (rpushCall && rpushCall[1]) {
         const logEntry = JSON.parse(rpushCall[1] as string);
         expect(logEntry.level).toBe("audit");
-        expect(logEntry.sourceKey).toBe("datasource-1");
-        expect(logEntry.recordKey).toBe("record-123");
+        expect(logEntry.sourceId).toBe("datasource-1");
+        expect(logEntry.recordId).toBe("record-123");
         expect(logEntry.credentialId).toBe("cred-123");
         expect(logEntry.credentialType).toBe("api-key");
       }
@@ -1621,8 +1621,8 @@ describe("LoggerService", () => {
       const chain = loggerService
         .withContext({})
         .withIndexedContext({
-          sourceKey: "datasource-1",
-          externalSystemKey: "system-1",
+          sourceId: "datasource-1",
+          externalSystemId: "system-1",
         })
         .withResponseMetrics(0, 5000);
       await chain.error("Sync failed", "Error stack trace");
@@ -1632,8 +1632,8 @@ describe("LoggerService", () => {
       if (rpushCall && rpushCall[1]) {
         const logEntry = JSON.parse(rpushCall[1] as string);
         expect(logEntry.level).toBe("error");
-        expect(logEntry.sourceKey).toBe("datasource-1");
-        expect(logEntry.externalSystemKey).toBe("system-1");
+        expect(logEntry.sourceId).toBe("datasource-1");
+        expect(logEntry.externalSystemId).toBe("system-1");
         expect(logEntry.responseSize).toBe(0);
         expect(logEntry.durationMs).toBe(5000);
         expect(logEntry.stackTrace).toBe("Error stack trace");

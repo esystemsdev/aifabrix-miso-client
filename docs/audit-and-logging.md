@@ -95,6 +95,56 @@ Existing headers are preserved and are not overwritten.
 
 If you previously encoded warnings as `info` (for example `info + originalLevel=warn` in context), you can now switch to native `client.log.warn(...)`.
 
+### Logs/Audit id-field migration
+
+The SDK now uses id-based indexed context fields for logs and audit payloads:
+
+- `sourceKey` -> `sourceId`
+- `externalSystemKey` -> `externalSystemId`
+- `recordKey` -> `recordId`
+
+For log and audit list APIs, prefer id-based filters:
+
+- `applicationId`
+- `sourceId`
+- `externalSystemId`
+- `recordId`
+
+For jobs list APIs, `application` name filter remains available for compatibility.
+
+Before/after examples:
+
+```typescript
+// Before
+await client.log.withContext({
+  sourceKey: 'src-123',
+  externalSystemKey: 'crm',
+  recordKey: 'order-42',
+}).info('Order synchronized');
+
+// After
+await client.log.withContext({
+  sourceId: 'src-123',
+  externalSystemId: 'crm',
+  recordId: 'order-42',
+}).info('Order synchronized');
+```
+
+```typescript
+// General/audit list filters (preferred)
+await client.logs.listGeneralLogs({
+  applicationId: 'app-1',
+  sourceId: 'src-123',
+  externalSystemId: 'crm',
+  recordId: 'order-42',
+});
+
+// Jobs list compatibility filter
+await client.logs.listJobLogs({
+  application: 'my-application',
+});
+```
+
 ## Production safety check
 
 This SDK includes a CI/check gate to prevent temporary trace/debug artifacts from shipping in production code paths:

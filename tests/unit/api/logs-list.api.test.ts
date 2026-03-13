@@ -6,7 +6,8 @@ import { LogsListApi } from '../../../src/api/logs-list.api';
 import { HttpClient } from '../../../src/utils/http-client';
 import { AuthStrategy } from '../../../src/types/config.types';
 import {
-  ListLogsQueryParams,
+  LogsListQueryParams,
+  JobLogsQueryParams,
   PaginatedLogsResponse,
   GeneralLogEntry,
   AuditLogEntry,
@@ -41,7 +42,7 @@ describe('LogsListApi', () => {
 
   describe('listGeneralLogs', () => {
     it('should call HttpClient.request when no authStrategy', async () => {
-      const params: ListLogsQueryParams = {
+      const params: LogsListQueryParams = {
         page: 1,
         pageSize: 10,
       };
@@ -102,8 +103,38 @@ describe('LogsListApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
+    it('should pass id-based filter params for general logs', async () => {
+      const params: LogsListQueryParams = {
+        applicationId: 'app-123',
+        sourceId: 'source-123',
+        externalSystemId: 'ext-123',
+        recordId: 'record-123',
+      };
+      const mockResponse: PaginatedLogsResponse<GeneralLogEntry> = {
+        data: [],
+        meta: {
+          totalItems: 0,
+          currentPage: 1,
+          pageSize: 20,
+          type: 'general',
+        },
+        links: {},
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      await logsListApi.listGeneralLogs(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/general',
+        undefined,
+        { params },
+      );
+    });
+
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
-      const params: ListLogsQueryParams = {
+      const params: LogsListQueryParams = {
         page: 2,
         pageSize: 20,
         level: 'error',
@@ -139,7 +170,7 @@ describe('LogsListApi', () => {
     });
 
     it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
-      const params: ListLogsQueryParams = {
+      const params: LogsListQueryParams = {
         environment: 'production',
       };
       const authStrategy: AuthStrategy = {
@@ -304,7 +335,7 @@ describe('LogsListApi', () => {
 
   describe('listAuditLogs', () => {
     it('should call HttpClient.request when no authStrategy', async () => {
-      const params: ListLogsQueryParams = {
+      const params: LogsListQueryParams = {
         page: 1,
         pageSize: 10,
       };
@@ -342,7 +373,7 @@ describe('LogsListApi', () => {
     });
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
-      const params: ListLogsQueryParams = {};
+      const params: LogsListQueryParams = {};
       const authStrategy: AuthStrategy = {
         methods: ['bearer'],
         bearerToken: 'test-token',
@@ -371,6 +402,36 @@ describe('LogsListApi', () => {
         authStrategy,
       );
       expect(result).toEqual(mockResponse);
+    });
+
+    it('should pass id-based filter params for audit logs', async () => {
+      const params: LogsListQueryParams = {
+        applicationId: 'app-456',
+        sourceId: 'source-456',
+        externalSystemId: 'ext-456',
+        recordId: 'record-456',
+      };
+      const mockResponse: PaginatedLogsResponse<AuditLogEntry> = {
+        data: [],
+        meta: {
+          totalItems: 0,
+          currentPage: 1,
+          pageSize: 20,
+          type: 'audit',
+        },
+        links: {},
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      await logsListApi.listAuditLogs(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/audit',
+        undefined,
+        { params },
+      );
     });
 
     it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
@@ -540,7 +601,7 @@ describe('LogsListApi', () => {
 
   describe('listJobLogs', () => {
     it('should call HttpClient.request when no authStrategy', async () => {
-      const params: ListLogsQueryParams = {
+      const params: JobLogsQueryParams = {
         page: 1,
         pageSize: 10,
       };
@@ -577,7 +638,7 @@ describe('LogsListApi', () => {
     });
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
-      const params: ListLogsQueryParams = {
+      const params: JobLogsQueryParams = {
         correlationId: 'corr-123',
       };
       const authStrategy: AuthStrategy = {

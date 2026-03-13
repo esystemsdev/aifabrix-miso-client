@@ -47,20 +47,20 @@ export class LoggerChain {
    * ```typescript
    * await logger
    *   .withIndexedContext({
-   *     sourceKey: 'datasource-1',
+   *     sourceId: 'datasource-1',
    *     sourceDisplayName: 'PostgreSQL DB',
-   *     externalSystemKey: 'system-1',
-   *     recordKey: 'record-123'
+   *     externalSystemId: 'system-1',
+   *     recordId: 'record-123'
    *   })
    *   .info('Sync completed');
    * ```
    */
   withIndexedContext(context: IndexedLoggingContext): LoggerChain {
-    this.options.sourceKey = context.sourceKey;
+    this.options.sourceId = context.sourceId;
     this.options.sourceDisplayName = context.sourceDisplayName;
-    this.options.externalSystemKey = context.externalSystemKey;
+    this.options.externalSystemId = context.externalSystemId;
     this.options.externalSystemDisplayName = context.externalSystemDisplayName;
-    this.options.recordKey = context.recordKey;
+    this.options.recordId = context.recordId;
     this.options.recordDisplayName = context.recordDisplayName;
     return this;
   }

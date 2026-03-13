@@ -6,8 +6,8 @@
 import { HttpClient } from '../utils/http-client';
 import { AuthStrategy } from '../types/config.types';
 import {
-
-  ListLogsQueryParams,
+  LogsListQueryParams,
+  JobLogsQueryParams,
   PaginatedLogsResponse,
   GeneralLogEntry,
   AuditLogEntry,
@@ -35,7 +35,7 @@ export class LogsListApi {
    * @returns Paginated general logs response
    */
   async listGeneralLogs(
-    params?: ListLogsQueryParams,
+    params?: LogsListQueryParams,
     authStrategy?: AuthStrategy,
   ): Promise<PaginatedLogsResponse<GeneralLogEntry>> {
     try {
@@ -131,7 +131,7 @@ export class LogsListApi {
    * @returns Paginated audit logs response
    */
   async listAuditLogs(
-    params?: ListLogsQueryParams,
+    params?: LogsListQueryParams,
     authStrategy?: AuthStrategy,
   ): Promise<PaginatedLogsResponse<AuditLogEntry>> {
     try {
@@ -227,7 +227,7 @@ export class LogsListApi {
    * @returns Paginated job logs response
    */
   async listJobLogs(
-    params?: ListLogsQueryParams,
+    params?: JobLogsQueryParams,
     authStrategy?: AuthStrategy,
   ): Promise<PaginatedLogsResponse<JobLogEntry>> {
     try {

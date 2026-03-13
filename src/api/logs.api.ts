@@ -15,7 +15,8 @@ import {
   CreateLogResponse,
   BatchLogRequest,
   BatchLogResponse,
-  ListLogsQueryParams,
+  LogsListQueryParams,
+  JobLogsQueryParams,
   PaginatedLogsResponse,
   GeneralLogEntry,
   AuditLogEntry,
@@ -67,7 +68,7 @@ export class LogsApi {
 
   // List methods - delegate to LogsListApi
   async listGeneralLogs(
-    params?: ListLogsQueryParams,
+    params?: LogsListQueryParams,
     authStrategy?: AuthStrategy,
   ): Promise<PaginatedLogsResponse<GeneralLogEntry>> {
     return this.list.listGeneralLogs(params, authStrategy);
@@ -82,7 +83,7 @@ export class LogsApi {
   }
 
   async listAuditLogs(
-    params?: ListLogsQueryParams,
+    params?: LogsListQueryParams,
     authStrategy?: AuthStrategy,
   ): Promise<PaginatedLogsResponse<AuditLogEntry>> {
     return this.list.listAuditLogs(params, authStrategy);
@@ -97,7 +98,7 @@ export class LogsApi {
   }
 
   async listJobLogs(
-    params?: ListLogsQueryParams,
+    params?: JobLogsQueryParams,
     authStrategy?: AuthStrategy,
   ): Promise<PaginatedLogsResponse<JobLogEntry>> {
     return this.list.listJobLogs(params, authStrategy);

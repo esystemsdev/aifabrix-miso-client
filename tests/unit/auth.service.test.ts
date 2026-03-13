@@ -49,6 +49,7 @@ describe("AuthService", () => {
       getUser: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
       refreshToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
       logoutWithToken: jest.MockedFunction<(token: string) => Promise<any>>;
+      exchangeUserToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
     };
   };
   let mockCacheService: jest.Mocked<CacheService>;
@@ -75,6 +76,7 @@ describe("AuthService", () => {
         getUser: jest.fn(),
         refreshToken: jest.fn(),
         logoutWithToken: jest.fn(),
+        exchangeUserToken: jest.fn(),
       },
     };
 
@@ -707,19 +709,19 @@ describe("AuthService", () => {
       );
     });
 
-    it("should complete logout even when cache delete fails (delete is fire-and-forget)", async () => {
+    it("should complete logout even when cache delete fails (async delete errors are handled)", async () => {
       const mockResponse = {
         success: true,
         message: "Logout successful",
         timestamp: new Date().toISOString(),
       };
       mockApiClient.auth.logoutWithToken.mockResolvedValue(mockResponse);
-      // Cache delete is wrapped in void, so failures are silently ignored
+      // Async cache-delete failures are handled in auth-cache-helpers
       mockCacheService.delete.mockRejectedValue(new Error("Cache delete failed"));
 
       const result = await authService.logout({ token: "test-token-123" });
 
-      // Should still return success even if cache delete fails (fire-and-forget)
+      // Should still return success even if cache delete fails
       expect(result).toEqual(mockResponse);
       expect(mockApiClient.auth.logoutWithToken).toHaveBeenCalledWith(
         "test-token-123",
@@ -727,7 +729,7 @@ describe("AuthService", () => {
       expect(mockCacheService.delete).toHaveBeenCalledWith(
         getExpectedCacheKey("test-token-123"),
       );
-      // No warning logged because cache.delete is wrapped in void
+      // Error is handled/logged in helper without rejecting the service flow
     });
 
     it("should return success response on 400 error (no active session) and clear cache", async () => {
@@ -1686,13 +1688,13 @@ describe("AuthService", () => {
       expect(mockCacheService.delete).toHaveBeenCalled();
     });
 
-    it("should handle cache delete failure gracefully (fire-and-forget)", () => {
-      // Cache delete is wrapped in void, so failures are silently ignored
+    it("should handle cache delete failure gracefully (async delete errors are handled)", () => {
+      // Async cache-delete failures are handled in auth-cache-helpers
       mockCacheService.delete.mockRejectedValue(
         new Error("Cache delete failed"),
       );
 
-      // Should not throw even if cache delete fails (fire-and-forget)
+      // Should not throw even if cache delete fails
       expect(() => {
         authService.clearTokenCache("test-token");
       }).not.toThrow();
@@ -1700,7 +1702,7 @@ describe("AuthService", () => {
       expect(mockCacheService.delete).toHaveBeenCalledWith(
         getExpectedCacheKey("test-token"),
       );
-      // No warning logged because cache.delete is wrapped in void (fire-and-forget)
+      // Error is handled/logged in helper without rejecting the service flow
     });
 
     it("should generate deterministic cache key for same token", () => {
@@ -2312,6 +2314,64 @@ describe("AuthService", () => {
         timestamp: expect.any(String),
       });
       expect(result?.expiresAt).toBeDefined(); // Service always sets expiresAt
+    });
+  });
+
+  describe("exchangeUserToken", () => {
+    it("should return exchanged token response on success", async () => {
+      const exchangeResponse = {
+        success: true,
+        data: {
+          accessToken: "keycloak-token-123",
+          tokenExchanged: true,
+          expiresIn: 3600,
+        },
+        timestamp: new Date().toISOString(),
+      };
+      mockApiClient.auth.exchangeUserToken.mockResolvedValue(exchangeResponse);
+
+      const result = await authService.exchangeUserToken("entra-token-123");
+
+      expect(result).toEqual(exchangeResponse);
+      expect(mockApiClient.auth.exchangeUserToken).toHaveBeenCalledWith(
+        { token: "entra-token-123" },
+        undefined,
+      );
+    });
+
+    it("should return safe fallback response on error", async () => {
+      mockApiClient.auth.exchangeUserToken.mockRejectedValue(
+        new Error("Token exchange failed"),
+      );
+
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      const result = await authService.exchangeUserToken("entra-token-123");
+
+      expect(result).toEqual({
+        success: false,
+        data: {
+          accessToken: "",
+          tokenExchanged: false,
+        },
+        timestamp: expect.any(String),
+      });
+      expect(mockApiClient.auth.exchangeUserToken).toHaveBeenCalledWith(
+        { token: "entra-token-123" },
+        undefined,
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Exchange user token failed"),
+        expect.objectContaining({
+          correlationId: expect.any(String),
+          clientId: "ctrl-dev-test-app",
+          operation: "Exchange user token",
+        }),
+      );
+
+      consoleErrorSpy.mockRestore();
     });
   });
 });

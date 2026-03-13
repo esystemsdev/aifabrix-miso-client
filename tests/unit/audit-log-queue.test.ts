@@ -274,11 +274,11 @@ describe("AuditLogQueue", () => {
         ipAddress: "203.0.113.10",
         userAgent: "repro-client/1.0",
         hostname: "host-123",
-        sourceKey: "source-123",
+        sourceId: "source-123",
         sourceDisplayName: "Source System",
-        externalSystemKey: "ext-123",
+        externalSystemId: "ext-123",
         externalSystemDisplayName: "External System",
-        recordKey: "record-123",
+        recordId: "record-123",
         recordDisplayName: "Record Name",
         credentialId: "cred-123",
         credentialType: "api-key",
@@ -312,11 +312,11 @@ describe("AuditLogQueue", () => {
         ipAddress: "203.0.113.10",
         userAgent: "repro-client/1.0",
         hostname: "host-123",
-        sourceKey: "source-123",
+        sourceId: "source-123",
         sourceDisplayName: "Source System",
-        externalSystemKey: "ext-123",
+        externalSystemId: "ext-123",
         externalSystemDisplayName: "External System",
-        recordKey: "record-123",
+        recordId: "record-123",
         recordDisplayName: "Record Name",
         credentialId: "cred-123",
         credentialType: "api-key",
@@ -524,8 +524,8 @@ describe("AuditLogQueue", () => {
         errorCategory: "network",
         httpStatusCategory: "5xx",
         stackTrace: "stack-trace-1",
-        sourceKey: "source-1",
-        recordKey: "record-1",
+        sourceId: "source-1",
+        recordId: "record-1",
       };
       const entry2: LogEntry = {
         ...createLogEntry("Log 2"),
@@ -544,8 +544,8 @@ describe("AuditLogQueue", () => {
         errorCategory: "validation",
         httpStatusCategory: "4xx",
         stackTrace: "stack-trace-2",
-        sourceKey: "source-2",
-        recordKey: "record-2",
+        sourceId: "source-2",
+        recordId: "record-2",
       };
 
       await auditLogQueue.add(entry1);
@@ -576,8 +576,8 @@ describe("AuditLogQueue", () => {
       expect(first.errorCategory).toBe("network");
       expect(first.httpStatusCategory).toBe("5xx");
       expect(first.stackTrace).toBe("stack-trace-1");
-      expect(first.sourceKey).toBe("source-1");
-      expect(first.recordKey).toBe("record-1");
+      expect(first.sourceId).toBe("source-1");
+      expect(first.recordId).toBe("record-1");
     });
   });
 
@@ -690,11 +690,11 @@ describe("AuditLogQueue", () => {
         ipAddress: "203.0.113.10",
         userAgent: "repro-client/1.0",
         hostname: "host-123",
-        sourceKey: "source-123",
+        sourceId: "source-123",
         sourceDisplayName: "Source System",
-        externalSystemKey: "ext-123",
+        externalSystemId: "ext-123",
         externalSystemDisplayName: "External System",
-        recordKey: "record-123",
+        recordId: "record-123",
         recordDisplayName: "Record Name",
         credentialId: "cred-123",
         credentialType: "api-key",
@@ -727,11 +727,11 @@ describe("AuditLogQueue", () => {
         ipAddress: "203.0.113.10",
         userAgent: "repro-client/1.0",
         hostname: "host-123",
-        sourceKey: "source-123",
+        sourceId: "source-123",
         sourceDisplayName: "Source System",
-        externalSystemKey: "ext-123",
+        externalSystemId: "ext-123",
         externalSystemDisplayName: "External System",
-        recordKey: "record-123",
+        recordId: "record-123",
         recordDisplayName: "Record Name",
         credentialId: "cred-123",
         credentialType: "api-key",

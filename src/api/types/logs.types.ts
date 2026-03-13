@@ -25,7 +25,14 @@ export interface LogEntry {
   message: string;
   environment?: string;
   application?: string;
+  clientId?: string;
   applicationId?: ForeignKeyReference | null;
+  sourceId?: string;
+  sourceDisplayName?: string;
+  externalSystemId?: string;
+  externalSystemDisplayName?: string;
+  recordId?: string;
+  recordDisplayName?: string;
   userId?: ForeignKeyReference | null;
   context?: Record<string, unknown>;
   stackTrace?: string;
@@ -46,7 +53,14 @@ export interface GeneralLogEntry {
   level: 'error' | 'warn' | 'info' | 'debug';
   environment: string;
   application: string;
+  clientId?: string;
   applicationId?: ForeignKeyReference | null;
+  sourceId?: string;
+  sourceDisplayName?: string;
+  externalSystemId?: string;
+  externalSystemDisplayName?: string;
+  recordId?: string;
+  recordDisplayName?: string;
   userId?: ForeignKeyReference | null;
   message: string;
   stackTrace?: string;
@@ -67,7 +81,14 @@ export interface AuditLogEntry {
   timestamp: string;
   environment: string;
   application: string;
+  clientId?: string;
   applicationId?: ForeignKeyReference | null;
+  sourceId?: string;
+  sourceDisplayName?: string;
+  externalSystemId?: string;
+  externalSystemDisplayName?: string;
+  recordId?: string;
+  recordDisplayName?: string;
   userId?: ForeignKeyReference | null;
   entityType: string;
   entityId: string;
@@ -133,7 +154,14 @@ export interface BatchLogEntry {
   message: string;
   environment?: string;
   application?: string;
+  clientId?: string;
   applicationId?: ForeignKeyReference | string | null;
+  sourceId?: string;
+  sourceDisplayName?: string;
+  externalSystemId?: string;
+  externalSystemDisplayName?: string;
+  recordId?: string;
+  recordDisplayName?: string;
   userId?: ForeignKeyReference | string | null;
   context?: Record<string, unknown>;
   stackTrace?: string;
@@ -170,21 +198,41 @@ export interface BatchLogResponse {
 }
 
 /**
- * List logs query parameters
+ * Shared pagination and list query parameters
  */
-export interface ListLogsQueryParams {
+export interface BaseListLogsQueryParams {
   page?: number;
   pageSize?: number;
   sort?: string;
   filter?: string;
   level?: string;
   environment?: string;
-  application?: string;
-  userId?: string;
-  correlationId?: string;
   startDate?: string;
   endDate?: string;
   search?: string;
+}
+
+/**
+ * Query parameters for general and audit log list endpoints.
+ * Id-based filters are required for these surfaces.
+ */
+export interface LogsListQueryParams extends BaseListLogsQueryParams {
+  applicationId?: string;
+  sourceId?: string;
+  externalSystemId?: string;
+  recordId?: string;
+  userId?: string;
+  correlationId?: string;
+}
+
+/**
+ * Query parameters for job log list endpoints.
+ * Keeps compatibility with application-name filtering for jobs.
+ */
+export interface JobLogsQueryParams extends BaseListLogsQueryParams {
+  application?: string;
+  userId?: string;
+  correlationId?: string;
 }
 
 /**
