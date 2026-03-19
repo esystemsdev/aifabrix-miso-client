@@ -218,6 +218,7 @@ export interface BaseListLogsQueryParams {
  */
 export interface LogsListQueryParams extends BaseListLogsQueryParams {
   applicationId?: string;
+  clientId?: string;
   sourceId?: string;
   externalSystemId?: string;
   recordId?: string;

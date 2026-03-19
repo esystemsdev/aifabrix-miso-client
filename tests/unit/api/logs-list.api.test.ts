@@ -106,6 +106,7 @@ describe('LogsListApi', () => {
     it('should pass id-based filter params for general logs', async () => {
       const params: LogsListQueryParams = {
         applicationId: 'app-123',
+        clientId: 'client-123',
         sourceId: 'source-123',
         externalSystemId: 'ext-123',
         recordId: 'record-123',
@@ -130,6 +131,33 @@ describe('LogsListApi', () => {
         '/api/v1/logs/general',
         undefined,
         { params },
+      );
+    });
+
+    it('should pass clientId filter for general logs', async () => {
+      const params: LogsListQueryParams = {
+        clientId: 'client-only-general',
+      };
+      const mockResponse: PaginatedLogsResponse<GeneralLogEntry> = {
+        data: [],
+        meta: {
+          totalItems: 0,
+          currentPage: 1,
+          pageSize: 20,
+          type: 'general',
+        },
+        links: {},
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      await logsListApi.listGeneralLogs(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/general',
+        undefined,
+        { params: expect.objectContaining({ clientId: 'client-only-general' }) },
       );
     });
 
@@ -407,6 +435,7 @@ describe('LogsListApi', () => {
     it('should pass id-based filter params for audit logs', async () => {
       const params: LogsListQueryParams = {
         applicationId: 'app-456',
+        clientId: 'client-456',
         sourceId: 'source-456',
         externalSystemId: 'ext-456',
         recordId: 'record-456',
@@ -431,6 +460,33 @@ describe('LogsListApi', () => {
         '/api/v1/logs/audit',
         undefined,
         { params },
+      );
+    });
+
+    it('should pass clientId filter for audit logs', async () => {
+      const params: LogsListQueryParams = {
+        clientId: 'client-only-audit',
+      };
+      const mockResponse: PaginatedLogsResponse<AuditLogEntry> = {
+        data: [],
+        meta: {
+          totalItems: 0,
+          currentPage: 1,
+          pageSize: 20,
+          type: 'audit',
+        },
+        links: {},
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      await logsListApi.listAuditLogs(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        'GET',
+        '/api/v1/logs/audit',
+        undefined,
+        { params: expect.objectContaining({ clientId: 'client-only-audit' }) },
       );
     });
 

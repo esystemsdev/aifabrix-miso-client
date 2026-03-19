@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.8.1] - 2026-03-13
+
+### Changed
+
+- **Wave 4 list filter contract completion** - Added `clientId` to `LogsListQueryParams` for general/audit logs filtering.
+- **Regression test coverage** - Expanded logs list API unit tests to assert `clientId` pass-through for `listGeneralLogs` and `listAuditLogs`.
+- **Migration documentation clarity** - Updated logs/audit migration notes with explicit `applicationId` vs `clientId` semantics and `clientId` examples in id-based filters.
+
+### Technical
+
+- **Release validation** - Re-ran release validation gates (`lint:fix`, `lint`, `test`) before patch bump.
+
 ## [4.8.0] - 2026-03-13
 
 ### Added

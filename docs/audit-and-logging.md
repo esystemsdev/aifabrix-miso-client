@@ -103,9 +103,18 @@ The SDK now uses id-based indexed context fields for logs and audit payloads:
 - `externalSystemKey` -> `externalSystemId`
 - `recordKey` -> `recordId`
 
+Legacy `*Key` fields are not part of the active runtime contract for new integrations.
+Use `sourceId`, `externalSystemId`, and `recordId` in emitted payloads and filters.
+
+Identity semantics for Wave 4:
+
+- `applicationId` = application row identity only
+- `clientId` = client credential / pipeline identity where applicable
+
 For log and audit list APIs, prefer id-based filters:
 
 - `applicationId`
+- `clientId`
 - `sourceId`
 - `externalSystemId`
 - `recordId`
@@ -134,9 +143,16 @@ await client.log.withContext({
 // General/audit list filters (preferred)
 await client.logs.listGeneralLogs({
   applicationId: 'app-1',
+  clientId: 'client-1',
   sourceId: 'src-123',
   externalSystemId: 'crm',
   recordId: 'order-42',
+});
+
+await client.logs.listAuditLogs({
+  applicationId: 'app-1',
+  clientId: 'client-1',
+  sourceId: 'src-123',
 });
 
 // Jobs list compatibility filter
