@@ -99,6 +99,16 @@ jobs:
             exit 1
           fi
           rm -f "$TARBALL" pack-output.txt
+
+      - name: Verify npm auth and package access
+        run: |
+          echo "Checking npm authentication..."
+          npm whoami
+          echo "Checking package visibility..."
+          npm view @aifabrix/miso-client version
+          echo "✅ npm auth and package access verified"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       
       - name: Publish to npm (public)
         run: pnpm publish --access public --no-git-checks
