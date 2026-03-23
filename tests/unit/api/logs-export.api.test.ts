@@ -123,7 +123,7 @@ describe('LogsExportApi', () => {
         type: 'general',
         format: 'json',
         environment: 'production',
-        application: 'my-app',
+        applicationId: 'app-123',
       };
       const authStrategy: AuthStrategy = {
         methods: ['bearer'],

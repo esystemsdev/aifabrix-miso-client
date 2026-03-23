@@ -344,6 +344,7 @@ describe('LogsApi', () => {
       const params: JobLogsQueryParams = {
         page: 1,
         pageSize: 10,
+        applicationId: 'app-123',
       };
       const mockResponse: PaginatedLogsResponse<JobLogEntry> = {
         data: [
@@ -405,6 +406,7 @@ describe('LogsApi', () => {
     it('should delegate to stats.getLogStatsSummary', async () => {
       const params: GetLogStatsQueryParams = {
         environment: 'production',
+        applicationId: 'app-123',
       };
       const mockResponse: LogStatsSummaryResponse = {
         success: true,
@@ -539,6 +541,7 @@ describe('LogsApi', () => {
       const params: ExportLogsQueryParams = {
         type: 'general',
         format: 'csv',
+        applicationId: 'app-123',
         startDate: '2024-01-01',
         endDate: '2024-01-31',
       };

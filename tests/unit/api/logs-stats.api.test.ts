@@ -78,7 +78,7 @@ describe('LogsStatsApi', () => {
     it('should call HttpClient.request with params', async () => {
       const params: GetLogStatsQueryParams = {
         environment: 'production',
-        application: 'my-app',
+        applicationId: 'app-123',
       };
       const mockResponse: LogStatsSummaryResponse = {
         success: true,
@@ -253,7 +253,7 @@ describe('LogsStatsApi', () => {
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const params: ErrorStatsQueryParams = {
-        application: 'my-app',
+        applicationId: 'app-123',
       };
       const authStrategy: AuthStrategy = {
         methods: ['bearer'],
@@ -394,7 +394,7 @@ describe('LogsStatsApi', () => {
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const params: UserActivityStatsQueryParams = {
-        application: 'my-app',
+        applicationId: 'app-123',
       };
       const authStrategy: AuthStrategy = {
         methods: ['bearer'],
@@ -527,7 +527,7 @@ describe('LogsStatsApi', () => {
 
     it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
       const params: GetLogStatsQueryParams = {
-        application: 'my-app',
+        applicationId: 'app-123',
       };
       const authStrategy: AuthStrategy = {
         methods: ['bearer'],

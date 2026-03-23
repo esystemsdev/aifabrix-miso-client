@@ -228,10 +228,10 @@ export interface LogsListQueryParams extends BaseListLogsQueryParams {
 
 /**
  * Query parameters for job log list endpoints.
- * Keeps compatibility with application-name filtering for jobs.
+ * Uses id-based application filter.
  */
 export interface JobLogsQueryParams extends BaseListLogsQueryParams {
-  application?: string;
+  applicationId?: string;
   userId?: string;
   correlationId?: string;
 }
@@ -260,7 +260,7 @@ export interface PaginatedLogsResponse<T> {
  */
 export interface GetLogStatsQueryParams {
   environment?: string;
-  application?: string;
+  applicationId?: string;
   userId?: string;
   startDate?: string;
   endDate?: string;
@@ -350,7 +350,7 @@ export interface ExportLogsQueryParams {
   type: 'general' | 'audit' | 'jobs';
   format: 'csv' | 'json';
   environment?: string;
-  application?: string;
+  applicationId?: string;
   userId?: string;
   startDate?: string;
   endDate?: string;

@@ -660,6 +660,7 @@ describe('LogsListApi', () => {
       const params: JobLogsQueryParams = {
         page: 1,
         pageSize: 10,
+        applicationId: 'app-123',
       };
       const mockResponse: PaginatedLogsResponse<JobLogEntry> = {
         data: [
@@ -688,7 +689,7 @@ describe('LogsListApi', () => {
         'GET',
         '/api/v1/logs/jobs',
         undefined,
-        { params },
+        { params: expect.objectContaining({ applicationId: 'app-123' }) },
       );
       expect(result).toEqual(mockResponse);
     });

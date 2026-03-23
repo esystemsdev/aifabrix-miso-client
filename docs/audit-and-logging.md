@@ -111,7 +111,7 @@ Identity semantics for Wave 4:
 - `applicationId` = application row identity only
 - `clientId` = client credential / pipeline identity where applicable
 
-For log and audit list APIs, prefer id-based filters:
+For log list APIs (general, audit, and jobs), use id-based filters:
 
 - `applicationId`
 - `clientId`
@@ -119,7 +119,7 @@ For log and audit list APIs, prefer id-based filters:
 - `externalSystemId`
 - `recordId`
 
-For jobs list APIs, `application` name filter remains available for compatibility.
+For jobs list APIs, use `applicationId` for application filtering.
 
 Before/after examples:
 
@@ -155,9 +155,9 @@ await client.logs.listAuditLogs({
   sourceId: 'src-123',
 });
 
-// Jobs list compatibility filter
+// Jobs list filter
 await client.logs.listJobLogs({
-  application: 'my-application',
+  applicationId: 'app-1',
 });
 ```
 
