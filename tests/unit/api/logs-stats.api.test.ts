@@ -108,6 +108,8 @@ describe('LogsStatsApi', () => {
         undefined,
         { params },
       );
+      expect(params).toHaveProperty('applicationId', 'app-123');
+      expect(params).not.toHaveProperty('application');
       expect(result).toEqual(mockResponse);
     });
 

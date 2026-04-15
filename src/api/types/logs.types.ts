@@ -260,6 +260,7 @@ export interface PaginatedLogsResponse<T> {
  */
 export interface GetLogStatsQueryParams {
   environment?: string;
+  /** Application id filter (serialized as `applicationId` query parameter). */
   applicationId?: string;
   userId?: string;
   startDate?: string;
@@ -350,6 +351,7 @@ export interface ExportLogsQueryParams {
   type: 'general' | 'audit' | 'jobs';
   format: 'csv' | 'json';
   environment?: string;
+  /** Application id filter (serialized as `applicationId` query parameter). */
   applicationId?: string;
   userId?: string;
   startDate?: string;

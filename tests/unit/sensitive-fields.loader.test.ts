@@ -37,15 +37,15 @@ jest.mock(
   () => ({
     __esModule: true,
     default: {
-      version: "1.0.0",
-      description: "Test config",
-      categories: {
+      mergeWithHardcodedDefaults: true,
+      substringMinLength: 4,
+      neverMaskFields: [],
+      fields: {
         authentication: ["password", "token"],
         pii: ["email"],
-        financial: [],
         security: [],
       },
-      fieldPatterns: ["password", "secret", "token"],
+      fieldPatterns: [],
     },
   }),
   { virtual: true },
@@ -101,6 +101,7 @@ describe("sensitive-fields.loader", () => {
         const fields = loadSensitiveFieldsConfig();
         expect(fields).toBeInstanceOf(Set);
         expect(fields.has("password")).toBe(true);
+        expect(fields.has("email")).toBe(false);
       } finally {
         delete (globalThis as any).window;
       }
@@ -145,12 +146,10 @@ describe("sensitive-fields.loader", () => {
     it("should load config from custom path", () => {
       const customPath = "/custom/path/config.json";
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
+        mergeWithHardcodedDefaults: true,
+        fields: {
           authentication: ["password", "token"],
           pii: ["email"],
-          financial: [],
           security: [],
         },
         fieldPatterns: [],
@@ -172,12 +171,10 @@ describe("sensitive-fields.loader", () => {
     it("should load config from relative custom path", () => {
       const customPath = "./config.json";
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
+        mergeWithHardcodedDefaults: true,
+        fields: {
           authentication: ["password"],
           pii: [],
-          financial: [],
           security: [],
         },
         fieldPatterns: [],
@@ -200,12 +197,10 @@ describe("sensitive-fields.loader", () => {
     it("should load config from environment variable", () => {
       const envPath = "/env/path/config.json";
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
+        mergeWithHardcodedDefaults: true,
+        fields: {
           authentication: ["password"],
           pii: [],
-          financial: [],
           security: [],
         },
         fieldPatterns: [],
@@ -269,12 +264,10 @@ describe("sensitive-fields.loader", () => {
         "../../src/utils/sensitive-fields.config.json",
       );
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
+        mergeWithHardcodedDefaults: true,
+        fields: {
           authentication: ["password"],
           pii: [],
-          financial: [],
           security: [],
         },
         fieldPatterns: [],
@@ -315,12 +308,10 @@ describe("sensitive-fields.loader", () => {
     it("should combine all categories and add defaults", () => {
       const customPath = "/config.json";
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
+        mergeWithHardcodedDefaults: true,
+        fields: {
           authentication: ["newpassword"],
-          pii: ["customemail"],
-          financial: ["creditcard"],
+          pii: ["customemail", "creditcard"],
           security: ["customkey"],
         },
         fieldPatterns: [],
@@ -380,12 +371,10 @@ describe("sensitive-fields.loader", () => {
     it("should convert field names to lowercase", () => {
       const customPath = "/config.json";
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
+        mergeWithHardcodedDefaults: true,
+        fields: {
           authentication: ["PASSWORD", "Token"],
           pii: [],
-          financial: [],
           security: [],
         },
         fieldPatterns: [],
@@ -403,103 +392,69 @@ describe("sensitive-fields.loader", () => {
   });
 
   describe("getFieldPatterns", () => {
-    it("should return default patterns when config cannot be loaded", () => {
+    it("should return empty array when config file cannot be loaded", () => {
       mockedFs.existsSync.mockReturnValue(false);
 
       const patterns = getFieldPatterns("/nonexistent/path.json");
 
-      expect(patterns).toBeInstanceOf(Array);
-      expect(patterns.length).toBeGreaterThan(0);
-      expect(patterns).toContain("password");
+      expect(patterns).toEqual([]);
     });
 
-    it("should return defaults in browser environment", () => {
-      // Mock browser environment by setting window
+    it("should return empty array in browser environment", () => {
       const originalWindow = (global as any).window;
       (global as any).window = {};
 
       try {
         const patterns = getFieldPatterns();
-        expect(patterns).toBeInstanceOf(Array);
-        expect(patterns.length).toBeGreaterThan(0);
+        expect(patterns).toEqual([]);
       } finally {
         (global as any).window = originalWindow;
       }
     });
 
-    it("should return defaults when process is undefined", () => {
+    it("should return empty array when process is undefined", () => {
       const originalProcess = process;
       (global as any).process = undefined;
 
       try {
         const patterns = getFieldPatterns();
-        expect(patterns).toBeInstanceOf(Array);
-        expect(patterns.length).toBeGreaterThan(0);
+        expect(patterns).toEqual([]);
       } finally {
         (global as any).process = originalProcess;
       }
     });
 
-    it("should try filesystem path when module import fails", () => {
-      delete process.env.MISO_SENSITIVE_FIELDS_CONFIG;
-
-      // Mock filesystem behavior - module import fails path doesn't exist,
-      // but filesystem path does exist
-      const configPath = "/some/path/sensitive-fields.config.json";
+    it("should return fieldPatterns from an on-disk config path", () => {
+      const customPath = "/resolved/sensitive.json";
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
-          authentication: [],
-          pii: [],
-          financial: [],
-          security: [],
-        },
+        mergeWithHardcodedDefaults: true,
+        fields: { authentication: [] },
         fieldPatterns: ["custompattern"],
       });
 
-      // Mock existsSync to return false initially (module import fails),
-      // then true for filesystem path
-      let callCount = 0;
-      mockedFs.existsSync.mockImplementation(() => {
-        callCount++;
-        // First call: module path doesn't exist (module import failed)
-        // Second call: filesystem path exists
-        return callCount > 1;
-      });
+      (path.isAbsolute as jest.Mock).mockReturnValue(true);
+      mockedFs.existsSync.mockReturnValue(true);
       mockedFs.readFileSync.mockReturnValue(configContent);
-      (path.join as jest.Mock).mockReturnValue(configPath);
 
-      const patterns = getFieldPatterns();
+      const patterns = getFieldPatterns(customPath);
 
-      // Should try filesystem path and load custom patterns
-      // Note: If the mock setup isn't working, it may fall back to defaults
-      expect(patterns).toBeInstanceOf(Array);
-      expect(patterns.length).toBeGreaterThan(0);
+      expect(patterns).toContain("custompattern");
     });
 
-    it("should return defaults when filesystem path does not exist after module import fails", () => {
+    it("should return empty array when filesystem path does not exist after module import fails", () => {
       delete process.env.MISO_SENSITIVE_FIELDS_CONFIG;
       mockedFs.existsSync.mockReturnValue(false);
 
       const patterns = getFieldPatterns();
 
-      // Should return defaults
-      expect(patterns).toBeInstanceOf(Array);
-      expect(patterns.length).toBeGreaterThan(0);
+      expect(patterns).toEqual([]);
     });
 
     it("should load patterns from custom path", () => {
       const customPath = "/config.json";
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
-          authentication: [],
-          pii: [],
-          financial: [],
-          security: [],
-        },
+        mergeWithHardcodedDefaults: true,
+        fields: { authentication: [] },
         fieldPatterns: ["custompattern1", "custompattern2"],
       });
 
@@ -509,15 +464,10 @@ describe("sensitive-fields.loader", () => {
 
       const patterns = getFieldPatterns(customPath);
 
-      // Should contain custom patterns if config is loaded correctly
-      // Note: The function returns defaults if fieldPatterns is missing or invalid
-      expect(patterns).toBeInstanceOf(Array);
-      // If the mock is working, should contain custom patterns
-      // Otherwise will contain defaults
-      expect(patterns.length).toBeGreaterThan(0);
+      expect(patterns).toEqual(["custompattern1", "custompattern2"]);
     });
 
-    it("should return defaults when config file does not exist", () => {
+    it("should return empty array when config file does not exist", () => {
       const customPath = "/nonexistent/config.json";
 
       (path.isAbsolute as jest.Mock).mockReturnValue(true);
@@ -525,21 +475,14 @@ describe("sensitive-fields.loader", () => {
 
       const patterns = getFieldPatterns(customPath);
 
-      expect(patterns).toBeInstanceOf(Array);
-      expect(patterns.length).toBeGreaterThan(0);
+      expect(patterns).toEqual([]);
     });
 
     it("should load patterns from environment variable", () => {
       const envPath = "/env/path/config.json";
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
-          authentication: [],
-          pii: [],
-          financial: [],
-          security: [],
-        },
+        mergeWithHardcodedDefaults: true,
+        fields: { authentication: [] },
         fieldPatterns: ["envpattern"],
       });
 
@@ -564,20 +507,16 @@ describe("sensitive-fields.loader", () => {
 
       const patterns = getFieldPatterns(customPath);
 
-      // Should return defaults on parse error
-      expect(patterns).toBeInstanceOf(Array);
-      expect(patterns.length).toBeGreaterThan(0);
+      expect(patterns).toEqual([]);
     });
 
-    it("should return defaults when fieldPatterns is missing", () => {
+    it("should return empty array when fieldPatterns is missing", () => {
       const customPath = "/config.json";
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
+        mergeWithHardcodedDefaults: true,
+        fields: {
           authentication: [],
           pii: [],
-          financial: [],
           security: [],
         },
       });
@@ -588,9 +527,7 @@ describe("sensitive-fields.loader", () => {
 
       const patterns = getFieldPatterns(customPath);
 
-      // Should return defaults
-      expect(patterns).toBeInstanceOf(Array);
-      expect(patterns.length).toBeGreaterThan(0);
+      expect(patterns).toEqual([]);
     });
   });
 
@@ -606,12 +543,10 @@ describe("sensitive-fields.loader", () => {
     it("should use custom path if provided", () => {
       const customPath = "/config.json";
       const configContent = JSON.stringify({
-        version: "1.0.0",
-        description: "Test config",
-        categories: {
+        mergeWithHardcodedDefaults: true,
+        fields: {
           authentication: ["testfield"],
           pii: [],
-          financial: [],
           security: [],
         },
         fieldPatterns: [],

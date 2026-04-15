@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.10.0] - 2026-04-15
+
+### Added
+
+- **Data masking policy controls** - `sensitive-fields.config.json` supports `neverMaskFields` (normalized-name allowlist) and `substringMinLength` (clamped 1–64, default 4) so audit masking can avoid false positives on common keys such as datasource `key` or `success` while still matching longer sensitive tokens in compound names.
+- **`maskSensitiveData` optional `configPath`** - Per-call override loads that JSON for one invocation without changing global `DataMasker` cache; if the path is missing or not a file, behavior falls back to the default config (`MISO_SENSITIVE_FIELDS_CONFIG` or packaged default).
+
+### Changed
+
+- **Hardcoded sensitive-name fallbacks** - Default set no longer treats bare `key` or `cc` as sensitive; prefers explicit security-oriented names. Packaged JSON uses a `fields` map (with `mergeWithHardcodedDefaults`) and entries such as `encryptionkey` / `encryptionKey` alongside authentication, PII, and security groups, aligned with the Python SDK.
+- **`maskValue` middle run** - Masked middle segment length matches Python: at least 8 asterisks, or the full remaining length when longer.
+
+### Technical
+
+- **Parity with Python 4.10.0** - Sensitive-fields loader merges `fields` or legacy `categories`, optional `fieldPatterns`, and env/default resolution; `getFieldPatterns()` returns only explicit `fieldPatterns` from config (empty array when unset).
+- **Release version alignment** - Set package version to `4.10.0` in `package.json`.
+
 ## [4.9.0] - 2026-03-23
 
 ### Changed
