@@ -1,68 +1,45 @@
 {
-  "version": "1.0.0",
-  "description": "ISO 27001 compliant sensitive fields configuration for data masking",
-  "categories": {
+  "mergeWithHardcodedDefaults": true,
+  "substringMinLength": 4,
+  "neverMaskFields": [
+    "success",
+    "key",
+    "message",
+    "status",
+    "error",
+    "hint",
+    "code",
+    "name",
+    "id"
+  ],
+  "fields": {
     "authentication": [
       "password",
       "passwd",
       "pwd",
-      "secret",
       "token",
-      "key",
+      "secret",
       "auth",
-      "authorization",
-      "cookie",
-      "session",
-      "apiKey",
-      "accessToken",
-      "refreshToken"
+      "authorization"
     ],
     "pii": [
-      "email",
-      "emailAddress",
-      "phone",
-      "phoneNumber",
-      "telephone",
-      "mobile",
-      "cellPhone",
       "ssn",
-      "socialSecurityNumber",
-      "taxId",
-      "taxIdentification"
-    ],
-    "financial": [
-      "creditCard",
-      "cc",
-      "cardNumber",
+      "creditcard",
       "cvv",
-      "cvv2",
-      "cvc",
       "pin",
-      "bankAccount",
-      "bankAccountNumber",
-      "routingNumber",
-      "iban",
-      "swift",
-      "accountNumber"
+      "otp"
     ],
     "security": [
-      "otp",
-      "oneTimePassword",
-      "privateKey",
-      "publicKey",
-      "encryptionKey",
-      "decryptionKey"
+      "apikey",
+      "accesstoken",
+      "refreshtoken",
+      "privatekey",
+      "secretkey",
+      "cookie",
+      "session",
+      "encryptionkey",
+      "encryptionKey"
     ]
   },
-  "fieldPatterns": [
-    "password",
-    "secret",
-    "token",
-    "key",
-    "ssn",
-    "creditcard",
-    "bankaccount",
-    "accountnumber"
-  ]
+  "fieldPatterns": []
 }
-

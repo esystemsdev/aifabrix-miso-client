@@ -1,188 +1,246 @@
 /**
- * Sensitive fields configuration loader
- * Loads ISO 27001 compliant sensitive fields from JSON configuration file
+ * Sensitive fields configuration loader for ISO 27001 compliance.
+ * Aligns with miso-client Python `sensitive_fields_loader` / packaged JSON shape.
  */
 
 import * as fs from "fs";
 import * as path from "path";
 import defaultConfig from "./sensitive-fields.config.json";
 
-export interface SensitiveFieldsConfig {
-  version: string;
-  description: string;
-  categories: {
-    authentication: string[];
-    pii: string[];
-    financial: string[];
-    security: string[];
-  };
-  fieldPatterns: string[];
+/** Normalized field name (lowercase, no underscores or hyphens). */
+export function normalizeFieldName(field: string): string {
+  return field.toLowerCase().replace(/[_-]/g, "");
 }
 
 /**
- * Get default sensitive fields (fallback if JSON file cannot be loaded)
+ * Hardcoded sensitive tokens when JSON cannot be loaded or mergeWithHardcodedDefaults is true.
+ * Omits bare `key` and `cc` to reduce false positives (e.g. datasource `key`, `success`).
  */
-function getDefaultSensitiveFields(): Set<string> {
-  return new Set([
-    // Authentication & Authorization
-    "password",
-    "passwd",
-    "pwd",
-    "secret",
-    "token",
-    "key",
-    "auth",
-    "authorization",
-    "cookie",
-    "session",
-    "apikey",
-    "accesstoken",
-    "refreshtoken",
-    // PII (ISO 27001)
-    "email",
-    "emailaddress",
-    "phone",
-    "phonenumber",
-    "telephone",
-    "mobile",
-    "cellphone",
-    "ssn",
-    "socialsecuritynumber",
-    "taxid",
-    "taxidentification",
-    // Financial Information
-    "creditcard",
-    "cc",
-    "cardnumber",
-    "cvv",
-    "cvv2",
-    "cvc",
-    "pin",
-    "bankaccount",
-    "bankaccountnumber",
-    "routingnumber",
-    "iban",
-    "swift",
-    "accountnumber",
-    // Security & Sensitive Data
-    "otp",
-    "onetimepassword",
-    "privatekey",
-    "publickey",
-    "encryptionkey",
-    "decryptionkey",
-  ]);
+export const HARDCODED_SENSITIVE_FIELDS: ReadonlySet<string> = new Set([
+  "password",
+  "passwd",
+  "pwd",
+  "secret",
+  "token",
+  "auth",
+  "authorization",
+  "cookie",
+  "session",
+  "ssn",
+  "creditcard",
+  "cvv",
+  "pin",
+  "otp",
+  "apikey",
+  "accesstoken",
+  "refreshtoken",
+  "privatekey",
+  "secretkey",
+]);
+
+function isBrowserEnvironment(): boolean {
+  return (
+    typeof globalThis !== "undefined" &&
+    "window" in globalThis &&
+    typeof (globalThis as Record<string, unknown>).window !== "undefined"
+  );
 }
 
-/**
- * Get default field patterns (fallback if JSON file cannot be loaded)
- */
-function getDefaultFieldPatterns(): string[] {
-  return [
-    "password",
-    "secret",
-    "token",
-    "key",
-    "ssn",
-    "creditcard",
-    "bankaccount",
-    "accountnumber",
-  ];
+function resolveConfigFilePath(customPath?: string): string | null {
+  if (customPath) {
+    return path.isAbsolute(customPath)
+      ? customPath
+      : path.resolve(process.cwd(), customPath);
+  }
+  const envPath = process.env.MISO_SENSITIVE_FIELDS_CONFIG;
+  if (envPath) {
+    return path.isAbsolute(envPath)
+      ? envPath
+      : path.resolve(process.cwd(), envPath);
+  }
+  return path.join(__dirname, "sensitive-fields.config.json");
 }
 
-function resolveConfigPath(customPath?: string): string | null {
-  const envPath = customPath || process.env.MISO_SENSITIVE_FIELDS_CONFIG;
-  if (!envPath) return null;
-  return path.isAbsolute(envPath) ? envPath : path.resolve(process.cwd(), envPath);
-}
-
-function fieldsFromConfig(config: SensitiveFieldsConfig): Set<string> {
-  const allFields = new Set<string>();
-  Object.values(config.categories).forEach((fields: string[]) => {
-    fields.forEach((field) => allFields.add(field.toLowerCase()));
-  });
-  getDefaultSensitiveFields().forEach((field) => allFields.add(field));
-  return allFields;
-}
-
-function loadConfigFromPath(configPath: string): Set<string> | null {
-  if (!fs.existsSync(configPath)) return null;
-  const configContent = fs.readFileSync(configPath, "utf8");
-  const config: SensitiveFieldsConfig = JSON.parse(configContent);
-  return fieldsFromConfig(config);
-}
-
-function loadConfigFromModule(): Set<string> | null {
+function readJsonFile(filePath: string): Record<string, unknown> {
   try {
-    const config = defaultConfig as unknown as SensitiveFieldsConfig;
-    return fieldsFromConfig(config);
+    const raw = fs.readFileSync(filePath, "utf8");
+    const parsed: unknown = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : {};
   } catch {
-    const configPath = path.join(__dirname, "sensitive-fields.config.json");
-    return loadConfigFromPath(configPath);
+    return {};
   }
 }
 
-export function loadSensitiveFieldsConfig(customPath?: string): Set<string> {
-  if (typeof globalThis !== "undefined" && "window" in globalThis) {
-    const globalWindow = (globalThis as Record<string, unknown>).window;
-    if (typeof globalWindow !== "undefined") return getDefaultSensitiveFields();
+/**
+ * Load raw sensitive-fields JSON by priority: customPath, MISO_SENSITIVE_FIELDS_CONFIG, packaged default file, then bundled import.
+ */
+export function loadSensitiveFieldsConfigDict(
+  customPath?: string,
+): Record<string, unknown> {
+  if (isBrowserEnvironment()) {
+    return {};
   }
-  if (typeof process === "undefined" || !process.env) return getDefaultSensitiveFields();
+  if (typeof process === "undefined" || !process.env) {
+    return {};
+  }
 
   try {
-    const configPath = resolveConfigPath(customPath);
-    if (configPath) {
-      const result = loadConfigFromPath(configPath);
-      if (result) return result;
+    const filePath = resolveConfigFilePath(customPath);
+    if (filePath && fs.existsSync(filePath)) {
+      const fromDisk = readJsonFile(filePath);
+      if (Object.keys(fromDisk).length > 0) {
+        return fromDisk;
+      }
     }
-    const moduleResult = loadConfigFromModule();
-    return moduleResult ?? getDefaultSensitiveFields();
   } catch {
-    return getDefaultSensitiveFields();
+    /* fall through */
   }
-}
 
-function loadFieldPatternsFromPath(configPath: string): string[] | null {
-  if (!fs.existsSync(configPath)) return null;
-  const configContent = fs.readFileSync(configPath, "utf8");
-  const config: SensitiveFieldsConfig = JSON.parse(configContent);
-  return config.fieldPatterns || getDefaultFieldPatterns();
-}
-
-function loadFieldPatternsFromModule(): string[] | null {
   try {
-    const config = defaultConfig as unknown as SensitiveFieldsConfig;
-    return config.fieldPatterns || getDefaultFieldPatterns();
+    const bundled = defaultConfig as unknown as Record<string, unknown>;
+    if (bundled && typeof bundled === "object") {
+      return bundled;
+    }
   } catch {
-    const configPath = path.join(__dirname, "sensitive-fields.config.json");
-    return loadFieldPatternsFromPath(configPath);
+    /* fall through */
   }
+
+  return {};
+}
+
+function uniqueFieldsPreservingOrder(fields: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const field of fields) {
+    const k = field.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(field);
+  }
+  return out;
+}
+
+/**
+ * Flatten `fields` or legacy `categories` from config into display names (not yet normalized).
+ */
+export function getSensitiveFieldNamesFromDict(
+  cfg: Record<string, unknown>,
+): string[] {
+  const bucket = (cfg.fields ?? cfg.categories) as unknown;
+  if (!bucket || typeof bucket !== "object" || Array.isArray(bucket)) {
+    return [];
+  }
+  const all: string[] = [];
+  for (const v of Object.values(bucket as Record<string, unknown>)) {
+    if (Array.isArray(v)) {
+      for (const item of v) {
+        if (typeof item === "string" && item.trim()) {
+          all.push(item);
+        }
+      }
+    }
+  }
+  return uniqueFieldsPreservingOrder(all);
+}
+
+export function neverMaskFieldsFromCfg(
+  cfg: Record<string, unknown>,
+): Set<string> {
+  const raw = cfg.neverMaskFields;
+  const out = new Set<string>();
+  if (!Array.isArray(raw)) return out;
+  for (const x of raw) {
+    if (typeof x === "string" && x.trim()) {
+      out.add(normalizeFieldName(x));
+    }
+  }
+  return out;
+}
+
+export function substringMinLengthFromCfg(
+  cfg: Record<string, unknown>,
+): number {
+  const sm = cfg.substringMinLength ?? 4;
+  try {
+    const n = Number(sm);
+    if (!Number.isFinite(n)) return 4;
+    return Math.max(1, Math.min(Math.trunc(n), 64));
+  } catch {
+    return 4;
+  }
+}
+
+export function mergeWithHardcodedDefaultsFromCfg(
+  cfg: Record<string, unknown>,
+): boolean {
+  return cfg.mergeWithHardcodedDefaults !== false;
+}
+
+function fieldPatternsFromCfg(cfg: Record<string, unknown>): string[] {
+  const p = cfg.fieldPatterns;
+  return Array.isArray(p)
+    ? p.filter((x): x is string => typeof x === "string" && x.length > 0)
+    : [];
+}
+
+/**
+ * Build merged normalized sensitive tokens (hardcoded + JSON fields + fieldPatterns).
+ */
+export function buildMergedSensitiveTokens(
+  cfg: Record<string, unknown>,
+): Set<string> {
+  const merge = mergeWithHardcodedDefaultsFromCfg(cfg);
+  const merged = new Set<string>();
+
+  if (merge) {
+    HARDCODED_SENSITIVE_FIELDS.forEach((f) => merged.add(f));
+  }
+
+  for (const field of getSensitiveFieldNamesFromDict(cfg)) {
+    merged.add(normalizeFieldName(field));
+  }
+
+  for (const pattern of fieldPatternsFromCfg(cfg)) {
+    merged.add(normalizeFieldName(pattern));
+  }
+
+  if (!merge && merged.size === 0) {
+    HARDCODED_SENSITIVE_FIELDS.forEach((f) => merged.add(f));
+  }
+
+  return merged;
+}
+
+/**
+ * Merged sensitive field tokens for the resolved config (used by DataMasker helpers).
+ */
+export function loadSensitiveFieldsConfig(customPath?: string): Set<string> {
+  if (isBrowserEnvironment()) {
+    return new Set(HARDCODED_SENSITIVE_FIELDS);
+  }
+  if (typeof process === "undefined" || !process.env) {
+    return new Set(HARDCODED_SENSITIVE_FIELDS);
+  }
+
+  const cfg = loadSensitiveFieldsConfigDict(customPath);
+  return buildMergedSensitiveTokens(cfg);
 }
 
 export function getFieldPatterns(customPath?: string): string[] {
-  if (typeof globalThis !== "undefined" && "window" in globalThis) {
-    const globalWindow = (globalThis as Record<string, unknown>).window;
-    if (typeof globalWindow !== "undefined") return getDefaultFieldPatterns();
+  if (isBrowserEnvironment()) {
+    return [];
   }
-  if (typeof process === "undefined" || !process.env) return getDefaultFieldPatterns();
+  if (typeof process === "undefined" || !process.env) {
+    return [];
+  }
 
-  try {
-    const configPath = resolveConfigPath(customPath);
-    if (configPath) {
-      const result = loadFieldPatternsFromPath(configPath);
-      if (result) return result;
-    }
-    const moduleResult = loadFieldPatternsFromModule();
-    return moduleResult ?? getDefaultFieldPatterns();
-  } catch {
-    return getDefaultFieldPatterns();
-  }
+  const cfg = loadSensitiveFieldsConfigDict(customPath);
+  const fromFile = fieldPatternsFromCfg(cfg);
+  return fromFile.length > 0 ? fromFile : [];
 }
 
-/**
- * Get all sensitive fields as array (for DataMasker)
- */
 export function getSensitiveFieldsArray(customPath?: string): string[] {
-  const fieldsSet = loadSensitiveFieldsConfig(customPath);
-  return Array.from(fieldsSet);
+  return Array.from(loadSensitiveFieldsConfig(customPath));
 }

@@ -2,6 +2,9 @@
  * Unit tests for DataMasker utility
  */
 
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import { DataMasker } from "../../src/utils/data-masker";
 
 describe("DataMasker", () => {
@@ -10,7 +13,7 @@ describe("DataMasker", () => {
       expect(DataMasker.isSensitiveField("password")).toBe(true);
       expect(DataMasker.isSensitiveField("token")).toBe(true);
       expect(DataMasker.isSensitiveField("secret")).toBe(true);
-      expect(DataMasker.isSensitiveField("apikey")).toBe(true);
+      expect(DataMasker.isSensitiveField("apiKey")).toBe(true);
     });
 
     it("should detect sensitive fields with variations", () => {
@@ -32,10 +35,14 @@ describe("DataMasker", () => {
 
     it("should return false for non-sensitive fields", () => {
       expect(DataMasker.isSensitiveField("username")).toBe(false);
-      // email is now a sensitive field (PII)
-      expect(DataMasker.isSensitiveField("email")).toBe(true);
+      expect(DataMasker.isSensitiveField("email")).toBe(false);
       expect(DataMasker.isSensitiveField("name")).toBe(false);
       expect(DataMasker.isSensitiveField("description")).toBe(false);
+    });
+
+    it("should not treat bare key or success as sensitive (neverMaskFields)", () => {
+      expect(DataMasker.isSensitiveField("key")).toBe(false);
+      expect(DataMasker.isSensitiveField("success")).toBe(false);
     });
   });
 
@@ -52,7 +59,7 @@ describe("DataMasker", () => {
       expect(masked).toEqual({
         username: "john",
         password: "***MASKED***",
-        email: "***MASKED***", // email is now a sensitive field (PII)
+        email: "john@example.com",
       });
     });
 
@@ -135,12 +142,53 @@ describe("DataMasker", () => {
 
       expect(JSON.stringify(data)).toBe(original);
     });
+
+    it("should use per-call configPath without changing global cache", () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "miso-mask-"));
+      const cfgPath = path.join(dir, "mask.json");
+      fs.writeFileSync(
+        cfgPath,
+        JSON.stringify({
+          mergeWithHardcodedDefaults: false,
+          substringMinLength: 4,
+          neverMaskFields: [],
+          fields: { custom: ["onlycustomfield"] },
+          fieldPatterns: [],
+        }),
+        "utf8",
+      );
+
+      expect(DataMasker.isSensitiveField("onlycustomfield")).toBe(false);
+
+      const masked = DataMasker.maskSensitiveData(
+        { onlycustomfield: "x", password: "y" },
+        { configPath: cfgPath },
+      ) as Record<string, unknown>;
+
+      expect(masked.onlycustomfield).toBe("***MASKED***");
+      expect(masked.password).toBe("y");
+
+      expect(DataMasker.isSensitiveField("onlycustomfield")).toBe(false);
+
+      fs.unlinkSync(cfgPath);
+      fs.rmdirSync(dir);
+    });
+
+    it("should fall back to global masking when per-call configPath is missing", () => {
+      const masked = DataMasker.maskSensitiveData(
+        { password: "secret" },
+        { configPath: "/nonexistent/miso-sensitive.json" },
+      ) as Record<string, unknown>;
+      expect(masked.password).toBe("***MASKED***");
+    });
   });
 
   describe("maskValue", () => {
-    it("should mask entire value when no parts shown", () => {
-      expect(DataMasker.maskValue("secret123")).toBe("********");
-      expect(DataMasker.maskValue("verylongsecretkey")).toBe("********");
+    it("should mask entire value when no parts shown (min 8 asterisks)", () => {
+      expect(DataMasker.maskValue("secret123")).toBe("*********");
+      expect(DataMasker.maskValue("verylongsecretkey")).toBe(
+        "*****************",
+      );
     });
 
     it("should show first few characters", () => {
@@ -162,7 +210,6 @@ describe("DataMasker", () => {
 
     it("should return MASKED for short values", () => {
       expect(DataMasker.maskValue("ab", 1, 1)).toBe("***MASKED***");
-      // Test value that's just barely too short
       expect(DataMasker.maskValue("a", 1, 1)).toBe("***MASKED***");
     });
 
@@ -170,9 +217,9 @@ describe("DataMasker", () => {
       expect(DataMasker.maskValue("")).toBe("***MASKED***");
     });
 
-    it("should cap masked length at 8", () => {
+    it("should use at least 8 asterisks for the masked middle segment", () => {
       const masked = DataMasker.maskValue("verylongstring", 0, 0);
-      expect(masked).toBe("********");
+      expect(masked).toBe("*".repeat("verylongstring".length));
     });
   });
 
@@ -193,10 +240,9 @@ describe("DataMasker", () => {
       expect(DataMasker.containsSensitiveData({ username: "john" })).toBe(
         false,
       );
-      // email is now a sensitive field (PII)
       expect(
         DataMasker.containsSensitiveData({ email: "test@example.com" }),
-      ).toBe(true);
+      ).toBe(false);
     });
 
     it("should detect nested sensitive fields", () => {
@@ -244,62 +290,41 @@ describe("DataMasker", () => {
 
   describe("setConfigPath", () => {
     beforeEach(() => {
-      // Clear cache before each test by resetting the config path
-      // This ensures clean state between tests
-      DataMasker.setConfigPath(undefined as any);
+      DataMasker.setConfigPath(undefined);
     });
 
     afterEach(() => {
-      // Clean up after each test
-      DataMasker.setConfigPath(undefined as any);
+      DataMasker.setConfigPath(undefined);
     });
 
     it("should set custom config path", () => {
       DataMasker.setConfigPath("/custom/path/config.json");
-
-      // After setting path, isSensitiveField should use new config
-      // This tests that cache was cleared
       expect(DataMasker.isSensitiveField("password")).toBe(true);
     });
 
     it("should clear cache when config path changes", () => {
-      // First call - should use default config
       expect(DataMasker.isSensitiveField("password")).toBe(true);
-
-      // Change config path - should clear cache
       DataMasker.setConfigPath("/custom/path/config.json");
-
-      // Should still work (might use same defaults or custom config)
       expect(DataMasker.isSensitiveField("password")).toBe(true);
     });
 
     it("should handle undefined config path", () => {
-      DataMasker.setConfigPath(undefined as any);
-
-      // Should not throw and should still work
+      DataMasker.setConfigPath(undefined);
       expect(DataMasker.isSensitiveField("password")).toBe(true);
     });
   });
 
   describe("cache invalidation", () => {
     it("should reload fields when config path changes", () => {
-      // Initial state - default config
       expect(DataMasker.isSensitiveField("password")).toBe(true);
-      expect(DataMasker.isSensitiveField("email")).toBe(true);
-
-      // Change config path - cache should be invalidated
+      expect(DataMasker.isSensitiveField("email")).toBe(false);
       DataMasker.setConfigPath("/new/path/config.json");
-
-      // Should still work (uses defaults if custom config not available)
       expect(DataMasker.isSensitiveField("password")).toBe(true);
     });
 
-    it("should cache field patterns after first use", () => {
-      // First use - should load and cache
+    it("should cache field set after first use", () => {
       const result1 = DataMasker.isSensitiveField("password");
       expect(result1).toBe(true);
-
-      // Second use - should use cache
       const result2 = DataMasker.isSensitiveField("password");
       expect(result2).toBe(true);
     });
