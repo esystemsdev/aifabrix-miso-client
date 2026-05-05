@@ -1,288 +1,203 @@
 # validate-implementation
 
-This command validates that a plan has been implemented correctly according to its requirements, verifies tests exist, and ensures no code violations of cursor rules.
+Validate that a plan has been fully implemented, run strict quality gates in fixed order, synchronize task states with evidence, and attach a validation report to the same plan file.
 
 ## Purpose
 
-The command:
+This command verifies:
 
-1. Analyzes a plan file (from `.cursor/plans/`) to extract implementation requirements
-2. Validates that all tasks are completed
-3. Verifies that all mentioned files exist and are implemented
-4. Checks that tests exist for new/modified code
-5. Runs code quality validation (format → lint → test)
-6. Validates against cursor rules
-7. Appends validation results to the original plan file
+1. all plan tasks are implemented (not only checked)
+2. referenced files and symbols exist
+3. expected automated tests are present and passing
+4. quality gates pass in strict order
+5. implementation follows `.cursor/rules/project-rules.mdc`
+6. markdown task checkboxes and frontmatter `todos` reflect real status
 
 ## Usage
 
-Run this command in chat with `/validate-implementation [plan-file-path]`
+```bash
+/validate-implementation [plan-file-path]
+```
 
-**Examples**:
+Examples:
 
-- `/validate-implementation` - Validates the most recently modified plan file
-- `/validate-implementation .cursor/plans/68-data-client-browser-wrapper.plan.md` - Validates a specific plan
+- `/validate-implementation`
+- `/validate-implementation .cursor/plans/57-enterprise-auth-unification-ts-sdk_07fa02a3.plan.md`
 
-## What It Does
+## Execution Steps
 
-### 1. Plan Analysis
+### 1) Resolve and Parse Plan
 
-**Extracts from Plan File**:
+1. Use provided path or latest file from `.cursor/plans/`.
+2. Parse:
+   - markdown checkboxes
+   - frontmatter `todos`
+   - mentioned files/modules
+   - validation requirements
+   - `Expected Automated Tests` (if present)
 
-- All tasks with checkboxes (`- [ ]` or `- [x]`)
-- All files mentioned (paths, new files, modified files)
-- All services, types, utilities mentioned
-- Test requirements (unit tests, integration tests)
-- Documentation requirements
+### 2) Preflight for Quiet Validation Output
 
-**Validates Task Completion**:
+1. Ensure `.temp/` is ignored by git (`.gitignore` contains `.temp/`).
+2. Create logs directory:
+   - `mkdir -p .temp/validation`
+3. Run noisy commands in silent mode and write full logs to `.temp/validation/*`.
+4. Show only concise summaries unless a step fails.
 
-- Checks if all tasks are marked as complete (`- [x]`)
-- Identifies incomplete tasks (`- [ ]`)
-- Reports completion percentage
+### 3) Validate Files and Task Evidence
 
-### 2. File Existence Validation
+Check:
 
-**Checks for**:
+- all planned files exist
+- planned symbols/classes/functions exist
+- tests exist for changed behavior
+- docs changed when API/contract/config/public usage changed
 
-- All mentioned files exist at specified paths
-- New files are created (if marked as "New" in plan)
-- Modified files exist and contain expected changes
-- Type definition files exist (if mentioned)
-- Test files exist for new/modified code
+### 4) Run Quality Gates (Mandatory Order)
 
-**Validates File Content**:
+Stop on first failure; do not continue to next gate.
 
-- Checks if mentioned classes/functions exist in files
-- Verifies expected imports are present
-- Validates that key changes are implemented
-- Checks TypeScript type definitions
+1. **TEST TYPECHECK**  
+   `pnpm run tests:typecheck:silent`  
+   Fallback: `pnpm run tests:typecheck`  
+   Log: `.temp/validation/00-tests-typecheck`
 
-### 3. Test Coverage Validation
+2. **BUILD**  
+   `pnpm run build:silent`  
+   Fallback: `pnpm run build`  
+   Log: `.temp/validation/01-build`
 
-**Checks for**:
+3. **FORMAT**  
+   `pnpm run fmt:silent`  
+   Fallback: `pnpm run fmt`  
+   Log: `.temp/validation/02-fmt`
 
-- Unit test files exist for new services/modules
-- Integration test files exist (if required by plan)
-- Test structure mirrors code structure
-- Test files are in correct locations (`tests/unit/` mirrors `src/`)
+4. **MARKDOWN LINT**  
+   `pnpm run md:lint:silent`  
+   Log: `.temp/validation/03-md-lint`  
+   If failed, run:  
+   `pnpm run md:fix:silent`  
+   Log: `.temp/validation/04-md-fix`  
+   Then re-run md lint once.
 
-**Validates Test Quality**:
+5. **LINT**  
+   `pnpm run lint:silent`  
+   Log: `.temp/validation/05-lint`  
+   If failed, run:  
+   `pnpm run lint:fix:silent`  
+   Log: `.temp/validation/05-lint-fix`  
+   Then re-run lint once.  
+   Requirement: 0 errors, 0 warnings.
 
-- Tests use proper fixtures and mocks
-- Tests cover error cases
-- Tests use async patterns where needed
-- Tests follow cursor rules for testing
-- Tests properly mock HttpClient, RedisService, axios, ioredis, jsonwebtoken
-- Unit tests are properly mocked; each individual unit test should complete in less than 0.5 seconds
+6. **TEST**  
+   `pnpm run test:silent`  
+   Fallback: `pnpm run test`  
+   Log: `.temp/validation/06-test`
 
-### 4. Code Quality Validation
+### 5) Validate Rule Compliance (SDK-Specific)
 
-**Runs Validation Steps (MANDATORY ORDER)**:
+Validate against `.cursor/rules/project-rules.mdc`:
 
-1. **STEP 1 - FORMAT**:
-   - Run `ppnpm run lint:fix` FIRST
-   - Verify exit code 0
-   - Report any formatting issues
+- HTTP client + token policy (`x-client-token` behavior)
+- service-layer patterns and dependency structure
+- Redis guard/fallback (`redis.isConnected()` checks before use)
+- async/error handling expectations
+- RFC 7807 behavior for Express utilities
+- public API camelCase outputs
+- no sensitive-data leakage in logs/docs/examples
 
-2. **STEP 2 - LINT**:
-   - Run `pnpm run lint` AFTER format
-   - Verify exit code 0
-   - Report all linting errors/warnings
-   - **CRITICAL**: Zero warnings/errors required
+### 6) Synchronize Task States (Mandatory)
 
-3. **STEP 3 - TEST**:
-   - Run `pnpm test` AFTER lint
-   - Verify all tests pass
-   - Report test failures
-   - Check test execution time guidance (each individual unit test < 0.5 seconds; full-suite runtime may be higher)
+Update in the plan file:
 
-**Validates Code Against Cursor Rules**:
+1. markdown checkboxes (`- [ ]`/`- [x]`)
+2. frontmatter `todos` statuses (`pending|in_progress|completed|cancelled`)
 
-- Reads relevant rules from repository-specific cursor rules
-- Checks for violations in:
-  - Code reuse (no duplication, use utilities)
-  - Error handling (proper Error usage, try-catch, return empty arrays on error)
-  - Logging (proper logging, no secrets logged)
-  - Type safety (TypeScript annotations, interfaces over types for public APIs)
-  - Async patterns (async/await, no raw promises)
-  - HTTP client patterns (use HttpClient, authenticatedRequest, proper headers)
-  - Token management (JWT decode, proper header usage)
-  - Redis caching (check isConnected, proper fallback)
-  - Service layer patterns (proper dependency injection, config access)
-  - Security (no hardcoded secrets, proper secret management)
-  - Public API naming (camelCase for all outputs)
+Rules:
 
-### 5. Implementation Completeness Check
+- mark complete only with objective evidence from files/tests/gates
+- if any gate fails, keep related tasks incomplete
+- eliminate checkbox/todo contradictions
 
-**Validates**:
+### 7) Write Validation Report to Plan File
 
-- All service methods are implemented
-- All type definitions are updated
-- All utilities are implemented
-- All Express middleware/utilities are implemented
-- All documentation is updated
-- All exports are properly configured in `src/index.ts`
+Add or replace `## Validation Report` in the same plan file.
 
-### 6. Report Generation
+Use dynamic date in `YYYY-MM-DD`.
 
-**Appends Validation Results to Original Plan File**:
+Template:
 
-- Appends validation results directly to the original plan file
-- Adds a new `## Validation` section at the end of the plan file
-- If a validation section already exists, it replaces it with updated results
-- Contains:
-  - **Date**: Current date in yyyy-mm-dd format (dynamically generated, e.g., `2025-01-27`)
-  - Executive summary (overall status)
-  - File existence validation results
-  - Test coverage analysis
-  - Code quality validation results
-  - Cursor rules compliance check
-  - Implementation completeness assessment
-  - Issues and recommendations
-  - Final validation checklist
-- **Note**: The plan file is modified to include validation results - previous validation sections are replaced
-- **Date Format**: The date is automatically generated using the current date in ISO format (yyyy-mm-dd), not hardcoded
+```markdown
+## Validation Report
 
-## Output
-
-### Validation Section Structure
-
-## Validation
-
-**Date**: yyyy-mm-dd (current date, dynamically generated, e.g., `2025-01-27`)
+**Date**: YYYY-MM-DD
 **Status**: ✅ COMPLETE / ⚠️ INCOMPLETE / ❌ FAILED
 
 ### Executive Summary
 
-[Overall status and completion percentage]
+- <completion summary>
 
-### File Existence Validation
+### Task Completion
 
-- ✅/❌ [File path] - [Status]
-- ✅/❌ [File path] - [Status]
+- Total: <n>
+- Completed: <n>
+- Incomplete: <n>
 
-### Test Coverage
+### Task State Synchronization
 
-- ✅/❌ Unit tests exist
-- ✅/❌ Integration tests exist
-- Test coverage: [percentage]%
+- ✅/❌ Markdown checkboxes synchronized
+- ✅/❌ Frontmatter `todos` synchronized
+- ✅/❌ No contradictions remain
 
-### Code Quality Validation
+### File and Implementation Validation
 
-**STEP 1 - FORMAT**: ✅/❌ PASSED
-**STEP 2 - LINT**: ✅/❌ PASSED (0 errors, 0 warnings)
-**STEP 3 - TEST**: ✅/❌ PASSED (all tests pass; per-test unit runtime guideline < 0.5 seconds)
+- ✅/❌ <file or feature check>
 
-### Cursor Rules Compliance
+### Automated Tests Validation
 
-- ✅/❌ Code reuse: PASSED
-- ✅/❌ Error handling: PASSED
-- ✅/❌ Error handling: PASSED
-- ✅/❌ Logging: PASSED
-- ✅/❌ Type safety: PASSED
-- ✅/❌ Async patterns: PASSED
-- ✅/❌ HTTP client patterns: PASSED
-- ✅/❌ Token management: PASSED
-- ✅/❌ Redis caching: PASSED
-- ✅/❌ Service layer patterns: PASSED
-- ✅/❌ Security: PASSED
-- ✅/❌ Public API naming: PASSED
+- ✅/❌ Unit/integration tests exist where required
+- ✅/❌ Expected automated tests implemented (if section exists)
 
-### Implementation Completeness
+### Quality Gates
 
-- ✅/❌ Services: COMPLETE
-- ✅/❌ Types: COMPLETE
-- ✅/❌ Utilities: COMPLETE
-- ✅/❌ Express utilities: COMPLETE
-- ✅/❌ Documentation: COMPLETE
-- ✅/❌ Exports: COMPLETE
+- ✅/❌ tests:typecheck
+- ✅/❌ build
+- ✅/❌ fmt
+- ✅/❌ md:lint (and md:fix if used)
+- ✅/❌ lint (0 warnings/errors)
+- ✅/❌ test
+
+### Rules Compliance
+
+- ✅/❌ SDK token/header policy
+- ✅/❌ service/redis/error-handling patterns
+- ✅/❌ RFC 7807 / security / camelCase API
+
+### Logs
+
+- Full logs: `.temp/validation/*`
 
 ### Issues and Recommendations
 
-[List of issues found and recommendations]
+- <blocking and non-blocking items>
 
-### Final Validation Checklist
+### Final Checklist
 
-- [x] All tasks completed
-- [x] All files exist
-- [x] Tests exist and pass
-- [x] Code quality validation passes
-- [x] Cursor rules compliance verified
-- [x] Implementation complete
-
-**Result**: ✅/❌ **VALIDATION PASSED/FAILED** - [Summary message]
-
-```yaml
-
-## Execution Behavior
-
-**Automatic Execution**:
-- The command executes automatically without asking for user input
-- Shows progress during validation
-- Appends validation results to the original plan file (modifies the plan file)
-- Only asks for user input if critical issues require confirmation
-
-**Error Handling**:
-- If format fails: Reports error, does not proceed to lint
-- If lint fails: Reports all errors, does not proceed to tests
-- If tests fail: Reports all failures
-- If files are missing: Reports missing files
-- If tasks are incomplete: Reports incomplete tasks
-
-**Critical Requirements**:
-- **Format must pass** before linting
-- **Lint must pass** (zero errors/warnings) before testing
-- **Tests must pass** before marking as complete
-- **All tasks must be completed** for full validation
-- **All files must exist** for full validation
-- **Tests must exist** for new/modified code
-- **Unit test performance guidance**: each individual unit test should complete in < 0.5 seconds (all mocked). Full-suite runtime is validated separately and may exceed 0.5 seconds.
-
-## Notes
-
-- **Plan File Detection**: If no plan file is specified, the command finds the most recently modified plan file in `.cursor/plans/`
-- **Task Parsing**: Extracts tasks from markdown checkboxes (`- [ ]` or `- [x]`)
-- **File Detection**: Identifies file paths mentioned in plan (code blocks, file references, paths in text)
-- **Validation Section**: Validation results are appended to the original plan file in a `## Validation` section
-- **Section Replacement**: If a validation section already exists in the plan file, it is replaced with updated results
-- **Plan File Modification**: The plan file is modified to include validation results - ensure the plan file is committed to version control
-
-## Integration with Plans
-
-This command is designed to be added to every code plan as a final validation step:
-
-```markdown
-## Validation
-
-After implementation, run:
-/validate-implementation .cursor/plans/<plan-name>.plan.md
-
-This will validate:
-- All tasks are completed
-- All files exist and are implemented
-- Tests exist and pass
-- Code quality validation passes
-- Cursor rules compliance verified
-
-The validation results will be appended to this plan file in a `## Validation` section.
-If a validation section already exists, it will be replaced with updated results.
+- [x] All tasks implemented and synchronized
+- [x] Files and tests validated
+- [x] Quality gates passed in strict order
+- [x] Rules compliance verified
 ```
 
-## Example Usage in Plan
+Status mapping:
 
-```markdown
-# Example Plan
+- `✅ COMPLETE`: all gates pass, tasks synchronized, no critical rule violations
+- `⚠️ INCOMPLETE`: partial implementation or non-critical gaps
+- `❌ FAILED`: missing implementation, failed gates, or critical rule violations
 
-## Tasks
-- [ ] Task 1: Create service
-- [ ] Task 2: Add tests
-- [ ] Task 3: Update documentation
+## Critical Requirements
 
-## Validation
-After completing all tasks, run:
-/validate-implementation .cursor/plans/example-plan.plan.md
-
-The validation results will be appended to this plan file in a `## Validation` section.
-If a validation section already exists, it will be replaced with updated results.
-
+- Never reorder validation gates.
+- Never skip a failed gate.
+- Never mark tasks complete without evidence.
+- Keep report in the same plan file; do not create extra report files unless user asks.

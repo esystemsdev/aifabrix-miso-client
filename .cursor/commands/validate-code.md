@@ -5,6 +5,7 @@ This command analyzes all core code (src/services, src/utils, src/types, src/exp
 ## Purpose
 
 The command:
+
 1. Reads all development rules from the repository-specific cursor rules
 2. Analyzes all core code in:
    - `src/services/` (primary focus - AuthService, RolesService, PermissionsService, LoggerService, RedisService, DataClient)
@@ -142,6 +143,7 @@ For each module category, the command:
 ## Output
 
 Creates or updates a single plan file in `.cursor/plans/` with:
+
 - Overview of each module category
 - List of all files/modules in each category
 - Detailed violation analysis
@@ -160,35 +162,45 @@ Creates or updates a single plan file in `.cursor/plans/` with:
 # Fix and Improve Code - Full
 
 ## Overview
+
 [Description of the consolidated plan and its scope]
 
 ## Modules Analyzed
+
 [Grouped list of files per category]
 
 ## Key Issues Identified
+
 [Summary of main violations, grouped by category]
 
 ## Implementation Tasks
 
 ### Task 1: Fix Code Duplication
+
 [Detailed task description with code examples showing duplication and how to refactor using src/utils/]
 
 ### Task 2: Add Proper Error Handling
+
 [Detailed task description with code examples showing proper Error usage and try-catch patterns]
 
 ### Task 3: Improve Logging
+
 [Detailed task description with code examples showing proper logging patterns]
 
 ### Task 4: Add Type Annotations
+
 [Detailed task description with code examples showing proper TypeScript annotations]
 
 ### Task 5: Fix Async Patterns
+
 [Detailed task description with code examples showing proper async/await usage]
 
 ### Task 6: Add Input Validation
+
 [Detailed task description with code examples showing proper parameter validation]
 
 ### Task 7: Improve Security
+
 [Detailed task description with code examples showing secret management and security best practices]
 
 ...
@@ -199,39 +211,51 @@ Creates or updates a single plan file in `.cursor/plans/` with:
 The command groups code into the following categories (all captured in one plan):
 
 ### Services - Authentication
+
 - **Services - Authentication**: `src/services/auth.service.ts`, authentication-related services
 
 ### Services - Authorization
+
 - **Services - Authorization**: `src/services/roles.service.ts`, `src/services/permissions.service.ts`
 
 ### Services - Logging
+
 - **Services - Logging**: `src/services/logger.service.ts`
 
 ### Services - Data
+
 - **Services - Data**: `src/services/data-client.ts`, data client services
 
 ### Services - Infrastructure
+
 - **Services - Infrastructure**: `src/services/redis.service.ts`
 
 ### Utils - HTTP Client
+
 - **Utils - HTTP Client**: `src/utils/http-client.ts`, `src/utils/internal-http-client.ts`
 
 ### Utils - Configuration
+
 - **Utils - Configuration**: `src/utils/config-loader.ts`
 
 ### Utils - Data Processing
+
 - **Utils - Data Processing**: `src/utils/data-masker.ts`
 
 ### Express - Middleware
+
 - **Express - Middleware**: `src/express/` middleware utilities
 
 ### Express - Utilities
+
 - **Express - Utilities**: `src/express/` helper utilities
 
 ### Types
+
 - **Types**: `src/types/` TypeScript type definitions
 
 ### Core
+
 - **Core**: `src/index.ts`, main MisoClient class
 
 ## Notes
@@ -249,4 +273,3 @@ The command groups code into the following categories (all captured in one plan)
 - Security and ISO 27001 compliance are critical - all plans must address security concerns
 - File size limits (≤500 lines per file, ≤20-30 lines per method) must be checked and enforced
 - All public API outputs (types, interfaces, return values, function names) must use camelCase
-

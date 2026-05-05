@@ -1,0 +1,58 @@
+# Dependencies
+node_modules
+**/node_modules/**
+
+# Build and coverage outputs
+dist
+build
+out
+coverage
+**/dist/**
+**/build/**
+**/coverage/**
+server/public/assets/**
+
+# Generated artifacts
+*.generated.*
+**/*.generated.*
+*.d.ts
+*.d.ts.map
+*.js.map
+
+# Lock files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+**/pnpm-lock.yaml
+**/package-lock.json
+**/yarn.lock
+
+# Environment and logs
+.env
+.env.*
+*.log
+
+# IDE and git internals
+.vscode
+.idea
+**/.git/**
+
+# Cursor plans and validation artifacts
+.cursor/plans/**
+.cursor/validation/**
+
+# Temporary folders
+.temp
+**/.temp/**
+temp
+**/temp/**
+tmp
+**/tmp/**
+
+# Changelogs and manual docs history formatting
+CHANGELOG.md
+**/CHANGELOG.md
+**/changelog.md
+
+# Test snapshots
+**/__snapshots__/**

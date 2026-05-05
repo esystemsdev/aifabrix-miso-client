@@ -6,7 +6,7 @@ When the `/repair-release` command is used, the agent must automatically prepare
 
 1. **Validation Step**:
    - First, run the `/validate-tests` command to ensure all tests pass, linting is clean, and the codebase is in a validated state
-   - This includes: `pnpm run lint:fix`, `pnpm run lint`, `pnpm test`, and final verification
+   - This includes: `pnpm run tests:typecheck:silent`, `pnpm run lint:fix:silent`, `pnpm run lint:silent`, `pnpm run test:silent`, and final verification
    - Do not proceed until all validation steps pass
 
 2. **Change Detection Step**:
@@ -89,10 +89,10 @@ When the `/repair-release` command is used, the agent must automatically prepare
   - New type definitions or interfaces
 
 **Work is only complete when:**
+
 - ✅ All validation tests pass (via `/validate-tests`)
 - ✅ Changes have been analyzed from git
 - ✅ Version number has been determined and incremented
 - ✅ CHANGELOG.md has been updated with new version entry
 - ✅ package.json version has been updated
 - ✅ All changes follow the project's format and standards
-
