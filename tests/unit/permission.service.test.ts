@@ -20,7 +20,10 @@ const MockedCacheService = CacheService as jest.MockedClass<
   typeof CacheService
 >;
 import * as browserJwtDecoder from "../../src/utils/browser-jwt-decoder";
-const mockExtractUserIdFromToken = browserJwtDecoder.extractUserIdFromToken as jest.MockedFunction<typeof browserJwtDecoder.extractUserIdFromToken>;
+const mockExtractUserIdFromToken =
+  browserJwtDecoder.extractUserIdFromToken as jest.MockedFunction<
+    typeof browserJwtDecoder.extractUserIdFromToken
+  >;
 
 describe("PermissionService", () => {
   let permissionService: PermissionService;
@@ -28,18 +31,28 @@ describe("PermissionService", () => {
   let mockHttpClient: jest.Mocked<HttpClient>;
   type MockApiClient = {
     auth: {
-      validateToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
+      validateToken: jest.MockedFunction<
+        (params: any, authStrategy?: any) => Promise<any>
+      >;
     };
     permissions: {
-      getPermissions: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
-      refreshPermissions: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
+      getPermissions: jest.MockedFunction<
+        (params?: any, authStrategy?: any) => Promise<any>
+      >;
+      refreshPermissions: jest.MockedFunction<
+        (authStrategy?: any) => Promise<any>
+      >;
     };
     roles: {
-      getRoles: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
+      getRoles: jest.MockedFunction<
+        (params?: any, authStrategy?: any) => Promise<any>
+      >;
       refreshRoles: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
     };
     logs: {
-      createLog: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
+      createLog: jest.MockedFunction<
+        (params: any, authStrategy?: any) => Promise<any>
+      >;
     };
     encryption: Record<string, unknown>;
     applications: Record<string, unknown>;
@@ -142,8 +155,8 @@ describe("PermissionService", () => {
       expect(mockApiClient.permissions.getPermissions).toHaveBeenCalledWith(
         undefined,
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
@@ -356,15 +369,15 @@ describe("PermissionService", () => {
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockApiClient.permissions.refreshPermissions).toHaveBeenCalledWith(
         undefined,
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
@@ -487,7 +500,7 @@ describe("PermissionService", () => {
         success: true,
         data: {
           authenticated: true,
-        user: { id: "456" },
+          user: { id: "456" },
         },
         timestamp: new Date().toISOString(),
       });
@@ -499,8 +512,8 @@ describe("PermissionService", () => {
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
     });
@@ -526,7 +539,7 @@ describe("PermissionService", () => {
         success: true,
         data: {
           authenticated: true,
-        user: { id: "999" },
+          user: { id: "999" },
         },
         timestamp: new Date().toISOString(),
       });
@@ -538,8 +551,8 @@ describe("PermissionService", () => {
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
     });
@@ -723,7 +736,11 @@ describe("PermissionService", () => {
         success: true,
         data: {
           authenticated: true,
-          user: { id: "refresh-user", username: "test", email: "test@example.com" },
+          user: {
+            id: "refresh-user",
+            username: "test",
+            email: "test@example.com",
+          },
         },
         timestamp: new Date().toISOString(),
       });
@@ -742,15 +759,15 @@ describe("PermissionService", () => {
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockApiClient.permissions.refreshPermissions).toHaveBeenCalledWith(
         undefined,
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
     });
@@ -761,7 +778,11 @@ describe("PermissionService", () => {
         success: true,
         data: {
           authenticated: true,
-          user: { id: "refresh-user", username: "test", email: "test@example.com" },
+          user: {
+            id: "refresh-user",
+            username: "test",
+            email: "test@example.com",
+          },
         },
         timestamp: new Date().toISOString(),
       });

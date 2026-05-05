@@ -50,7 +50,11 @@ export class ApplicationContextService {
 
       // Expect pattern: ["miso", "controller", "{env}", "{app}", ...]
       // Minimum 4 parts required: miso-controller-{env}-{app}
-      if (parts.length < 4 || parts[0] !== "miso" || parts[1] !== "controller") {
+      if (
+        parts.length < 4 ||
+        parts[0] !== "miso" ||
+        parts[1] !== "controller"
+      ) {
         return { environment: null, application: null };
       }
 
@@ -102,9 +106,11 @@ export class ApplicationContextService {
   /**
    * Extract context from client token.
    */
-  private extractFromClientToken(
-    clientToken: string,
-  ): { application: string; applicationId: string; environment: string } {
+  private extractFromClientToken(clientToken: string): {
+    application: string;
+    applicationId: string;
+    environment: string;
+  } {
     const out = { application: "", applicationId: "", environment: "" };
     try {
       const tokenInfo = extractClientTokenInfo(clientToken);

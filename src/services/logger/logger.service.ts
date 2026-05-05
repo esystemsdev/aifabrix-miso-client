@@ -280,10 +280,7 @@ export class LoggerService extends EventEmitter {
       return false;
     }
     const queueName = `logs:${this.httpClient.config.clientId}`;
-    const success = await this.redis.rpush(
-      queueName,
-      JSON.stringify(logEntry),
-    );
+    const success = await this.redis.rpush(queueName, JSON.stringify(logEntry));
     return Boolean(success);
   }
 
@@ -293,7 +290,10 @@ export class LoggerService extends EventEmitter {
       this.httpLoggingDisabledUntil && now < this.httpLoggingDisabledUntil,
     );
   }
-  private mapLogType(level: LogEntry["level"]): { logType: "audit" | "error" | "general"; logLevel: "info" | "warn" | "error" | "debug" } {
+  private mapLogType(level: LogEntry["level"]): {
+    logType: "audit" | "error" | "general";
+    logLevel: "info" | "warn" | "error" | "debug";
+  } {
     const logType =
       level === "audit" ? "audit" : level === "error" ? "error" : "general";
     let logLevel: "info" | "warn" | "error" | "debug";
@@ -320,17 +320,28 @@ export class LoggerService extends EventEmitter {
   private assertNever(value: never): never {
     throw new Error(`Unhandled log level: ${String(value)}`);
   }
-  private async sendToHttp(level: LogEntry["level"], logEntry: LogEntry): Promise<void> {
+  private async sendToHttp(
+    level: LogEntry["level"],
+    logEntry: LogEntry,
+  ): Promise<void> {
     const now = Date.now();
     try {
       if (!this.apiClient) {
-        throw new Error("ApiClient not initialized. Call setApiClient() before logging.");
+        throw new Error(
+          "ApiClient not initialized. Call setApiClient() before logging.",
+        );
       }
       const { logType, logLevel } = this.mapLogType(level);
       const enrichedContext = buildEnrichedLogContext(logEntry);
 
       if (level === "audit") {
-        await sendAuditLogPayload(this.apiClient, logEntry, enrichedContext, logType, logLevel);
+        await sendAuditLogPayload(
+          this.apiClient,
+          logEntry,
+          enrichedContext,
+          logType,
+          logLevel,
+        );
       } else {
         await this.apiClient.logs.createLog({
           type: logType,
@@ -348,7 +359,8 @@ export class LoggerService extends EventEmitter {
       if (!isAuthError(error)) {
         this.httpLoggingFailures++;
         if (this.httpLoggingFailures >= LoggerService.MAX_FAILURES) {
-          this.httpLoggingDisabledUntil = now + LoggerService.DISABLE_DURATION_MS;
+          this.httpLoggingDisabledUntil =
+            now + LoggerService.DISABLE_DURATION_MS;
           this.httpLoggingFailures = 0;
         }
       }
@@ -362,7 +374,12 @@ export class LoggerService extends EventEmitter {
     return new LoggerChain(this, {}, { maskSensitiveData: false });
   }
   /** Get LogEntry with request context extracted */
-  getLogWithRequest(req: Request, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
+  getLogWithRequest(
+    req: Request,
+    message: string,
+    level: LogEntry["level"] = "info",
+    context?: Record<string, unknown>,
+  ): LogEntry {
     return getLogWithRequest(req, message, level, context, {
       applicationContextService: this.applicationContextService,
       generateCorrelationId: () => this.generateCorrelationId(),
@@ -371,7 +388,11 @@ export class LoggerService extends EventEmitter {
     });
   }
   /** Get LogEntry with provided context */
-  getWithContext(context: Record<string, unknown>, message: string, level: LogEntry["level"] = "info"): LogEntry {
+  getWithContext(
+    context: Record<string, unknown>,
+    message: string,
+    level: LogEntry["level"] = "info",
+  ): LogEntry {
     return getWithContext(context, message, level, {
       applicationContextService: this.applicationContextService,
       generateCorrelationId: () => this.generateCorrelationId(),
@@ -380,7 +401,12 @@ export class LoggerService extends EventEmitter {
     });
   }
   /** Get LogEntry with request context (alias) */
-  getForRequest(req: Request, message: string, level: LogEntry["level"] = "info", context?: Record<string, unknown>): LogEntry {
+  getForRequest(
+    req: Request,
+    message: string,
+    level: LogEntry["level"] = "info",
+    context?: Record<string, unknown>,
+  ): LogEntry {
     return this.getLogWithRequest(req, message, level, context);
   }
   /** Create logger chain with request context pre-populated */

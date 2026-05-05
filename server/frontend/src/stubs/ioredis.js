@@ -84,4 +84,3 @@ if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
 // ESM export
 export default Redis;
 export { Redis, RedisStub };
-

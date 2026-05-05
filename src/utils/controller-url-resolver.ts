@@ -79,21 +79,21 @@ export function resolveControllerUrl(config: MisoClientConfig): string {
     throw new Error(
       `No controller URL configured. Please provide ${
         isBrowserEnv ? "controllerPublicUrl" : "controllerPrivateUrl"
-      } or controllerUrl in your configuration.`
+      } or controllerUrl in your configuration.`,
     );
   }
 
   // Validate URL format
   if (!validateUrl(resolvedUrl)) {
     throw new Error(
-      `Invalid controller URL format: "${resolvedUrl}". URL must be a valid HTTP or HTTPS URL.`
+      `Invalid controller URL format: "${resolvedUrl}". URL must be a valid HTTP or HTTPS URL.`,
     );
   }
 
   // Resolve localhost to 127.0.0.1 to force IPv4 and avoid IPv6 connection issues
   // This prevents axios from hanging on IPv6 (::1) connections
-  if (resolvedUrl.includes('localhost')) {
-    resolvedUrl = resolvedUrl.replace(/localhost/g, '127.0.0.1');
+  if (resolvedUrl.includes("localhost")) {
+    resolvedUrl = resolvedUrl.replace(/localhost/g, "127.0.0.1");
   }
 
   return resolvedUrl;
@@ -132,7 +132,7 @@ export function resolveControllerUrl(config: MisoClientConfig): string {
  */
 export function resolveKeycloakUrl(config: KeycloakConfig): string {
   const isBrowserEnv = isBrowser();
-  let resolvedUrl: string | undefined;  // Step 1: Try environment-specific URL
+  let resolvedUrl: string | undefined; // Step 1: Try environment-specific URL
   if (isBrowserEnv) {
     // Browser environment: use public URL
     resolvedUrl = config.authServerPublicUrl;
@@ -151,21 +151,21 @@ export function resolveKeycloakUrl(config: KeycloakConfig): string {
     throw new Error(
       `No Keycloak URL configured. Please provide ${
         isBrowserEnv ? "authServerPublicUrl" : "authServerPrivateUrl"
-      } or authServerUrl in your Keycloak configuration.`
+      } or authServerUrl in your Keycloak configuration.`,
     );
   }
 
   // Validate URL format
   if (!validateUrl(resolvedUrl)) {
     throw new Error(
-      `Invalid Keycloak URL format: "${resolvedUrl}". URL must be a valid HTTP or HTTPS URL.`
+      `Invalid Keycloak URL format: "${resolvedUrl}". URL must be a valid HTTP or HTTPS URL.`,
     );
   }
 
   // Resolve localhost to 127.0.0.1 to force IPv4 and avoid IPv6 connection issues
   // This prevents axios from hanging on IPv6 (::1) connections
-  if (resolvedUrl.includes('localhost')) {
-    resolvedUrl = resolvedUrl.replace(/localhost/g, '127.0.0.1');
+  if (resolvedUrl.includes("localhost")) {
+    resolvedUrl = resolvedUrl.replace(/localhost/g, "127.0.0.1");
   }
 
   return resolvedUrl;

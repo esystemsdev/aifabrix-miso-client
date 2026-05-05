@@ -5,10 +5,10 @@ function inherits(ctor, superCtor) {
     // If superCtor is null/undefined, just return without error
     return;
   }
-  
+
   // Get or create superCtor.prototype safely
   let superProto = superCtor.prototype;
-  
+
   // If superCtor doesn't have a prototype, try to create one
   if (!superProto) {
     // Check if superCtor is extensible before trying to add prototype
@@ -26,14 +26,14 @@ function inherits(ctor, superCtor) {
       superProto = Object.prototype;
     }
   }
-  
+
   // Ensure superProto is an object (not null)
   if (typeof superProto !== 'object' || superProto === null) {
     superProto = Object.prototype;
   }
-  
+
   ctor.super_ = superCtor;
-  
+
   // Set up prototype chain
   // Use Object.create with proper fallback
   try {
@@ -42,8 +42,8 @@ function inherits(ctor, superCtor) {
         value: ctor,
         enumerable: false,
         writable: true,
-        configurable: true
-      }
+        configurable: true,
+      },
     });
   } catch (e) {
     // Fallback: if Object.create fails, just copy the prototype
@@ -83,7 +83,7 @@ function inspect(obj) {
 }
 
 function promisify(fn) {
-  return function(...args) {
+  return function (...args) {
     return new Promise((resolve, reject) => {
       fn(...args, (err, result) => {
         if (err) reject(err);
@@ -95,7 +95,7 @@ function promisify(fn) {
 
 function deprecate(fn, message) {
   let warned = false;
-  return function(...args) {
+  return function (...args) {
     if (!warned) {
       console.warn('DeprecationWarning:', message);
       warned = true;
@@ -135,4 +135,3 @@ if (typeof exports !== 'undefined') {
 // Also export for ESM
 export default util;
 export { util, inherits, inspect, promisify, deprecate };
-

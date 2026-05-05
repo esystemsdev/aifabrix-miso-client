@@ -50,7 +50,9 @@ export function createMisoConfigWithRefresh(
             if (!token) {
               throw new Error("Failed to get client token");
             }
-            const expiresAtStr = getLocalStorage("miso:client-token-expires-at");
+            const expiresAtStr = getLocalStorage(
+              "miso:client-token-expires-at",
+            );
             const expiresAt = expiresAtStr
               ? parseInt(expiresAtStr, 10)
               : Date.now() + 3600000;
@@ -73,7 +75,10 @@ export function createMisoConfigWithRefresh(
 export function initializeBrowserServices(
   misoClient: MisoClient | null,
   misoConfig: MisoClientConfig | undefined,
-): { permissionService: BrowserPermissionService | null; roleService: BrowserRoleService | null } {
+): {
+  permissionService: BrowserPermissionService | null;
+  roleService: BrowserRoleService | null;
+} {
   if (!misoClient || !misoConfig) {
     return { permissionService: null, roleService: null };
   }
@@ -111,7 +116,11 @@ export function initializeBrowserServices(
     apiClient,
     cacheService,
   );
-  const roleService = new BrowserRoleService(httpClient, apiClient, cacheService);
+  const roleService = new BrowserRoleService(
+    httpClient,
+    apiClient,
+    cacheService,
+  );
 
   return { permissionService, roleService };
 }
@@ -136,7 +145,9 @@ export function warnIfClientSecretInBrowser(config: DataClientConfig): void {
  * @param config - User-provided configuration
  * @returns Complete configuration with defaults
  */
-export function createDefaultConfig(config: DataClientConfig): DataClientConfig {
+export function createDefaultConfig(
+  config: DataClientConfig,
+): DataClientConfig {
   return {
     tokenKeys: ["token", "accessToken", "authToken"],
     loginUrl: "/login",

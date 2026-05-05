@@ -4,10 +4,10 @@
  * Supports optional response caching to reduce controller calls.
  */
 
-import crypto from 'crypto';
-import { ApiClient } from '../api';
-import { EncryptionError } from '../utils/encryption-error';
-import type { CacheService } from './cache.service';
+import crypto from "crypto";
+import { ApiClient } from "../api";
+import { EncryptionError } from "../utils/encryption-error";
+import type { CacheService } from "./cache.service";
 
 /**
  * Result of encryption operation
@@ -16,17 +16,20 @@ export interface EncryptResult {
   /** Encrypted reference (kv://paramName or enc://v1:base64) */
   value: string;
   /** Storage backend used */
-  storage: 'keyvault' | 'local';
+  storage: "keyvault" | "local";
 }
 
-const ENCRYPT_KEY_PREFIX = 'encryption:encrypt:';
-const DECRYPT_KEY_PREFIX = 'encryption:decrypt:';
+const ENCRYPT_KEY_PREFIX = "encryption:encrypt:";
+const DECRYPT_KEY_PREFIX = "encryption:decrypt:";
 
 /**
  * Build cache key from inputs using SHA-256 (no plaintext in key for encrypt).
  */
 function buildCacheKey(prefix: string, part1: string, part2: string): string {
-  const hash = crypto.createHash('sha256').update(part1 + part2, 'utf8').digest('hex');
+  const hash = crypto
+    .createHash("sha256")
+    .update(part1 + part2, "utf8")
+    .digest("hex");
   return prefix + hash;
 }
 
@@ -73,7 +76,10 @@ export class EncryptionService {
    * @returns Encrypt result with value reference and storage type
    * @throws EncryptionError if encryption key is missing, parameter name is invalid, or encryption fails
    */
-  async encrypt(plaintext: string, parameterName: string): Promise<EncryptResult> {
+  async encrypt(
+    plaintext: string,
+    parameterName: string,
+  ): Promise<EncryptResult> {
     this.validateEncryptionKey();
     this.validateParameterName(parameterName);
 
@@ -93,7 +99,10 @@ export class EncryptionService {
       encryptionKey: this.encryptionKey!,
     });
 
-    const result: EncryptResult = { value: response.value, storage: response.storage };
+    const result: EncryptResult = {
+      value: response.value,
+      storage: response.storage,
+    };
     if (cacheKey) {
       await this.cache!.set(cacheKey, result, this.cacheTTL);
     }
@@ -140,8 +149,8 @@ export class EncryptionService {
   private validateEncryptionKey(): void {
     if (!this.encryptionKey) {
       throw new EncryptionError(
-        'Encryption key is required. Set ENCRYPTION_KEY environment variable or provide encryptionKey in config.',
-        'ENCRYPTION_KEY_REQUIRED',
+        "Encryption key is required. Set ENCRYPTION_KEY environment variable or provide encryptionKey in config.",
+        "ENCRYPTION_KEY_REQUIRED",
       );
     }
   }
@@ -154,8 +163,8 @@ export class EncryptionService {
   private validateParameterName(name: string): void {
     if (!EncryptionService.PARAMETER_NAME_REGEX.test(name)) {
       throw new EncryptionError(
-        'Invalid parameter name. Must be 1-128 characters, alphanumeric with dots, underscores, hyphens only.',
-        'INVALID_PARAMETER_NAME',
+        "Invalid parameter name. Must be 1-128 characters, alphanumeric with dots, underscores, hyphens only.",
+        "INVALID_PARAMETER_NAME",
         name,
       );
     }

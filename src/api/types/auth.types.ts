@@ -137,7 +137,7 @@ export interface RefreshTokenRequest {
  */
 export interface RefreshTokenResponse {
   success: boolean;
-  data: DeviceCodeTokenResponse['data'];
+  data: DeviceCodeTokenResponse["data"];
   message?: string;
   timestamp: string;
 }
@@ -342,4 +342,3 @@ export interface DiagnosticsResponse {
   };
   timestamp: string;
 }
-

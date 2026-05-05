@@ -206,4 +206,3 @@ describe("logging-helpers", () => {
     });
   });
 });
-

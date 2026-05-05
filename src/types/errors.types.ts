@@ -7,7 +7,12 @@
  * Authentication method that failed (from controller 401 response).
  * Used to identify which authentication mechanism caused a 401 error.
  */
-export type AuthErrorMethod = "bearer" | "api-key" | "client-token" | "client-credentials" | null;
+export type AuthErrorMethod =
+  | "bearer"
+  | "api-key"
+  | "client-token"
+  | "client-credentials"
+  | null;
 
 /**
  * Canonical error response for AIFabrix Miso APIs.

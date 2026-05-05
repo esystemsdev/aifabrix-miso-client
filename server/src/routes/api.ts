@@ -12,16 +12,68 @@ const users: Array<{ id: string; name: string; email: string; createdAt: string 
   { id: '2', name: 'Jane Smith', email: 'jane@example.com', createdAt: new Date().toISOString() },
 ];
 
-const products: Array<{ id: string; name: string; price: number; category: string; createdAt: string }> = [
-  { id: '1', name: 'Laptop', price: 999.99, category: 'Electronics', createdAt: new Date().toISOString() },
-  { id: '2', name: 'Mouse', price: 29.99, category: 'Electronics', createdAt: new Date().toISOString() },
-  { id: '3', name: 'Keyboard', price: 79.99, category: 'Electronics', createdAt: new Date().toISOString() },
+const products: Array<{
+  id: string;
+  name: string;
+  price: number;
+  category: string;
+  createdAt: string;
+}> = [
+  {
+    id: '1',
+    name: 'Laptop',
+    price: 999.99,
+    category: 'Electronics',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    name: 'Mouse',
+    price: 29.99,
+    category: 'Electronics',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: '3',
+    name: 'Keyboard',
+    price: 79.99,
+    category: 'Electronics',
+    createdAt: new Date().toISOString(),
+  },
 ];
 
-const orders: Array<{ id: string; userId: string; productId: string; quantity: number; total: number; createdAt: string }> = [
-  { id: '1', userId: '1', productId: '1', quantity: 1, total: 999.99, createdAt: new Date().toISOString() },
-  { id: '2', userId: '1', productId: '2', quantity: 2, total: 59.98, createdAt: new Date().toISOString() },
-  { id: '3', userId: '2', productId: '3', quantity: 1, total: 79.99, createdAt: new Date().toISOString() },
+const orders: Array<{
+  id: string;
+  userId: string;
+  productId: string;
+  quantity: number;
+  total: number;
+  createdAt: string;
+}> = [
+  {
+    id: '1',
+    userId: '1',
+    productId: '1',
+    quantity: 1,
+    total: 999.99,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    userId: '1',
+    productId: '2',
+    quantity: 2,
+    total: 59.98,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: '3',
+    userId: '2',
+    productId: '3',
+    quantity: 1,
+    total: 79.99,
+    createdAt: new Date().toISOString(),
+  },
 ];
 
 /**
@@ -60,7 +112,12 @@ export function getUserById(misoClient: MisoClient | null) {
 
     // If user not found and ID is "1", recreate it for testing purposes
     if (!user && id === '1') {
-      user = { id: '1', name: 'John Doe', email: 'john@example.com', createdAt: new Date().toISOString() };
+      user = {
+        id: '1',
+        name: 'John Doe',
+        email: 'john@example.com',
+        createdAt: new Date().toISOString(),
+      };
       users.push(user);
       if (misoClient) {
         await misoClient.log.forRequest(req).info(`Recreated test user: ${id}`);
@@ -132,7 +189,12 @@ export function updateUser(misoClient: MisoClient | null) {
 
     // If user not found and ID is "1", recreate it for testing purposes
     if (userIndex === -1 && id === '1') {
-      const newUser = { id: '1', name: name || 'John Doe', email: email || 'john@example.com', createdAt: new Date().toISOString() };
+      const newUser = {
+        id: '1',
+        name: name || 'John Doe',
+        email: email || 'john@example.com',
+        createdAt: new Date().toISOString(),
+      };
       users.push(newUser);
       userIndex = users.length - 1;
       if (misoClient) {
@@ -191,11 +253,11 @@ export function patchUser(misoClient: MisoClient | null) {
 
     // If user not found and ID is "1", recreate it for testing purposes
     if (userIndex === -1 && id === '1') {
-      const newUser = { 
-        id: '1', 
-        name: updates.name || 'John Doe', 
-        email: updates.email || 'john@example.com', 
-        createdAt: new Date().toISOString() 
+      const newUser = {
+        id: '1',
+        name: updates.name || 'John Doe',
+        email: updates.email || 'john@example.com',
+        createdAt: new Date().toISOString(),
       };
       users.push(newUser);
       userIndex = users.length - 1;
@@ -348,7 +410,7 @@ export function errorEndpoint(misoClient: MisoClient | null) {
   return asyncHandler(async (req: Request, _res: Response): Promise<void> => {
     const { code } = req.params;
     const codeParam = Array.isArray(code) ? code[0] : code;
-    const statusCode = parseInt(codeParam || "", 10) || 500;
+    const statusCode = parseInt(codeParam || '', 10) || 500;
 
     const errorMessages: Record<number, string> = {
       400: 'Bad Request',

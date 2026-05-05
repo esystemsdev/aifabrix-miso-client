@@ -44,12 +44,20 @@ describe("AuthService", () => {
   let mockHttpClient: jest.Mocked<HttpClient>;
   let mockApiClient: {
     auth: {
-      login: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
-      validateToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
+      login: jest.MockedFunction<
+        (params: any, authStrategy?: any) => Promise<any>
+      >;
+      validateToken: jest.MockedFunction<
+        (params: any, authStrategy?: any) => Promise<any>
+      >;
       getUser: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
-      refreshToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
+      refreshToken: jest.MockedFunction<
+        (params: any, authStrategy?: any) => Promise<any>
+      >;
       logoutWithToken: jest.MockedFunction<(token: string) => Promise<any>>;
-      exchangeUserToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
+      exchangeUserToken: jest.MockedFunction<
+        (params: any, authStrategy?: any) => Promise<any>
+      >;
     };
   };
   let mockCacheService: jest.Mocked<CacheService>;
@@ -90,7 +98,11 @@ describe("AuthService", () => {
     MockedApiClient.mockImplementation(() => mockApiClient as any);
     MockedCacheService.mockImplementation(() => mockCacheService);
 
-    authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
+    authService = new AuthService(
+      mockHttpClient,
+      mockApiClient as any,
+      mockCacheService,
+    );
   });
 
   afterEach(() => {
@@ -116,7 +128,7 @@ describe("AuthService", () => {
       // Convert ApiClient response format to service response format
       expect(result.success).toBe(true);
       expect(result.data.loginUrl).toBe(mockResponse.data.loginUrl);
-      expect(result.data.state).toBe(mockResponse.data.state || '');
+      expect(result.data.state).toBe(mockResponse.data.state || "");
       expect(mockApiClient.auth.login).toHaveBeenCalledWith(
         { redirect: "http://localhost:3000/callback" },
         undefined,
@@ -141,9 +153,12 @@ describe("AuthService", () => {
 
       expect(result.success).toBe(true);
       expect(result.data.loginUrl).toBe(mockResponse.data.loginUrl);
-      expect(result.data.state).toBe(mockResponse.data.state || '');
+      expect(result.data.state).toBe(mockResponse.data.state || "");
       expect(mockApiClient.auth.login).toHaveBeenCalledWith(
-        { redirect: "http://localhost:3000/callback", state: "custom-state-123" },
+        {
+          redirect: "http://localhost:3000/callback",
+          state: "custom-state-123",
+        },
         undefined,
       );
     });
@@ -216,7 +231,11 @@ describe("AuthService", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         });
@@ -242,7 +261,11 @@ describe("AuthService", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         });
@@ -305,7 +328,11 @@ describe("AuthService", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         });
@@ -392,7 +419,11 @@ describe("AuthService", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         });
@@ -448,10 +479,14 @@ describe("AuthService", () => {
       it("should handle empty token string", async () => {
         mockCacheService.get.mockResolvedValue(null);
         jwt.decode.mockReturnValue(null);
-        mockApiClient.auth.validateToken.mockResolvedValue({success: true, data: {
-          authenticated: false,
-          error: "Invalid token",
-        }, timestamp: new Date().toISOString()});
+        mockApiClient.auth.validateToken.mockResolvedValue({
+          success: true,
+          data: {
+            authenticated: false,
+            error: "Invalid token",
+          },
+          timestamp: new Date().toISOString(),
+        });
 
         const result = await authService.validateToken("");
 
@@ -459,8 +494,8 @@ describe("AuthService", () => {
         expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
           { token: "" },
           expect.objectContaining({
-            methods: ['bearer'],
-            bearerToken: '',
+            methods: ["bearer"],
+            bearerToken: "",
           }),
         );
       });
@@ -473,7 +508,11 @@ describe("AuthService", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         });
@@ -499,7 +538,11 @@ describe("AuthService", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         });
@@ -524,7 +567,11 @@ describe("AuthService", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         });
@@ -557,7 +604,11 @@ describe("AuthService", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         });
@@ -569,7 +620,7 @@ describe("AuthService", () => {
           { token: "token" },
           expect.objectContaining({
             methods: authStrategy.methods,
-            bearerToken: 'token',
+            bearerToken: "token",
           }),
         );
       });
@@ -608,10 +659,14 @@ describe("AuthService", () => {
         username: "testuser",
         email: "test@example.com",
       };
-      mockApiClient.auth.validateToken.mockResolvedValue({success: true, data: {
-        authenticated: true,
-        user: userInfo,
-      }, timestamp: new Date().toISOString()});
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: userInfo,
+        },
+        timestamp: new Date().toISOString(),
+      });
 
       const result = await authService.getUser("valid-token");
 
@@ -619,17 +674,21 @@ describe("AuthService", () => {
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "valid-token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'valid-token',
+          methods: ["bearer"],
+          bearerToken: "valid-token",
         }),
       );
     });
 
     it("should return null for invalid token", async () => {
-      mockApiClient.auth.validateToken.mockResolvedValue({success: true, data: {
-        authenticated: false,
-        error: "Invalid token",
-      }, timestamp: new Date().toISOString()});
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: false,
+          error: "Invalid token",
+        },
+        timestamp: new Date().toISOString(),
+      });
 
       const result = await authService.getUser("invalid-token");
 
@@ -637,10 +696,14 @@ describe("AuthService", () => {
     });
 
     it("should return null when authenticated but no user object", async () => {
-      mockApiClient.auth.validateToken.mockResolvedValue({success: true, data: {
-        authenticated: true,
-        // No user object
-      }, timestamp: new Date().toISOString()});
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          // No user object
+        },
+        timestamp: new Date().toISOString(),
+      });
 
       const result = await authService.getUser("token");
 
@@ -666,10 +729,14 @@ describe("AuthService", () => {
         id: "123",
         username: "testuser",
       };
-      mockApiClient.auth.validateToken.mockResolvedValue({success: true, data: {
-        authenticated: true,
-        user: userInfo,
-      }, timestamp: new Date().toISOString()});
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: true,
+          user: userInfo,
+        },
+        timestamp: new Date().toISOString(),
+      });
 
       const result = await authService.getUser("token", authStrategy);
 
@@ -678,7 +745,7 @@ describe("AuthService", () => {
         { token: "token" },
         expect.objectContaining({
           methods: authStrategy.methods,
-          bearerToken: 'token',
+          bearerToken: "token",
         }),
       );
     });
@@ -717,7 +784,9 @@ describe("AuthService", () => {
       };
       mockApiClient.auth.logoutWithToken.mockResolvedValue(mockResponse);
       // Async cache-delete failures are handled in auth-cache-helpers
-      mockCacheService.delete.mockRejectedValue(new Error("Cache delete failed"));
+      mockCacheService.delete.mockRejectedValue(
+        new Error("Cache delete failed"),
+      );
 
       const result = await authService.logout({ token: "test-token-123" });
 
@@ -889,8 +958,8 @@ describe("AuthService", () => {
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
     });
@@ -918,7 +987,7 @@ describe("AuthService", () => {
         { token: "token" },
         expect.objectContaining({
           methods: authStrategy.methods,
-          bearerToken: 'token',
+          bearerToken: "token",
         }),
       );
     });
@@ -926,10 +995,14 @@ describe("AuthService", () => {
     it("should return false when token is invalid", async () => {
       mockCacheService.get.mockResolvedValue(null);
       jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
-      mockApiClient.auth.validateToken.mockResolvedValue({success: true, data: {
-        authenticated: false,
-        error: "Invalid token",
-      }, timestamp: new Date().toISOString()});
+      mockApiClient.auth.validateToken.mockResolvedValue({
+        success: true,
+        data: {
+          authenticated: false,
+          error: "Invalid token",
+        },
+        timestamp: new Date().toISOString(),
+      });
       mockCacheService.set.mockResolvedValue(true);
 
       const result = await authService.isAuthenticated("invalid-token");
@@ -985,7 +1058,11 @@ describe("AuthService", () => {
         clientSecret: "test-secret",
       };
       (mockHttpClient as any).config = config;
-      authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
+      authService = new AuthService(
+        mockHttpClient,
+        mockApiClient as any,
+        mockCacheService,
+      );
 
       mockTempAxios.post.mockResolvedValue({
         status: 200,
@@ -1008,7 +1085,11 @@ describe("AuthService", () => {
         clientTokenUri: "/api/custom/token",
       };
       (mockHttpClient as any).config = config;
-      authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
+      authService = new AuthService(
+        mockHttpClient,
+        mockApiClient as any,
+        mockCacheService,
+      );
 
       mockTempAxios.post.mockResolvedValue({
         status: 200,
@@ -1031,7 +1112,11 @@ describe("AuthService", () => {
         clientTokenUri: "/api/v1/auth/client-token",
       };
       (mockHttpClient as any).config = config;
-      authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
+      authService = new AuthService(
+        mockHttpClient,
+        mockApiClient as any,
+        mockCacheService,
+      );
 
       mockTempAxios.post.mockResolvedValue({
         status: 200,
@@ -1047,7 +1132,9 @@ describe("AuthService", () => {
       const result = await authService.getEnvironmentToken();
 
       expect(result).toBe("nested-token-123");
-      expect(mockTempAxios.post).toHaveBeenCalledWith("/api/v1/auth/client-token");
+      expect(mockTempAxios.post).toHaveBeenCalledWith(
+        "/api/v1/auth/client-token",
+      );
     });
 
     it("should handle status 201 Created with nested data.data.token format", async () => {
@@ -1058,7 +1145,11 @@ describe("AuthService", () => {
         clientTokenUri: "/api/v1/auth/token",
       };
       (mockHttpClient as any).config = config;
-      authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
+      authService = new AuthService(
+        mockHttpClient,
+        mockApiClient as any,
+        mockCacheService,
+      );
 
       // Simulate the actual controller response format: status 201 with nested data.data.token
       mockTempAxios.post.mockResolvedValue({
@@ -1172,16 +1263,14 @@ describe("AuthService", () => {
       expect(result).toEqual(userInfo);
       expect(mockApiClient.auth.getUser).toHaveBeenCalledWith(
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'valid-token',
+          methods: ["bearer"],
+          bearerToken: "valid-token",
         }),
       );
     });
 
     it("should return null on error", async () => {
-      mockApiClient.auth.getUser.mockRejectedValue(
-        new Error("Network error"),
-      );
+      mockApiClient.auth.getUser.mockRejectedValue(new Error("Network error"));
 
       const result = await authService.getUserInfo("token");
 
@@ -1211,8 +1300,8 @@ describe("AuthService", () => {
       expect(result).toEqual(userInfo);
       expect(mockApiClient.auth.getUser).toHaveBeenCalledWith(
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
     });
@@ -1295,8 +1384,13 @@ describe("AuthService", () => {
           ...config,
           cache: { userTTL: 600 }, // 10 minutes
         };
-        (mockHttpClient as unknown as { config: typeof customConfig }).config = customConfig;
-        const customAuthService = new AuthService(mockHttpClient, mockApiClient as unknown as ApiClient, mockCacheService);
+        (mockHttpClient as unknown as { config: typeof customConfig }).config =
+          customConfig;
+        const customAuthService = new AuthService(
+          mockHttpClient,
+          mockApiClient as unknown as ApiClient,
+          mockCacheService,
+        );
 
         const userInfo = {
           id: "123",
@@ -1324,7 +1418,8 @@ describe("AuthService", () => {
         );
 
         // Restore original config
-        (mockHttpClient as unknown as { config: typeof config }).config = config;
+        (mockHttpClient as unknown as { config: typeof config }).config =
+          config;
       });
 
       it("should not cache when userId cannot be extracted from token", async () => {
@@ -1353,7 +1448,9 @@ describe("AuthService", () => {
       it("should return null on error even with cache miss", async () => {
         jwt.decode.mockReturnValue({ sub: "123" });
         mockCacheService.get.mockResolvedValue(null);
-        mockApiClient.auth.getUser.mockRejectedValue(new Error("Network error"));
+        mockApiClient.auth.getUser.mockRejectedValue(
+          new Error("Network error"),
+        );
 
         const result = await authService.getUserInfo("valid-token");
 
@@ -1453,7 +1550,11 @@ describe("AuthService", () => {
         apiKey: "test-api-key-123",
       };
       (mockHttpClient as any).config = config;
-      authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
+      authService = new AuthService(
+        mockHttpClient,
+        mockApiClient as any,
+        mockCacheService,
+      );
     });
 
     describe("validateToken with API_KEY", () => {
@@ -1478,7 +1579,11 @@ describe("AuthService", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         });
@@ -1490,8 +1595,8 @@ describe("AuthService", () => {
         expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
           { token: "different-token" },
           expect.objectContaining({
-            methods: ['bearer'],
-            bearerToken: 'different-token',
+            methods: ["bearer"],
+            bearerToken: "different-token",
           }),
         );
       });
@@ -1499,10 +1604,14 @@ describe("AuthService", () => {
       it("should be case-sensitive", async () => {
         mockCacheService.get.mockResolvedValue(null);
         jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
-        mockApiClient.auth.validateToken.mockResolvedValue({success: true, data: {
-          authenticated: false,
-          error: "Invalid token",
-        }, timestamp: new Date().toISOString()});
+        mockApiClient.auth.validateToken.mockResolvedValue({
+          success: true,
+          data: {
+            authenticated: false,
+            error: "Invalid token",
+          },
+          timestamp: new Date().toISOString(),
+        });
         mockCacheService.set.mockResolvedValue(true);
 
         const result = await authService.validateToken("TEST-API-KEY-123");
@@ -1535,10 +1644,14 @@ describe("AuthService", () => {
           username: "testuser",
           email: "test@example.com",
         };
-        mockApiClient.auth.validateToken.mockResolvedValue({success: true, data: {
-          authenticated: true,
-          user: userInfo,
-        }, timestamp: new Date().toISOString()});
+        mockApiClient.auth.validateToken.mockResolvedValue({
+          success: true,
+          data: {
+            authenticated: true,
+            user: userInfo,
+          },
+          timestamp: new Date().toISOString(),
+        });
 
         const result = await authService.getUser("different-token");
 
@@ -1546,8 +1659,8 @@ describe("AuthService", () => {
         expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
           { token: "different-token" },
           expect.objectContaining({
-            methods: ['bearer'],
-            bearerToken: 'different-token',
+            methods: ["bearer"],
+            bearerToken: "different-token",
           }),
         );
       });
@@ -1568,21 +1681,21 @@ describe("AuthService", () => {
           email: "test@example.com",
         };
         mockApiClient.auth.getUser.mockResolvedValue({
-        success: true,
-        data: {
-          authenticated: true,
-          user: userInfo,
-        },
-        timestamp: new Date().toISOString(),
-      });
+          success: true,
+          data: {
+            authenticated: true,
+            user: userInfo,
+          },
+          timestamp: new Date().toISOString(),
+        });
 
         const result = await authService.getUserInfo("different-token");
 
         expect(result).toEqual(userInfo);
         expect(mockApiClient.auth.getUser).toHaveBeenCalledWith(
           expect.objectContaining({
-            methods: ['bearer'],
-            bearerToken: 'different-token',
+            methods: ["bearer"],
+            bearerToken: "different-token",
           }),
         );
       });
@@ -1601,7 +1714,11 @@ describe("AuthService", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         });
@@ -1623,7 +1740,11 @@ describe("AuthService", () => {
         // apiKey not set
       };
       (mockHttpClient as any).config = config;
-      authService = new AuthService(mockHttpClient, mockApiClient as any, mockCacheService);
+      authService = new AuthService(
+        mockHttpClient,
+        mockApiClient as any,
+        mockCacheService,
+      );
 
       mockCacheService.get.mockResolvedValue(null);
       jwt.decode.mockReturnValue({ sub: "123", userId: "123" });
@@ -1643,8 +1764,8 @@ describe("AuthService", () => {
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "some-token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'some-token',
+          methods: ["bearer"],
+          bearerToken: "some-token",
         }),
       );
     });
@@ -1957,7 +2078,14 @@ describe("AuthService", () => {
         authStrategy,
       );
 
-      expect(result).toEqual({ success: true, accessToken: mockRefreshResponse.accessToken, refreshToken: mockRefreshResponse.refreshToken, expiresIn: mockRefreshResponse.expiresIn, expiresAt: mockRefreshResponse.timestamp, timestamp: mockRefreshResponse.timestamp });
+      expect(result).toEqual({
+        success: true,
+        accessToken: mockRefreshResponse.accessToken,
+        refreshToken: mockRefreshResponse.refreshToken,
+        expiresIn: mockRefreshResponse.expiresIn,
+        expiresAt: mockRefreshResponse.timestamp,
+        timestamp: mockRefreshResponse.timestamp,
+      });
       expect(mockApiClient.auth.refreshToken).toHaveBeenCalledWith(
         { refreshToken: mockRefreshToken },
         authStrategy,
@@ -2095,7 +2223,9 @@ describe("AuthService", () => {
       await authService.refreshToken(mockRefreshToken);
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringMatching(/\[correlationId: .+, clientId: ctrl-dev-test-app\]/),
+        expect.stringMatching(
+          /\[correlationId: .+, clientId: ctrl-dev-test-app\]/,
+        ),
         expect.objectContaining({
           correlationId: expect.any(String),
           clientId: "ctrl-dev-test-app",
@@ -2107,12 +2237,7 @@ describe("AuthService", () => {
     });
 
     it("should return null on 403 Forbidden error", async () => {
-      const error = new MisoClientError(
-        "Forbidden",
-        undefined,
-        {},
-        403,
-      );
+      const error = new MisoClientError("Forbidden", undefined, {}, 403);
       mockApiClient.auth.refreshToken.mockRejectedValue(error);
 
       const consoleErrorSpy = jest
@@ -2223,11 +2348,26 @@ describe("AuthService", () => {
 
     it("should handle refresh token with special characters", async () => {
       const specialToken = "refresh-token-with-special-chars-!@#$%^&*()";
-      mockApiClient.auth.refreshToken.mockResolvedValue({ success: true, data: { accessToken: mockRefreshResponse.accessToken, refreshToken: mockRefreshResponse.refreshToken, expiresIn: mockRefreshResponse.expiresIn }, timestamp: mockRefreshResponse.timestamp });
+      mockApiClient.auth.refreshToken.mockResolvedValue({
+        success: true,
+        data: {
+          accessToken: mockRefreshResponse.accessToken,
+          refreshToken: mockRefreshResponse.refreshToken,
+          expiresIn: mockRefreshResponse.expiresIn,
+        },
+        timestamp: mockRefreshResponse.timestamp,
+      });
 
       const result = await authService.refreshToken(specialToken);
 
-      expect(result).toEqual({ success: true, accessToken: mockRefreshResponse.accessToken, refreshToken: mockRefreshResponse.refreshToken, expiresIn: mockRefreshResponse.expiresIn, expiresAt: mockRefreshResponse.timestamp, timestamp: mockRefreshResponse.timestamp });
+      expect(result).toEqual({
+        success: true,
+        accessToken: mockRefreshResponse.accessToken,
+        refreshToken: mockRefreshResponse.refreshToken,
+        expiresIn: mockRefreshResponse.expiresIn,
+        expiresAt: mockRefreshResponse.timestamp,
+        timestamp: mockRefreshResponse.timestamp,
+      });
       expect(mockApiClient.auth.refreshToken).toHaveBeenCalledWith(
         { refreshToken: specialToken },
         undefined,
@@ -2236,11 +2376,26 @@ describe("AuthService", () => {
 
     it("should handle very long refresh token", async () => {
       const longToken = "a".repeat(10000); // Very long token
-      mockApiClient.auth.refreshToken.mockResolvedValue({ success: true, data: { accessToken: mockRefreshResponse.accessToken, refreshToken: mockRefreshResponse.refreshToken, expiresIn: mockRefreshResponse.expiresIn }, timestamp: mockRefreshResponse.timestamp });
+      mockApiClient.auth.refreshToken.mockResolvedValue({
+        success: true,
+        data: {
+          accessToken: mockRefreshResponse.accessToken,
+          refreshToken: mockRefreshResponse.refreshToken,
+          expiresIn: mockRefreshResponse.expiresIn,
+        },
+        timestamp: mockRefreshResponse.timestamp,
+      });
 
       const result = await authService.refreshToken(longToken);
 
-      expect(result).toEqual({ success: true, accessToken: mockRefreshResponse.accessToken, refreshToken: mockRefreshResponse.refreshToken, expiresIn: mockRefreshResponse.expiresIn, expiresAt: mockRefreshResponse.timestamp, timestamp: mockRefreshResponse.timestamp });
+      expect(result).toEqual({
+        success: true,
+        accessToken: mockRefreshResponse.accessToken,
+        refreshToken: mockRefreshResponse.refreshToken,
+        expiresIn: mockRefreshResponse.expiresIn,
+        expiresAt: mockRefreshResponse.timestamp,
+        timestamp: mockRefreshResponse.timestamp,
+      });
       expect(mockApiClient.auth.refreshToken).toHaveBeenCalledWith(
         { refreshToken: longToken },
         undefined,
@@ -2249,11 +2404,26 @@ describe("AuthService", () => {
 
     it("should handle refresh token with unicode characters", async () => {
       const unicodeToken = "refresh-token-测试-🚀-émoji";
-      mockApiClient.auth.refreshToken.mockResolvedValue({ success: true, data: { accessToken: mockRefreshResponse.accessToken, refreshToken: mockRefreshResponse.refreshToken, expiresIn: mockRefreshResponse.expiresIn }, timestamp: mockRefreshResponse.timestamp });
+      mockApiClient.auth.refreshToken.mockResolvedValue({
+        success: true,
+        data: {
+          accessToken: mockRefreshResponse.accessToken,
+          refreshToken: mockRefreshResponse.refreshToken,
+          expiresIn: mockRefreshResponse.expiresIn,
+        },
+        timestamp: mockRefreshResponse.timestamp,
+      });
 
       const result = await authService.refreshToken(unicodeToken);
 
-      expect(result).toEqual({ success: true, accessToken: mockRefreshResponse.accessToken, refreshToken: mockRefreshResponse.refreshToken, expiresIn: mockRefreshResponse.expiresIn, expiresAt: mockRefreshResponse.timestamp, timestamp: mockRefreshResponse.timestamp });
+      expect(result).toEqual({
+        success: true,
+        accessToken: mockRefreshResponse.accessToken,
+        refreshToken: mockRefreshResponse.refreshToken,
+        expiresIn: mockRefreshResponse.expiresIn,
+        expiresAt: mockRefreshResponse.timestamp,
+        timestamp: mockRefreshResponse.timestamp,
+      });
       expect(mockApiClient.auth.refreshToken).toHaveBeenCalledWith(
         { refreshToken: unicodeToken },
         undefined,
@@ -2375,4 +2545,3 @@ describe("AuthService", () => {
     });
   });
 });
-

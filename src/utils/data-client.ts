@@ -15,7 +15,11 @@ import {
 import { DataMasker } from "./data-masker";
 import { ClientTokenInfo } from "./token-utils";
 import { isBrowser } from "./data-client-utils";
-import { getCachedEntry, isCacheEnabled, getCacheKeyForRequest } from "./data-client-cache";
+import {
+  getCachedEntry,
+  isCacheEnabled,
+  getCacheKeyForRequest,
+} from "./data-client-cache";
 import { executeHttpRequest } from "./data-client-request";
 import {
   getToken,
@@ -47,7 +51,10 @@ export class DataClient {
   private misoClient: MisoClient | null = null;
   private cache: Map<string, CacheEntry> = new Map();
   private pendingRequests: Map<string, Promise<unknown>> = new Map();
-  private failedRequests: Map<string, { timestamp: number; error: Error; count: number }> = new Map();
+  private failedRequests: Map<
+    string,
+    { timestamp: number; error: Error; count: number }
+  > = new Map();
   private interceptors: InterceptorConfig = {};
   private metrics = {
     totalRequests: 0,
@@ -64,9 +71,8 @@ export class DataClient {
     warnIfClientSecretInBrowser(this.config);
 
     // Initialize MisoClient if config provided
-    const misoConfigWithRefresh = createMisoConfigWithRefresh(
-      this.config,
-      () => this.getEnvironmentToken(),
+    const misoConfigWithRefresh = createMisoConfigWithRefresh(this.config, () =>
+      this.getEnvironmentToken(),
     );
     if (misoConfigWithRefresh) {
       this.misoClient = new MisoClient(misoConfigWithRefresh);
@@ -78,7 +84,10 @@ export class DataClient {
     }
 
     // Initialize browser services
-    const services = initializeBrowserServices(this.misoClient, misoConfigWithRefresh);
+    const services = initializeBrowserServices(
+      this.misoClient,
+      misoConfigWithRefresh,
+    );
     this.permissionService = services.permissionService;
     this.roleService = services.roleService;
 
@@ -99,11 +108,17 @@ export class DataClient {
   }
 
   private hasAnyToken(): boolean {
-    return hasAnyToken(this.config.tokenKeys, this.misoClient, this.config.misoConfig);
+    return hasAnyToken(
+      this.config.tokenKeys,
+      this.misoClient,
+      this.config.misoConfig,
+    );
   }
 
   private async getClientToken(): Promise<string | null> {
-    return getClientToken(this.config.misoConfig, this.config.baseUrl, () => this.getEnvironmentToken());
+    return getClientToken(this.config.misoConfig, this.config.baseUrl, () =>
+      this.getEnvironmentToken(),
+    );
   }
 
   private getControllerUrl(): string | null {
@@ -121,7 +136,11 @@ export class DataClient {
   }
 
   async redirectToLogin(redirectUrl?: string): Promise<void> {
-    return redirectToLoginAuth(this.config, () => this.getClientToken(), redirectUrl);
+    return redirectToLoginAuth(
+      this.config,
+      () => this.getClientToken(),
+      redirectUrl,
+    );
   }
 
   async logout(redirectUrl?: string): Promise<void> {
@@ -149,7 +168,9 @@ export class DataClient {
     if (this.misoClient && this.config.misoConfig) {
       (this.config.misoConfig as { logLevel?: string }).logLevel = level;
       try {
-        const misoConfig = (this.misoClient as unknown as { config?: { logLevel?: string } }).config;
+        const misoConfig = (
+          this.misoClient as unknown as { config?: { logLevel?: string } }
+        ).config;
         if (misoConfig) misoConfig.logLevel = level;
       } catch {
         // Silently ignore if config is not accessible
@@ -162,12 +183,15 @@ export class DataClient {
   }
 
   getMetrics(): RequestMetrics {
-    const responseTimes = (this.metrics.responseTimes || []).sort((a, b) => a - b);
+    const responseTimes = (this.metrics.responseTimes || []).sort(
+      (a, b) => a - b,
+    );
     const len = responseTimes.length;
     return {
       totalRequests: this.metrics.totalRequests,
       totalFailures: this.metrics.totalFailures,
-      averageResponseTime: len > 0 ? responseTimes.reduce((a, b) => a + b, 0) / len : 0,
+      averageResponseTime:
+        len > 0 ? responseTimes.reduce((a, b) => a + b, 0) / len : 0,
       responseTimeDistribution: {
         min: len > 0 ? responseTimes[0] : 0,
         max: len > 0 ? responseTimes[len - 1] : 0,
@@ -175,10 +199,14 @@ export class DataClient {
         p95: len > 0 ? responseTimes[Math.floor(len * 0.95)] : 0,
         p99: len > 0 ? responseTimes[Math.floor(len * 0.99)] : 0,
       },
-      errorRate: this.metrics.totalRequests > 0 ? this.metrics.totalFailures / this.metrics.totalRequests : 0,
+      errorRate:
+        this.metrics.totalRequests > 0
+          ? this.metrics.totalFailures / this.metrics.totalRequests
+          : 0,
       cacheHitRate:
         this.metrics.cacheHits + this.metrics.cacheMisses > 0
-          ? this.metrics.cacheHits / (this.metrics.cacheHits + this.metrics.cacheMisses)
+          ? this.metrics.cacheHits /
+            (this.metrics.cacheHits + this.metrics.cacheMisses)
           : 0,
     };
   }
@@ -191,7 +219,8 @@ export class DataClient {
     if (!failedRequest) return;
     const timeSinceFailure = Date.now() - failedRequest.timestamp;
     const failureCount = failedRequest.count || 1;
-    const cooldownPeriod = failureCount === 1 ? 5000 : failureCount === 2 ? 15000 : 30000;
+    const cooldownPeriod =
+      failureCount === 1 ? 5000 : failureCount === 2 ? 15000 : 30000;
     if (timeSinceFailure < cooldownPeriod) throw failedRequest.error;
     this.failedRequests.delete(cacheKey);
   }
@@ -200,7 +229,11 @@ export class DataClient {
   private recordFailure(cacheKey: string, error: Error): void {
     const existingFailure = this.failedRequests.get(cacheKey);
     const failureCount = existingFailure ? (existingFailure.count || 1) + 1 : 1;
-    this.failedRequests.set(cacheKey, { timestamp: Date.now(), error, count: failureCount });
+    this.failedRequests.set(cacheKey, {
+      timestamp: Date.now(),
+      error,
+      count: failureCount,
+    });
     const cleanupTimer = setTimeout(
       () => this.failedRequests.delete(cacheKey),
       30000,
@@ -266,12 +299,12 @@ export class DataClient {
   ): Promise<T> {
     const requestPromise = isGetRequest
       ? (async () => {
-        try {
-          return await this.executeRequest<T>(req);
-        } finally {
-          this.pendingRequests.delete(cacheKey);
-        }
-      })()
+          try {
+            return await this.executeRequest<T>(req);
+          } finally {
+            this.pendingRequests.delete(cacheKey);
+          }
+        })()
       : this.executeRequest<T>(req);
     if (isGetRequest) this.pendingRequests.set(cacheKey, requestPromise);
     return requestPromise;
@@ -291,10 +324,17 @@ export class DataClient {
     }
   }
 
-  private async request<T>(method: string, endpoint: string, options?: ApiRequestOptions): Promise<T> {
+  private async request<T>(
+    method: string,
+    endpoint: string,
+    options?: ApiRequestOptions,
+  ): Promise<T> {
     const startTime = Date.now();
     const fullUrl = `${this.config.baseUrl}${endpoint}`;
-    const cacheKey = getCacheKeyForRequest(endpoint, { ...options, method: method.toUpperCase() });
+    const cacheKey = getCacheKeyForRequest(endpoint, {
+      ...options,
+      method: method.toUpperCase(),
+    });
     const isGetRequest = method.toUpperCase() === "GET";
     const cacheEnabled = isCacheEnabled(method, this.config.cache, options);
 
@@ -306,18 +346,37 @@ export class DataClient {
     const pending = this.getPendingGetRequest<T>(isGetRequest, cacheKey);
     if (pending) return pending;
 
-    const req = { method, fullUrl, endpoint, cacheKey, cacheEnabled, startTime, options };
-    const requestPromise = this.createRequestPromise<T>(isGetRequest, cacheKey, req);
+    const req = {
+      method,
+      fullUrl,
+      endpoint,
+      cacheKey,
+      cacheEnabled,
+      startTime,
+      options,
+    };
+    const requestPromise = this.createRequestPromise<T>(
+      isGetRequest,
+      cacheKey,
+      req,
+    );
     return this.resolveRequestPromise(requestPromise, cacheKey);
   }
 
-  private async refreshUserToken(): Promise<{ token: string; expiresIn: number } | null> {
+  private async refreshUserToken(): Promise<{
+    token: string;
+    expiresIn: number;
+  } | null> {
     if (!this.config.onTokenRefresh) return null;
     try {
       const result = await this.config.onTokenRefresh();
       if (isBrowser() && result.token) {
         const { setLocalStorage } = await import("./data-client-utils");
-        for (const key of this.config.tokenKeys || ["token", "accessToken", "authToken"]) {
+        for (const key of this.config.tokenKeys || [
+          "token",
+          "accessToken",
+          "authToken",
+        ]) {
           setLocalStorage(key, result.token);
         }
       }
@@ -330,100 +389,203 @@ export class DataClient {
 
   private handleAuthError(): void {
     if (isBrowser()) {
-      this.redirectToLogin().catch((err) => writeErr(`Failed to redirect to login: ${String(err)}`));
+      this.redirectToLogin().catch((err) =>
+        writeErr(`Failed to redirect to login: ${String(err)}`),
+      );
     }
   }
 
-  private async applyRequestInterceptor(url: string, options: ApiRequestOptions): Promise<ApiRequestOptions> {
-    return this.interceptors.onRequest ? await this.interceptors.onRequest(url, options) : options;
+  private async applyRequestInterceptor(
+    url: string,
+    options: ApiRequestOptions,
+  ): Promise<ApiRequestOptions> {
+    return this.interceptors.onRequest
+      ? await this.interceptors.onRequest(url, options)
+      : options;
   }
 
   // ==================== HTTP METHODS ====================
 
   async get<T>(endpoint: string, options?: ApiRequestOptions): Promise<T> {
-    const finalOptions = await this.applyRequestInterceptor(endpoint, { ...options, method: "GET" });
+    const finalOptions = await this.applyRequestInterceptor(endpoint, {
+      ...options,
+      method: "GET",
+    });
     return this.request<T>("GET", endpoint, finalOptions);
   }
 
-  async post<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T> {
+  async post<T>(
+    endpoint: string,
+    data?: unknown,
+    options?: ApiRequestOptions,
+  ): Promise<T> {
     const finalOptions = await this.applyRequestInterceptor(endpoint, {
-      ...options, method: "POST", body: data ? JSON.stringify(data) : undefined,
+      ...options,
+      method: "POST",
+      body: data ? JSON.stringify(data) : undefined,
       headers: { "Content-Type": "application/json", ...options?.headers },
     });
     return this.request<T>("POST", endpoint, finalOptions);
   }
 
-  async put<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T> {
+  async put<T>(
+    endpoint: string,
+    data?: unknown,
+    options?: ApiRequestOptions,
+  ): Promise<T> {
     const finalOptions = await this.applyRequestInterceptor(endpoint, {
-      ...options, method: "PUT", body: data ? JSON.stringify(data) : undefined,
+      ...options,
+      method: "PUT",
+      body: data ? JSON.stringify(data) : undefined,
       headers: { "Content-Type": "application/json", ...options?.headers },
     });
     return this.request<T>("PUT", endpoint, finalOptions);
   }
 
-  async patch<T>(endpoint: string, data?: unknown, options?: ApiRequestOptions): Promise<T> {
+  async patch<T>(
+    endpoint: string,
+    data?: unknown,
+    options?: ApiRequestOptions,
+  ): Promise<T> {
     const finalOptions = await this.applyRequestInterceptor(endpoint, {
-      ...options, method: "PATCH", body: data ? JSON.stringify(data) : undefined,
+      ...options,
+      method: "PATCH",
+      body: data ? JSON.stringify(data) : undefined,
       headers: { "Content-Type": "application/json", ...options?.headers },
     });
     return this.request<T>("PATCH", endpoint, finalOptions);
   }
 
   async delete<T>(endpoint: string, options?: ApiRequestOptions): Promise<T> {
-    const finalOptions = await this.applyRequestInterceptor(endpoint, { ...options, method: "DELETE" });
+    const finalOptions = await this.applyRequestInterceptor(endpoint, {
+      ...options,
+      method: "DELETE",
+    });
     return this.request<T>("DELETE", endpoint, finalOptions);
   }
 
   // ==================== PERMISSION METHODS ====================
 
   async getPermissions(token?: string): Promise<string[]> {
-    return permissionHelpers.getPermissions(this.permissionService, this.misoClient, () => this.getToken(), token);
+    return permissionHelpers.getPermissions(
+      this.permissionService,
+      this.misoClient,
+      () => this.getToken(),
+      token,
+    );
   }
 
   async hasPermission(permission: string, token?: string): Promise<boolean> {
-    return permissionHelpers.hasPermission(this.permissionService, this.misoClient, () => this.getToken(), permission, token);
+    return permissionHelpers.hasPermission(
+      this.permissionService,
+      this.misoClient,
+      () => this.getToken(),
+      permission,
+      token,
+    );
   }
 
-  async hasAnyPermission(permissions: string[], token?: string): Promise<boolean> {
-    return permissionHelpers.hasAnyPermission(this.permissionService, this.misoClient, () => this.getToken(), permissions, token);
+  async hasAnyPermission(
+    permissions: string[],
+    token?: string,
+  ): Promise<boolean> {
+    return permissionHelpers.hasAnyPermission(
+      this.permissionService,
+      this.misoClient,
+      () => this.getToken(),
+      permissions,
+      token,
+    );
   }
 
-  async hasAllPermissions(permissions: string[], token?: string): Promise<boolean> {
-    return permissionHelpers.hasAllPermissions(this.permissionService, this.misoClient, () => this.getToken(), permissions, token);
+  async hasAllPermissions(
+    permissions: string[],
+    token?: string,
+  ): Promise<boolean> {
+    return permissionHelpers.hasAllPermissions(
+      this.permissionService,
+      this.misoClient,
+      () => this.getToken(),
+      permissions,
+      token,
+    );
   }
 
   async refreshPermissions(token?: string): Promise<string[]> {
-    return permissionHelpers.refreshPermissions(this.permissionService, this.misoClient, () => this.getToken(), token);
+    return permissionHelpers.refreshPermissions(
+      this.permissionService,
+      this.misoClient,
+      () => this.getToken(),
+      token,
+    );
   }
 
   async clearPermissionsCache(token?: string): Promise<void> {
-    return permissionHelpers.clearPermissionsCache(this.permissionService, this.misoClient, () => this.getToken(), token);
+    return permissionHelpers.clearPermissionsCache(
+      this.permissionService,
+      this.misoClient,
+      () => this.getToken(),
+      token,
+    );
   }
 
   // ==================== ROLE METHODS ====================
 
   async getRoles(token?: string): Promise<string[]> {
-    return roleHelpers.getRoles(this.roleService, this.misoClient, () => this.getToken(), token);
+    return roleHelpers.getRoles(
+      this.roleService,
+      this.misoClient,
+      () => this.getToken(),
+      token,
+    );
   }
 
   async hasRole(role: string, token?: string): Promise<boolean> {
-    return roleHelpers.hasRole(this.roleService, this.misoClient, () => this.getToken(), role, token);
+    return roleHelpers.hasRole(
+      this.roleService,
+      this.misoClient,
+      () => this.getToken(),
+      role,
+      token,
+    );
   }
 
   async hasAnyRole(roles: string[], token?: string): Promise<boolean> {
-    return roleHelpers.hasAnyRole(this.roleService, this.misoClient, () => this.getToken(), roles, token);
+    return roleHelpers.hasAnyRole(
+      this.roleService,
+      this.misoClient,
+      () => this.getToken(),
+      roles,
+      token,
+    );
   }
 
   async hasAllRoles(roles: string[], token?: string): Promise<boolean> {
-    return roleHelpers.hasAllRoles(this.roleService, this.misoClient, () => this.getToken(), roles, token);
+    return roleHelpers.hasAllRoles(
+      this.roleService,
+      this.misoClient,
+      () => this.getToken(),
+      roles,
+      token,
+    );
   }
 
   async refreshRoles(token?: string): Promise<string[]> {
-    return roleHelpers.refreshRoles(this.roleService, this.misoClient, () => this.getToken(), token);
+    return roleHelpers.refreshRoles(
+      this.roleService,
+      this.misoClient,
+      () => this.getToken(),
+      token,
+    );
   }
 
   async clearRolesCache(token?: string): Promise<void> {
-    return roleHelpers.clearRolesCache(this.roleService, this.misoClient, () => this.getToken(), token);
+    return roleHelpers.clearRolesCache(
+      this.roleService,
+      this.misoClient,
+      () => this.getToken(),
+      token,
+    );
   }
 
   // ==================== AUTHENTICATION METHODS ====================
@@ -468,7 +630,9 @@ export function dataClient(config?: DataClientConfig): DataClient {
     defaultDataClient = new DataClient(config);
   }
   if (!defaultDataClient) {
-    throw new Error("DataClient not initialized. Call dataClient(config) first.");
+    throw new Error(
+      "DataClient not initialized. Call dataClient(config) first.",
+    );
   }
   return defaultDataClient;
 }

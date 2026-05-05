@@ -20,14 +20,14 @@ interface AuthenticationTabProps {
 
 /**
  * Authentication tab component for API testing
- * 
+ *
  * Provides UI for testing authentication methods:
  * - isAuthenticated()
  * - getEnvironmentToken()
  * - getClientTokenInfo()
  * - logout()
  * - redirectToLogin()
- * 
+ *
  * @param props - Component props
  * @returns Authentication tab content
  */
@@ -76,9 +76,9 @@ export function AuthenticationTab({ isDisabled, auth }: AuthenticationTabProps) 
           <CardDescription>Get current user information</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button 
-            onClick={auth.testGetUser} 
-            disabled={isDisabled} 
+          <Button
+            onClick={auth.testGetUser}
+            disabled={isDisabled}
             className="w-full !bg-purple-600 hover:!bg-purple-700 !text-white"
           >
             getUser()
@@ -92,7 +92,12 @@ export function AuthenticationTab({ isDisabled, auth }: AuthenticationTabProps) 
           <CardDescription>End user session</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={auth.testLogout} disabled={isDisabled} variant="destructive" className="w-full">
+          <Button
+            onClick={auth.testLogout}
+            disabled={isDisabled}
+            variant="destructive"
+            className="w-full"
+          >
             logout()
           </Button>
         </CardContent>
@@ -104,7 +109,11 @@ export function AuthenticationTab({ isDisabled, auth }: AuthenticationTabProps) 
           <CardDescription>Redirect to miso-controller login page</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={auth.testRedirectToLogin} disabled={isDisabled} className="w-full bg-blue-600 hover:bg-blue-700">
+          <Button
+            onClick={auth.testRedirectToLogin}
+            disabled={isDisabled}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+          >
             redirectToLogin()
           </Button>
         </CardContent>

@@ -51,19 +51,25 @@ describe("error-types", () => {
     });
 
     it("should create AppError with error type", () => {
-      const error = new AppError("Error", 400, true, { errorType: "/Errors/Custom" });
+      const error = new AppError("Error", 400, true, {
+        errorType: "/Errors/Custom",
+      });
 
       expect(error.errorType).toBe("/Errors/Custom");
     });
 
     it("should create AppError with instance", () => {
-      const error = new AppError("Error", 400, true, { instance: "/api/users/123" });
+      const error = new AppError("Error", 400, true, {
+        instance: "/api/users/123",
+      });
 
       expect(error.instance).toBe("/api/users/123");
     });
 
     it("should create AppError with correlation ID", () => {
-      const error = new AppError("Error", 400, true, { correlationId: "corr-123" });
+      const error = new AppError("Error", 400, true, {
+        correlationId: "corr-123",
+      });
 
       expect(error.correlationId).toBe("corr-123");
     });
@@ -101,14 +107,18 @@ describe("error-types", () => {
     });
 
     it("should use custom error type if provided", () => {
-      const error = new AppError("Error", 400, true, { errorType: "/Errors/CustomType" });
+      const error = new AppError("Error", 400, true, {
+        errorType: "/Errors/CustomType",
+      });
       const response = error.toErrorResponse();
 
       expect(response.type).toBe("/Errors/CustomType");
     });
 
     it("should use instance from error if provided", () => {
-      const error = new AppError("Error", 404, true, { instance: "/api/users/123" });
+      const error = new AppError("Error", 404, true, {
+        instance: "/api/users/123",
+      });
       const response = error.toErrorResponse();
 
       expect(response.instance).toBe("/api/users/123");
@@ -139,7 +149,9 @@ describe("error-types", () => {
     });
 
     it("should include correlation ID", () => {
-      const error = new AppError("Error", 400, true, { correlationId: "corr-123" });
+      const error = new AppError("Error", 400, true, {
+        correlationId: "corr-123",
+      });
       const response = error.toErrorResponse();
 
       expect(response.correlationId).toBe("corr-123");

@@ -21,7 +21,7 @@ export interface ForeignKeyReference {
  */
 export interface LogEntry {
   timestamp: string;
-  level: 'error' | 'warn' | 'audit' | 'info' | 'debug';
+  level: "error" | "warn" | "audit" | "info" | "debug";
   message: string;
   environment?: string;
   application?: string;
@@ -50,7 +50,7 @@ export interface LogEntry {
  */
 export interface GeneralLogEntry {
   timestamp: string;
-  level: 'error' | 'warn' | 'info' | 'debug';
+  level: "error" | "warn" | "info" | "debug";
   environment: string;
   application: string;
   clientId?: string;
@@ -110,7 +110,7 @@ export interface JobLogEntry {
   id: string;
   jobId: string;
   timestamp: string;
-  level: 'debug' | 'info' | 'warn' | 'error';
+  level: "debug" | "info" | "warn" | "error";
   message: string;
   details?: Record<string, unknown>;
   correlationId?: string;
@@ -120,9 +120,9 @@ export interface JobLogEntry {
  * Create log request (unified endpoint for error/general/audit logs)
  */
 export interface CreateLogRequest {
-  type: 'error' | 'general' | 'audit';
+  type: "error" | "general" | "audit";
   data: {
-    level?: 'error' | 'warn' | 'info' | 'debug';
+    level?: "error" | "warn" | "info" | "debug";
     message: string;
     context?: Record<string, unknown>;
     correlationId?: string;
@@ -150,7 +150,7 @@ export interface CreateLogResponse {
  */
 export interface BatchLogEntry {
   timestamp: string;
-  level: 'error' | 'warn' | 'audit' | 'info' | 'debug';
+  level: "error" | "warn" | "audit" | "info" | "debug";
   message: string;
   environment?: string;
   application?: string;
@@ -348,8 +348,8 @@ export interface ApplicationStatsResponse {
  * Export logs query parameters
  */
 export interface ExportLogsQueryParams {
-  type: 'general' | 'audit' | 'jobs';
-  format: 'csv' | 'json';
+  type: "general" | "audit" | "jobs";
+  format: "csv" | "json";
   environment?: string;
   /** Application id filter (serialized as `applicationId` query parameter). */
   applicationId?: string;
@@ -372,4 +372,3 @@ export interface ExportLogsResponse {
     count: number;
   };
 }
-

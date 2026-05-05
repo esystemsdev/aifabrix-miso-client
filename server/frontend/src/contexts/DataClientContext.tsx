@@ -40,10 +40,10 @@ interface DataClientProviderProps {
 
 /**
  * Provider component that initializes and provides DataClient instance to all child components
- * 
+ *
  * @param props - Component props
  * @returns Provider component
- * 
+ *
  * @example
  * ```tsx
  * <DataClientProvider>
@@ -69,17 +69,17 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
 
   /**
    * Initialize DataClient with retry logic
-   * 
+   *
    * Attempts to initialize the DataClient with automatic retry on failure.
    * Retries up to MAX_RETRIES times with exponential backoff.
-   * 
+   *
    * @param attempt - Current retry attempt number (default: 0)
    * @returns Promise that resolves when initialization completes (success or final failure)
    */
   const initialize = async (attempt: number = 0): Promise<void> => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const client = await autoInitializeDataClient({
         clientTokenUri: initOptions?.clientTokenUri,
@@ -89,27 +89,27 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
           setError(err);
         },
       });
-      
+
       setDataClient(client);
       setRetryCount(0); // Reset retry count on success
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
-      
+
       // Retry logic: attempt retry if we haven't exceeded max retries
       if (attempt < MAX_RETRIES) {
         const nextAttempt = attempt + 1;
         setRetryCount(nextAttempt);
-        
+
         // Exponential backoff: delay increases with each retry
         const delay = RETRY_DELAY * Math.pow(2, attempt);
-        
+
         // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
+        await new Promise((resolve) => setTimeout(resolve, delay));
+
         // Retry initialization
         return initialize(nextAttempt);
       }
-      
+
       // Max retries exceeded - set error and stop loading
       setError(error);
       setDataClient(null);
@@ -120,10 +120,10 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
 
   /**
    * Re-initialize DataClient
-   * 
+   *
    * Resets retry count and attempts to initialize DataClient again.
    * Useful for manual retry after an initialization failure.
-   * 
+   *
    * @returns Promise that resolves when re-initialization completes
    */
   const reinitialize = async (): Promise<void> => {
@@ -133,10 +133,10 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
 
   /**
    * Set a manually created DataClient instance
-   * 
+   *
    * Allows setting a DataClient instance that was created outside of the provider.
    * Resets error state and retry count.
-   * 
+   *
    * @param client - DataClient instance to use
    */
   const setManualClient = (client: DataClient): void => {
@@ -160,40 +160,35 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
       reinitialize,
       setManualClient,
     }),
-    [dataClient, isLoading, error, retryCount],
+    [dataClient, isLoading, error, retryCount]
   );
 
-  return (
-    <DataClientContext.Provider value={value}>
-      {children}
-    </DataClientContext.Provider>
-  );
+  return <DataClientContext.Provider value={value}>{children}</DataClientContext.Provider>;
 }
 
 /**
  * Hook to access DataClient instance from context
- * 
+ *
  * @returns DataClient context value
  * @throws Error if used outside DataClientProvider
- * 
+ *
  * @example
  * ```tsx
  * const { dataClient, isLoading, error } = useDataClient();
- * 
+ *
  * if (isLoading) return <div>Loading...</div>;
  * if (error) return <div>Error: {error.message}</div>;
  * if (!dataClient) return <div>Not initialized</div>;
- * 
+ *
  * const users = await dataClient.get('/api/users');
  * ```
  */
 export function useDataClient() {
   const context = useContext(DataClientContext);
-  
+
   if (context === undefined) {
     throw new Error('useDataClient must be used within DataClientProvider');
   }
-  
+
   return context;
 }
-

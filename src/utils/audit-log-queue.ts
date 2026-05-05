@@ -130,7 +130,10 @@ export class AuditLogQueue {
   private async flushToRedis(logEntries: LogEntry[]): Promise<boolean> {
     if (!this.redis.isConnected()) return false;
     const queueName = `audit-logs:${this.config.clientId}`;
-    const success = await this.redis.rpush(queueName, JSON.stringify(logEntries));
+    const success = await this.redis.rpush(
+      queueName,
+      JSON.stringify(logEntries),
+    );
     return success;
   }
 
@@ -143,7 +146,9 @@ export class AuditLogQueue {
       if (this.apiClient) {
         await this.apiClient.logs.createBatchLogs({ logs: logEntries });
       } else {
-        await this.httpClient.request("POST", "/api/v1/logs/batch", { logs: logEntries });
+        await this.httpClient.request("POST", "/api/v1/logs/batch", {
+          logs: logEntries,
+        });
       }
       this.httpLoggingFailures = 0;
       this.httpLoggingDisabledUntil = null;

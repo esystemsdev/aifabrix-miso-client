@@ -6,7 +6,7 @@
 /**
  * Storage backend type for encrypted parameters
  */
-export type EncryptionStorage = 'keyvault' | 'local';
+export type EncryptionStorage = "keyvault" | "local";
 
 /**
  * Encrypt request parameters

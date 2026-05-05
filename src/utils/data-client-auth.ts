@@ -5,7 +5,12 @@
 
 import { MisoClient } from "../index";
 import { DataClientConfig, MisoClientConfig } from "../types/data-client.types";
-import { isBrowser, getLocalStorage, setLocalStorage, removeLocalStorage } from "./data-client-utils";
+import {
+  isBrowser,
+  getLocalStorage,
+  setLocalStorage,
+  removeLocalStorage,
+} from "./data-client-utils";
 import { extractClientTokenInfo, ClientTokenInfo } from "./token-utils";
 import jwt from "jsonwebtoken";
 import { shouldSkipAudit } from "./data-client-audit";
@@ -72,13 +77,18 @@ export function hasAnyToken(
   misoClient?: MisoClient | null,
   misoConfig?: MisoClientConfig,
 ): boolean {
-  return getToken(tokenKeys) !== null || hasClientToken(misoClient || null, misoConfig);
+  return (
+    getToken(tokenKeys) !== null ||
+    hasClientToken(misoClient || null, misoConfig)
+  );
 }
 
 /**
  * Build controller URL from configuration
  */
-export function getControllerUrl(misoConfig: MisoClientConfig | undefined): string | null {
+export function getControllerUrl(
+  misoConfig: MisoClientConfig | undefined,
+): string | null {
   if (!misoConfig) return null;
   return misoConfig.controllerPublicUrl || misoConfig.controllerUrl || null;
 }
@@ -99,7 +109,10 @@ function getValidCachedClientToken(
 ): string | null {
   if (!cachedToken) return null;
   if (!isCachedTokenValid(cachedToken, expiresAtStr)) {
-    debugClientToken(isDebug, "[getClientToken] Token expired, removing from cache");
+    debugClientToken(
+      isDebug,
+      "[getClientToken] Token expired, removing from cache",
+    );
     clearCachedClientToken();
     return null;
   }
@@ -112,9 +125,15 @@ async function fetchClientTokenFromEnvironment(
   getEnvironmentTokenFn: () => Promise<string>,
 ): Promise<string | null> {
   try {
-    debugClientToken(isDebug, "[getClientToken] Fetching new token via getEnvironmentToken()");
+    debugClientToken(
+      isDebug,
+      "[getClientToken] Fetching new token via getEnvironmentToken()",
+    );
     const newToken = await getEnvironmentTokenFn();
-    debugClientToken(isDebug, `[getClientToken] Got new token, length: ${newToken?.length}`);
+    debugClientToken(
+      isDebug,
+      `[getClientToken] Got new token, length: ${newToken?.length}`,
+    );
     return newToken;
   } catch (error) {
     writeErr(
@@ -144,7 +163,10 @@ function decodeTokenExpiration(token: string): number | null {
 /**
  * Check if cached token is valid (not expired)
  */
-function isCachedTokenValid(cachedToken: string | null, expiresAtStr: string | null): boolean {
+function isCachedTokenValid(
+  cachedToken: string | null,
+  expiresAtStr: string | null,
+): boolean {
   if (!cachedToken) return false;
 
   const now = Date.now();
@@ -186,7 +208,11 @@ export async function getClientToken(
     `[getClientToken] Cache check: ${JSON.stringify({ hasToken: !!cachedToken, hasExpiresAt: !!expiresAtStr })}`,
   );
 
-  const validCachedToken = getValidCachedClientToken(cachedToken, expiresAtStr, isDebug);
+  const validCachedToken = getValidCachedClientToken(
+    cachedToken,
+    expiresAtStr,
+    isDebug,
+  );
   if (validCachedToken) return validCachedToken;
 
   // Check config for static token
@@ -217,9 +243,10 @@ function getCachedEnvToken(): string | null {
   return cachedToken;
 }
 
-function parseTokenResponse(
-  data: Record<string, unknown>,
-): { token: string; expiresIn: number } {
+function parseTokenResponse(data: Record<string, unknown>): {
+  token: string;
+  expiresIn: number;
+} {
   const token =
     (data.data as { token?: string })?.token ||
     data.token ||
@@ -264,19 +291,26 @@ async function auditTokenFailure(
     await contextStorage.runWithContextAsync(
       { correlationId: errorInfo.correlationId },
       async () => {
-        await misoClient.log.audit("client.token.request.failed", clientTokenUri, {
-          method: "POST",
-          url: clientTokenUri,
-          statusCode: errorInfo.statusCode || 0,
-          error: errorInfo.message,
-          cached: false,
-          errorType: errorInfo.errorType,
-          errorName: errorInfo.errorName,
-        }, {
-          errorCategory: "authentication",
-          httpStatusCategory:
-            errorInfo.statusCode && errorInfo.statusCode >= 500 ? "server-error" : "client-error",
-        });
+        await misoClient.log.audit(
+          "client.token.request.failed",
+          clientTokenUri,
+          {
+            method: "POST",
+            url: clientTokenUri,
+            statusCode: errorInfo.statusCode || 0,
+            error: errorInfo.message,
+            cached: false,
+            errorType: errorInfo.errorType,
+            errorName: errorInfo.errorName,
+          },
+          {
+            errorCategory: "authentication",
+            httpStatusCategory:
+              errorInfo.statusCode && errorInfo.statusCode >= 500
+                ? "server-error"
+                : "client-error",
+          },
+        );
       },
     );
   } catch {
@@ -284,20 +318,19 @@ async function auditTokenFailure(
   }
 }
 
-function buildClientTokenFetchUrl(
-  config: DataClientConfig,
-): { clientTokenUri: string; fullUrl: string } {
-  const clientTokenUri = config.misoConfig?.clientTokenUri || "/api/v1/auth/client-token";
+function buildClientTokenFetchUrl(config: DataClientConfig): {
+  clientTokenUri: string;
+  fullUrl: string;
+} {
+  const clientTokenUri =
+    config.misoConfig?.clientTokenUri || "/api/v1/auth/client-token";
   const fullUrl = /^https?:\/\//i.test(clientTokenUri)
     ? clientTokenUri
     : `${config.baseUrl}${clientTokenUri}`;
   return { clientTokenUri, fullUrl };
 }
 
-function storeEnvironmentToken(
-  token: string,
-  expiresIn: number,
-): void {
+function storeEnvironmentToken(token: string, expiresIn: number): void {
   const expiresAt = Date.now() + expiresIn * 1000;
   setLocalStorage(CACHE_KEY, token);
   setLocalStorage(EXPIRES_AT_KEY, expiresAt.toString());
@@ -330,7 +363,9 @@ export async function getEnvironmentToken(
   misoClient: MisoClient | null,
 ): Promise<string> {
   if (!isBrowser()) {
-    throw new Error("getEnvironmentToken() is only available in browser environment");
+    throw new Error(
+      "getEnvironmentToken() is only available in browser environment",
+    );
   }
 
   const cached = getCachedEnvToken();
@@ -344,7 +379,12 @@ export async function getEnvironmentToken(
     storeEnvironmentToken(token, expiresIn);
 
     if (misoClient) {
-      await auditTokenSuccess(misoClient, clientTokenUri, response.status, config);
+      await auditTokenSuccess(
+        misoClient,
+        clientTokenUri,
+        response.status,
+        config,
+      );
     }
     return token;
   } catch (error) {
@@ -364,7 +404,9 @@ export async function getEnvironmentToken(
 /**
  * Get client token information (browser-side)
  */
-export function getClientTokenInfo(misoConfig: MisoClientConfig | undefined): ClientTokenInfo | null {
+export function getClientTokenInfo(
+  misoConfig: MisoClientConfig | undefined,
+): ClientTokenInfo | null {
   if (!isBrowser()) return null;
 
   const cachedToken = getLocalStorage("miso:client-token");

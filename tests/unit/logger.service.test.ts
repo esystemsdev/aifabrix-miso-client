@@ -63,11 +63,9 @@ describe("LoggerService", () => {
     // Mock ApiClient with logs.createLog that calls through to httpClient.request
     mockApiClient = {
       logs: {
-        createLog: jest
-          .fn()
-          .mockImplementation(async (logEntry: unknown) => {
-            return mockHttpClient.request("POST", "/api/v1/logs", logEntry);
-          }),
+        createLog: jest.fn().mockImplementation(async (logEntry: unknown) => {
+          return mockHttpClient.request("POST", "/api/v1/logs", logEntry);
+        }),
       },
     } as unknown as jest.Mocked<ApiClient>;
 
@@ -184,7 +182,9 @@ describe("LoggerService", () => {
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
         "logs:ctrl-dev-test-app",
-        expect.stringContaining('"message":"Audit: unknown_action on unknown_resource"'),
+        expect.stringContaining(
+          '"message":"Audit: unknown_action on unknown_resource"',
+        ),
       );
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
         "logs:ctrl-dev-test-app",
@@ -284,7 +284,10 @@ describe("LoggerService", () => {
     it("should suppress info logs when logLevel is warn", async () => {
       const warnConfig = { ...config, logLevel: "warn" as const };
       setHttpClientConfig(mockHttpClient, warnConfig);
-      const thresholdLogger = new LoggerService(mockHttpClient, mockRedisService);
+      const thresholdLogger = new LoggerService(
+        mockHttpClient,
+        mockRedisService,
+      );
 
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
@@ -298,7 +301,10 @@ describe("LoggerService", () => {
     it("should suppress warn logs when logLevel is error", async () => {
       const errorConfig = { ...config, logLevel: "error" as const };
       setHttpClientConfig(mockHttpClient, errorConfig);
-      const thresholdLogger = new LoggerService(mockHttpClient, mockRedisService);
+      const thresholdLogger = new LoggerService(
+        mockHttpClient,
+        mockRedisService,
+      );
 
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
@@ -312,12 +318,17 @@ describe("LoggerService", () => {
     it("should always keep audit logs regardless of logLevel", async () => {
       const errorConfig = { ...config, logLevel: "error" as const };
       setHttpClientConfig(mockHttpClient, errorConfig);
-      const thresholdLogger = new LoggerService(mockHttpClient, mockRedisService);
+      const thresholdLogger = new LoggerService(
+        mockHttpClient,
+        mockRedisService,
+      );
 
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      await thresholdLogger.audit("access.granted", "resource", { userId: "user-1" });
+      await thresholdLogger.audit("access.granted", "resource", {
+        userId: "user-1",
+      });
 
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
         "logs:ctrl-dev-test-app",
@@ -443,24 +454,28 @@ describe("LoggerService", () => {
       mockRedisService.isConnected.mockReturnValue(true);
       mockRedisService.rpush.mockResolvedValue(true);
 
-      await loggerService.info("Preserve fields", {
-        environment: "dev",
-        application: "miso-controller",
-        action: "log.test",
-      }, {
-        sourceId: "source-123",
-        sourceDisplayName: "Source System",
-        externalSystemId: "ext-123",
-        externalSystemDisplayName: "External System",
-        recordId: "record-123",
-        recordDisplayName: "Record Name",
-        credentialId: "cred-123",
-        credentialType: "api-key",
-        responseSize: 512,
-        durationMs: 42,
-        errorCategory: "network",
-        httpStatusCategory: "5xx",
-      });
+      await loggerService.info(
+        "Preserve fields",
+        {
+          environment: "dev",
+          application: "miso-controller",
+          action: "log.test",
+        },
+        {
+          sourceId: "source-123",
+          sourceDisplayName: "Source System",
+          externalSystemId: "ext-123",
+          externalSystemDisplayName: "External System",
+          recordId: "record-123",
+          recordDisplayName: "Record Name",
+          credentialId: "cred-123",
+          credentialType: "api-key",
+          responseSize: 512,
+          durationMs: 42,
+          errorCategory: "network",
+          httpStatusCategory: "5xx",
+        },
+      );
 
       const rpushCall = mockRedisService.rpush.mock.calls[0];
       expect(rpushCall).toBeDefined();
@@ -481,7 +496,11 @@ describe("LoggerService", () => {
           durationMs?: number;
           errorCategory?: string;
           httpStatusCategory?: string;
-          context?: { environment?: string; application?: string; action?: string };
+          context?: {
+            environment?: string;
+            application?: string;
+            action?: string;
+          };
         };
         expect(logEntry.level).toBe("info");
         expect(logEntry.environment).toBe("dev");
@@ -1083,24 +1102,28 @@ describe("LoggerService", () => {
       const eventSpy = jest.fn();
       loggerService.on("log", eventSpy);
 
-      await loggerService.info("Preserve fields", {
-        environment: "dev",
-        application: "miso-controller",
-        action: "log.test",
-      }, {
-        sourceId: "source-123",
-        sourceDisplayName: "Source System",
-        externalSystemId: "ext-123",
-        externalSystemDisplayName: "External System",
-        recordId: "record-123",
-        recordDisplayName: "Record Name",
-        credentialId: "cred-123",
-        credentialType: "api-key",
-        responseSize: 512,
-        durationMs: 42,
-        errorCategory: "network",
-        httpStatusCategory: "5xx",
-      });
+      await loggerService.info(
+        "Preserve fields",
+        {
+          environment: "dev",
+          application: "miso-controller",
+          action: "log.test",
+        },
+        {
+          sourceId: "source-123",
+          sourceDisplayName: "Source System",
+          externalSystemId: "ext-123",
+          externalSystemDisplayName: "External System",
+          recordId: "record-123",
+          recordDisplayName: "Record Name",
+          credentialId: "cred-123",
+          credentialType: "api-key",
+          responseSize: 512,
+          durationMs: 42,
+          errorCategory: "network",
+          httpStatusCategory: "5xx",
+        },
+      );
 
       expect(eventSpy).toHaveBeenCalledTimes(1);
       const emittedLog = eventSpy.mock.calls[0][0] as {
@@ -1119,7 +1142,11 @@ describe("LoggerService", () => {
         durationMs?: number;
         errorCategory?: string;
         httpStatusCategory?: string;
-        context?: { environment?: string; application?: string; action?: string };
+        context?: {
+          environment?: string;
+          application?: string;
+          action?: string;
+        };
       };
       expect(emittedLog.level).toBe("info");
       expect(emittedLog.environment).toBe("dev");
@@ -1811,7 +1838,9 @@ describe("LoggerService", () => {
 
       mockHttpClient.request.mockClear();
 
-      await loggerService.withContext({ applicationId: "parity-app" }).info("chain");
+      await loggerService
+        .withContext({ applicationId: "parity-app" })
+        .info("chain");
       const chainPayload = mockHttpClient.request.mock.calls[0][2] as {
         data?: { context?: Record<string, unknown> };
       };

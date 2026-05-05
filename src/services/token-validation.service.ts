@@ -138,8 +138,7 @@ export class TokenValidationService {
     if (tokenType === "keycloak") {
       return this.validateKeycloakToken(token, options);
     }
-      return this.validateDelegatedToken(token, issuer, options);
-
+    return this.validateDelegatedToken(token, issuer, options);
   }
 
   /**
@@ -150,7 +149,9 @@ export class TokenValidationService {
 
     if (this.keycloakConfig) {
       // Use public URL for issuer matching (tokens contain public URL in iss claim)
-      const issuerUrl = this.keycloakConfig.authServerPublicUrl || this.keycloakConfig.authServerUrl;
+      const issuerUrl =
+        this.keycloakConfig.authServerPublicUrl ||
+        this.keycloakConfig.authServerUrl;
       const keycloakIssuer = `${issuerUrl}/realms/${this.keycloakConfig.realm}`;
       if (issuer === keycloakIssuer) return "keycloak";
     }
@@ -179,7 +180,9 @@ export class TokenValidationService {
 
     // For issuer validation, use public URL (matches token's iss claim)
     // Tokens are always issued with the public URL in the iss claim
-    const issuerUrl = this.keycloakConfig.authServerPublicUrl || this.keycloakConfig.authServerUrl;
+    const issuerUrl =
+      this.keycloakConfig.authServerPublicUrl ||
+      this.keycloakConfig.authServerUrl;
     const expectedIssuer = `${issuerUrl}/realms/${this.keycloakConfig.realm}`;
 
     try {
@@ -359,4 +362,3 @@ export class TokenValidationService {
     return false;
   }
 }
-

@@ -149,7 +149,11 @@ describe("MisoClient Integration", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         },
@@ -188,7 +192,11 @@ describe("MisoClient Integration", () => {
           success: true,
           data: {
             authenticated: true,
-            user: { id: "123", username: "testuser", email: "test@example.com" },
+            user: {
+              id: "123",
+              username: "testuser",
+              email: "test@example.com",
+            },
           },
           timestamp: new Date().toISOString(),
         },

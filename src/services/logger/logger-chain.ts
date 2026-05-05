@@ -79,7 +79,10 @@ export class LoggerChain {
    *   .info('API call completed');
    * ```
    */
-  withCredentialContext(credentialId?: string, credentialType?: string): LoggerChain {
+  withCredentialContext(
+    credentialId?: string,
+    credentialType?: string,
+  ): LoggerChain {
     this.options.credentialId = credentialId;
     this.options.credentialType = credentialType;
     return this;

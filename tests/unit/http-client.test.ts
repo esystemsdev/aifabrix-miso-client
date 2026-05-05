@@ -1993,7 +1993,8 @@ describe("HttpClient", () => {
           "/api/users",
           expect.objectContaining({
             url: expect.stringContaining(
-              httpClient.config.controllerUrl || "https://controller.aifabrix.ai"
+              httpClient.config.controllerUrl ||
+                "https://controller.aifabrix.ai",
             ), // baseURL defaults to controllerUrl or resolved URL
           }),
         );
@@ -2616,10 +2617,14 @@ describe("HttpClient", () => {
 
         expect(debugCall).toBeDefined();
         if (debugCall) {
-          const debugContext = (debugCall[1] ?? {}) as { responseBody?: unknown };
+          const debugContext = (debugCall[1] ?? {}) as {
+            responseBody?: unknown;
+          };
           const responseBodyStr = JSON.stringify(debugContext.responseBody);
           // Response body should be truncated (less than original size)
-          expect(responseBodyStr.length).toBeLessThan(JSON.stringify(largeData).length);
+          expect(responseBodyStr.length).toBeLessThan(
+            JSON.stringify(largeData).length,
+          );
           // Should contain truncation indicator or be significantly smaller
           expect(responseBodyStr.length).toBeLessThanOrEqual(1003); // 1000 + "..."
         }

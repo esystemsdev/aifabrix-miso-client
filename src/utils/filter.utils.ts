@@ -2,9 +2,17 @@
  * Filter utility functions for parsing and building filter queries
  */
 
-import type { FilterOption, FilterQuery, FilterOperator } from "../types/filter.types";
+import type {
+  FilterOption,
+  FilterQuery,
+  FilterOperator,
+} from "../types/filter.types";
 import { FilterBuilder } from "../types/filter.types";
-import { normalizeOperator, isColonFormat, parseColonFilter } from "./filter-colon.utils";
+import {
+  normalizeOperator,
+  isColonFormat,
+  parseColonFilter,
+} from "./filter-colon.utils";
 
 /**
  * Validate filter value for specific operators.
@@ -43,7 +51,11 @@ function _parseJsonFilter(jsonFilter: Record<string, unknown>): FilterOption[] {
         `Invalid filter format. Field names must be non-empty strings. Got: ${typeof field}`,
       );
     }
-    if (typeof fieldValue !== "object" || fieldValue === null || Array.isArray(fieldValue)) {
+    if (
+      typeof fieldValue !== "object" ||
+      fieldValue === null ||
+      Array.isArray(fieldValue)
+    ) {
       throw new Error(
         `Field '${field}' must have operator dictionary, got ${typeof fieldValue}. Expected format: {"${field}": {"op": value}}`,
       );
@@ -52,7 +64,12 @@ function _parseJsonFilter(jsonFilter: Record<string, unknown>): FilterOption[] {
     for (const [opStr, value] of Object.entries(operators)) {
       const op = normalizeOperator(opStr);
       _validateFilterValue(op, value);
-      let normalizedValue: string | number | boolean | Array<string | number> | null;
+      let normalizedValue:
+        | string
+        | number
+        | boolean
+        | Array<string | number>
+        | null;
       if (op === "isNull" || op === "isNotNull") {
         normalizedValue = null;
       } else if (Array.isArray(value)) {
@@ -89,14 +106,20 @@ function _parseJsonFilter(jsonFilter: Record<string, unknown>): FilterOption[] {
  * parseFilterParams({ filter: ['status:eq:active', 'region:in:eu,us'] });
  * ```
  */
-export function parseFilterParams(query: Record<string, unknown>): FilterOption[] {
+export function parseFilterParams(
+  query: Record<string, unknown>,
+): FilterOption[] {
   const filterParam = query.filter;
   if (!filterParam) {
     return [];
   }
 
   try {
-    if (typeof filterParam === "object" && !Array.isArray(filterParam) && filterParam !== null) {
+    if (
+      typeof filterParam === "object" &&
+      !Array.isArray(filterParam) &&
+      filterParam !== null
+    ) {
       return _parseJsonFilter(filterParam as Record<string, unknown>);
     }
 
@@ -199,7 +222,8 @@ export function buildQueryString(options: FilterQuery): string {
       if (!jsonFilter[filter.field]) {
         jsonFilter[filter.field] = {};
       }
-      jsonFilter[filter.field][filter.op] = filter.value === null ? null : filter.value;
+      jsonFilter[filter.field][filter.op] =
+        filter.value === null ? null : filter.value;
     }
     const jsonString = JSON.stringify(jsonFilter);
     params.append("filter", jsonString);
@@ -217,7 +241,10 @@ export function buildQueryString(options: FilterQuery): string {
   return params.toString();
 }
 
-function matchesFilter<T extends Record<string, unknown>>(item: T, f: FilterOption): boolean {
+function matchesFilter<T extends Record<string, unknown>>(
+  item: T,
+  f: FilterOption,
+): boolean {
   const v = item[f.field];
   const value = f.value;
   if (f.op === "isNull") return v === null || v === undefined;
@@ -230,7 +257,11 @@ function matchesFilter<T extends Record<string, unknown>>(item: T, f: FilterOpti
   return matchesScalarFilter(v, f.op, value);
 }
 
-function matchesScalarFilter(v: unknown, op: FilterOperator, value: unknown): boolean {
+function matchesScalarFilter(
+  v: unknown,
+  op: FilterOperator,
+  value: unknown,
+): boolean {
   switch (op) {
     case "eq":
       return v === value;
@@ -286,7 +317,11 @@ export function validateJsonFilter(filter: unknown): void {
         `Invalid filter format. Field names must be non-empty strings. Got: ${typeof field}`,
       );
     }
-    if (typeof fieldValue !== "object" || fieldValue === null || Array.isArray(fieldValue)) {
+    if (
+      typeof fieldValue !== "object" ||
+      fieldValue === null ||
+      Array.isArray(fieldValue)
+    ) {
       throw new Error(
         `Field '${field}' must have operator dictionary, got ${typeof fieldValue}. Expected format: {"${field}": {"op": value}}`,
       );
@@ -304,7 +339,9 @@ export function validateJsonFilter(filter: unknown): void {
  * @param filterQuery - FilterQuery object to convert
  * @returns JSON filter object (e.g., {"status": {"eq": "active"}})
  */
-export function filterQueryToJson(filterQuery: FilterQuery): Record<string, Record<string, unknown>> {
+export function filterQueryToJson(
+  filterQuery: FilterQuery,
+): Record<string, Record<string, unknown>> {
   const jsonFilter: Record<string, Record<string, unknown>> = {};
   if (filterQuery.filters) {
     for (const filter of filterQuery.filters) {

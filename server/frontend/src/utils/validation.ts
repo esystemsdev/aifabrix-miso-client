@@ -14,10 +14,10 @@ export interface ValidationResult {
 
 /**
  * Validate role name input
- * 
+ *
  * @param role - Role name to validate
  * @returns Validation result
- * 
+ *
  * @example
  * ```typescript
  * const validation = validateRoleName(role);
@@ -35,14 +35,17 @@ export function validateRoleName(role: string): ValidationResult {
   }
   // Check for invalid characters
   if (!/^[a-zA-Z0-9_-]+$/.test(role.trim())) {
-    return { valid: false, error: 'Role name can only contain letters, numbers, underscores, and hyphens' };
+    return {
+      valid: false,
+      error: 'Role name can only contain letters, numbers, underscores, and hyphens',
+    };
   }
   return { valid: true };
 }
 
 /**
  * Validate permission name input
- * 
+ *
  * @param permission - Permission name to validate
  * @returns Validation result
  */
@@ -55,17 +58,20 @@ export function validatePermissionName(permission: string): ValidationResult {
   }
   // Check for invalid characters
   if (!/^[a-zA-Z0-9_.-]+$/.test(permission.trim())) {
-    return { valid: false, error: 'Permission name can only contain letters, numbers, underscores, dots, and hyphens' };
+    return {
+      valid: false,
+      error: 'Permission name can only contain letters, numbers, underscores, dots, and hyphens',
+    };
   }
   return { valid: true };
 }
 
 /**
  * Validate endpoint URL
- * 
+ *
  * @param endpoint - Endpoint path to validate
  * @returns Validation result
- * 
+ *
  * @example
  * ```typescript
  * const validation = validateEndpoint(endpoint);
@@ -91,7 +97,7 @@ export function validateEndpoint(endpoint: string): ValidationResult {
 
 /**
  * Validate comma-separated list of roles
- * 
+ *
  * @param rolesString - Comma-separated roles string
  * @returns Validation result
  */
@@ -99,7 +105,10 @@ export function validateRolesList(rolesString: string): ValidationResult {
   if (!rolesString || rolesString.trim().length === 0) {
     return { valid: false, error: 'Roles cannot be empty' };
   }
-  const roles = rolesString.split(',').map(r => r.trim()).filter(Boolean);
+  const roles = rolesString
+    .split(',')
+    .map((r) => r.trim())
+    .filter(Boolean);
   if (roles.length === 0) {
     return { valid: false, error: 'At least one role must be provided' };
   }
@@ -115,7 +124,7 @@ export function validateRolesList(rolesString: string): ValidationResult {
 
 /**
  * Validate comma-separated list of permissions
- * 
+ *
  * @param permissionsString - Comma-separated permissions string
  * @returns Validation result
  */
@@ -123,7 +132,10 @@ export function validatePermissionsList(permissionsString: string): ValidationRe
   if (!permissionsString || permissionsString.trim().length === 0) {
     return { valid: false, error: 'Permissions cannot be empty' };
   }
-  const permissions = permissionsString.split(',').map(p => p.trim()).filter(Boolean);
+  const permissions = permissionsString
+    .split(',')
+    .map((p) => p.trim())
+    .filter(Boolean);
   if (permissions.length === 0) {
     return { valid: false, error: 'At least one permission must be provided' };
   }
@@ -131,7 +143,10 @@ export function validatePermissionsList(permissionsString: string): ValidationRe
   for (const permission of permissions) {
     const permissionValidation = validatePermissionName(permission);
     if (!permissionValidation.valid) {
-      return { valid: false, error: `Invalid permission: ${permission}. ${permissionValidation.error}` };
+      return {
+        valid: false,
+        error: `Invalid permission: ${permission}. ${permissionValidation.error}`,
+      };
     }
   }
   return { valid: true };

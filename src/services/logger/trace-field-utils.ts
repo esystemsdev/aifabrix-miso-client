@@ -22,7 +22,9 @@ export function toNonEmptyString(value: unknown): string | undefined {
 /**
  * Pick first non-empty string from candidate list.
  */
-export function pickFirstNonEmpty(...candidates: unknown[]): string | undefined {
+export function pickFirstNonEmpty(
+  ...candidates: unknown[]
+): string | undefined {
   for (const candidate of candidates) {
     const normalized = toNonEmptyString(candidate);
     if (normalized) {

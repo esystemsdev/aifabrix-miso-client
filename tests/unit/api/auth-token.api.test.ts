@@ -2,9 +2,9 @@
  * Unit tests for AuthTokenApi
  */
 
-import { AuthTokenApi } from '../../../src/api/auth-token.api';
-import { HttpClient } from '../../../src/utils/http-client';
-import { AuthStrategy } from '../../../src/types/config.types';
+import { AuthTokenApi } from "../../../src/api/auth-token.api";
+import { HttpClient } from "../../../src/utils/http-client";
+import { AuthStrategy } from "../../../src/types/config.types";
 import {
   ValidateTokenRequest,
   ValidateTokenResponse,
@@ -14,13 +14,13 @@ import {
   ExchangeTokenResponse,
   ClientTokenResponse,
   ClientTokenLegacyResponse,
-} from '../../../src/api/types/auth.types';
+} from "../../../src/api/types/auth.types";
 
 // Mock HttpClient
-jest.mock('../../../src/utils/http-client');
+jest.mock("../../../src/utils/http-client");
 const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 
-describe('AuthTokenApi', () => {
+describe("AuthTokenApi", () => {
   let authTokenApi: AuthTokenApi;
   let mockHttpClient: jest.Mocked<HttpClient>;
   const originalConsoleError = console.error;
@@ -32,8 +32,8 @@ describe('AuthTokenApi', () => {
       authenticatedRequest: jest.fn(),
       requestWithAuthStrategy: jest.fn(),
       config: {
-        clientId: 'test-client-id',
-        clientSecret: 'test-client-secret',
+        clientId: "test-client-id",
+        clientSecret: "test-client-secret",
       },
     } as any;
 
@@ -46,12 +46,12 @@ describe('AuthTokenApi', () => {
     console.error = originalConsoleError;
   });
 
-  describe('getClientToken', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("getClientToken", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: ClientTokenResponse = {
         success: true,
         data: {
-          token: 'client-token-123',
+          token: "client-token-123",
           expiresIn: 3600,
           expiresAt: new Date(Date.now() + 3600000).toISOString(),
         },
@@ -63,26 +63,26 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.getClientToken();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/client-token',
+        "POST",
+        "/api/v1/auth/client-token",
         undefined,
         {
           headers: {
-            'x-client-id': 'test-client-id',
+            "x-client-id": "test-client-id",
           },
         },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy provided', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy provided", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: ClientTokenResponse = {
         success: true,
         data: {
-          token: 'client-token-456',
+          token: "client-token-456",
           expiresIn: 3600,
           expiresAt: new Date(Date.now() + 3600000).toISOString(),
         },
@@ -94,31 +94,33 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.getClientToken(authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/client-token',
+        "POST",
+        "/api/v1/auth/client-token",
         authStrategy,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Get client token failed');
+    it("should handle errors", async () => {
+      const error = new Error("Get client token failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(authTokenApi.getClientToken()).rejects.toThrow('Get client token failed');
+      await expect(authTokenApi.getClientToken()).rejects.toThrow(
+        "Get client token failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthTokenApi]'),
-        expect.stringContaining('Get client token failed'),
+        expect.stringContaining("[AuthTokenApi]"),
+        expect.stringContaining("Get client token failed"),
       );
     });
   });
 
-  describe('generateClientToken', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("generateClientToken", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: ClientTokenLegacyResponse = {
         success: true,
-        token: 'legacy-client-token-123',
+        token: "legacy-client-token-123",
         expiresIn: 3600,
         expiresAt: new Date(Date.now() + 3600000).toISOString(),
         timestamp: new Date().toISOString(),
@@ -129,26 +131,26 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.generateClientToken();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/token',
+        "POST",
+        "/api/v1/auth/token",
         undefined,
         {
           headers: {
-            'x-client-id': 'test-client-id',
-            'x-client-secret': 'test-client-secret',
+            "x-client-id": "test-client-id",
+            "x-client-secret": "test-client-secret",
           },
         },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy provided', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy provided", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: ClientTokenLegacyResponse = {
         success: true,
-        token: 'legacy-client-token-456',
+        token: "legacy-client-token-456",
         expiresIn: 3600,
         expiresAt: new Date(Date.now() + 3600000).toISOString(),
         timestamp: new Date().toISOString(),
@@ -159,39 +161,41 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.generateClientToken(authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/token',
+        "POST",
+        "/api/v1/auth/token",
         authStrategy,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Generate client token failed');
+    it("should handle errors", async () => {
+      const error = new Error("Generate client token failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(authTokenApi.generateClientToken()).rejects.toThrow('Generate client token failed');
+      await expect(authTokenApi.generateClientToken()).rejects.toThrow(
+        "Generate client token failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthTokenApi]'),
-        expect.stringContaining('Generate client token failed'),
+        expect.stringContaining("[AuthTokenApi]"),
+        expect.stringContaining("Generate client token failed"),
       );
     });
   });
 
-  describe('validateToken', () => {
-    it('should call HttpClient.authenticatedRequest with correct parameters', async () => {
+  describe("validateToken", () => {
+    it("should call HttpClient.authenticatedRequest with correct parameters", async () => {
       const params: ValidateTokenRequest = {
-        token: 'test-token',
+        token: "test-token",
       };
       const mockResponse: ValidateTokenResponse = {
         success: true,
         data: {
           authenticated: true,
           user: {
-            id: 'user-123',
-            username: 'testuser',
-            email: 'test@example.com',
+            id: "user-123",
+            username: "testuser",
+            email: "test@example.com",
           },
         },
         timestamp: new Date().toISOString(),
@@ -202,8 +206,8 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.validateToken(params);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/validate',
+        "POST",
+        "/api/v1/auth/validate",
         params.token,
         params,
         undefined,
@@ -212,23 +216,23 @@ describe('AuthTokenApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest with authStrategy', async () => {
+    it("should call HttpClient.authenticatedRequest with authStrategy", async () => {
       const params: ValidateTokenRequest = {
-        token: 'test-token',
-        environment: 'production',
-        application: 'my-app',
+        token: "test-token",
+        environment: "production",
+        application: "my-app",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: ValidateTokenResponse = {
         success: true,
         data: {
           authenticated: true,
           user: {
-            id: 'user-456',
-            username: 'testuser2',
-            email: 'test2@example.com',
+            id: "user-456",
+            username: "testuser2",
+            email: "test2@example.com",
           },
           expiresAt: new Date(Date.now() + 3600000).toISOString(),
         },
@@ -240,8 +244,8 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.validateToken(params, authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/validate',
+        "POST",
+        "/api/v1/auth/validate",
         params.token,
         params,
         undefined,
@@ -250,9 +254,9 @@ describe('AuthTokenApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle unauthenticated response', async () => {
+    it("should handle unauthenticated response", async () => {
       const params: ValidateTokenRequest = {
-        token: 'invalid-token',
+        token: "invalid-token",
       };
       const mockResponse: ValidateTokenResponse = {
         success: true,
@@ -267,8 +271,8 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.validateToken(params);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/validate',
+        "POST",
+        "/api/v1/auth/validate",
         params.token,
         params,
         undefined,
@@ -277,32 +281,34 @@ describe('AuthTokenApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
+    it("should handle errors", async () => {
       const params: ValidateTokenRequest = {
-        token: 'invalid-token',
+        token: "invalid-token",
       };
-      const error = new Error('Token validation failed');
+      const error = new Error("Token validation failed");
 
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
-      await expect(authTokenApi.validateToken(params)).rejects.toThrow('Token validation failed');
+      await expect(authTokenApi.validateToken(params)).rejects.toThrow(
+        "Token validation failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthTokenApi]'),
-        expect.stringContaining('Token validation failed'),
+        expect.stringContaining("[AuthTokenApi]"),
+        expect.stringContaining("Token validation failed"),
       );
     });
   });
 
-  describe('refreshToken', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("refreshToken", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const params: RefreshTokenRequest = {
-        refreshToken: 'refresh-token-123',
+        refreshToken: "refresh-token-123",
       };
       const mockResponse: RefreshTokenResponse = {
         success: true,
         data: {
-          accessToken: 'new-access-token-123',
-          refreshToken: 'new-refresh-token-123',
+          accessToken: "new-access-token-123",
+          refreshToken: "new-refresh-token-123",
           expiresIn: 3600,
         },
         timestamp: new Date().toISOString(),
@@ -313,28 +319,28 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.refreshToken(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/refresh',
+        "POST",
+        "/api/v1/auth/refresh",
         params,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy provided', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy provided", async () => {
       const params: RefreshTokenRequest = {
-        refreshToken: 'refresh-token-456',
+        refreshToken: "refresh-token-456",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: RefreshTokenResponse = {
         success: true,
         data: {
-          accessToken: 'new-access-token-456',
-          refreshToken: 'new-refresh-token-456',
+          accessToken: "new-access-token-456",
+          refreshToken: "new-refresh-token-456",
           expiresIn: 3600,
         },
-        message: 'Token refreshed successfully',
+        message: "Token refreshed successfully",
         timestamp: new Date().toISOString(),
       };
 
@@ -343,39 +349,41 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.refreshToken(params, authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/refresh',
+        "POST",
+        "/api/v1/auth/refresh",
         authStrategy,
         params,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
+    it("should handle errors", async () => {
       const params: RefreshTokenRequest = {
-        refreshToken: 'invalid-refresh-token',
+        refreshToken: "invalid-refresh-token",
       };
-      const error = new Error('Refresh token failed');
+      const error = new Error("Refresh token failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(authTokenApi.refreshToken(params)).rejects.toThrow('Refresh token failed');
+      await expect(authTokenApi.refreshToken(params)).rejects.toThrow(
+        "Refresh token failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthTokenApi]'),
-        expect.stringContaining('Refresh token failed'),
+        expect.stringContaining("[AuthTokenApi]"),
+        expect.stringContaining("Refresh token failed"),
       );
     });
   });
 
-  describe('exchangeUserToken', () => {
-    it('should call HttpClient.request with body and no client id/secret when no authStrategy', async () => {
+  describe("exchangeUserToken", () => {
+    it("should call HttpClient.request with body and no client id/secret when no authStrategy", async () => {
       const request: ExchangeTokenRequest = {
-        token: 'external-entra-token',
+        token: "external-entra-token",
       };
       const mockResponse: ExchangeTokenResponse = {
         success: true,
         data: {
-          accessToken: 'keycloak-access-token',
+          accessToken: "keycloak-access-token",
           tokenExchanged: true,
           expiresIn: 3600,
           expiresAt: new Date(Date.now() + 3600000).toISOString(),
@@ -388,29 +396,29 @@ describe('AuthTokenApi', () => {
       const result = await authTokenApi.exchangeUserToken(request);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/token/exchange',
+        "POST",
+        "/api/v1/auth/token/exchange",
         request,
       );
       expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
       const callConfig = mockHttpClient.request.mock.calls[0];
       expect(callConfig[3]).toBeUndefined();
       expect(result).toEqual(mockResponse);
-      expect(result.data.accessToken).toBe('keycloak-access-token');
+      expect(result.data.accessToken).toBe("keycloak-access-token");
       expect(result.data.tokenExchanged).toBe(true);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy provided', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy provided", async () => {
       const request: ExchangeTokenRequest = {
-        token: 'external-token-456',
+        token: "external-token-456",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: ExchangeTokenResponse = {
         success: true,
         data: {
-          accessToken: 'keycloak-token-456',
+          accessToken: "keycloak-token-456",
           tokenExchanged: false,
           expiresIn: 1800,
         },
@@ -419,31 +427,35 @@ describe('AuthTokenApi', () => {
 
       mockHttpClient.requestWithAuthStrategy.mockResolvedValue(mockResponse);
 
-      const result = await authTokenApi.exchangeUserToken(request, authStrategy);
+      const result = await authTokenApi.exchangeUserToken(
+        request,
+        authStrategy,
+      );
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/token/exchange',
+        "POST",
+        "/api/v1/auth/token/exchange",
         authStrategy,
         request,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
+    it("should handle errors", async () => {
       const request: ExchangeTokenRequest = {
-        token: 'invalid-external-token',
+        token: "invalid-external-token",
       };
-      const error = new Error('Token exchange failed');
+      const error = new Error("Token exchange failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(authTokenApi.exchangeUserToken(request)).rejects.toThrow('Token exchange failed');
+      await expect(authTokenApi.exchangeUserToken(request)).rejects.toThrow(
+        "Token exchange failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthTokenApi]'),
-        expect.stringContaining('Token exchange failed'),
+        expect.stringContaining("[AuthTokenApi]"),
+        expect.stringContaining("Token exchange failed"),
       );
     });
   });
 });
-

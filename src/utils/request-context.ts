@@ -99,4 +99,3 @@ export function extractRequestContext(req: Request): RequestContext {
       : undefined,
   };
 }
-

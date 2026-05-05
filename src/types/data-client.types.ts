@@ -365,4 +365,3 @@ export class AuthenticationError extends ApiError {
     this.name = "AuthenticationError";
   }
 }
-

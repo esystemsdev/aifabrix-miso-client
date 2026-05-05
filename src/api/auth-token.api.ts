@@ -3,8 +3,8 @@
  * Handles client tokens, token validation, and token refresh
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
 import {
   ValidateTokenRequest,
   ValidateTokenResponse,
@@ -14,46 +14,73 @@ import {
   ExchangeTokenResponse,
   ClientTokenResponse,
   ClientTokenLegacyResponse,
-} from './types/auth.types';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
+} from "./types/auth.types";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /** Transform nested data format to ClientTokenResponse */
-function toClientTokenResponse(response: Record<string, unknown>): ClientTokenResponse {
+function toClientTokenResponse(
+  response: Record<string, unknown>,
+): ClientTokenResponse {
   const data = response.data as Record<string, unknown> | undefined;
-  if (!data || typeof data.token !== 'string') {
-    throw new Error(`Unexpected response format from client-token endpoint: ${JSON.stringify(response)}`);
+  if (!data || typeof data.token !== "string") {
+    throw new Error(
+      `Unexpected response format from client-token endpoint: ${JSON.stringify(response)}`,
+    );
   }
   return {
     success: true,
     data: {
       token: data.token,
-      expiresIn: typeof data.expiresIn === 'number' ? data.expiresIn : 0,
-      expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : new Date().toISOString(),
+      expiresIn: typeof data.expiresIn === "number" ? data.expiresIn : 0,
+      expiresAt:
+        typeof data.expiresAt === "string"
+          ? data.expiresAt
+          : new Date().toISOString(),
     },
-    timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+    timestamp:
+      typeof response.timestamp === "string"
+        ? response.timestamp
+        : new Date().toISOString(),
   };
 }
 
 /** Transform legacy endpoint response (nested data) to ClientTokenLegacyResponse */
-function toLegacyFromData(response: Record<string, unknown>, data: Record<string, unknown>): ClientTokenLegacyResponse {
+function toLegacyFromData(
+  response: Record<string, unknown>,
+  data: Record<string, unknown>,
+): ClientTokenLegacyResponse {
   return {
     success: true,
     token: data.token as string,
-    expiresIn: typeof data.expiresIn === 'number' ? data.expiresIn : 0,
-    expiresAt: typeof data.expiresAt === 'string' ? data.expiresAt : new Date().toISOString(),
-    timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+    expiresIn: typeof data.expiresIn === "number" ? data.expiresIn : 0,
+    expiresAt:
+      typeof data.expiresAt === "string"
+        ? data.expiresAt
+        : new Date().toISOString(),
+    timestamp:
+      typeof response.timestamp === "string"
+        ? response.timestamp
+        : new Date().toISOString(),
   };
 }
 
 /** Transform flat response to ClientTokenLegacyResponse */
-function toLegacyFromFlat(response: Record<string, unknown>): ClientTokenLegacyResponse {
+function toLegacyFromFlat(
+  response: Record<string, unknown>,
+): ClientTokenLegacyResponse {
   return {
     success: true,
     token: response.token as string,
-    expiresIn: typeof response.expiresIn === 'number' ? response.expiresIn : 0,
-    expiresAt: typeof response.expiresAt === 'string' ? response.expiresAt : new Date().toISOString(),
-    timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+    expiresIn: typeof response.expiresIn === "number" ? response.expiresIn : 0,
+    expiresAt:
+      typeof response.expiresAt === "string"
+        ? response.expiresAt
+        : new Date().toISOString(),
+    timestamp:
+      typeof response.timestamp === "string"
+        ? response.timestamp
+        : new Date().toISOString(),
   };
 }
 
@@ -63,11 +90,12 @@ function toLegacyFromFlat(response: Record<string, unknown>): ClientTokenLegacyR
  */
 export class AuthTokenApi {
   // Centralize endpoint URLs as constants
-  private static readonly CLIENT_TOKEN_ENDPOINT = '/api/v1/auth/client-token';
-  private static readonly CLIENT_TOKEN_LEGACY_ENDPOINT = '/api/v1/auth/token';
-  private static readonly EXCHANGE_TOKEN_ENDPOINT = '/api/v1/auth/token/exchange';
-  private static readonly VALIDATE_ENDPOINT = '/api/v1/auth/validate';
-  private static readonly REFRESH_ENDPOINT = '/api/v1/auth/refresh';
+  private static readonly CLIENT_TOKEN_ENDPOINT = "/api/v1/auth/client-token";
+  private static readonly CLIENT_TOKEN_LEGACY_ENDPOINT = "/api/v1/auth/token";
+  private static readonly EXCHANGE_TOKEN_ENDPOINT =
+    "/api/v1/auth/token/exchange";
+  private static readonly VALIDATE_ENDPOINT = "/api/v1/auth/validate";
+  private static readonly REFRESH_ENDPOINT = "/api/v1/auth/refresh";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -82,7 +110,7 @@ export class AuthTokenApi {
     try {
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<ClientTokenResponse>(
-          'POST',
+          "POST",
           AuthTokenApi.CLIENT_TOKEN_ENDPOINT,
           authStrategy,
         );
@@ -91,27 +119,31 @@ export class AuthTokenApi {
       // But we still need to prevent interceptor from trying to add x-client-token
       // The interceptor will see x-client-id and skip adding x-client-token
       const response = await this.httpClient.request<Record<string, unknown>>(
-        'POST',
+        "POST",
         AuthTokenApi.CLIENT_TOKEN_ENDPOINT,
         undefined, // no body
         {
           headers: {
             // Set x-client-id so interceptor skips adding x-client-token
             // Frontend endpoint uses origin validation, not client-secret
-            'x-client-id': this.httpClient.config.clientId || '',
+            "x-client-id": this.httpClient.config.clientId || "",
           },
         },
       );
 
-      if (response.success !== undefined) return response as unknown as ClientTokenResponse;
-      if (response.data && typeof response.data === 'object') return toClientTokenResponse(response);
-      throw new Error(`Unexpected response format from client-token endpoint: ${JSON.stringify(response)}`);
+      if (response.success !== undefined)
+        return response as unknown as ClientTokenResponse;
+      if (response.data && typeof response.data === "object")
+        return toClientTokenResponse(response);
+      throw new Error(
+        `Unexpected response format from client-token endpoint: ${JSON.stringify(response)}`,
+      );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthTokenApi.CLIENT_TOKEN_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthTokenApi]');
+      logErrorWithContext(errorInfo, "[AuthTokenApi]");
       throw error;
     }
   }
@@ -127,7 +159,7 @@ export class AuthTokenApi {
     try {
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<ClientTokenLegacyResponse>(
-          'POST',
+          "POST",
           AuthTokenApi.CLIENT_TOKEN_LEGACY_ENDPOINT,
           authStrategy,
         );
@@ -136,31 +168,35 @@ export class AuthTokenApi {
       // to prevent interceptor from trying to add x-client-token (which doesn't exist yet - chicken/egg problem)
       // The interceptor will see x-client-id and skip adding x-client-token
       const response = await this.httpClient.request<Record<string, unknown>>(
-        'POST',
+        "POST",
         AuthTokenApi.CLIENT_TOKEN_LEGACY_ENDPOINT,
         undefined, // no body
         {
           headers: {
             // Set both headers so interceptor skips adding x-client-token
-            'x-client-id': this.httpClient.config.clientId || '',
-            'x-client-secret': this.httpClient.config.clientSecret || '',
+            "x-client-id": this.httpClient.config.clientId || "",
+            "x-client-secret": this.httpClient.config.clientSecret || "",
           },
         },
       );
 
-      if (response.success !== undefined) return response as unknown as ClientTokenLegacyResponse;
-      if (response.data && typeof response.data === 'object') {
+      if (response.success !== undefined)
+        return response as unknown as ClientTokenLegacyResponse;
+      if (response.data && typeof response.data === "object") {
         const data = response.data as Record<string, unknown>;
-        if (typeof data.token === 'string') return toLegacyFromData(response, data);
+        if (typeof data.token === "string")
+          return toLegacyFromData(response, data);
       }
-      if (typeof response.token === 'string') return toLegacyFromFlat(response);
-      throw new Error(`Unexpected response format from token endpoint: ${JSON.stringify(response)}`);
+      if (typeof response.token === "string") return toLegacyFromFlat(response);
+      throw new Error(
+        `Unexpected response format from token endpoint: ${JSON.stringify(response)}`,
+      );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthTokenApi.CLIENT_TOKEN_LEGACY_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthTokenApi]');
+      logErrorWithContext(errorInfo, "[AuthTokenApi]");
       throw error;
     }
   }
@@ -177,7 +213,7 @@ export class AuthTokenApi {
   ): Promise<ValidateTokenResponse> {
     try {
       return await this.httpClient.authenticatedRequest<ValidateTokenResponse>(
-        'POST',
+        "POST",
         AuthTokenApi.VALIDATE_ENDPOINT,
         params.token,
         params,
@@ -187,9 +223,9 @@ export class AuthTokenApi {
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthTokenApi.VALIDATE_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthTokenApi]');
+      logErrorWithContext(errorInfo, "[AuthTokenApi]");
       throw error;
     }
   }
@@ -208,23 +244,23 @@ export class AuthTokenApi {
     try {
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<ExchangeTokenResponse>(
-          'POST',
+          "POST",
           AuthTokenApi.EXCHANGE_TOKEN_ENDPOINT,
           authStrategy,
           request,
         );
       }
       return await this.httpClient.request<ExchangeTokenResponse>(
-        'POST',
+        "POST",
         AuthTokenApi.EXCHANGE_TOKEN_ENDPOINT,
         request,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthTokenApi.EXCHANGE_TOKEN_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthTokenApi]');
+      logErrorWithContext(errorInfo, "[AuthTokenApi]");
       throw error;
     }
   }
@@ -242,25 +278,24 @@ export class AuthTokenApi {
     try {
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<RefreshTokenResponse>(
-          'POST',
+          "POST",
           AuthTokenApi.REFRESH_ENDPOINT,
           authStrategy,
           params,
         );
       }
       return await this.httpClient.request<RefreshTokenResponse>(
-        'POST',
+        "POST",
         AuthTokenApi.REFRESH_ENDPOINT,
         params,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthTokenApi.REFRESH_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthTokenApi]');
+      logErrorWithContext(errorInfo, "[AuthTokenApi]");
       throw error;
     }
   }
 }
-

@@ -20,9 +20,9 @@ interface HttpMethodsTabProps {
 
 /**
  * HTTP Methods tab component for API testing
- * 
+ *
  * Provides UI for testing GET, POST, PUT, PATCH, and DELETE requests.
- * 
+ *
  * @param props - Component props
  * @returns HTTP Methods tab content
  */
@@ -35,10 +35,18 @@ export function HttpMethodsTab({ isDisabled, httpMethods }: HttpMethodsTabProps)
           <CardDescription>Retrieve data from the server</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          <Button onClick={httpMethods.testGet} disabled={isDisabled} className="w-full bg-green-600 hover:bg-green-700">
+          <Button
+            onClick={httpMethods.testGet}
+            disabled={isDisabled}
+            className="w-full bg-green-600 hover:bg-green-700"
+          >
             GET /api/users
           </Button>
-          <Button onClick={httpMethods.testGetById} disabled={isDisabled} className="w-full bg-green-600 hover:bg-green-700">
+          <Button
+            onClick={httpMethods.testGetById}
+            disabled={isDisabled}
+            className="w-full bg-green-600 hover:bg-green-700"
+          >
             GET /api/users/:id
           </Button>
         </CardContent>
@@ -50,7 +58,11 @@ export function HttpMethodsTab({ isDisabled, httpMethods }: HttpMethodsTabProps)
           <CardDescription>Create new resources</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={httpMethods.testPost} disabled={isDisabled} className="w-full bg-blue-600 hover:bg-blue-700">
+          <Button
+            onClick={httpMethods.testPost}
+            disabled={isDisabled}
+            className="w-full bg-blue-600 hover:bg-blue-700"
+          >
             POST /api/users
           </Button>
         </CardContent>
@@ -62,7 +74,11 @@ export function HttpMethodsTab({ isDisabled, httpMethods }: HttpMethodsTabProps)
           <CardDescription>Update existing resources</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={httpMethods.testPut} disabled={isDisabled} className="w-full bg-orange-600 hover:bg-orange-700">
+          <Button
+            onClick={httpMethods.testPut}
+            disabled={isDisabled}
+            className="w-full bg-orange-600 hover:bg-orange-700"
+          >
             PUT /api/users/:id
           </Button>
         </CardContent>
@@ -74,7 +90,11 @@ export function HttpMethodsTab({ isDisabled, httpMethods }: HttpMethodsTabProps)
           <CardDescription>Partially update resources</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={httpMethods.testPatch} disabled={isDisabled} className="w-full bg-orange-600 hover:bg-orange-700">
+          <Button
+            onClick={httpMethods.testPatch}
+            disabled={isDisabled}
+            className="w-full bg-orange-600 hover:bg-orange-700"
+          >
             PATCH /api/users/:id
           </Button>
         </CardContent>
@@ -86,7 +106,12 @@ export function HttpMethodsTab({ isDisabled, httpMethods }: HttpMethodsTabProps)
           <CardDescription>Remove resources</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={httpMethods.testDelete} disabled={isDisabled} variant="destructive" className="w-full">
+          <Button
+            onClick={httpMethods.testDelete}
+            disabled={isDisabled}
+            variant="destructive"
+            className="w-full"
+          >
             DELETE /api/users/:id
           </Button>
         </CardContent>

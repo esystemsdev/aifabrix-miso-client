@@ -5,10 +5,10 @@ const originalRequire = typeof require !== 'undefined' ? require : null;
 
 if (typeof window !== 'undefined') {
   window.__debugRequires = [];
-  
+
   // Intercept require calls
   if (originalRequire) {
-    const debugRequire = function(id) {
+    const debugRequire = function (id) {
       window.__debugRequires.push(id);
       console.log('[DEBUG] require:', id);
       try {
@@ -18,7 +18,7 @@ if (typeof window !== 'undefined') {
         return {};
       }
     };
-    
+
     // Try to replace require (may not work in all contexts)
     if (typeof global !== 'undefined') {
       global.require = debugRequire;
@@ -27,4 +27,3 @@ if (typeof window !== 'undefined') {
 }
 
 export default {};
-

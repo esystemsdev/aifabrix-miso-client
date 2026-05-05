@@ -208,11 +208,19 @@ export function applyStandardMasking(p: MaskingParams): {
   requestTruncated: boolean;
   responseTruncated: boolean;
 } {
-  const maskedHeaders = DataMasker.maskSensitiveData(p.requestHeaders) as Record<string, unknown>;
-  const maskedResponseHeaders = DataMasker.maskSensitiveData(p.responseHeaders) as Record<string, unknown>;
+  const maskedHeaders = DataMasker.maskSensitiveData(
+    p.requestHeaders,
+  ) as Record<string, unknown>;
+  const maskedResponseHeaders = DataMasker.maskSensitiveData(
+    p.responseHeaders,
+  ) as Record<string, unknown>;
   const shouldMask = p.isSmallRequest || !p.isLargeRequest;
-  const maskedRequestBody = shouldMask ? DataMasker.maskSensitiveData(p.requestBody) : { _message: "Request body too large, masking skipped" };
-  const maskedResponseBody = shouldMask ? DataMasker.maskSensitiveData(p.responseBody) : { _message: "Response body too large, masking skipped" };
+  const maskedRequestBody = shouldMask
+    ? DataMasker.maskSensitiveData(p.requestBody)
+    : { _message: "Request body too large, masking skipped" };
+  const maskedResponseBody = shouldMask
+    ? DataMasker.maskSensitiveData(p.responseBody)
+    : { _message: "Response body too large, masking skipped" };
 
   return {
     headers: maskedHeaders,

@@ -22,13 +22,7 @@
       "auth",
       "authorization"
     ],
-    "pii": [
-      "ssn",
-      "creditcard",
-      "cvv",
-      "pin",
-      "otp"
-    ],
+    "pii": ["ssn", "creditcard", "cvv", "pin", "otp"],
     "security": [
       "apikey",
       "accesstoken",

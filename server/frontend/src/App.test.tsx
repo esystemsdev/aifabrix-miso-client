@@ -66,7 +66,7 @@ describe('App OAuth Callback Handling', () => {
     // Track event listeners
     hashChangeListeners = [];
     focusListeners = [];
-    
+
     globalThis.window.addEventListener = vi.fn((event: string, listener: EventListener) => {
       if (event === 'hashchange') {
         hashChangeListeners.push(listener);
@@ -114,7 +114,7 @@ describe('App OAuth Callback Handling', () => {
     const handleAuthCheck = () => {
       try {
         const token = dataClient.handleOAuthCallback();
-        
+
         if (token) {
           mockSetIsAuthenticated(true);
           mockToast.success('Authentication successful', {
@@ -158,11 +158,11 @@ describe('App OAuth Callback Handling', () => {
 
       expect(globalThis.window.addEventListener).toHaveBeenCalledWith(
         'hashchange',
-        expect.any(Function),
+        expect.any(Function)
       );
       expect(globalThis.window.addEventListener).toHaveBeenCalledWith(
         'focus',
-        expect.any(Function),
+        expect.any(Function)
       );
       expect(hashChangeListeners.length).toBe(1);
       expect(focusListeners.length).toBe(1);
@@ -196,22 +196,23 @@ describe('App OAuth Callback Handling', () => {
 
       expect(globalThis.window.removeEventListener).toHaveBeenCalledWith(
         'hashchange',
-        expect.any(Function),
+        expect.any(Function)
       );
       expect(globalThis.window.removeEventListener).toHaveBeenCalledWith(
         'focus',
-        expect.any(Function),
+        expect.any(Function)
       );
     });
   });
 
   describe('Hashchange event handling', () => {
     it('should handle hashchange event and extract token', () => {
-      const validToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+      const validToken =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
       mockDataClient.handleOAuthCallback.mockReturnValue(validToken);
-      
+
       const cleanup = simulateAuthSectionEffect(mockDataClient);
-      
+
       // Simulate hashchange event
       (globalThis.window.location as { hash: string }).hash = `#token=${validToken}`;
       if (hashChangeListeners[0]) {
@@ -225,7 +226,7 @@ describe('App OAuth Callback Handling', () => {
         expect.objectContaining({
           description: 'You have been successfully authenticated',
           duration: 3000,
-        }),
+        })
       );
 
       cleanup();
@@ -234,9 +235,9 @@ describe('App OAuth Callback Handling', () => {
     it('should update auth state to false when no token found', () => {
       mockDataClient.handleOAuthCallback.mockReturnValue(null);
       mockDataClient.isAuthenticated.mockReturnValue(false);
-      
+
       const cleanup = simulateAuthSectionEffect(mockDataClient);
-      
+
       // Simulate hashchange event with no token
       (globalThis.window.location as { hash: string }).hash = '#other=value';
       if (hashChangeListeners[0]) {
@@ -254,20 +255,20 @@ describe('App OAuth Callback Handling', () => {
     it('should handle multiple hashchange events', () => {
       const token1 = 'token1.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature1';
       const token2 = 'token2.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature2';
-      
+
       mockDataClient.handleOAuthCallback
         .mockReturnValueOnce(null) // Initial call
         .mockReturnValueOnce(token1) // First hashchange
         .mockReturnValueOnce(token2); // Second hashchange
-      
+
       const cleanup = simulateAuthSectionEffect(mockDataClient);
-      
+
       // First hashchange
       (globalThis.window.location as { hash: string }).hash = `#token=${token1}`;
       if (hashChangeListeners[0]) {
         hashChangeListeners[0](new Event('hashchange'));
       }
-      
+
       // Second hashchange
       (globalThis.window.location as { hash: string }).hash = `#token=${token2}`;
       if (hashChangeListeners[0]) {
@@ -284,19 +285,20 @@ describe('App OAuth Callback Handling', () => {
 
   describe('Focus event handling', () => {
     it('should handle focus event and check auth', async () => {
-      const validToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+      const validToken =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
       mockDataClient.handleOAuthCallback.mockReturnValue(validToken);
       mockDataClient.isAuthenticated.mockReturnValue(false);
-      
+
       const cleanup = simulateAuthSectionEffect(mockDataClient);
-      
+
       // Simulate focus event
       if (focusListeners[0]) {
         focusListeners[0](new Event('focus'));
       }
-      
+
       // Wait for setTimeout
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       expect(mockDataClient.handleOAuthCallback).toHaveBeenCalledTimes(2); // Initial + focus
       expect(mockSetIsAuthenticated).toHaveBeenCalledWith(true);
@@ -307,16 +309,16 @@ describe('App OAuth Callback Handling', () => {
     it('should handle focus event when no token', async () => {
       mockDataClient.handleOAuthCallback.mockReturnValue(null);
       mockDataClient.isAuthenticated.mockReturnValue(false);
-      
+
       const cleanup = simulateAuthSectionEffect(mockDataClient);
-      
+
       // Simulate focus event
       if (focusListeners[0]) {
         focusListeners[0](new Event('focus'));
       }
-      
+
       // Wait for setTimeout
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       expect(mockDataClient.handleOAuthCallback).toHaveBeenCalledTimes(2);
       expect(mockDataClient.isAuthenticated).toHaveBeenCalledTimes(2);
@@ -328,9 +330,10 @@ describe('App OAuth Callback Handling', () => {
 
   describe('Authentication state updates', () => {
     it('should set authenticated to true when token is found', () => {
-      const validToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
+      const validToken =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U';
       mockDataClient.handleOAuthCallback.mockReturnValue(validToken);
-      
+
       simulateAuthSectionEffect(mockDataClient);
 
       expect(mockSetIsAuthenticated).toHaveBeenCalledWith(true);
@@ -340,7 +343,7 @@ describe('App OAuth Callback Handling', () => {
     it('should set authenticated to false when no token and not authenticated', () => {
       mockDataClient.handleOAuthCallback.mockReturnValue(null);
       mockDataClient.isAuthenticated.mockReturnValue(false);
-      
+
       simulateAuthSectionEffect(mockDataClient);
 
       expect(mockSetIsAuthenticated).toHaveBeenCalledWith(false);
@@ -350,7 +353,7 @@ describe('App OAuth Callback Handling', () => {
     it('should set authenticated to true when already authenticated', () => {
       mockDataClient.handleOAuthCallback.mockReturnValue(null);
       mockDataClient.isAuthenticated.mockReturnValue(true);
-      
+
       simulateAuthSectionEffect(mockDataClient);
 
       expect(mockSetIsAuthenticated).toHaveBeenCalledWith(true);
@@ -363,7 +366,7 @@ describe('App OAuth Callback Handling', () => {
         throw new Error('Token extraction failed');
       });
       mockDataClient.isAuthenticated.mockReturnValue(false);
-      
+
       // Should not throw - errors are caught in the component
       expect(() => {
         const cleanup = simulateAuthSectionEffect(mockDataClient);
@@ -379,7 +382,7 @@ describe('App OAuth Callback Handling', () => {
       mockDataClient.isAuthenticated.mockImplementation(() => {
         throw new Error('Auth check failed');
       });
-      
+
       // Should not throw - errors are caught in the component
       expect(() => {
         const cleanup = simulateAuthSectionEffect(mockDataClient);
@@ -388,4 +391,3 @@ describe('App OAuth Callback Handling', () => {
     });
   });
 });
-

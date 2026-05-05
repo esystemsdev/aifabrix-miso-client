@@ -58,7 +58,11 @@ function maskPayload(data: unknown, maxSize: number, mask: boolean): unknown {
 }
 
 function isExpectedAuditError(
-  err: Error & { statusCode?: number; response?: { status?: number }; code?: string },
+  err: Error & {
+    statusCode?: number;
+    response?: { status?: number };
+    code?: string;
+  },
 ): boolean {
   const statusCode = err.statusCode || err.response?.status;
   const msg = err.message || String(err);
@@ -93,7 +97,11 @@ async function performAudit(
   auditContext: Record<string, unknown>,
 ): Promise<void> {
   await runWithTokenContext(token, async () => {
-    await misoClient.log.audit(`http.request.${method.toLowerCase()}`, url, auditContext);
+    await misoClient.log.audit(
+      `http.request.${method.toLowerCase()}`,
+      url,
+      auditContext,
+    );
   });
 }
 
@@ -103,10 +111,26 @@ function addStandardAuditContext(
 ): void {
   const maxResp = opts.auditConfig?.maxResponseSize || 10000;
   const maxMask = opts.auditConfig?.maxMaskingSize || 50000;
-  ctx.requestBody = opts.requestBody !== undefined ? maskPayload(opts.requestBody, maxMask, true) : undefined;
-  ctx.responseBody = opts.responseBody !== undefined ? maskPayload(opts.responseBody, maxResp, true) : undefined;
-  ctx.requestHeaders = opts.requestHeaders ? (DataMasker.maskSensitiveData(opts.requestHeaders) as Record<string, string>) : undefined;
-  ctx.responseHeaders = opts.responseHeaders ? (DataMasker.maskSensitiveData(opts.responseHeaders) as Record<string, string>) : undefined;
+  ctx.requestBody =
+    opts.requestBody !== undefined
+      ? maskPayload(opts.requestBody, maxMask, true)
+      : undefined;
+  ctx.responseBody =
+    opts.responseBody !== undefined
+      ? maskPayload(opts.responseBody, maxResp, true)
+      : undefined;
+  ctx.requestHeaders = opts.requestHeaders
+    ? (DataMasker.maskSensitiveData(opts.requestHeaders) as Record<
+        string,
+        string
+      >)
+    : undefined;
+  ctx.responseHeaders = opts.responseHeaders
+    ? (DataMasker.maskSensitiveData(opts.responseHeaders) as Record<
+        string,
+        string
+      >)
+    : undefined;
 }
 
 function addDetailedAuditContext(
@@ -124,12 +148,23 @@ function buildFullContext(opts: LogAuditOpts): Record<string, unknown> {
   const token = opts.getToken();
   const userId = token ? extractUserIdFromToken(token) : undefined;
   const level = opts.auditConfig?.level || "standard";
-  const ctx: Record<string, unknown> = { method, url, statusCode, duration, ...(userId && { userId }) };
+  const ctx: Record<string, unknown> = {
+    method,
+    url,
+    statusCode,
+    duration,
+    ...(userId && { userId }),
+  };
   if (level === "minimal") return ctx;
 
   addStandardAuditContext(ctx, opts);
   addDetailedAuditContext(ctx, opts, level);
-  if (opts.error) ctx.error = DataMasker.maskSensitiveData({ message: opts.error.message, name: opts.error.name, stack: opts.error.stack });
+  if (opts.error)
+    ctx.error = DataMasker.maskSensitiveData({
+      message: opts.error.message,
+      name: opts.error.name,
+      stack: opts.error.stack,
+    });
   return ctx;
 }
 
@@ -162,9 +197,12 @@ export interface LogDataClientAuditParams {
  * Log audit event (ISO 27001 compliance)
  * Skips audit logging if no authentication token is available (user token OR client token)
  */
-export async function logDataClientAudit(params: LogDataClientAuditParams): Promise<void> {
+export async function logDataClientAudit(
+  params: LogDataClientAuditParams,
+): Promise<void> {
   const { url, auditConfig, misoClient, hasAnyToken } = params;
-  if (shouldSkipAudit(url, auditConfig) || !misoClient || !hasAnyToken()) return;
+  if (shouldSkipAudit(url, auditConfig) || !misoClient || !hasAnyToken())
+    return;
 
   try {
     await logAuditInternal({
@@ -184,7 +222,11 @@ export async function logDataClientAudit(params: LogDataClientAuditParams): Prom
       responseBody: params.responseBody,
     });
   } catch (auditError) {
-    const err = auditError as Error & { statusCode?: number; response?: { status?: number }; code?: string };
+    const err = auditError as Error & {
+      statusCode?: number;
+      response?: { status?: number };
+      code?: string;
+    };
     if (isExpectedAuditError(err)) return;
     writeWarn(`Failed to log audit event: ${String(auditError)}`);
   }

@@ -6,10 +6,7 @@
 import { HttpClient } from "../utils/http-client";
 import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
-import {
-  AuthStrategy,
-  AuthMethod,
-} from "../types/config.types";
+import { AuthStrategy, AuthMethod } from "../types/config.types";
 import { decodeJWT } from "../utils/browser-jwt-decoder";
 import { ApplicationContextService } from "./application-context.service";
 import { extractErrorInfo } from "../utils/error-extractor";
@@ -27,7 +24,11 @@ export class BrowserPermissionService {
   private permissionTTL: number;
   private applicationContextService: ApplicationContextService;
 
-  constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
+  constructor(
+    httpClient: HttpClient,
+    apiClient: ApiClient,
+    cache: CacheService,
+  ) {
     this.cache = cache;
     this.httpClient = httpClient;
     this.apiClient = apiClient;
@@ -62,12 +63,10 @@ export class BrowserPermissionService {
       }
 
       // Try common JWT claim fields for user ID
-      return (
-        (decoded.sub ||
-          decoded.userId ||
-          decoded.user_id ||
-          decoded.id) as string | null
-      );
+      return (decoded.sub ||
+        decoded.userId ||
+        decoded.user_id ||
+        decoded.id) as string | null;
     } catch (error) {
       return null;
     }
@@ -78,10 +77,15 @@ export class BrowserPermissionService {
     authStrategy?: AuthStrategy,
   ): AuthStrategy {
     const base = authStrategy || this.httpClient.config.authStrategy;
-    return base ? { ...base, bearerToken: token } : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+    return base
+      ? { ...base, bearerToken: token }
+      : { methods: ["bearer"] as AuthMethod[], bearerToken: token };
   }
 
-  private async resolveUserId(token: string, authStrategy?: AuthStrategy): Promise<string | null> {
+  private async resolveUserId(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string | null> {
     const userInfo = await this.apiClient.auth.validateToken(
       { token },
       this.buildAuthStrategyWithToken(token, authStrategy),
@@ -91,7 +95,9 @@ export class BrowserPermissionService {
 
   private getPermissionsQueryParams(): { environment: string } | undefined {
     const context = this.applicationContextService.getApplicationContext();
-    return context.environment ? { environment: context.environment } : undefined;
+    return context.environment
+      ? { environment: context.environment }
+      : undefined;
   }
 
   /**
@@ -118,7 +124,10 @@ export class BrowserPermissionService {
         if (!userId) return [];
       }
 
-      const authStrategyWithToken = this.buildAuthStrategyWithToken(token, authStrategy);
+      const authStrategyWithToken = this.buildAuthStrategyWithToken(
+        token,
+        authStrategy,
+      );
       const queryParams = this.getPermissionsQueryParams();
       const permissionResult = await this.apiClient.permissions.getPermissions(
         queryParams,
@@ -133,7 +142,13 @@ export class BrowserPermissionService {
       );
       return permissions;
     } catch (error) {
-      this.logPermissionError(error, token, "getPermissions", "GET", "/api/auth/permissions");
+      this.logPermissionError(
+        error,
+        token,
+        "getPermissions",
+        "GET",
+        "/api/auth/permissions",
+      );
       return [];
     }
   }
@@ -198,10 +213,11 @@ export class BrowserPermissionService {
   ): Promise<string[]> {
     try {
       // Get user info to extract userId
-      const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
+      const authStrategyToUse =
+        authStrategy || this.httpClient.config.authStrategy;
       const authStrategyWithToken = authStrategyToUse
         ? { ...authStrategyToUse, bearerToken: token }
-          : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+        : { methods: ["bearer"] as AuthMethod[], bearerToken: token };
 
       const userInfo = await this.apiClient.auth.validateToken(
         { token },
@@ -217,13 +233,16 @@ export class BrowserPermissionService {
 
       // Extract environment from application context service
       const context = this.applicationContextService.getApplicationContext();
-      const queryParams = context.environment ? { environment: context.environment } : undefined;
+      const queryParams = context.environment
+        ? { environment: context.environment }
+        : undefined;
 
       // Fetch fresh permissions from controller using refresh endpoint via ApiClient
-      const permissionResult = await this.apiClient.permissions.refreshPermissions(
-        queryParams,
-        authStrategyWithToken,
-      );
+      const permissionResult =
+        await this.apiClient.permissions.refreshPermissions(
+          queryParams,
+          authStrategyWithToken,
+        );
 
       const permissions = permissionResult.data?.permissions || [];
 
@@ -236,7 +255,13 @@ export class BrowserPermissionService {
 
       return permissions;
     } catch (error) {
-      this.logPermissionError(error, token, "refreshPermissions", "POST", "/api/auth/permissions/refresh");
+      this.logPermissionError(
+        error,
+        token,
+        "refreshPermissions",
+        "POST",
+        "/api/auth/permissions/refresh",
+      );
       return [];
     }
   }
@@ -256,8 +281,13 @@ export class BrowserPermissionService {
 
       await this.cache.delete(`permissions:${userId}`);
     } catch (error) {
-      this.logPermissionError(error, token, "clearPermissionsCache", "DELETE", "/cache/permissions");
+      this.logPermissionError(
+        error,
+        token,
+        "clearPermissionsCache",
+        "DELETE",
+        "/cache/permissions",
+      );
     }
   }
 }
-

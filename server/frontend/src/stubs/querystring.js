@@ -1,9 +1,9 @@
 // Querystring stub for browser compatibility
 const querystring = {
-  parse: function(str, sep, eq, options) {
+  parse: function (str, sep, eq, options) {
     const result = {};
     if (!str) return result;
-    
+
     const pairs = str.split(sep || '&');
     for (let i = 0; i < pairs.length; i++) {
       const pair = pairs[i].split(eq || '=');
@@ -13,8 +13,8 @@ const querystring = {
     }
     return result;
   },
-  
-  stringify: function(obj, sep, eq, options) {
+
+  stringify: function (obj, sep, eq, options) {
     const pairs = [];
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
@@ -24,14 +24,14 @@ const querystring = {
     }
     return pairs.join(sep || '&');
   },
-  
-  escape: function(str) {
+
+  escape: function (str) {
     return encodeURIComponent(str);
   },
-  
-  unescape: function(str) {
+
+  unescape: function (str) {
     return decodeURIComponent(str);
-  }
+  },
 };
 
 // CommonJS export
@@ -43,4 +43,3 @@ if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
 // ESM export
 export default querystring;
 export { querystring };
-

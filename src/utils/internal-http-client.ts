@@ -64,7 +64,11 @@ export class InternalHttpClient {
       const http = require("http");
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const https = require("https");
-      const agentOpts = { family: 4, timeout: requestTimeout, keepAlive: false };
+      const agentOpts = {
+        family: 4,
+        timeout: requestTimeout,
+        keepAlive: false,
+      };
       httpAgent = !isHttps ? new http.Agent(agentOpts) : undefined;
       httpsAgent = isHttps ? new https.Agent(agentOpts) : undefined;
     }
@@ -85,7 +89,10 @@ export class InternalHttpClient {
       async (config: InternalAxiosRequestConfig) => {
         config.headers = config.headers || {};
         this.attachTraceHeaders(config);
-        if (!config.headers["x-client-token"] && !config.headers["x-client-id"]) {
+        if (
+          !config.headers["x-client-token"] &&
+          !config.headers["x-client-id"]
+        ) {
           const token = await this.getClientToken();
           if (token) {
             config.headers["x-client-token"] = token;
@@ -135,9 +142,11 @@ export class InternalHttpClient {
     const hasClientToken = !!requestHeaders?.["x-client-token"];
 
     if (hasUserToken) {
-      error.message = "Bearer token authentication failed - token may be invalid or expired";
+      error.message =
+        "Bearer token authentication failed - token may be invalid or expired";
     } else if (hasClientToken) {
-      error.message = "Client token authentication failed - x-client-token may be invalid or expired";
+      error.message =
+        "Client token authentication failed - x-client-token may be invalid or expired";
     } else {
       error.message = "Authentication failed - token may be invalid";
     }
@@ -180,7 +189,9 @@ export class InternalHttpClient {
   }
 
   /** Execute token refresh with promise deduplication */
-  private async executeTokenRefresh(refreshFn: () => Promise<string>): Promise<string> {
+  private async executeTokenRefresh(
+    refreshFn: () => Promise<string>,
+  ): Promise<string> {
     this.tokenRefreshPromise = refreshFn();
     try {
       return await this.tokenRefreshPromise;
@@ -190,7 +201,10 @@ export class InternalHttpClient {
   }
 
   /** Merge two AbortSignals into one */
-  private mergeAbortSignals(signal1: AbortSignal, signal2: AbortSignal): AbortSignal {
+  private mergeAbortSignals(
+    signal1: AbortSignal,
+    signal2: AbortSignal,
+  ): AbortSignal {
     const controller = new AbortController();
     const abort = () => controller.abort();
     signal1.addEventListener("abort", abort);
@@ -215,13 +229,23 @@ export class InternalHttpClient {
     const requestConfig: AxiosRequestConfig = {
       ...config,
       signal: config?.signal
-        ? this.mergeAbortSignals(controller.signal, config.signal as AbortSignal)
+        ? this.mergeAbortSignals(
+            controller.signal,
+            config.signal as AbortSignal,
+          )
         : controller.signal,
     };
 
     try {
-      const response = await Promise.race([axiosFn(requestConfig), timeoutPromise]);
-      validateHttpResponse(response.data, response.config?.url || "", this.config);
+      const response = await Promise.race([
+        axiosFn(requestConfig),
+        timeoutPromise,
+      ]);
+      validateHttpResponse(
+        response.data,
+        response.config?.url || "",
+        this.config,
+      );
       return response.data;
     } catch (error) {
       if (isAxiosError(error)) {
@@ -289,7 +313,10 @@ export class InternalHttpClient {
    * @returns Response data of type T
    */
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    return this.executeWithTimeout<T>((cfg) => this.axios.get<T>(url, cfg), config);
+    return this.executeWithTimeout<T>(
+      (cfg) => this.axios.get<T>(url, cfg),
+      config,
+    );
   }
 
   /**
@@ -301,7 +328,11 @@ export class InternalHttpClient {
    * @param config - Optional Axios request configuration (data in config is ignored; use second arg)
    * @returns Response data of type T
    */
-  async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  async post<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
     const { data: _omit, ...restConfig } = config ?? {};
     return this.executeWithTimeout<T>(
       (cfg) => this.axios.post<T>(url, data, cfg),
@@ -318,7 +349,11 @@ export class InternalHttpClient {
    * @param config - Optional Axios request configuration (data in config is ignored; use second arg)
    * @returns Response data of type T
    */
-  async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  async put<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig,
+  ): Promise<T> {
     const { data: _omit, ...restConfig } = config ?? {};
     return this.executeWithTimeout<T>(
       (cfg) => this.axios.put<T>(url, data, cfg),
@@ -333,7 +368,10 @@ export class InternalHttpClient {
    * @returns Response data of type T
    */
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    return this.executeWithTimeout<T>((cfg) => this.axios.delete<T>(url, cfg), config);
+    return this.executeWithTimeout<T>(
+      (cfg) => this.axios.delete<T>(url, cfg),
+      config,
+    );
   }
 
   /**
@@ -375,7 +413,10 @@ export class InternalHttpClient {
   ): Promise<T> {
     const requestConfig = authStrategy
       ? await this.buildAuthStrategyConfig(authStrategy, config)
-      : { ...config, headers: { ...config?.headers, Authorization: `Bearer ${token}` } };
+      : {
+          ...config,
+          headers: { ...config?.headers, Authorization: `Bearer ${token}` },
+        };
 
     return this.executeMethod<T>(method, url, data, requestConfig);
   }
@@ -397,7 +438,10 @@ export class InternalHttpClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
-    const requestConfig = await this.buildAuthStrategyConfig(authStrategy, config);
+    const requestConfig = await this.buildAuthStrategyConfig(
+      authStrategy,
+      config,
+    );
     return this.executeMethod<T>(method, url, data, requestConfig);
   }
 }

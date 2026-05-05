@@ -2,20 +2,20 @@
  * Unit tests for ApplicationsApi
  */
 
-import { ApplicationsApi } from '../../../src/api/applications.api';
-import { HttpClient } from '../../../src/utils/http-client';
-import { AuthStrategy } from '../../../src/types/config.types';
+import { ApplicationsApi } from "../../../src/api/applications.api";
+import { HttpClient } from "../../../src/utils/http-client";
+import { AuthStrategy } from "../../../src/types/config.types";
 import {
   UpdateSelfStatusRequest,
   UpdateSelfStatusResponse,
   ApplicationStatusResponse,
-} from '../../../src/api/types/applications.types';
+} from "../../../src/api/types/applications.types";
 
 // Mock HttpClient
-jest.mock('../../../src/utils/http-client');
+jest.mock("../../../src/utils/http-client");
 const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 
-describe('ApplicationsApi', () => {
+describe("ApplicationsApi", () => {
   let applicationsApi: ApplicationsApi;
   let mockHttpClient: jest.Mocked<HttpClient>;
   const originalConsoleError = console.error;
@@ -37,61 +37,61 @@ describe('ApplicationsApi', () => {
     console.error = originalConsoleError;
   });
 
-  describe('updateSelfStatus', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("updateSelfStatus", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const body: UpdateSelfStatusRequest = {
-        status: 'healthy',
-        url: 'https://app.example.com',
+        status: "healthy",
+        url: "https://app.example.com",
       };
       const mockResponse: UpdateSelfStatusResponse = {
         success: true,
-        message: 'Updated',
+        message: "Updated",
       };
 
       mockHttpClient.request.mockResolvedValue(mockResponse);
 
-      const result = await applicationsApi.updateSelfStatus('miso', body);
+      const result = await applicationsApi.updateSelfStatus("miso", body);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/environments/miso/applications/self/status',
+        "POST",
+        "/api/v1/environments/miso/applications/self/status",
         body,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should replace :envKey in path', async () => {
+    it("should replace :envKey in path", async () => {
       const body: UpdateSelfStatusRequest = { port: 8080 };
       mockHttpClient.request.mockResolvedValue({ success: true });
 
-      await applicationsApi.updateSelfStatus('prod-env', body);
+      await applicationsApi.updateSelfStatus("prod-env", body);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/environments/prod-env/applications/self/status',
+        "POST",
+        "/api/v1/environments/prod-env/applications/self/status",
         body,
       );
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
-      const body: UpdateSelfStatusRequest = { status: 'maintenance' };
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
+      const body: UpdateSelfStatusRequest = { status: "maintenance" };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: UpdateSelfStatusResponse = { success: true };
 
       mockHttpClient.authenticatedRequest.mockResolvedValue(mockResponse);
 
       const result = await applicationsApi.updateSelfStatus(
-        'miso',
+        "miso",
         body,
         authStrategy,
       );
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/environments/miso/applications/self/status',
+        "POST",
+        "/api/v1/environments/miso/applications/self/status",
         authStrategy.bearerToken,
         body,
         undefined,
@@ -100,100 +100,100 @@ describe('ApplicationsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
-      const body: UpdateSelfStatusRequest = { internalUrl: 'http://internal' };
-      const authStrategy: AuthStrategy = { methods: ['client-token'] };
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
+      const body: UpdateSelfStatusRequest = { internalUrl: "http://internal" };
+      const authStrategy: AuthStrategy = { methods: ["client-token"] };
       const mockResponse: UpdateSelfStatusResponse = { success: true };
 
       mockHttpClient.requestWithAuthStrategy.mockResolvedValue(mockResponse);
 
       const result = await applicationsApi.updateSelfStatus(
-        'miso',
+        "miso",
         body,
         authStrategy,
       );
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/environments/miso/applications/self/status',
+        "POST",
+        "/api/v1/environments/miso/applications/self/status",
         authStrategy,
         body,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const body: UpdateSelfStatusRequest = { status: 'healthy' };
-      const error = new Error('Update failed');
+    it("should handle errors", async () => {
+      const body: UpdateSelfStatusRequest = { status: "healthy" };
+      const error = new Error("Update failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(
-        applicationsApi.updateSelfStatus('miso', body),
-      ).rejects.toThrow('Update failed');
+        applicationsApi.updateSelfStatus("miso", body),
+      ).rejects.toThrow("Update failed");
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[ApplicationsApi]'),
+        expect.stringContaining("[ApplicationsApi]"),
         expect.any(String),
       );
     });
   });
 
-  describe('getApplicationStatus', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("getApplicationStatus", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: ApplicationStatusResponse = {
-        id: 'app-1',
-        key: 'my-app',
-        displayName: 'My App',
-        url: 'https://app.example.com',
-        status: 'healthy',
+        id: "app-1",
+        key: "my-app",
+        displayName: "My App",
+        url: "https://app.example.com",
+        status: "healthy",
       };
 
       mockHttpClient.request.mockResolvedValue(mockResponse);
 
       const result = await applicationsApi.getApplicationStatus(
-        'miso',
-        'my-app',
+        "miso",
+        "my-app",
       );
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/environments/miso/applications/my-app/status',
+        "GET",
+        "/api/v1/environments/miso/applications/my-app/status",
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should replace :envKey and :appKey in path', async () => {
+    it("should replace :envKey and :appKey in path", async () => {
       mockHttpClient.request.mockResolvedValue({});
 
-      await applicationsApi.getApplicationStatus('prod', 'backend-service');
+      await applicationsApi.getApplicationStatus("prod", "backend-service");
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/environments/prod/applications/backend-service/status',
+        "GET",
+        "/api/v1/environments/prod/applications/backend-service/status",
       );
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: ApplicationStatusResponse = {
-        key: 'my-app',
-        status: 'healthy',
+        key: "my-app",
+        status: "healthy",
       };
 
       mockHttpClient.authenticatedRequest.mockResolvedValue(mockResponse);
 
       const result = await applicationsApi.getApplicationStatus(
-        'miso',
-        'my-app',
+        "miso",
+        "my-app",
         authStrategy,
       );
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/environments/miso/applications/my-app/status',
+        "GET",
+        "/api/v1/environments/miso/applications/my-app/status",
         authStrategy.bearerToken,
         undefined,
         undefined,
@@ -202,36 +202,36 @@ describe('ApplicationsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
-      const authStrategy: AuthStrategy = { methods: ['api-key'] };
-      const mockResponse: ApplicationStatusResponse = { key: 'my-app' };
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
+      const authStrategy: AuthStrategy = { methods: ["api-key"] };
+      const mockResponse: ApplicationStatusResponse = { key: "my-app" };
 
       mockHttpClient.requestWithAuthStrategy.mockResolvedValue(mockResponse);
 
       const result = await applicationsApi.getApplicationStatus(
-        'miso',
-        'my-app',
+        "miso",
+        "my-app",
         authStrategy,
       );
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/environments/miso/applications/my-app/status',
+        "GET",
+        "/api/v1/environments/miso/applications/my-app/status",
         authStrategy,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Get status failed');
+    it("should handle errors", async () => {
+      const error = new Error("Get status failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
       await expect(
-        applicationsApi.getApplicationStatus('miso', 'my-app'),
-      ).rejects.toThrow('Get status failed');
+        applicationsApi.getApplicationStatus("miso", "my-app"),
+      ).rejects.toThrow("Get status failed");
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[ApplicationsApi]'),
+        expect.stringContaining("[ApplicationsApi]"),
         expect.any(String),
       );
     });

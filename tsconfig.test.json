@@ -5,7 +5,11 @@
     "noEmit": true,
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*", "tests/**/*", "test_integration.ts", "test_logger.ts"],
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "test_integration.ts",
+    "test_logger.ts"
+  ],
   "exclude": ["node_modules", "dist"]
 }
-

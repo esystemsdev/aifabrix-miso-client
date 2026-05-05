@@ -1,1 +1,2 @@
-export const dns = {}; export default dns;
+export const dns = {};
+export default dns;

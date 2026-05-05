@@ -12,7 +12,10 @@ import type {
   CompiledFilter,
   FilterErrorCodeType,
 } from "../types/filter-schema.types";
-import { FilterErrorCode, DefaultOperatorsByType } from "../types/filter-schema.types";
+import {
+  FilterErrorCode,
+  DefaultOperatorsByType,
+} from "../types/filter-schema.types";
 
 /**
  * Create a structured filter validation error.
@@ -39,7 +42,8 @@ export function createFilterError(
  * @returns True if value is a valid UUID
  */
 function isValidUUID(value: string): boolean {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return uuidRegex.test(value);
 }
 
@@ -76,11 +80,15 @@ function coerceBoolean(value: unknown): unknown {
 function coerceTimestamp(value: unknown): unknown {
   if (typeof value !== "string") return value;
   const date = new Date(value);
-  if (isNaN(date.getTime())) throw new Error(`Cannot coerce "${value}" to timestamp`);
+  if (isNaN(date.getTime()))
+    throw new Error(`Cannot coerce "${value}" to timestamp`);
   return date.toISOString();
 }
 
-export function coerceValue(value: unknown, fieldDef: FilterFieldDefinition): unknown {
+export function coerceValue(
+  value: unknown,
+  fieldDef: FilterFieldDefinition,
+): unknown {
   if (value === null) return null;
   const coercers: Record<string, (v: unknown) => unknown> = {
     number: coerceNumber,
@@ -131,7 +139,12 @@ export function validateFilter(
   }
 
   // Validate value based on field type
-  const valueError = validateFieldValue(filter.value, fieldDef, filter.field, filter.op);
+  const valueError = validateFieldValue(
+    filter.value,
+    fieldDef,
+    filter.field,
+    filter.op,
+  );
   if (valueError) {
     return valueError;
   }
@@ -184,7 +197,10 @@ function validateFieldValue(
 /**
  * Validate a single value against field definition.
  */
-function validateUuidValue(value: unknown, fieldName: string): FilterValidationError | null {
+function validateUuidValue(
+  value: unknown,
+  fieldName: string,
+): FilterValidationError | null {
   if (typeof value !== "string" || !isValidUUID(value)) {
     return createFilterError(
       FilterErrorCode.INVALID_UUID,
@@ -195,7 +211,10 @@ function validateUuidValue(value: unknown, fieldName: string): FilterValidationE
   return null;
 }
 
-function validateTimestampValue(value: unknown, fieldName: string): FilterValidationError | null {
+function validateTimestampValue(
+  value: unknown,
+  fieldName: string,
+): FilterValidationError | null {
   if (typeof value !== "string" || !isValidTimestamp(value)) {
     return createFilterError(
       FilterErrorCode.INVALID_DATE,
@@ -206,7 +225,10 @@ function validateTimestampValue(value: unknown, fieldName: string): FilterValida
   return null;
 }
 
-function validateNumberValue(value: unknown, fieldName: string): FilterValidationError | null {
+function validateNumberValue(
+  value: unknown,
+  fieldName: string,
+): FilterValidationError | null {
   if (typeof value !== "number" && isNaN(Number(value))) {
     return createFilterError(
       FilterErrorCode.INVALID_TYPE,
@@ -217,7 +239,10 @@ function validateNumberValue(value: unknown, fieldName: string): FilterValidatio
   return null;
 }
 
-function validateBooleanValue(value: unknown, fieldName: string): FilterValidationError | null {
+function validateBooleanValue(
+  value: unknown,
+  fieldName: string,
+): FilterValidationError | null {
   if (typeof value !== "boolean" && value !== "true" && value !== "false") {
     return createFilterError(
       FilterErrorCode.INVALID_TYPE,
@@ -367,7 +392,11 @@ export function compileFilter(
   const clauses: string[] = [];
 
   for (const filter of filters) {
-    const { sql, hasParam, value } = buildFilterClause(filter, schema, params.length + 1);
+    const { sql, hasParam, value } = buildFilterClause(
+      filter,
+      schema,
+      params.length + 1,
+    );
     clauses.push(sql);
     if (hasParam) params.push(value);
   }
@@ -386,7 +415,9 @@ function buildFilterClause(
 ): { sql: string; hasParam: boolean; value: unknown } {
   const fieldDef = schema.fields[filter.field];
   if (!fieldDef) {
-    throw new Error(`Unknown field '${filter.field}' in schema '${schema.resource}'`);
+    throw new Error(
+      `Unknown field '${filter.field}' in schema '${schema.resource}'`,
+    );
   }
 
   const column = fieldDef.column;
@@ -424,7 +455,10 @@ function resolveFilterValue(
  */
 export function createFilterSchema(
   resource: string,
-  fields: Record<string, Omit<FilterFieldDefinition, "operators"> & { operators?: FilterOperator[] }>,
+  fields: Record<
+    string,
+    Omit<FilterFieldDefinition, "operators"> & { operators?: FilterOperator[] }
+  >,
   version?: string,
 ): FilterSchema {
   const completeFields: Record<string, FilterFieldDefinition> = {};

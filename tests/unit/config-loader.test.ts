@@ -327,7 +327,7 @@ describe("ConfigLoader", () => {
 
         const config = loadConfig();
         expect(config.controllerPublicUrl).toBe(
-          "https://public-controller.example.com"
+          "https://public-controller.example.com",
         );
       });
 
@@ -343,7 +343,7 @@ describe("ConfigLoader", () => {
 
         const config = loadConfig();
         expect(config.controllerPrivateUrl).toBe(
-          "http://private-controller:3010"
+          "http://private-controller:3010",
         );
         // Also sets controllerUrl for backward compatibility
         expect(config.controllerUrl).toBe("http://private-controller:3010");
@@ -365,10 +365,10 @@ describe("ConfigLoader", () => {
 
         const config = loadConfig();
         expect(config.controllerPublicUrl).toBe(
-          "https://public-controller.example.com"
+          "https://public-controller.example.com",
         );
         expect(config.controllerPrivateUrl).toBe(
-          "http://private-controller:3010"
+          "http://private-controller:3010",
         );
         expect(config.controllerUrl).toBe("http://private-controller:3010");
       });

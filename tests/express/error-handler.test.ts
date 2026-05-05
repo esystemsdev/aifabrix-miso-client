@@ -296,7 +296,9 @@ describe("error-handler", () => {
     });
 
     it("should use AppError correlationId if available", async () => {
-      const error = new AppError("Error", 400, true, { correlationId: "app-error-correlation-id" });
+      const error = new AppError("Error", 400, true, {
+        correlationId: "app-error-correlation-id",
+      });
 
       await handleRouteError(error, mockReq as Request, mockRes as Response);
 
@@ -365,8 +367,7 @@ describe("error-handler", () => {
       const hasErrorMessage = consoleErrorSpy.mock.calls.some((call) =>
         call.some(
           (arg: unknown) =>
-            typeof arg === "string" &&
-            arg.includes("Test error"),
+            typeof arg === "string" && arg.includes("Test error"),
         ),
       );
       expect(hasErrorMessage).toBe(true);

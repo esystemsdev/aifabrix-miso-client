@@ -17,12 +17,12 @@ interface ErrorHandlingTabProps {
 
 /**
  * Error Handling tab component for API testing
- * 
+ *
  * Provides UI for testing error handling scenarios:
  * - Network errors (invalid endpoints)
  * - Timeout errors (short timeout)
  * - API errors (400 Bad Request)
- * 
+ *
  * @param props - Component props
  * @returns Error Handling tab content
  */
@@ -35,7 +35,12 @@ export function ErrorHandlingTab({ isDisabled, errors }: ErrorHandlingTabProps) 
           <CardDescription>Simulate connection failure</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={errors.testNetworkError} disabled={isDisabled} variant="destructive" className="w-full">
+          <Button
+            onClick={errors.testNetworkError}
+            disabled={isDisabled}
+            variant="destructive"
+            className="w-full"
+          >
             Test Network Error
           </Button>
         </CardContent>
@@ -47,7 +52,12 @@ export function ErrorHandlingTab({ isDisabled, errors }: ErrorHandlingTabProps) 
           <CardDescription>Simulate request timeout</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={errors.testTimeout} disabled={isDisabled} variant="destructive" className="w-full">
+          <Button
+            onClick={errors.testTimeout}
+            disabled={isDisabled}
+            variant="destructive"
+            className="w-full"
+          >
             Test Timeout
           </Button>
         </CardContent>
@@ -59,7 +69,12 @@ export function ErrorHandlingTab({ isDisabled, errors }: ErrorHandlingTabProps) 
           <CardDescription>Simulate validation error</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={errors.testApiError} disabled={isDisabled} variant="destructive" className="w-full">
+          <Button
+            onClick={errors.testApiError}
+            disabled={isDisabled}
+            variant="destructive"
+            className="w-full"
+          >
             Test API Error
           </Button>
         </CardContent>

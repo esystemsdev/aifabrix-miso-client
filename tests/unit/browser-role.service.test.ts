@@ -34,18 +34,28 @@ describe("BrowserRoleService", () => {
   let mockHttpClient: jest.Mocked<HttpClient>;
   type MockApiClient = {
     auth: {
-      validateToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
+      validateToken: jest.MockedFunction<
+        (params: any, authStrategy?: any) => Promise<any>
+      >;
     };
     roles: {
-      getRoles: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
+      getRoles: jest.MockedFunction<
+        (params?: any, authStrategy?: any) => Promise<any>
+      >;
       refreshRoles: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
     };
     permissions: {
-      getPermissions: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
-      refreshPermissions: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
+      getPermissions: jest.MockedFunction<
+        (params?: any, authStrategy?: any) => Promise<any>
+      >;
+      refreshPermissions: jest.MockedFunction<
+        (authStrategy?: any) => Promise<any>
+      >;
     };
     logs: {
-      createLog: jest.MockedFunction<(params: unknown, authStrategy?: unknown) => Promise<unknown>>;
+      createLog: jest.MockedFunction<
+        (params: unknown, authStrategy?: unknown) => Promise<unknown>
+      >;
     };
     encryption: Record<string, unknown>;
     applications: Record<string, unknown>;
@@ -148,8 +158,8 @@ describe("BrowserRoleService", () => {
       expect(mockApiClient.roles.getRoles).toHaveBeenCalledWith(
         undefined,
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
@@ -187,15 +197,15 @@ describe("BrowserRoleService", () => {
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockApiClient.roles.getRoles).toHaveBeenCalledWith(
         undefined,
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
     });
@@ -333,8 +343,8 @@ describe("BrowserRoleService", () => {
       expect(mockApiClient.roles.refreshRoles).toHaveBeenCalledWith(
         undefined,
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
@@ -398,4 +408,3 @@ describe("BrowserRoleService", () => {
     });
   });
 });
-

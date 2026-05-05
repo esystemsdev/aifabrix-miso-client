@@ -9,7 +9,7 @@ import { parseError, getErrorMessage } from '../../utils/error-handler';
 
 /**
  * Configuration page component for DataClient initialization and testing
- * 
+ *
  * Provides UI for:
  * - Zero-config auto-initialization (uses context)
  * - Environment variable configuration instructions
@@ -25,13 +25,12 @@ export function ConfigurationPage() {
     clientTokenUri?: string;
   } | null>(null);
 
-
   /**
    * Read cached config using SDK utility
-   * 
+   *
    * Uses getCachedDataClientConfig() from miso-client SDK to retrieve
    * configuration that was cached during DataClient initialization.
-   * 
+   *
    * @returns Configuration object with baseUrl, controllerUrl, clientId, and optional clientTokenUri, or null if not cached
    */
   const readCachedConfig = (): {
@@ -74,10 +73,10 @@ export function ConfigurationPage() {
 
   /**
    * Handle zero-config initialization using context
-   * 
+   *
    * Automatically fetches configuration from server endpoint and initializes
    * DataClient. Displays success/error toast notifications based on result.
-   * 
+   *
    * @throws Will display error toast if initialization fails
    */
   const handleZeroConfigInit = async (): Promise<void> => {
@@ -95,7 +94,7 @@ export function ConfigurationPage() {
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(getErrorMessage(err));
       const parsed = parseError(error);
-      
+
       const errorTitle = parsed?.title || 'Failed to initialize DataClient';
       const errorDetail = parsed?.detail || error.message || 'Unknown error occurred';
 
@@ -108,18 +107,18 @@ export function ConfigurationPage() {
     }
   };
 
-
   const initialized = !!dataClient;
-  const currentBaseUrl = configInfo?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
+  const currentBaseUrl =
+    configInfo?.baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
   const currentControllerUrl = configInfo?.controllerUrl || 'Not set';
   const currentClientId = configInfo?.clientId || 'Not set';
-  
+
   // Parse error message for display
   const parsedError = error ? parseError(error) : null;
   const errorTitle = parsedError?.title || (error ? 'Error' : null);
   const errorDetail = parsedError?.detail || (error ? error.message : null);
   const isErrorParsed = parsedError !== null;
-  
+
   // Determine if we should show status messages (only after initialization attempt completes)
   const showStatus = !isLoading && !loading; // Show status only when not loading (initial or manual)
   const showError = showStatus && error && errorTitle && errorDetail;
@@ -148,7 +147,9 @@ export function ConfigurationPage() {
                   <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <p className="font-medium text-red-900 mb-1">{errorTitle}</p>
-                    <p className={`text-sm text-red-700 ${isErrorParsed ? '' : 'font-mono break-all'}`}>
+                    <p
+                      className={`text-sm text-red-700 ${isErrorParsed ? '' : 'font-mono break-all'}`}
+                    >
                       {errorDetail}
                     </p>
                   </div>
@@ -181,7 +182,9 @@ export function ConfigurationPage() {
                 </div>
                 <div>
                   <CardTitle>Zero-Config Setup</CardTitle>
-                  <CardDescription>Automatically fetch configuration from server (Recommended)</CardDescription>
+                  <CardDescription>
+                    Automatically fetch configuration from server (Recommended)
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -223,19 +226,25 @@ export function ConfigurationPage() {
             <CardContent>
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  You can change configuration settings by editing the <code className="px-1.5 py-0.5 bg-muted rounded text-xs">.env</code> file in the root directory:
+                  You can change configuration settings by editing the{' '}
+                  <code className="px-1.5 py-0.5 bg-muted rounded text-xs">.env</code> file in the
+                  root directory:
                 </p>
                 <div className="bg-muted rounded-lg p-4 font-mono text-xs space-y-1">
-                <div className="text-muted-foreground"># Application port (default: 3083)</div>
+                  <div className="text-muted-foreground"># Application port (default: 3083)</div>
                   <div className="text-muted-foreground">PORT=3183</div>
-                  <div className="text-muted-foreground"># MISO Application Client Credentials (per application)</div>
+                  <div className="text-muted-foreground">
+                    # MISO Application Client Credentials (per application)
+                  </div>
                   <div>MISO_CLIENTID=miso-controller-dev-miso-test</div>
                   <div>MISO_CLIENTSECRET=your-secret-here</div>
                   <div className="text-muted-foreground"># MISO Controller URL</div>
                   <div>MISO_CONTROLLER_URL=http://localhost:3000</div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  After modifying the <code className="px-1.5 py-0.5 bg-muted rounded text-xs">.env</code> file, restart the server for changes to take effect.
+                  After modifying the{' '}
+                  <code className="px-1.5 py-0.5 bg-muted rounded text-xs">.env</code> file, restart
+                  the server for changes to take effect.
                 </p>
               </div>
             </CardContent>
@@ -251,7 +260,9 @@ export function ConfigurationPage() {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between py-2 border-b border-border">
                   <span className="text-muted-foreground">Status</span>
-                  <span className={initialized ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
+                  <span
+                    className={initialized ? 'text-green-600 font-medium' : 'text-muted-foreground'}
+                  >
                     {initialized ? 'Connected' : 'Not Initialized'}
                   </span>
                 </div>

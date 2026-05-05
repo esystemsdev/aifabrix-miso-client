@@ -7,8 +7,17 @@
 
 import { DataClient } from "./data-client";
 import { DataClientConfig } from "../types/data-client.types";
-import { isBrowser, getLocalStorage, setLocalStorage, removeLocalStorage } from "./data-client-utils";
-import { DataClientConfigResponse, ClientTokenResponse, hasConfig } from "../express/client-token-endpoint";
+import {
+  isBrowser,
+  getLocalStorage,
+  setLocalStorage,
+  removeLocalStorage,
+} from "./data-client-utils";
+import {
+  DataClientConfigResponse,
+  ClientTokenResponse,
+  hasConfig,
+} from "../express/client-token-endpoint";
 
 /**
  * Options for autoInitializeDataClient
@@ -98,7 +107,10 @@ export function getCachedDataClientConfig(): DataClientConfigResponse | null {
  * @param config - Config to cache
  * @param expiresIn - Expiration time in seconds
  */
-function cacheConfig(config: DataClientConfigResponse, expiresIn: number): void {
+function cacheConfig(
+  config: DataClientConfigResponse,
+  expiresIn: number,
+): void {
   if (!isBrowser()) {
     return;
   }
@@ -213,20 +225,31 @@ function parseErrorDetails(details: unknown): string | undefined {
   if (details && typeof details === "object") {
     const d = details as Record<string, unknown>;
     if (typeof d.suggestion === "string") return d.suggestion;
-    if (typeof d.controllerUrl === "string") return `Controller URL: ${d.controllerUrl}`;
+    if (typeof d.controllerUrl === "string")
+      return `Controller URL: ${d.controllerUrl}`;
   }
   return undefined;
 }
 
-async function extractJsonError(response: Response): Promise<{ message: string; details?: string }> {
-  const errorData = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!errorData) return { message: `Failed to fetch config: ${response.status} ${response.statusText}` };
+async function extractJsonError(
+  response: Response,
+): Promise<{ message: string; details?: string }> {
+  const errorData = (await response.json().catch(() => null)) as Record<
+    string,
+    unknown
+  > | null;
+  if (!errorData)
+    return {
+      message: `Failed to fetch config: ${response.status} ${response.statusText}`,
+    };
 
   const message =
     (typeof errorData.message === "string" ? errorData.message : null) ||
     (typeof errorData.error === "string" ? errorData.error : null) ||
     `Failed to fetch config: ${response.status} ${response.statusText}`;
-  const details = errorData.details ? parseErrorDetails(errorData.details) : undefined;
+  const details = errorData.details
+    ? parseErrorDetails(errorData.details)
+    : undefined;
   return { message, details };
 }
 
@@ -241,7 +264,9 @@ async function buildHttpErrorMessage(response: Response): Promise<string> {
       errorMessage = parsed.message;
       errorDetails = parsed.details;
     } else {
-      const errorText = await response.text().catch(() => "Unable to read error response");
+      const errorText = await response
+        .text()
+        .catch(() => "Unable to read error response");
       if (errorText && errorText !== "Unable to read error response") {
         errorMessage = `${errorMessage}. ${errorText}`;
       }
@@ -294,7 +319,8 @@ function resolveBaseUrl(opts: { baseUrl?: string }): string {
   const baseUrl =
     opts.baseUrl ||
     (isBrowser()
-      ? (globalThis as unknown as { window: { location: { origin: string } } }).window.location.origin
+      ? (globalThis as unknown as { window: { location: { origin: string } } })
+          .window.location.origin
       : "");
   if (!baseUrl) {
     throw new Error("Unable to detect baseUrl. Please provide baseUrl option.");
@@ -302,7 +328,9 @@ function resolveBaseUrl(opts: { baseUrl?: string }): string {
   return baseUrl;
 }
 
-function buildDataClientConfig(config: DataClientConfigResponse): DataClientConfig {
+function buildDataClientConfig(
+  config: DataClientConfigResponse,
+): DataClientConfig {
   return {
     baseUrl: config.baseUrl,
     misoConfig: {
@@ -355,7 +383,7 @@ export async function autoInitializeDataClient(
   try {
     const baseUrl = resolveBaseUrl(opts);
     let config: DataClientConfigResponse | null = opts.cacheConfig
-      ? getCachedConfig()?.config ?? null
+      ? (getCachedConfig()?.config ?? null)
       : null;
 
     if (!config) {
@@ -370,4 +398,3 @@ export async function autoInitializeDataClient(
     throw err;
   }
 }
-

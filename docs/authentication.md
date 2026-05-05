@@ -5,7 +5,7 @@ How to work with tokens, validate them, get user info, and handle login/logout. 
 ## Get token from request
 
 ```typescript
-const token = client.getToken(req);  // Reads Authorization: Bearer <token>
+const token = client.getToken(req); // Reads Authorization: Bearer <token>
 ```
 
 Use this in middleware or route handlers to obtain the user JWT. `getToken(req)` only reads **`req.headers.authorization`** (with or without a `Bearer ` prefix).
@@ -15,7 +15,7 @@ Use this in middleware or route handlers to obtain the user JWT. `getToken(req)`
 If your platform sends the token under a different name (e.g. header `miso_token` or a cookie), read it yourself and pass the string to the SDK:
 
 ```typescript
-const token = req.headers['miso_token'] ?? req.cookies?.miso_token ?? null;
+const token = req.headers["miso_token"] ?? req.cookies?.miso_token ?? null;
 if (token) {
   const isValid = await client.validateToken(token);
   const user = await client.getUser(token);
@@ -29,7 +29,7 @@ The SDK accepts the token string for `validateToken`, `getUser`, `logout`, etc.;
 ```typescript
 const isValid = await client.validateToken(token);
 if (!isValid) {
-  return res.status(401).json({ error: 'Unauthorized' });
+  return res.status(401).json({ error: "Unauthorized" });
 }
 ```
 
@@ -52,8 +52,8 @@ Get a login URL and redirect the user to Keycloak. The controller validates the 
 
 ```typescript
 const response = await client.login({
-  redirect: 'https://myapp.com/dashboard',  // Where to send user after login
-  state: 'optional-csrf-state',
+  redirect: "https://myapp.com/dashboard", // Where to send user after login
+  state: "optional-csrf-state",
 });
 // Redirect browser to response.loginUrl
 window.location.href = response.loginUrl;
@@ -84,13 +84,13 @@ Returns `null` on error.
 
 ## Summary
 
-| Need | Method |
-|------|--------|
-| Token from request | `client.getToken(req)` |
-| Check if token valid | `client.validateToken(token)` |
-| User info | `client.getUser(token)` |
-| Login URL | `client.login({ redirect, state? })` |
-| Logout | `client.logout({ token })` |
-| Refresh token | `client.refreshToken(refreshToken)` |
+| Need                 | Method                               |
+| -------------------- | ------------------------------------ |
+| Token from request   | `client.getToken(req)`               |
+| Check if token valid | `client.validateToken(token)`        |
+| User info            | `client.getUser(token)`              |
+| Login URL            | `client.login({ redirect, state? })` |
+| Logout               | `client.logout({ token })`           |
+| Refresh token        | `client.refreshToken(refreshToken)`  |
 
 See [quick-start.md](quick-start.md) for init and [authorization.md](authorization.md) for roles and permissions.

@@ -8,7 +8,8 @@ import type { ApiClient } from "../../api";
 
 export function isAuthError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
-  if (error.message.includes("401") || error.message.includes("Unauthorized")) return true;
+  if (error.message.includes("401") || error.message.includes("Unauthorized"))
+    return true;
   return (error as { statusCode?: number }).statusCode === 401;
 }
 
@@ -20,11 +21,17 @@ export async function sendAuditLogPayload(
   logLevel: "info" | "warn" | "error" | "debug",
 ): Promise<void> {
   const auditResource = enrichedContext.resource as string | undefined;
-  const providedOldValues = enrichedContext.oldValues as Record<string, unknown> | undefined;
-  const providedNewValues = enrichedContext.newValues as Record<string, unknown> | undefined;
-  const entityType = (enrichedContext.entityType as string) ||
+  const providedOldValues = enrichedContext.oldValues as
+    | Record<string, unknown>
+    | undefined;
+  const providedNewValues = enrichedContext.newValues as
+    | Record<string, unknown>
+    | undefined;
+  const entityType =
+    (enrichedContext.entityType as string) ||
     (auditResource?.startsWith("/api/") ? "API Endpoint" : "HTTP Request");
-  const entityId = (enrichedContext.entityId as string) || auditResource || "unknown";
+  const entityId =
+    (enrichedContext.entityId as string) || auditResource || "unknown";
   const action = (enrichedContext.action as string) || "unknown";
 
   delete enrichedContext.action;

@@ -3,15 +3,15 @@
  * Handles application status and URLs endpoints (server-side)
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
 import {
   UpdateSelfStatusRequest,
   UpdateSelfStatusResponse,
   ApplicationStatusResponse,
-} from './types/applications.types';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
+} from "./types/applications.types";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /**
  * Applications API class
@@ -20,9 +20,9 @@ import { logErrorWithContext } from '../utils/console-logger';
 export class ApplicationsApi {
   // Centralize endpoint URLs as constants (align with controller plan 138)
   private static readonly SELF_STATUS_ENDPOINT =
-    '/api/v1/environments/:envKey/applications/self/status';
+    "/api/v1/environments/:envKey/applications/self/status";
   private static readonly APPLICATION_STATUS_ENDPOINT =
-    '/api/v1/environments/:envKey/applications/:appKey/status';
+    "/api/v1/environments/:envKey/applications/:appKey/status";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -33,9 +33,9 @@ export class ApplicationsApi {
     template: string,
     params: { envKey: string; appKey?: string },
   ): string {
-    let path = template.replace(':envKey', params.envKey);
+    let path = template.replace(":envKey", params.envKey);
     if (params.appKey !== undefined) {
-      path = path.replace(':appKey', params.appKey);
+      path = path.replace(":appKey", params.appKey);
     }
     return path;
   }
@@ -54,14 +54,13 @@ export class ApplicationsApi {
     body: UpdateSelfStatusRequest,
     authStrategy?: AuthStrategy,
   ): Promise<UpdateSelfStatusResponse> {
-    const path = this.buildPath(
-      ApplicationsApi.SELF_STATUS_ENDPOINT,
-      { envKey },
-    );
+    const path = this.buildPath(ApplicationsApi.SELF_STATUS_ENDPOINT, {
+      envKey,
+    });
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<UpdateSelfStatusResponse>(
-          'POST',
+          "POST",
           path,
           authStrategy.bearerToken,
           body,
@@ -71,23 +70,23 @@ export class ApplicationsApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<UpdateSelfStatusResponse>(
-          'POST',
+          "POST",
           path,
           authStrategy,
           body,
         );
       }
       return await this.httpClient.request<UpdateSelfStatusResponse>(
-        'POST',
+        "POST",
         path,
         body,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: path,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[ApplicationsApi]');
+      logErrorWithContext(errorInfo, "[ApplicationsApi]");
       throw error;
     }
   }
@@ -106,14 +105,14 @@ export class ApplicationsApi {
     appKey: string,
     authStrategy?: AuthStrategy,
   ): Promise<ApplicationStatusResponse> {
-    const path = this.buildPath(
-      ApplicationsApi.APPLICATION_STATUS_ENDPOINT,
-      { envKey, appKey },
-    );
+    const path = this.buildPath(ApplicationsApi.APPLICATION_STATUS_ENDPOINT, {
+      envKey,
+      appKey,
+    });
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<ApplicationStatusResponse>(
-          'GET',
+          "GET",
           path,
           authStrategy.bearerToken,
           undefined,
@@ -123,21 +122,21 @@ export class ApplicationsApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<ApplicationStatusResponse>(
-          'GET',
+          "GET",
           path,
           authStrategy,
         );
       }
       return await this.httpClient.request<ApplicationStatusResponse>(
-        'GET',
+        "GET",
         path,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: path,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[ApplicationsApi]');
+      logErrorWithContext(errorInfo, "[ApplicationsApi]");
       throw error;
     }
   }

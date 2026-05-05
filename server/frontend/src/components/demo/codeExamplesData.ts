@@ -1,6 +1,6 @@
 /**
  * Code examples data for CodeExamplesPage
- * 
+ *
  * Contains all code examples organized by category
  */
 export const codeExamples = {
@@ -557,4 +557,3 @@ console.log('Average response time:', metrics.averageResponseTime);
 console.log('Cache hit rate:', metrics.cacheHitRate);`,
   },
 };
-

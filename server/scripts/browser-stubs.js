@@ -13,4 +13,3 @@ export const MisoClient = class {
     return Promise.resolve();
   }
 };
-

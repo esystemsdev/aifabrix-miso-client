@@ -3,7 +3,7 @@
  * Shows how to use loadConfig() for automatic .env loading
  */
 // For development: import from '../src/index'
-import { MisoClient, loadConfig, getLogger } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, getLogger } from "@aifabrix/miso-client";
 
 async function envConfigExample() {
   // Auto-load from .env file - that's it!
@@ -11,27 +11,27 @@ async function envConfigExample() {
 
   try {
     await client.initialize();
-    console.log('✅ Client initialized from .env');
+    console.log("✅ Client initialized from .env");
 
-    const token = 'your-jwt-token';
+    const token = "your-jwt-token";
     const isValid = await client.validateToken(token);
-    
+
     if (isValid) {
       const user = await client.getUser(token);
       const roles = await client.getRoles(token);
-      console.log('👤 User:', user);
-      console.log('🔑 Roles:', roles);
-      
+      console.log("👤 User:", user);
+      console.log("🔑 Roles:", roles);
+
       // Get logger instance - context is automatically extracted
       const logger = getLogger();
-      
+
       // Log with unified interface (no context object needed - auto-extracted)
-      await logger.info('User accessed app');
+      await logger.info("User accessed app");
 
       // For non-Express usage, attach context via LoggerChain
       await client.log
         .withContext({ userId: user?.id })
-        .info('User accessed app');
+        .info("User accessed app");
     }
   } finally {
     await client.disconnect();
@@ -39,4 +39,3 @@ async function envConfigExample() {
 }
 
 envConfigExample().catch(console.error);
-

@@ -12,7 +12,8 @@ import jwt from "jsonwebtoken";
 export function isBrowser(): boolean {
   return (
     typeof (globalThis as { window?: unknown }).window !== "undefined" &&
-    typeof (globalThis as { localStorage?: unknown }).localStorage !== "undefined" &&
+    typeof (globalThis as { localStorage?: unknown }).localStorage !==
+      "undefined" &&
     typeof (globalThis as { fetch?: unknown }).fetch !== "undefined"
   );
 }
@@ -23,7 +24,11 @@ export function isBrowser(): boolean {
 export function getLocalStorage(key: string): string | null {
   if (!isBrowser()) return null;
   try {
-    return (globalThis as unknown as { localStorage: { getItem: (key: string) => string | null } }).localStorage.getItem(key);
+    return (
+      globalThis as unknown as {
+        localStorage: { getItem: (key: string) => string | null };
+      }
+    ).localStorage.getItem(key);
   } catch {
     return null;
   }
@@ -35,7 +40,11 @@ export function getLocalStorage(key: string): string | null {
 export function setLocalStorage(key: string, value: string): void {
   if (!isBrowser()) return;
   try {
-    (globalThis as unknown as { localStorage: { setItem: (key: string, value: string) => void } }).localStorage.setItem(key, value);
+    (
+      globalThis as unknown as {
+        localStorage: { setItem: (key: string, value: string) => void };
+      }
+    ).localStorage.setItem(key, value);
   } catch {
     // Ignore localStorage errors (SSR, private browsing, etc.)
   }
@@ -47,7 +56,11 @@ export function setLocalStorage(key: string, value: string): void {
 export function removeLocalStorage(key: string): void {
   if (!isBrowser()) return;
   try {
-    (globalThis as unknown as { localStorage: { removeItem: (key: string) => void } }).localStorage.removeItem(key);
+    (
+      globalThis as unknown as {
+        localStorage: { removeItem: (key: string) => void };
+      }
+    ).localStorage.removeItem(key);
   } catch {
     // Ignore localStorage errors (SSR, private browsing, etc.)
   }
@@ -72,7 +85,10 @@ export function extractUserIdFromToken(token: string): string | null {
 /**
  * Calculate cache key from endpoint and options
  */
-export function generateCacheKey(endpoint: string, options?: ApiRequestOptions): string {
+export function generateCacheKey(
+  endpoint: string,
+  options?: ApiRequestOptions,
+): string {
   const method = options?.method || "GET";
   const body = options?.body ? JSON.stringify(options.body) : "";
   return `data-client:${method}:${endpoint}:${body}`;
@@ -130,4 +146,3 @@ export function calculateBackoffDelay(
   const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
   return delay + Math.random() * 1000; // Add jitter
 }
-

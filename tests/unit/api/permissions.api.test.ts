@@ -2,20 +2,20 @@
  * Unit tests for PermissionsApi
  */
 
-import { PermissionsApi } from '../../../src/api/permissions.api';
-import { HttpClient } from '../../../src/utils/http-client';
-import { AuthStrategy } from '../../../src/types/config.types';
+import { PermissionsApi } from "../../../src/api/permissions.api";
+import { HttpClient } from "../../../src/utils/http-client";
+import { AuthStrategy } from "../../../src/types/config.types";
 import {
   GetPermissionsQueryParams,
   GetPermissionsResponse,
   RefreshPermissionsResponse,
-} from '../../../src/api/types/permissions.types';
+} from "../../../src/api/types/permissions.types";
 
 // Mock HttpClient
-jest.mock('../../../src/utils/http-client');
+jest.mock("../../../src/utils/http-client");
 const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 
-describe('PermissionsApi', () => {
+describe("PermissionsApi", () => {
   let permissionsApi: PermissionsApi;
   let mockHttpClient: jest.Mocked<HttpClient>;
   const originalConsoleError = console.error;
@@ -36,20 +36,20 @@ describe('PermissionsApi', () => {
     console.error = originalConsoleError;
   });
 
-  describe('getPermissions', () => {
-    it('should call HttpClient.authenticatedRequest with correct parameters', async () => {
+  describe("getPermissions", () => {
+    it("should call HttpClient.authenticatedRequest with correct parameters", async () => {
       const params: GetPermissionsQueryParams = {
-        environment: 'dev',
-        application: 'test-app',
+        environment: "dev",
+        application: "test-app",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: GetPermissionsResponse = {
         success: true,
         data: {
-          permissions: ['read', 'write'],
+          permissions: ["read", "write"],
         },
         timestamp: new Date().toISOString(),
       };
@@ -59,8 +59,8 @@ describe('PermissionsApi', () => {
       const result = await permissionsApi.getPermissions(params, authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/permissions',
+        "GET",
+        "/api/v1/auth/permissions",
         authStrategy.bearerToken,
         undefined,
         { params },
@@ -69,17 +69,17 @@ describe('PermissionsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle requestWithAuthStrategy when no bearerToken', async () => {
+    it("should handle requestWithAuthStrategy when no bearerToken", async () => {
       const params: GetPermissionsQueryParams = {
-        environment: 'dev',
+        environment: "dev",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: GetPermissionsResponse = {
         success: true,
         data: {
-          permissions: ['read'],
+          permissions: ["read"],
         },
         timestamp: new Date().toISOString(),
       };
@@ -89,8 +89,8 @@ describe('PermissionsApi', () => {
       const result = await permissionsApi.getPermissions(params, authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/permissions',
+        "GET",
+        "/api/v1/auth/permissions",
         authStrategy,
         undefined,
         { params },
@@ -98,50 +98,55 @@ describe('PermissionsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should throw error if no authStrategy provided', async () => {
+    it("should throw error if no authStrategy provided", async () => {
       await expect(permissionsApi.getPermissions()).rejects.toThrow(
-        'getPermissions requires authentication - provide authStrategy with bearerToken',
+        "getPermissions requires authentication - provide authStrategy with bearerToken",
       );
     });
 
-    it('should handle errors', async () => {
+    it("should handle errors", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
-      const error = new Error('Network error');
+      const error = new Error("Network error");
 
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
-      await expect(permissionsApi.getPermissions(undefined, authStrategy)).rejects.toThrow('Network error');
+      await expect(
+        permissionsApi.getPermissions(undefined, authStrategy),
+      ).rejects.toThrow("Network error");
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[PermissionsApi]'),
-        expect.stringContaining('Network error'),
+        expect.stringContaining("[PermissionsApi]"),
+        expect.stringContaining("Network error"),
       );
     });
   });
 
-  describe('refreshPermissions', () => {
-    it('should call HttpClient.authenticatedRequest with correct parameters', async () => {
+  describe("refreshPermissions", () => {
+    it("should call HttpClient.authenticatedRequest with correct parameters", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: RefreshPermissionsResponse = {
         success: true,
         data: {
-          permissions: ['read', 'write', 'delete'],
+          permissions: ["read", "write", "delete"],
         },
         timestamp: new Date().toISOString(),
       };
 
       mockHttpClient.authenticatedRequest.mockResolvedValue(mockResponse);
 
-      const result = await permissionsApi.refreshPermissions(undefined, authStrategy);
+      const result = await permissionsApi.refreshPermissions(
+        undefined,
+        authStrategy,
+      );
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/permissions/refresh',
+        "GET",
+        "/api/v1/auth/permissions/refresh",
         authStrategy.bearerToken,
         undefined,
         { params: undefined },
@@ -150,11 +155,10 @@ describe('PermissionsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should throw error if no authStrategy provided', async () => {
+    it("should throw error if no authStrategy provided", async () => {
       await expect(permissionsApi.refreshPermissions()).rejects.toThrow(
-        'refreshPermissions requires authentication - provide authStrategy with bearerToken',
+        "refreshPermissions requires authentication - provide authStrategy with bearerToken",
       );
     });
   });
 });
-

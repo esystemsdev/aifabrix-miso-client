@@ -27,5 +27,3 @@ if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
 
 // ESM export
 export default catchAllStub;
-
-

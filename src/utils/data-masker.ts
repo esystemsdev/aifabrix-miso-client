@@ -175,10 +175,7 @@ export class DataMasker {
 
     const first = showFirst > 0 ? value.substring(0, showFirst) : "";
     const last = showLast > 0 ? value.substring(value.length - showLast) : "";
-    const maskedLength = Math.max(
-      8,
-      value.length - showFirst - showLast,
-    );
+    const maskedLength = Math.max(8, value.length - showFirst - showLast);
     const masked = "*".repeat(maskedLength);
 
     return `${first}${masked}${last}`;

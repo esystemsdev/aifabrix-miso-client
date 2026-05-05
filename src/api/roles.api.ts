@@ -3,16 +3,15 @@
  * Provides typed interfaces for roles-related controller API calls
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 import {
-
   GetRolesQueryParams,
   GetRolesResponse,
   RefreshRolesResponse,
-} from './types/roles.types';
+} from "./types/roles.types";
 
 /**
  * Roles API class
@@ -20,8 +19,8 @@ import {
  */
 export class RolesApi {
   // Centralize endpoint URLs as constants
-  private static readonly ROLES_ENDPOINT = '/api/v1/auth/roles';
-  private static readonly ROLES_REFRESH_ENDPOINT = '/api/v1/auth/roles/refresh';
+  private static readonly ROLES_ENDPOINT = "/api/v1/auth/roles";
+  private static readonly ROLES_REFRESH_ENDPOINT = "/api/v1/auth/roles/refresh";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -38,7 +37,7 @@ export class RolesApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<GetRolesResponse>(
-          'GET',
+          "GET",
           RolesApi.ROLES_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -48,20 +47,22 @@ export class RolesApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<GetRolesResponse>(
-          'GET',
+          "GET",
           RolesApi.ROLES_ENDPOINT,
           authStrategy,
           undefined,
           { params },
         );
       }
-      throw new Error('getRoles requires authentication - provide authStrategy with bearerToken');
+      throw new Error(
+        "getRoles requires authentication - provide authStrategy with bearerToken",
+      );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: RolesApi.ROLES_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[RolesApi]');
+      logErrorWithContext(errorInfo, "[RolesApi]");
       throw error;
     }
   }
@@ -79,7 +80,7 @@ export class RolesApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<RefreshRolesResponse>(
-          'GET',
+          "GET",
           RolesApi.ROLES_REFRESH_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -89,22 +90,23 @@ export class RolesApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<RefreshRolesResponse>(
-          'GET',
+          "GET",
           RolesApi.ROLES_REFRESH_ENDPOINT,
           authStrategy,
           undefined,
           { params },
         );
       }
-      throw new Error('refreshRoles requires authentication - provide authStrategy with bearerToken');
+      throw new Error(
+        "refreshRoles requires authentication - provide authStrategy with bearerToken",
+      );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: RolesApi.ROLES_REFRESH_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[RolesApi]');
+      logErrorWithContext(errorInfo, "[RolesApi]");
       throw error;
     }
   }
 }
-

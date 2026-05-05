@@ -9,7 +9,7 @@ import { useDataClient } from '../../hooks/useDataClient';
 
 /**
  * Caching page component for testing cache operations, interceptors, and retry logic
- * 
+ *
  * Provides UI for:
  * - Testing cache-enabled GET requests
  * - Testing cache-bypassed GET requests
@@ -55,7 +55,7 @@ export function CachingPage() {
         cache: { enabled: true, ttl: parseInt(cacheTTL, 10) },
       });
       const duration = Date.now() - startTime;
-      
+
       setResult({
         data,
         cached: duration < 100, // If response is very fast, likely cached
@@ -91,7 +91,7 @@ export function CachingPage() {
         cache: { enabled: false },
       });
       const duration = Date.now() - startTime;
-      
+
       setResult({
         data,
         cached: false,
@@ -210,7 +210,7 @@ export function CachingPage() {
         cache: { enabled: false },
       });
       const duration = Date.now() - startTime;
-      
+
       setResult({
         message: 'Request succeeded',
         duration: duration + 'ms',
@@ -273,7 +273,11 @@ export function CachingPage() {
                     placeholder="60000"
                   />
                 </div>
-                <Button onClick={testCacheEnabled} disabled={isDisabled} className="w-full bg-green-600 hover:bg-green-700">
+                <Button
+                  onClick={testCacheEnabled}
+                  disabled={isDisabled}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
                   <Database className="w-4 h-4 mr-2" />
                   GET with Cache
                 </Button>
@@ -293,7 +297,11 @@ export function CachingPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <Button onClick={testCacheDisabled} disabled={isDisabled} className="w-full bg-blue-600 hover:bg-blue-700">
+                <Button
+                  onClick={testCacheDisabled}
+                  disabled={isDisabled}
+                  className="w-full bg-blue-600 hover:bg-blue-700"
+                >
                   <RefreshCw className="w-4 h-4 mr-2" />
                   GET without Cache
                 </Button>
@@ -309,7 +317,12 @@ export function CachingPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Button onClick={testClearCache} disabled={isDisabled} variant="outline" className="border-orange-200 text-orange-700 hover:bg-orange-50">
+                <Button
+                  onClick={testClearCache}
+                  disabled={isDisabled}
+                  variant="outline"
+                  className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Clear All Cache
                 </Button>

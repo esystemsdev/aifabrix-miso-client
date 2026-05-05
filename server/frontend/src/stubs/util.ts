@@ -13,7 +13,7 @@ function inherits(ctor: ConstructorLike, superCtor: ConstructorLike): void {
   if (!superCtor) return;
 
   let superProto = superCtor.prototype;
-  if (!superProto || typeof superProto !== "object") {
+  if (!superProto || typeof superProto !== 'object') {
     superProto = Object.prototype;
   }
 
@@ -52,7 +52,7 @@ export default util;
 export { util, inherits };
 
 // CommonJS exports for compatibility
-if (typeof module !== "undefined" && typeof module.exports !== "undefined") {
+if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
   module.exports = {
     ...util,
     default: util,
@@ -61,7 +61,7 @@ if (typeof module !== "undefined" && typeof module.exports !== "undefined") {
 }
 
 // ESM-friendly named exports on CommonJS exports object
-if (typeof exports !== "undefined") {
+if (typeof exports !== 'undefined') {
   exports.default = util;
   exports.util = util;
   exports.inherits = inherits;

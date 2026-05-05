@@ -21,9 +21,9 @@ jest.mock("../../src/utils/controller-url-resolver", () => {
     // Simulate server environment - use private URL if available, else fallback to authServerUrl
     const resolved = config.authServerPrivateUrl || config.authServerUrl;
     // Convert localhost to 127.0.0.1 (matching actual implementation)
-    return resolved?.replace(/localhost/g, '127.0.0.1') || resolved;
+    return resolved?.replace(/localhost/g, "127.0.0.1") || resolved;
   });
-  
+
   return {
     resolveKeycloakUrl: mockResolveKeycloakUrl,
     isBrowser: jest.fn(() => false), // Mock as server environment
@@ -31,7 +31,9 @@ jest.mock("../../src/utils/controller-url-resolver", () => {
 });
 
 // Get the mocked function for test assertions
-const { resolveKeycloakUrl: mockResolveKeycloakUrl } = require("../../src/utils/controller-url-resolver");
+const {
+  resolveKeycloakUrl: mockResolveKeycloakUrl,
+} = require("../../src/utils/controller-url-resolver");
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jose = require("jose");
@@ -85,7 +87,9 @@ describe("TokenValidationService", () => {
         jose.decodeJwt.mockReturnValue({
           iss: "https://keycloak.example.com/realms/test-realm",
         });
-        jose.jwtVerify.mockRejectedValue(new Error('"exp" claim timestamp check failed'));
+        jose.jwtVerify.mockRejectedValue(
+          new Error('"exp" claim timestamp check failed'),
+        );
 
         const result = await service.validateTokenLocal(token);
 
@@ -100,7 +104,9 @@ describe("TokenValidationService", () => {
         jose.decodeJwt.mockReturnValue({
           iss: "https://keycloak.example.com/realms/test-realm",
         });
-        jose.jwtVerify.mockRejectedValue(new Error("signature verification failed"));
+        jose.jwtVerify.mockRejectedValue(
+          new Error("signature verification failed"),
+        );
 
         const result = await service.validateTokenLocal(token);
 
@@ -117,24 +123,31 @@ describe("TokenValidationService", () => {
           authServerPublicUrl: "https://keycloak-public.example.com",
           realm: "test-realm",
         };
-        const serviceWithPrivateUrl = new TokenValidationService(configWithPrivateUrl);
+        const serviceWithPrivateUrl = new TokenValidationService(
+          configWithPrivateUrl,
+        );
 
         jose.decodeJwt.mockReturnValue({
           iss: "https://keycloak-public.example.com/realms/test-realm",
         });
         jose.jwtVerify.mockResolvedValue({
-          payload: { sub: "user-123", iss: "https://keycloak-public.example.com/realms/test-realm" },
+          payload: {
+            sub: "user-123",
+            iss: "https://keycloak-public.example.com/realms/test-realm",
+          },
         });
 
         await serviceWithPrivateUrl.validateTokenLocal(token);
 
         // Verify resolveKeycloakUrl was called (which returns private URL)
-        expect(mockResolveKeycloakUrl).toHaveBeenCalledWith(configWithPrivateUrl);
+        expect(mockResolveKeycloakUrl).toHaveBeenCalledWith(
+          configWithPrivateUrl,
+        );
         // Verify JWKS URI uses private URL (as returned by resolveKeycloakUrl)
         expect(jose.createRemoteJWKSet).toHaveBeenCalledWith(
           expect.objectContaining({
             href: "http://keycloak-private:8080/realms/test-realm/protocol/openid-connect/certs",
-          })
+          }),
         );
       });
 
@@ -146,13 +159,18 @@ describe("TokenValidationService", () => {
           authServerPublicUrl: "https://keycloak-public.example.com",
           realm: "test-realm",
         };
-        const serviceWithPublicUrl = new TokenValidationService(configWithPublicUrl);
+        const serviceWithPublicUrl = new TokenValidationService(
+          configWithPublicUrl,
+        );
 
         jose.decodeJwt.mockReturnValue({
           iss: "https://keycloak-public.example.com/realms/test-realm",
         });
         jose.jwtVerify.mockResolvedValue({
-          payload: { sub: "user-123", iss: "https://keycloak-public.example.com/realms/test-realm" },
+          payload: {
+            sub: "user-123",
+            iss: "https://keycloak-public.example.com/realms/test-realm",
+          },
         });
 
         await serviceWithPublicUrl.validateTokenLocal(token);
@@ -163,7 +181,7 @@ describe("TokenValidationService", () => {
           expect.anything(),
           expect.objectContaining({
             issuer: "https://keycloak-public.example.com/realms/test-realm",
-          })
+          }),
         );
       });
 
@@ -174,13 +192,18 @@ describe("TokenValidationService", () => {
           authServerPrivateUrl: "http://keycloak-private:8080",
           realm: "test-realm",
         };
-        const serviceWithoutPublicUrl = new TokenValidationService(configWithoutPublicUrl);
+        const serviceWithoutPublicUrl = new TokenValidationService(
+          configWithoutPublicUrl,
+        );
 
         jose.decodeJwt.mockReturnValue({
           iss: "https://keycloak.example.com/realms/test-realm",
         });
         jose.jwtVerify.mockResolvedValue({
-          payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+          payload: {
+            sub: "user-123",
+            iss: "https://keycloak.example.com/realms/test-realm",
+          },
         });
 
         await serviceWithoutPublicUrl.validateTokenLocal(token);
@@ -191,7 +214,7 @@ describe("TokenValidationService", () => {
           expect.anything(),
           expect.objectContaining({
             issuer: "https://keycloak.example.com/realms/test-realm",
-          })
+          }),
         );
       });
 
@@ -201,16 +224,22 @@ describe("TokenValidationService", () => {
           authServerUrl: "https://keycloak.example.com",
           realm: "test-realm",
         };
-        const backwardCompatibleService = new TokenValidationService(backwardCompatibleConfig);
+        const backwardCompatibleService = new TokenValidationService(
+          backwardCompatibleConfig,
+        );
 
         jose.decodeJwt.mockReturnValue({
           iss: "https://keycloak.example.com/realms/test-realm",
         });
         jose.jwtVerify.mockResolvedValue({
-          payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+          payload: {
+            sub: "user-123",
+            iss: "https://keycloak.example.com/realms/test-realm",
+          },
         });
 
-        const result = await backwardCompatibleService.validateTokenLocal(token);
+        const result =
+          await backwardCompatibleService.validateTokenLocal(token);
 
         expect(result.valid).toBe(true);
         expect(result.tokenType).toBe("keycloak");
@@ -244,7 +273,10 @@ describe("TokenValidationService", () => {
           iss: "https://keycloak.example.com/realms/test-realm",
         });
         jose.jwtVerify.mockResolvedValue({
-          payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+          payload: {
+            sub: "user-123",
+            iss: "https://keycloak.example.com/realms/test-realm",
+          },
         });
 
         await serviceWithAudience.validateTokenLocal(token);
@@ -273,7 +305,10 @@ describe("TokenValidationService", () => {
           iss: "https://accounts.google.com",
         });
         jose.jwtVerify.mockResolvedValue({
-          payload: { sub: "google-user-123", iss: "https://accounts.google.com" },
+          payload: {
+            sub: "google-user-123",
+            iss: "https://accounts.google.com",
+          },
         });
 
         const result = await service.validateTokenLocal(token, {
@@ -291,21 +326,27 @@ describe("TokenValidationService", () => {
         const lookupFn = jest.fn().mockResolvedValue({
           key: "github",
           issuer: "https://token.actions.githubusercontent.com",
-          jwksUri: "https://token.actions.githubusercontent.com/.well-known/jwks",
+          jwksUri:
+            "https://token.actions.githubusercontent.com/.well-known/jwks",
         });
 
         jose.decodeJwt.mockReturnValue({
           iss: "https://token.actions.githubusercontent.com",
         });
         jose.jwtVerify.mockResolvedValue({
-          payload: { sub: "github-user-123", iss: "https://token.actions.githubusercontent.com" },
+          payload: {
+            sub: "github-user-123",
+            iss: "https://token.actions.githubusercontent.com",
+          },
         });
 
         const result = await service.validateTokenLocal(token, {
           delegatedProvider: lookupFn,
         });
 
-        expect(lookupFn).toHaveBeenCalledWith("https://token.actions.githubusercontent.com");
+        expect(lookupFn).toHaveBeenCalledWith(
+          "https://token.actions.githubusercontent.com",
+        );
         expect(result.valid).toBe(true);
         expect(result.tokenType).toBe("delegated");
         expect(result.providerKey).toBe("github");
@@ -379,7 +420,10 @@ describe("TokenValidationService", () => {
         iss: "https://keycloak.example.com/realms/test-realm",
       });
       jose.jwtVerify.mockResolvedValue({
-        payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+        payload: {
+          sub: "user-123",
+          iss: "https://keycloak.example.com/realms/test-realm",
+        },
       });
 
       // First call - should validate
@@ -403,7 +447,10 @@ describe("TokenValidationService", () => {
         iss: "https://keycloak.example.com/realms/test-realm",
       });
       jose.jwtVerify.mockResolvedValue({
-        payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+        payload: {
+          sub: "user-123",
+          iss: "https://keycloak.example.com/realms/test-realm",
+        },
       });
 
       // First call
@@ -425,7 +472,9 @@ describe("TokenValidationService", () => {
       jose.decodeJwt.mockReturnValue({
         iss: "https://keycloak.example.com/realms/test-realm",
       });
-      jose.jwtVerify.mockRejectedValue(new Error('"exp" claim timestamp check failed'));
+      jose.jwtVerify.mockRejectedValue(
+        new Error('"exp" claim timestamp check failed'),
+      );
 
       // First call
       const result1 = await service.validateTokenLocal(token);
@@ -446,10 +495,14 @@ describe("TokenValidationService", () => {
       });
 
       // First call - config error
-      await serviceWithoutConfig.validateTokenLocal(token, { tokenType: "keycloak" });
+      await serviceWithoutConfig.validateTokenLocal(token, {
+        tokenType: "keycloak",
+      });
 
       // Second call - should NOT be cached (config might be fixed)
-      const result2 = await serviceWithoutConfig.validateTokenLocal(token, { tokenType: "keycloak" });
+      const result2 = await serviceWithoutConfig.validateTokenLocal(token, {
+        tokenType: "keycloak",
+      });
       expect(result2.cached).toBeUndefined();
     });
 
@@ -460,7 +513,10 @@ describe("TokenValidationService", () => {
         iss: "https://keycloak.example.com/realms/test-realm",
       });
       jose.jwtVerify.mockResolvedValue({
-        payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+        payload: {
+          sub: "user-123",
+          iss: "https://keycloak.example.com/realms/test-realm",
+        },
       });
 
       // First call
@@ -484,7 +540,10 @@ describe("TokenValidationService", () => {
         iss: "https://keycloak.example.com/realms/test-realm",
       });
       jose.jwtVerify.mockResolvedValue({
-        payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+        payload: {
+          sub: "user-123",
+          iss: "https://keycloak.example.com/realms/test-realm",
+        },
       });
 
       // First call - should create JWKS
@@ -499,13 +558,17 @@ describe("TokenValidationService", () => {
 
     it("should clear specific JWKS URI", async () => {
       const token = "valid.token";
-      const jwksUri = "https://keycloak.example.com/realms/test-realm/protocol/openid-connect/certs";
+      const jwksUri =
+        "https://keycloak.example.com/realms/test-realm/protocol/openid-connect/certs";
 
       jose.decodeJwt.mockReturnValue({
         iss: "https://keycloak.example.com/realms/test-realm",
       });
       jose.jwtVerify.mockResolvedValue({
-        payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+        payload: {
+          sub: "user-123",
+          iss: "https://keycloak.example.com/realms/test-realm",
+        },
       });
 
       // First call
@@ -527,7 +590,10 @@ describe("TokenValidationService", () => {
         iss: "https://keycloak.example.com/realms/test-realm",
       });
       jose.jwtVerify.mockResolvedValue({
-        payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+        payload: {
+          sub: "user-123",
+          iss: "https://keycloak.example.com/realms/test-realm",
+        },
       });
 
       // First call
@@ -551,7 +617,10 @@ describe("TokenValidationService", () => {
         iss: "https://keycloak.example.com/realms/test-realm",
       });
       jose.jwtVerify.mockResolvedValue({
-        payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+        payload: {
+          sub: "user-123",
+          iss: "https://keycloak.example.com/realms/test-realm",
+        },
       });
 
       // First call - populates both caches
@@ -577,11 +646,16 @@ describe("TokenValidationService", () => {
         iss: "https://new-keycloak.example.com/realms/new-realm",
       });
       jose.jwtVerify.mockResolvedValue({
-        payload: { sub: "user-123", iss: "https://new-keycloak.example.com/realms/new-realm" },
+        payload: {
+          sub: "user-123",
+          iss: "https://new-keycloak.example.com/realms/new-realm",
+        },
       });
 
       // Initially no config - should fail for keycloak type
-      const result1 = await serviceWithoutConfig.validateTokenLocal(token, { tokenType: "keycloak" });
+      const result1 = await serviceWithoutConfig.validateTokenLocal(token, {
+        tokenType: "keycloak",
+      });
       expect(result1.valid).toBe(false);
       expect(result1.error).toBe("Keycloak not configured");
 
@@ -592,7 +666,9 @@ describe("TokenValidationService", () => {
       });
 
       // Now should work
-      const result2 = await serviceWithoutConfig.validateTokenLocal(token, { tokenType: "keycloak" });
+      const result2 = await serviceWithoutConfig.validateTokenLocal(token, {
+        tokenType: "keycloak",
+      });
       expect(result2.valid).toBe(true);
     });
   });
@@ -605,14 +681,19 @@ describe("TokenValidationService", () => {
         authServerPublicUrl: "https://keycloak-public.example.com",
         realm: "test-realm",
       };
-      const serviceWithPublicUrl = new TokenValidationService(configWithPublicUrl);
+      const serviceWithPublicUrl = new TokenValidationService(
+        configWithPublicUrl,
+      );
 
       // Token has public URL in issuer
       jose.decodeJwt.mockReturnValue({
         iss: "https://keycloak-public.example.com/realms/test-realm",
       });
       jose.jwtVerify.mockResolvedValue({
-        payload: { sub: "user-123", iss: "https://keycloak-public.example.com/realms/test-realm" },
+        payload: {
+          sub: "user-123",
+          iss: "https://keycloak-public.example.com/realms/test-realm",
+        },
       });
 
       const result = await serviceWithPublicUrl.validateTokenLocal(token);
@@ -627,7 +708,10 @@ describe("TokenValidationService", () => {
         iss: "https://keycloak.example.com/realms/test-realm",
       });
       jose.jwtVerify.mockResolvedValue({
-        payload: { sub: "user-123", iss: "https://keycloak.example.com/realms/test-realm" },
+        payload: {
+          sub: "user-123",
+          iss: "https://keycloak.example.com/realms/test-realm",
+        },
       });
 
       const result = await service.validateTokenLocal(token);
@@ -663,4 +747,3 @@ describe("TokenValidationService", () => {
     });
   });
 });
-

@@ -26,17 +26,30 @@ export interface ApiError extends Error {
 
 /** HTTP status to error type URI mapping */
 const ERROR_TYPE_MAP: Record<number, string> = {
-  400: "/Errors/BadRequest", 401: "/Errors/Unauthorized", 403: "/Errors/Forbidden",
-  404: "/Errors/NotFound", 405: "/Errors/MethodNotAllowed", 409: "/Errors/Conflict",
-  422: "/Errors/UnprocessableEntity", 429: "/Errors/TooManyRequests",
-  500: "/Errors/InternalServerError", 503: "/Errors/ServiceUnavailable",
+  400: "/Errors/BadRequest",
+  401: "/Errors/Unauthorized",
+  403: "/Errors/Forbidden",
+  404: "/Errors/NotFound",
+  405: "/Errors/MethodNotAllowed",
+  409: "/Errors/Conflict",
+  422: "/Errors/UnprocessableEntity",
+  429: "/Errors/TooManyRequests",
+  500: "/Errors/InternalServerError",
+  503: "/Errors/ServiceUnavailable",
 };
 
 /** HTTP status to title mapping */
 const ERROR_TITLE_MAP: Record<number, string> = {
-  400: "Bad Request", 401: "Unauthorized", 403: "Forbidden", 404: "Not Found",
-  405: "Method Not Allowed", 409: "Conflict", 422: "Unprocessable Entity",
-  429: "Too Many Requests", 500: "Internal Server Error", 503: "Service Unavailable",
+  400: "Bad Request",
+  401: "Unauthorized",
+  403: "Forbidden",
+  404: "Not Found",
+  405: "Method Not Allowed",
+  409: "Conflict",
+  422: "Unprocessable Entity",
+  429: "Too Many Requests",
+  500: "Internal Server Error",
+  503: "Service Unavailable",
 };
 
 /** Optional AppError constructor options (reduces param count for max-params rule) */
@@ -47,7 +60,9 @@ export interface AppErrorOptions {
   correlationId?: string;
 }
 
-function normalizeAppErrorOptions(opts?: AppErrorOptions | ValidationError[]): AppErrorOptions {
+function normalizeAppErrorOptions(
+  opts?: AppErrorOptions | ValidationError[],
+): AppErrorOptions {
   if (!opts) return {};
   return Array.isArray(opts) ? { validationErrors: opts } : opts;
 }
@@ -79,17 +94,28 @@ export class AppError extends Error implements ApiError {
 
   /** Convert AppError to RFC 7807 ErrorResponse format */
   toErrorResponse(requestUrl?: string): {
-    type: string; title: string; status: number; detail: string;
-    instance?: string; correlationId?: string; errors?: ValidationError[];
+    type: string;
+    title: string;
+    status: number;
+    detail: string;
+    instance?: string;
+    correlationId?: string;
+    errors?: ValidationError[];
   } {
     return {
-      type: this.errorType || ERROR_TYPE_MAP[this.statusCode] || "/Errors/InternalServerError",
+      type:
+        this.errorType ||
+        ERROR_TYPE_MAP[this.statusCode] ||
+        "/Errors/InternalServerError",
       title: ERROR_TITLE_MAP[this.statusCode] || "Internal Server Error",
       status: this.statusCode,
       detail: this.message,
       instance: this.instance || requestUrl,
       correlationId: this.correlationId,
-      errors: this.validationErrors && this.validationErrors.length > 0 ? this.validationErrors : undefined,
+      errors:
+        this.validationErrors && this.validationErrors.length > 0
+          ? this.validationErrors
+          : undefined,
     };
   }
 }

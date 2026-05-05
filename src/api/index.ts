@@ -4,13 +4,13 @@
  * Wraps HttpClient internally and organizes APIs by domain
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthApi } from './auth.api';
-import { RolesApi } from './roles.api';
-import { PermissionsApi } from './permissions.api';
-import { LogsApi } from './logs.api';
-import { EncryptionApi } from './encryption.api';
-import { ApplicationsApi } from './applications.api';
+import { HttpClient } from "../utils/http-client";
+import { AuthApi } from "./auth.api";
+import { RolesApi } from "./roles.api";
+import { PermissionsApi } from "./permissions.api";
+import { LogsApi } from "./logs.api";
+import { EncryptionApi } from "./encryption.api";
+import { ApplicationsApi } from "./applications.api";
 
 /**
  * API Client class
@@ -61,4 +61,3 @@ export class ApiClient {
     this.applications = new ApplicationsApi(httpClient);
   }
 }
-

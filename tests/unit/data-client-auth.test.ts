@@ -46,7 +46,9 @@ describe("handleOAuthCallback", () => {
         delete mockLocalStorage[key];
       }),
       clear: jest.fn(() => {
-        Object.keys(mockLocalStorage).forEach((key) => delete mockLocalStorage[key]);
+        Object.keys(mockLocalStorage).forEach(
+          (key) => delete mockLocalStorage[key],
+        );
       }),
     };
 
@@ -83,12 +85,15 @@ describe("handleOAuthCallback", () => {
   const createValidJWT = (): string => {
     // Create a valid JWT format token (3 parts separated by dots)
     const header = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9";
-    const payload = "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ";
+    const payload =
+      "eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ";
     const signature = "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
     return `${header}.${payload}.${signature}`;
   };
 
-  const createConfig = (overrides?: Partial<DataClientConfig>): DataClientConfig => {
+  const createConfig = (
+    overrides?: Partial<DataClientConfig>,
+  ): DataClientConfig => {
     const defaultMisoConfig = {
       clientId: "test-client-id",
       controllerUrl: "https://controller.example.com",
@@ -223,7 +228,9 @@ describe("handleOAuthCallback", () => {
       expect(result).toBeNull();
       expect(mockLocalStorage["token"]).toBeUndefined();
       expect(mockWriteErr).toHaveBeenCalledWith(
-        expect.stringContaining("[handleOAuthCallback] Invalid token format - token rejected"),
+        expect.stringContaining(
+          "[handleOAuthCallback] Invalid token format - token rejected",
+        ),
       );
       expect(mockWriteErr).toHaveBeenCalledWith(
         expect.stringMatching(/tokenLength|tooShort/),
@@ -272,7 +279,6 @@ describe("handleOAuthCallback", () => {
       );
     });
 
-
     it("should clean up hash even if token is invalid", () => {
       mockWindow.location.hash = "#token=invalid";
       mockWindow.location.pathname = "/";
@@ -280,7 +286,11 @@ describe("handleOAuthCallback", () => {
 
       handleOAuthCallback(createConfig());
 
-      expect(mockWindow.history.replaceState).toHaveBeenCalledWith(null, "", "/");
+      expect(mockWindow.history.replaceState).toHaveBeenCalledWith(
+        null,
+        "",
+        "/",
+      );
     });
 
     it("should handle cleanup errors gracefully", () => {
@@ -295,7 +305,9 @@ describe("handleOAuthCallback", () => {
       // Should still return token even if cleanup fails
       expect(result).toBe(token);
       expect(mockWriteWarn).toHaveBeenCalledWith(
-        expect.stringContaining("[handleOAuthCallback] Failed to clean up hash:"),
+        expect.stringContaining(
+          "[handleOAuthCallback] Failed to clean up hash:",
+        ),
       );
     });
   });
@@ -331,13 +343,16 @@ describe("handleOAuthCallback", () => {
       const token = createValidJWT();
       mockWindow.location.hash = `#token=${token}`;
       // Mock setLocalStorage to throw for one key
-      const originalSetLocalStorage = require("../../src/utils/data-client-utils").setLocalStorage;
-      jest.spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage").mockImplementation(((key: string, value: string) => {
-        if (key === "accessToken") {
-          throw new Error("Storage quota exceeded");
-        }
-        mockLocalStorage[key] = value;
-      }) as any);
+      const originalSetLocalStorage =
+        require("../../src/utils/data-client-utils").setLocalStorage;
+      jest
+        .spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage")
+        .mockImplementation(((key: string, value: string) => {
+          if (key === "accessToken") {
+            throw new Error("Storage quota exceeded");
+          }
+          mockLocalStorage[key] = value;
+        }) as any);
 
       const result = handleOAuthCallback(createConfig());
 
@@ -345,7 +360,9 @@ describe("handleOAuthCallback", () => {
       expect(mockLocalStorage["token"]).toBe(token);
       expect(mockLocalStorage["accessToken"]).toBeUndefined();
       expect(mockWriteWarn).toHaveBeenCalledWith(
-        expect.stringContaining("[handleOAuthCallback] Failed to store token in key accessToken:"),
+        expect.stringContaining(
+          "[handleOAuthCallback] Failed to store token in key accessToken:",
+        ),
       );
 
       // Restore original implementation
@@ -356,7 +373,9 @@ describe("handleOAuthCallback", () => {
       const token = createValidJWT();
       mockWindow.location.hash = `#token=${token}`;
       // Mock isBrowser to return false
-      jest.spyOn(require("../../src/utils/data-client-utils"), "isBrowser").mockReturnValue(false);
+      jest
+        .spyOn(require("../../src/utils/data-client-utils"), "isBrowser")
+        .mockReturnValue(false);
 
       const result = handleOAuthCallback(createConfig());
 
@@ -513,21 +532,25 @@ describe("handleOAuthCallback", () => {
       mockWindow.location.hash = `#token=${token}`;
       // Mock setLocalStorage to throw only for some keys, not all
       let callCount = 0;
-      jest.spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage").mockImplementation(((key: string, value: string) => {
-        callCount++;
-        if (callCount === 2) {
-          // Throw error on second call (accessToken)
-          throw new Error("Storage error");
-        }
-        mockLocalStorage[key] = value;
-      }) as any);
+      jest
+        .spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage")
+        .mockImplementation(((key: string, value: string) => {
+          callCount++;
+          if (callCount === 2) {
+            // Throw error on second call (accessToken)
+            throw new Error("Storage error");
+          }
+          mockLocalStorage[key] = value;
+        }) as any);
 
       const result = handleOAuthCallback(createConfig());
 
       // Should still return token even if some storage operations fail
       expect(result).toBe(token);
       expect(mockWriteWarn).toHaveBeenCalledWith(
-        expect.stringContaining("[handleOAuthCallback] Failed to store token in key accessToken:"),
+        expect.stringContaining(
+          "[handleOAuthCallback] Failed to store token in key accessToken:",
+        ),
       );
       // Verify error message doesn't contain token
       const warnCall = mockWriteWarn.mock.calls.find((call) =>
@@ -544,9 +567,11 @@ describe("handleOAuthCallback", () => {
       const token = createValidJWT();
       mockWindow.location.hash = `#token=${token}`;
       // Mock setLocalStorage to throw for all keys
-      jest.spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage").mockImplementation(() => {
-        throw new Error("Storage completely unavailable");
-      });
+      jest
+        .spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage")
+        .mockImplementation(() => {
+          throw new Error("Storage completely unavailable");
+        });
 
       const result = handleOAuthCallback(createConfig());
 
@@ -612,7 +637,9 @@ describe("handleOAuthCallback", () => {
       handleOAuthCallback(config);
 
       expect(mockWriteWarn).toHaveBeenCalledWith(
-        expect.stringContaining("[handleOAuthCallback] OAuth token extracted and stored securely"),
+        expect.stringContaining(
+          "[handleOAuthCallback] OAuth token extracted and stored securely",
+        ),
       );
       expect(mockWriteWarn).toHaveBeenCalledWith(
         expect.stringMatching(/tokenLength|tokenKeys|storedInKeys/),
@@ -631,7 +658,9 @@ describe("handleOAuthCallback", () => {
       handleOAuthCallback(config);
 
       expect(mockWriteWarn).not.toHaveBeenCalledWith(
-        expect.stringContaining("[handleOAuthCallback] OAuth token extracted and stored securely"),
+        expect.stringContaining(
+          "[handleOAuthCallback] OAuth token extracted and stored securely",
+        ),
       );
     });
   });
@@ -649,7 +678,11 @@ describe("handleOAuthCallback", () => {
       expect(mockLocalStorage["token"]).toBe(token);
       expect(mockLocalStorage["accessToken"]).toBe(token);
       expect(mockLocalStorage["authToken"]).toBe(token);
-      expect(mockWindow.history.replaceState).toHaveBeenCalledWith(null, "", "/dashboard");
+      expect(mockWindow.history.replaceState).toHaveBeenCalledWith(
+        null,
+        "",
+        "/dashboard",
+      );
     });
 
     it("should handle multiple hash parameters", () => {
@@ -663,4 +696,3 @@ describe("handleOAuthCallback", () => {
     });
   });
 });
-

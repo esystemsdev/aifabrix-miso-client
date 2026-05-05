@@ -23,18 +23,28 @@ function generateServerCorrelationId(): string {
 }
 
 /** Build logger context from request and JWT data */
-function buildLoggerContext(req: Request): Parameters<typeof setLoggerContext>[0] {
+function buildLoggerContext(
+  req: Request,
+): Parameters<typeof setLoggerContext>[0] {
   const requestContext = extractRequestContext(req);
   const token = req.headers.authorization?.replace("Bearer ", "");
   const jwtContext = token ? extractJwtContext(token) : {};
-  const correlationId = requestContext.correlationId || generateServerCorrelationId();
+  const correlationId =
+    requestContext.correlationId || generateServerCorrelationId();
 
   return {
-    ipAddress: requestContext.ipAddress, method: requestContext.method, path: requestContext.path,
-    userId: requestContext.userId || jwtContext.userId, sessionId: requestContext.sessionId || jwtContext.sessionId,
-    applicationId: jwtContext.applicationId, userAgent: requestContext.userAgent,
-    referer: requestContext.referer, requestSize: requestContext.requestSize,
-    correlationId, requestId: requestContext.requestId, token,
+    ipAddress: requestContext.ipAddress,
+    method: requestContext.method,
+    path: requestContext.path,
+    userId: requestContext.userId || jwtContext.userId,
+    sessionId: requestContext.sessionId || jwtContext.sessionId,
+    applicationId: jwtContext.applicationId,
+    userAgent: requestContext.userAgent,
+    referer: requestContext.referer,
+    requestSize: requestContext.requestSize,
+    correlationId,
+    requestId: requestContext.requestId,
+    token,
   };
 }
 
@@ -58,7 +68,15 @@ function buildLoggerContext(req: Request): Parameters<typeof setLoggerContext>[0
  * @param res - Express response object.
  * @param next - Express next function.
  */
-export function loggerContextMiddleware(req: Request, res: Response, next: NextFunction): void {
-  try { setLoggerContext(buildLoggerContext(req)); next(); }
-  catch { next(); } // Continue without context if extraction fails
+export function loggerContextMiddleware(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): void {
+  try {
+    setLoggerContext(buildLoggerContext(req));
+    next();
+  } catch {
+    next();
+  } // Continue without context if extraction fails
 }

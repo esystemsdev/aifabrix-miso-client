@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const bundleDir = path.join(__dirname, '../../public/assets');
-const files = fs.readdirSync(bundleDir).filter(f => f.endsWith('.js') && f.startsWith('index-'));
+const files = fs.readdirSync(bundleDir).filter((f) => f.endsWith('.js') && f.startsWith('index-'));
 
 if (files.length === 0) {
   console.error('❌ No bundle files found. Run: pnpm run build:frontend');
@@ -22,9 +22,10 @@ console.log('🔍 Verifying bundle:', files[0]);
 console.log('   Size:', (content.length / 1024).toFixed(2), 'KB\n');
 
 // Check if the bundle has our stub
-const hasStub = content.includes('listStub') || 
-                content.includes('ioredis-commands') ||
-                content.match(/@ioredis\/commands/);
+const hasStub =
+  content.includes('listStub') ||
+  content.includes('ioredis-commands') ||
+  content.match(/@ioredis\/commands/);
 
 if (!hasStub) {
   console.error('❌ Bundle does not contain @ioredis/commands stub');
@@ -67,4 +68,3 @@ if (foundImport) {
 
 console.log('\n✅ Bundle verification passed');
 console.log('   Ready for browser testing');
-

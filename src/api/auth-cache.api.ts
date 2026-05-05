@@ -3,8 +3,8 @@
  * Handles cache statistics and management
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
 import {
   CacheStatsResponse,
   CachePerformanceResponse,
@@ -12,9 +12,9 @@ import {
   ClearCacheResponse,
   InvalidateCacheRequest,
   InvalidateCacheResponse,
-} from './types/auth.types';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
+} from "./types/auth.types";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /**
  * Auth Cache API class
@@ -22,11 +22,14 @@ import { logErrorWithContext } from '../utils/console-logger';
  */
 export class AuthCacheApi {
   // Centralize endpoint URLs as constants
-  private static readonly CACHE_STATS_ENDPOINT = '/api/v1/auth/cache/stats';
-  private static readonly CACHE_PERFORMANCE_ENDPOINT = '/api/v1/auth/cache/performance';
-  private static readonly CACHE_EFFICIENCY_ENDPOINT = '/api/v1/auth/cache/efficiency';
-  private static readonly CACHE_CLEAR_ENDPOINT = '/api/v1/auth/cache/clear';
-  private static readonly CACHE_INVALIDATE_ENDPOINT = '/api/v1/auth/cache/invalidate';
+  private static readonly CACHE_STATS_ENDPOINT = "/api/v1/auth/cache/stats";
+  private static readonly CACHE_PERFORMANCE_ENDPOINT =
+    "/api/v1/auth/cache/performance";
+  private static readonly CACHE_EFFICIENCY_ENDPOINT =
+    "/api/v1/auth/cache/efficiency";
+  private static readonly CACHE_CLEAR_ENDPOINT = "/api/v1/auth/cache/clear";
+  private static readonly CACHE_INVALIDATE_ENDPOINT =
+    "/api/v1/auth/cache/invalidate";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -41,7 +44,7 @@ export class AuthCacheApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<CacheStatsResponse>(
-          'GET',
+          "GET",
           AuthCacheApi.CACHE_STATS_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -51,21 +54,21 @@ export class AuthCacheApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<CacheStatsResponse>(
-          'GET',
+          "GET",
           AuthCacheApi.CACHE_STATS_ENDPOINT,
           authStrategy,
         );
       }
       return await this.httpClient.request<CacheStatsResponse>(
-        'GET',
+        "GET",
         AuthCacheApi.CACHE_STATS_ENDPOINT,
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: AuthCacheApi.CACHE_STATS_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[AuthCacheApi]');
+      logErrorWithContext(errorInfo, "[AuthCacheApi]");
       throw error;
     }
   }
@@ -81,7 +84,7 @@ export class AuthCacheApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<CachePerformanceResponse>(
-          'GET',
+          "GET",
           AuthCacheApi.CACHE_PERFORMANCE_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -91,21 +94,21 @@ export class AuthCacheApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<CachePerformanceResponse>(
-          'GET',
+          "GET",
           AuthCacheApi.CACHE_PERFORMANCE_ENDPOINT,
           authStrategy,
         );
       }
       return await this.httpClient.request<CachePerformanceResponse>(
-        'GET',
+        "GET",
         AuthCacheApi.CACHE_PERFORMANCE_ENDPOINT,
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: AuthCacheApi.CACHE_PERFORMANCE_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[AuthCacheApi]');
+      logErrorWithContext(errorInfo, "[AuthCacheApi]");
       throw error;
     }
   }
@@ -121,7 +124,7 @@ export class AuthCacheApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<CacheEfficiencyResponse>(
-          'GET',
+          "GET",
           AuthCacheApi.CACHE_EFFICIENCY_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -131,21 +134,21 @@ export class AuthCacheApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<CacheEfficiencyResponse>(
-          'GET',
+          "GET",
           AuthCacheApi.CACHE_EFFICIENCY_ENDPOINT,
           authStrategy,
         );
       }
       return await this.httpClient.request<CacheEfficiencyResponse>(
-        'GET',
+        "GET",
         AuthCacheApi.CACHE_EFFICIENCY_ENDPOINT,
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: AuthCacheApi.CACHE_EFFICIENCY_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[AuthCacheApi]');
+      logErrorWithContext(errorInfo, "[AuthCacheApi]");
       throw error;
     }
   }
@@ -155,13 +158,11 @@ export class AuthCacheApi {
    * @param authStrategy - Optional authentication strategy override
    * @returns Clear cache response with success message
    */
-  async clearCache(
-    authStrategy?: AuthStrategy,
-  ): Promise<ClearCacheResponse> {
+  async clearCache(authStrategy?: AuthStrategy): Promise<ClearCacheResponse> {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<ClearCacheResponse>(
-          'POST',
+          "POST",
           AuthCacheApi.CACHE_CLEAR_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -171,21 +172,21 @@ export class AuthCacheApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<ClearCacheResponse>(
-          'POST',
+          "POST",
           AuthCacheApi.CACHE_CLEAR_ENDPOINT,
           authStrategy,
         );
       }
       return await this.httpClient.request<ClearCacheResponse>(
-        'POST',
+        "POST",
         AuthCacheApi.CACHE_CLEAR_ENDPOINT,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthCacheApi.CACHE_CLEAR_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthCacheApi]');
+      logErrorWithContext(errorInfo, "[AuthCacheApi]");
       throw error;
     }
   }
@@ -203,7 +204,7 @@ export class AuthCacheApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<InvalidateCacheResponse>(
-          'POST',
+          "POST",
           AuthCacheApi.CACHE_INVALIDATE_ENDPOINT,
           authStrategy.bearerToken,
           params,
@@ -213,25 +214,24 @@ export class AuthCacheApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<InvalidateCacheResponse>(
-          'POST',
+          "POST",
           AuthCacheApi.CACHE_INVALIDATE_ENDPOINT,
           authStrategy,
           params,
         );
       }
       return await this.httpClient.request<InvalidateCacheResponse>(
-        'POST',
+        "POST",
         AuthCacheApi.CACHE_INVALIDATE_ENDPOINT,
         params,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthCacheApi.CACHE_INVALIDATE_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthCacheApi]');
+      logErrorWithContext(errorInfo, "[AuthCacheApi]");
       throw error;
     }
   }
 }
-

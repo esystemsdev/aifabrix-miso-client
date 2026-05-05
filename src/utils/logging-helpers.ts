@@ -65,7 +65,8 @@ export function extractLoggingContext(options: {
     if (options.source.externalSystem) {
       context.externalSystemId = options.source.externalSystem.key;
       if (options.source.externalSystem.displayName !== undefined) {
-        context.externalSystemDisplayName = options.source.externalSystem.displayName;
+        context.externalSystemDisplayName =
+          options.source.externalSystem.displayName;
       }
     }
   }
@@ -88,4 +89,3 @@ export function extractLoggingContext(options: {
 
   return context;
 }
-

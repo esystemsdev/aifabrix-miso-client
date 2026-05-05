@@ -133,16 +133,18 @@ export const FilterErrorCode = {
 /**
  * Type for filter error codes.
  */
-export type FilterErrorCodeType = (typeof FilterErrorCode)[keyof typeof FilterErrorCode];
+export type FilterErrorCodeType =
+  (typeof FilterErrorCode)[keyof typeof FilterErrorCode];
 
 /**
  * Default operators allowed per field type.
  */
-export const DefaultOperatorsByType: Record<FilterFieldType, FilterOperator[]> = {
-  string: ["eq", "neq", "in", "nin", "contains", "like", "ilike"],
-  number: ["eq", "neq", "gt", "gte", "lt", "lte", "in", "nin"],
-  boolean: ["eq"],
-  uuid: ["eq", "in"],
-  timestamp: ["eq", "gt", "gte", "lt", "lte"],
-  enum: ["eq", "in"],
-};
+export const DefaultOperatorsByType: Record<FilterFieldType, FilterOperator[]> =
+  {
+    string: ["eq", "neq", "in", "nin", "contains", "like", "ilike"],
+    number: ["eq", "neq", "gt", "gte", "lt", "lte", "in", "nin"],
+    boolean: ["eq"],
+    uuid: ["eq", "in"],
+    timestamp: ["eq", "gt", "gte", "lt", "lte"],
+    enum: ["eq", "in"],
+  };

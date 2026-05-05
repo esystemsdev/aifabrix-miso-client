@@ -4,12 +4,12 @@
  * Composed from specialized sub-modules to keep file size manageable
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
-import { LogsCreateApi } from './logs-create.api';
-import { LogsListApi } from './logs-list.api';
-import { LogsStatsApi } from './logs-stats.api';
-import { LogsExportApi } from './logs-export.api';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
+import { LogsCreateApi } from "./logs-create.api";
+import { LogsListApi } from "./logs-list.api";
+import { LogsStatsApi } from "./logs-stats.api";
+import { LogsExportApi } from "./logs-export.api";
 import {
   CreateLogRequest,
   CreateLogResponse,
@@ -30,7 +30,7 @@ import {
   ApplicationStatsResponse,
   ExportLogsQueryParams,
   ExportLogsResponse,
-} from './types/logs.types';
+} from "./types/logs.types";
 
 /**
  * Logs API class

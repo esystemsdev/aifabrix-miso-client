@@ -2,7 +2,10 @@
  * Unit tests for browser JWT decoder utility
  */
 
-import { decodeJWT, extractUserIdFromToken } from "../../src/utils/browser-jwt-decoder";
+import {
+  decodeJWT,
+  extractUserIdFromToken,
+} from "../../src/utils/browser-jwt-decoder";
 
 describe("browser-jwt-decoder", () => {
   describe("decodeJWT", () => {
@@ -182,4 +185,3 @@ describe("browser-jwt-decoder", () => {
     });
   });
 });
-

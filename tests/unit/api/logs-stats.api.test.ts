@@ -2,9 +2,9 @@
  * Unit tests for LogsStatsApi
  */
 
-import { LogsStatsApi } from '../../../src/api/logs-stats.api';
-import { HttpClient } from '../../../src/utils/http-client';
-import { AuthStrategy } from '../../../src/types/config.types';
+import { LogsStatsApi } from "../../../src/api/logs-stats.api";
+import { HttpClient } from "../../../src/utils/http-client";
+import { AuthStrategy } from "../../../src/types/config.types";
 import {
   GetLogStatsQueryParams,
   LogStatsSummaryResponse,
@@ -13,13 +13,13 @@ import {
   UserActivityStatsQueryParams,
   UserActivityStatsResponse,
   ApplicationStatsResponse,
-} from '../../../src/api/types/logs.types';
+} from "../../../src/api/types/logs.types";
 
 // Mock HttpClient
-jest.mock('../../../src/utils/http-client');
+jest.mock("../../../src/utils/http-client");
 const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 
-describe('LogsStatsApi', () => {
+describe("LogsStatsApi", () => {
   let logsStatsApi: LogsStatsApi;
   let mockHttpClient: jest.Mocked<HttpClient>;
   const originalConsoleError = console.error;
@@ -41,8 +41,8 @@ describe('LogsStatsApi', () => {
     console.error = originalConsoleError;
   });
 
-  describe('getLogStatsSummary', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("getLogStatsSummary", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: LogStatsSummaryResponse = {
         success: true,
         data: {
@@ -54,10 +54,10 @@ describe('LogsStatsApi', () => {
             debug: 50,
           },
           byApplication: {
-            'my-app': 800,
-            'other-app': 200,
+            "my-app": 800,
+            "other-app": 200,
           },
-          environment: 'production',
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
@@ -67,18 +67,18 @@ describe('LogsStatsApi', () => {
       const result = await logsStatsApi.getLogStatsSummary();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/summary',
+        "GET",
+        "/api/v1/logs/stats/summary",
         undefined,
         { params: undefined },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.request with params', async () => {
+    it("should call HttpClient.request with params", async () => {
       const params: GetLogStatsQueryParams = {
-        environment: 'production',
-        applicationId: 'app-123',
+        environment: "production",
+        applicationId: "app-123",
       };
       const mockResponse: LogStatsSummaryResponse = {
         success: true,
@@ -91,9 +91,9 @@ describe('LogsStatsApi', () => {
             debug: 25,
           },
           byApplication: {
-            'my-app': 500,
+            "my-app": 500,
           },
-          environment: 'production',
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
@@ -103,23 +103,23 @@ describe('LogsStatsApi', () => {
       const result = await logsStatsApi.getLogStatsSummary(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/summary',
+        "GET",
+        "/api/v1/logs/stats/summary",
         undefined,
         { params },
       );
-      expect(params).toHaveProperty('applicationId', 'app-123');
-      expect(params).not.toHaveProperty('application');
+      expect(params).toHaveProperty("applicationId", "app-123");
+      expect(params).not.toHaveProperty("application");
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const params: GetLogStatsQueryParams = {
-        environment: 'staging',
+        environment: "staging",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: LogStatsSummaryResponse = {
         success: true,
@@ -132,18 +132,21 @@ describe('LogsStatsApi', () => {
             debug: 5,
           },
           byApplication: {},
-          environment: 'staging',
+          environment: "staging",
         },
         timestamp: new Date().toISOString(),
       };
 
       mockHttpClient.authenticatedRequest.mockResolvedValue(mockResponse);
 
-      const result = await logsStatsApi.getLogStatsSummary(params, authStrategy);
+      const result = await logsStatsApi.getLogStatsSummary(
+        params,
+        authStrategy,
+      );
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/summary',
+        "GET",
+        "/api/v1/logs/stats/summary",
         authStrategy.bearerToken,
         undefined,
         { params },
@@ -152,9 +155,9 @@ describe('LogsStatsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: LogStatsSummaryResponse = {
         success: true,
@@ -162,18 +165,21 @@ describe('LogsStatsApi', () => {
           totalLogs: 0,
           byLevel: {},
           byApplication: {},
-          environment: 'development',
+          environment: "development",
         },
         timestamp: new Date().toISOString(),
       };
 
       mockHttpClient.requestWithAuthStrategy.mockResolvedValue(mockResponse);
 
-      const result = await logsStatsApi.getLogStatsSummary(undefined, authStrategy);
+      const result = await logsStatsApi.getLogStatsSummary(
+        undefined,
+        authStrategy,
+      );
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/summary',
+        "GET",
+        "/api/v1/logs/stats/summary",
         authStrategy,
         undefined,
         { params: undefined },
@@ -181,31 +187,33 @@ describe('LogsStatsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Get log stats summary failed');
+    it("should handle errors", async () => {
+      const error = new Error("Get log stats summary failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(logsStatsApi.getLogStatsSummary()).rejects.toThrow('Get log stats summary failed');
+      await expect(logsStatsApi.getLogStatsSummary()).rejects.toThrow(
+        "Get log stats summary failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[LogsStatsApi]'),
-        expect.stringContaining('Get log stats summary'),
+        expect.stringContaining("[LogsStatsApi]"),
+        expect.stringContaining("Get log stats summary"),
       );
     });
   });
 
-  describe('getErrorStats', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("getErrorStats", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: ErrorStatsResponse = {
         success: true,
         data: {
           totalErrors: 50,
           topErrors: [
-            { message: 'Database connection failed', count: 20 },
-            { message: 'Invalid input', count: 15 },
-            { message: 'Timeout error', count: 15 },
+            { message: "Database connection failed", count: 20 },
+            { message: "Invalid input", count: 15 },
+            { message: "Timeout error", count: 15 },
           ],
-          environment: 'production',
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
@@ -215,27 +223,25 @@ describe('LogsStatsApi', () => {
       const result = await logsStatsApi.getErrorStats();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/errors',
+        "GET",
+        "/api/v1/logs/stats/errors",
         undefined,
         { params: undefined },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.request with params', async () => {
+    it("should call HttpClient.request with params", async () => {
       const params: ErrorStatsQueryParams = {
-        environment: 'production',
+        environment: "production",
         limit: 10,
       };
       const mockResponse: ErrorStatsResponse = {
         success: true,
         data: {
           totalErrors: 25,
-          topErrors: [
-            { message: 'Database connection failed', count: 10 },
-          ],
-          environment: 'production',
+          topErrors: [{ message: "Database connection failed", count: 10 }],
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
@@ -245,28 +251,28 @@ describe('LogsStatsApi', () => {
       const result = await logsStatsApi.getErrorStats(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/errors',
+        "GET",
+        "/api/v1/logs/stats/errors",
         undefined,
         { params },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const params: ErrorStatsQueryParams = {
-        applicationId: 'app-123',
+        applicationId: "app-123",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: ErrorStatsResponse = {
         success: true,
         data: {
           totalErrors: 10,
           topErrors: [],
-          environment: 'production',
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
@@ -276,8 +282,8 @@ describe('LogsStatsApi', () => {
       const result = await logsStatsApi.getErrorStats(params, authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/errors',
+        "GET",
+        "/api/v1/logs/stats/errors",
         authStrategy.bearerToken,
         undefined,
         { params },
@@ -286,16 +292,16 @@ describe('LogsStatsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: ErrorStatsResponse = {
         success: true,
         data: {
           totalErrors: 0,
           topErrors: [],
-          environment: 'development',
+          environment: "development",
         },
         timestamp: new Date().toISOString(),
       };
@@ -305,8 +311,8 @@ describe('LogsStatsApi', () => {
       const result = await logsStatsApi.getErrorStats(undefined, authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/errors',
+        "GET",
+        "/api/v1/logs/stats/errors",
         authStrategy,
         undefined,
         { params: undefined },
@@ -314,35 +320,37 @@ describe('LogsStatsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Get error stats failed');
+    it("should handle errors", async () => {
+      const error = new Error("Get error stats failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(logsStatsApi.getErrorStats()).rejects.toThrow('Get error stats failed');
+      await expect(logsStatsApi.getErrorStats()).rejects.toThrow(
+        "Get error stats failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[LogsStatsApi]'),
-        expect.stringContaining('Get error stats'),
+        expect.stringContaining("[LogsStatsApi]"),
+        expect.stringContaining("Get error stats"),
       );
     });
   });
 
-  describe('getUserActivityStats', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("getUserActivityStats", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: UserActivityStatsResponse = {
         success: true,
         data: {
           totalUsers: 100,
           topUsers: [
-            { userId: 'user-123', actionCount: 50 },
-            { userId: 'user-456', actionCount: 30 },
+            { userId: "user-123", actionCount: 50 },
+            { userId: "user-456", actionCount: 30 },
           ],
           byAction: {
             login: 80,
             logout: 60,
             update: 40,
           },
-          environment: 'production',
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
@@ -352,31 +360,29 @@ describe('LogsStatsApi', () => {
       const result = await logsStatsApi.getUserActivityStats();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/users',
+        "GET",
+        "/api/v1/logs/stats/users",
         undefined,
         { params: undefined },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.request with params', async () => {
+    it("should call HttpClient.request with params", async () => {
       const params: UserActivityStatsQueryParams = {
-        environment: 'production',
+        environment: "production",
         limit: 5,
       };
       const mockResponse: UserActivityStatsResponse = {
         success: true,
         data: {
           totalUsers: 50,
-          topUsers: [
-            { userId: 'user-123', actionCount: 25 },
-          ],
+          topUsers: [{ userId: "user-123", actionCount: 25 }],
           byAction: {
             login: 40,
             logout: 30,
           },
-          environment: 'production',
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
@@ -386,21 +392,21 @@ describe('LogsStatsApi', () => {
       const result = await logsStatsApi.getUserActivityStats(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/users',
+        "GET",
+        "/api/v1/logs/stats/users",
         undefined,
         { params },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const params: UserActivityStatsQueryParams = {
-        applicationId: 'app-123',
+        applicationId: "app-123",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: UserActivityStatsResponse = {
         success: true,
@@ -408,18 +414,21 @@ describe('LogsStatsApi', () => {
           totalUsers: 20,
           topUsers: [],
           byAction: {},
-          environment: 'production',
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
 
       mockHttpClient.authenticatedRequest.mockResolvedValue(mockResponse);
 
-      const result = await logsStatsApi.getUserActivityStats(params, authStrategy);
+      const result = await logsStatsApi.getUserActivityStats(
+        params,
+        authStrategy,
+      );
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/users',
+        "GET",
+        "/api/v1/logs/stats/users",
         authStrategy.bearerToken,
         undefined,
         { params },
@@ -428,9 +437,9 @@ describe('LogsStatsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: UserActivityStatsResponse = {
         success: true,
@@ -438,18 +447,21 @@ describe('LogsStatsApi', () => {
           totalUsers: 0,
           topUsers: [],
           byAction: {},
-          environment: 'development',
+          environment: "development",
         },
         timestamp: new Date().toISOString(),
       };
 
       mockHttpClient.requestWithAuthStrategy.mockResolvedValue(mockResponse);
 
-      const result = await logsStatsApi.getUserActivityStats(undefined, authStrategy);
+      const result = await logsStatsApi.getUserActivityStats(
+        undefined,
+        authStrategy,
+      );
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/users',
+        "GET",
+        "/api/v1/logs/stats/users",
         authStrategy,
         undefined,
         { params: undefined },
@@ -457,30 +469,32 @@ describe('LogsStatsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Get user activity stats failed');
+    it("should handle errors", async () => {
+      const error = new Error("Get user activity stats failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(logsStatsApi.getUserActivityStats()).rejects.toThrow('Get user activity stats failed');
+      await expect(logsStatsApi.getUserActivityStats()).rejects.toThrow(
+        "Get user activity stats failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[LogsStatsApi]'),
-        expect.stringContaining('Get user activity stats'),
+        expect.stringContaining("[LogsStatsApi]"),
+        expect.stringContaining("Get user activity stats"),
       );
     });
   });
 
-  describe('getApplicationStats', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("getApplicationStats", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: ApplicationStatsResponse = {
         success: true,
         data: {
           totalApplications: 5,
           applications: [
-            { application: 'my-app', logCount: 800 },
-            { application: 'other-app', logCount: 200 },
+            { application: "my-app", logCount: 800 },
+            { application: "other-app", logCount: 200 },
           ],
-          environment: 'production',
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
@@ -490,26 +504,24 @@ describe('LogsStatsApi', () => {
       const result = await logsStatsApi.getApplicationStats();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/applications',
+        "GET",
+        "/api/v1/logs/stats/applications",
         undefined,
         { params: undefined },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.request with params', async () => {
+    it("should call HttpClient.request with params", async () => {
       const params: GetLogStatsQueryParams = {
-        environment: 'production',
+        environment: "production",
       };
       const mockResponse: ApplicationStatsResponse = {
         success: true,
         data: {
           totalApplications: 3,
-          applications: [
-            { application: 'my-app', logCount: 500 },
-          ],
-          environment: 'production',
+          applications: [{ application: "my-app", logCount: 500 }],
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
@@ -519,41 +531,42 @@ describe('LogsStatsApi', () => {
       const result = await logsStatsApi.getApplicationStats(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/applications',
+        "GET",
+        "/api/v1/logs/stats/applications",
         undefined,
         { params },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const params: GetLogStatsQueryParams = {
-        applicationId: 'app-123',
+        applicationId: "app-123",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: ApplicationStatsResponse = {
         success: true,
         data: {
           totalApplications: 1,
-          applications: [
-            { application: 'my-app', logCount: 100 },
-          ],
-          environment: 'production',
+          applications: [{ application: "my-app", logCount: 100 }],
+          environment: "production",
         },
         timestamp: new Date().toISOString(),
       };
 
       mockHttpClient.authenticatedRequest.mockResolvedValue(mockResponse);
 
-      const result = await logsStatsApi.getApplicationStats(params, authStrategy);
+      const result = await logsStatsApi.getApplicationStats(
+        params,
+        authStrategy,
+      );
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/applications',
+        "GET",
+        "/api/v1/logs/stats/applications",
         authStrategy.bearerToken,
         undefined,
         { params },
@@ -562,27 +575,30 @@ describe('LogsStatsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: ApplicationStatsResponse = {
         success: true,
         data: {
           totalApplications: 0,
           applications: [],
-          environment: 'development',
+          environment: "development",
         },
         timestamp: new Date().toISOString(),
       };
 
       mockHttpClient.requestWithAuthStrategy.mockResolvedValue(mockResponse);
 
-      const result = await logsStatsApi.getApplicationStats(undefined, authStrategy);
+      const result = await logsStatsApi.getApplicationStats(
+        undefined,
+        authStrategy,
+      );
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/stats/applications',
+        "GET",
+        "/api/v1/logs/stats/applications",
         authStrategy,
         undefined,
         { params: undefined },
@@ -590,17 +606,18 @@ describe('LogsStatsApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Get application stats failed');
+    it("should handle errors", async () => {
+      const error = new Error("Get application stats failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(logsStatsApi.getApplicationStats()).rejects.toThrow('Get application stats failed');
+      await expect(logsStatsApi.getApplicationStats()).rejects.toThrow(
+        "Get application stats failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[LogsStatsApi]'),
-        expect.stringContaining('Get application stats'),
+        expect.stringContaining("[LogsStatsApi]"),
+        expect.stringContaining("Get application stats"),
       );
     });
   });
 });
-

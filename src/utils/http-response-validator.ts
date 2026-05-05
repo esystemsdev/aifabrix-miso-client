@@ -59,8 +59,15 @@ export function validateHttpResponse(
   if (config.validateResponses === false) return true;
 
   // Skip validation for validate token endpoint - it may return different formats
-  if (url.includes("/api/v1/auth/validate") || url.includes("/api/auth/validate")) {
-    if (data && typeof data === "object" && "data" in (data as Record<string, unknown>)) {
+  if (
+    url.includes("/api/v1/auth/validate") ||
+    url.includes("/api/auth/validate")
+  ) {
+    if (
+      data &&
+      typeof data === "object" &&
+      "data" in (data as Record<string, unknown>)
+    ) {
       return true;
     }
   }

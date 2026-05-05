@@ -15,7 +15,10 @@ import { DataMasker } from "./utils/data-masker";
 import { registerLoggerService } from "./services/logger/unified-logger.factory";
 import { AuthStrategyHandler } from "./utils/auth-strategy";
 import { MisoClientConfig, UserInfo, AuthStrategy } from "./types/config.types";
-import { validateOrigin as validateOriginUtil, OriginValidationResult } from "./utils/origin-validator";
+import {
+  validateOrigin as validateOriginUtil,
+  OriginValidationResult,
+} from "./utils/origin-validator";
 import { Request } from "express";
 import { TokenValidationService } from "./services/token-validation.service";
 import { EncryptionService } from "./services/encryption.service";
@@ -46,20 +49,37 @@ export class MisoClient {
 
   constructor(config: MisoClientConfig) {
     this.config = config;
-    if (config.sensitiveFieldsConfig) DataMasker.setConfigPath(config.sensitiveFieldsConfig);
+    if (config.sensitiveFieldsConfig)
+      DataMasker.setConfigPath(config.sensitiveFieldsConfig);
 
     const internalClient = new InternalHttpClient(config);
     this.redis = new RedisService(config.redis);
-    this.logger = new LoggerService(internalClient as unknown as HttpClient, this.redis);
+    this.logger = new LoggerService(
+      internalClient as unknown as HttpClient,
+      this.redis,
+    );
     this.httpClient = new HttpClient(config, this.logger);
-    (this.logger as unknown as { httpClient: HttpClient }).httpClient = this.httpClient;
+    (this.logger as unknown as { httpClient: HttpClient }).httpClient =
+      this.httpClient;
     this.apiClient = new ApiClient(this.httpClient);
     this.logger.setApiClient(this.apiClient);
     registerLoggerService(this.logger);
     this.cacheService = new CacheService(this.redis);
-    this.auth = new AuthService(this.httpClient, this.apiClient, this.cacheService);
-    this.roles = new RoleService(this.httpClient, this.apiClient, this.cacheService);
-    this.permissions = new PermissionService(this.httpClient, this.apiClient, this.cacheService);
+    this.auth = new AuthService(
+      this.httpClient,
+      this.apiClient,
+      this.cacheService,
+    );
+    this.roles = new RoleService(
+      this.httpClient,
+      this.apiClient,
+      this.cacheService,
+    );
+    this.permissions = new PermissionService(
+      this.httpClient,
+      this.apiClient,
+      this.cacheService,
+    );
     this.tokenValidation = new TokenValidationService(config.keycloak);
     this.encryptionService = new EncryptionService(
       this.apiClient,
@@ -91,42 +111,70 @@ export class MisoClient {
   getToken(req: { headers: { authorization?: string } }): string | null {
     const authHeader = req.headers.authorization;
     if (!authHeader) return null;
-    return authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
+    return authHeader.startsWith("Bearer ")
+      ? authHeader.substring(7)
+      : authHeader;
   }
 
-  validateOrigin(req: Request, allowedOrigins?: string[]): OriginValidationResult {
-    return validateOriginUtil(req, allowedOrigins ?? this.config.allowedOrigins);
+  validateOrigin(
+    req: Request,
+    allowedOrigins?: string[],
+  ): OriginValidationResult {
+    return validateOriginUtil(
+      req,
+      allowedOrigins ?? this.config.allowedOrigins,
+    );
   }
 
   async getEnvironmentToken(): Promise<string> {
     return this.auth.getEnvironmentToken();
   }
 
-  async login(params: { redirect: string; state?: string }): Promise<import("./types/config.types").LoginResponse> {
+  async login(params: {
+    redirect: string;
+    state?: string;
+  }): Promise<import("./types/config.types").LoginResponse> {
     return this.auth.login(params);
   }
 
-  async validateToken(token: string, authStrategy?: AuthStrategy): Promise<boolean> {
+  async validateToken(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     return this.auth.validateToken(token, authStrategy);
   }
 
-  async getUser(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null> {
+  async getUser(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<UserInfo | null> {
     return this.auth.getUser(token, authStrategy);
   }
 
-  async getUserInfo(token: string, authStrategy?: AuthStrategy): Promise<UserInfo | null> {
+  async getUserInfo(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<UserInfo | null> {
     return this.auth.getUserInfo(token, authStrategy);
   }
 
-  async isAuthenticated(token: string, authStrategy?: AuthStrategy): Promise<boolean> {
+  async isAuthenticated(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     return this.auth.isAuthenticated(token, authStrategy);
   }
 
-  async logout(params: { token: string }): Promise<import("./types/config.types").LogoutResponse> {
+  async logout(params: {
+    token: string;
+  }): Promise<import("./types/config.types").LogoutResponse> {
     return this.auth.logout(params);
   }
 
-  async refreshToken(refreshToken: string, authStrategy?: AuthStrategy): Promise<import("./types/config.types").RefreshTokenResponse | null> {
+  async refreshToken(
+    refreshToken: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<import("./types/config.types").RefreshTokenResponse | null> {
     return this.auth.refreshToken(refreshToken, authStrategy);
   }
 
@@ -144,7 +192,10 @@ export class MisoClient {
     return this.auth.exchangeUserToken(token, authStrategy);
   }
 
-  async validateTokenLocal(token: string, options?: TokenValidationOptions): Promise<TokenValidationResult> {
+  async validateTokenLocal(
+    token: string,
+    options?: TokenValidationOptions,
+  ): Promise<TokenValidationResult> {
     return this.tokenValidation.validateTokenLocal(token, options);
   }
 
@@ -164,47 +215,86 @@ export class MisoClient {
     this.tokenValidation.clearAllCaches();
   }
 
-  async getRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  async getRoles(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     return this.roles.getRoles(token, authStrategy);
   }
 
-  async hasRole(token: string, role: string, authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasRole(
+    token: string,
+    role: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     return this.roles.hasRole(token, role, authStrategy);
   }
 
-  async hasAnyRole(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasAnyRole(
+    token: string,
+    roles: string[],
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     return this.roles.hasAnyRole(token, roles, authStrategy);
   }
 
-  async hasAllRoles(token: string, roles: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasAllRoles(
+    token: string,
+    roles: string[],
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     return this.roles.hasAllRoles(token, roles, authStrategy);
   }
 
-  async refreshRoles(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  async refreshRoles(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     return this.roles.refreshRoles(token, authStrategy);
   }
 
-  async getPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  async getPermissions(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     return this.permissions.getPermissions(token, authStrategy);
   }
 
-  async hasPermission(token: string, permission: string, authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasPermission(
+    token: string,
+    permission: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     return this.permissions.hasPermission(token, permission, authStrategy);
   }
 
-  async hasAnyPermission(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasAnyPermission(
+    token: string,
+    permissions: string[],
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     return this.permissions.hasAnyPermission(token, permissions, authStrategy);
   }
 
-  async hasAllPermissions(token: string, permissions: string[], authStrategy?: AuthStrategy): Promise<boolean> {
+  async hasAllPermissions(
+    token: string,
+    permissions: string[],
+    authStrategy?: AuthStrategy,
+  ): Promise<boolean> {
     return this.permissions.hasAllPermissions(token, permissions, authStrategy);
   }
 
-  async refreshPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  async refreshPermissions(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     return this.permissions.refreshPermissions(token, authStrategy);
   }
 
-  async clearPermissionsCache(token: string, authStrategy?: AuthStrategy): Promise<void> {
+  async clearPermissionsCache(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<void> {
     return this.permissions.clearPermissionsCache(token, authStrategy);
   }
 
@@ -225,13 +315,19 @@ export class MisoClient {
     options?: { envKey?: string; authStrategy?: AuthStrategy },
   ): Promise<UpdateSelfStatusResponse> {
     const envKey =
-      options?.envKey ?? this.logger.getApplicationContextService().getApplicationContext().environment;
+      options?.envKey ??
+      this.logger.getApplicationContextService().getApplicationContext()
+        .environment;
     if (!envKey) {
       throw new Error(
         "updateMyApplicationStatus requires envKey or application context (client token/clientId with environment). Neither was available.",
       );
     }
-    return this.apiClient.applications.updateSelfStatus(envKey, body, options?.authStrategy);
+    return this.apiClient.applications.updateSelfStatus(
+      envKey,
+      body,
+      options?.authStrategy,
+    );
   }
 
   async getApplicationStatus(
@@ -239,14 +335,20 @@ export class MisoClient {
     appKey: string,
     authStrategy?: AuthStrategy,
   ): Promise<ApplicationStatusResponse> {
-    return this.apiClient.applications.getApplicationStatus(envKey, appKey, authStrategy);
+    return this.apiClient.applications.getApplicationStatus(
+      envKey,
+      appKey,
+      authStrategy,
+    );
   }
 
   async getMyApplicationStatus(
     options?: { envKey?: string; appKey?: string },
     authStrategy?: AuthStrategy,
   ): Promise<ApplicationStatusResponse> {
-    const context = this.logger.getApplicationContextService().getApplicationContext();
+    const context = this.logger
+      .getApplicationContextService()
+      .getApplicationContext();
     const envKey = options?.envKey ?? context.environment;
     const appKey = options?.appKey ?? context.application;
     if (!envKey || !appKey) {
@@ -254,7 +356,11 @@ export class MisoClient {
         "getMyApplicationStatus requires envKey and appKey or application context (client token/clientId). Neither was fully available.",
       );
     }
-    return this.apiClient.applications.getApplicationStatus(envKey, appKey, authStrategy);
+    return this.apiClient.applications.getApplicationStatus(
+      envKey,
+      appKey,
+      authStrategy,
+    );
   }
 
   getConfig(): MisoClientConfig {
@@ -272,7 +378,13 @@ export class MisoClient {
     data?: unknown,
     config?: import("axios").AxiosRequestConfig,
   ): Promise<T> {
-    return this.httpClient.requestWithAuthStrategy<T>(method, url, authStrategy, data, config);
+    return this.httpClient.requestWithAuthStrategy<T>(
+      method,
+      url,
+      authStrategy,
+      data,
+      config,
+    );
   }
 
   createAuthStrategy(

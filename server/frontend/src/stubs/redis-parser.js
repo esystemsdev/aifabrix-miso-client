@@ -5,11 +5,11 @@ class ParserStub {
   constructor() {
     // Stub parser
   }
-  
+
   parse() {
     return null;
   }
-  
+
   reset() {
     // Stub reset
   }
@@ -27,4 +27,3 @@ if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
 // ESM export
 export default RedisParser;
 export { RedisParser, ParserStub as Parser };
-

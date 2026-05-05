@@ -3,18 +3,18 @@
  * Extends MisoClientError with encryption error codes
  */
 
-import { MisoClientError } from './errors';
+import { MisoClientError } from "./errors";
 
 /**
  * Error codes for encryption operations
  */
 export type EncryptionErrorCode =
-  | 'ENCRYPTION_FAILED'
-  | 'DECRYPTION_FAILED'
-  | 'INVALID_PARAMETER_NAME'
-  | 'ACCESS_DENIED'
-  | 'PARAMETER_NOT_FOUND'
-  | 'ENCRYPTION_KEY_REQUIRED';
+  | "ENCRYPTION_FAILED"
+  | "DECRYPTION_FAILED"
+  | "INVALID_PARAMETER_NAME"
+  | "ACCESS_DENIED"
+  | "PARAMETER_NOT_FOUND"
+  | "ENCRYPTION_KEY_REQUIRED";
 
 /**
  * Encryption error class with error code and optional parameter name
@@ -35,7 +35,7 @@ export class EncryptionError extends MisoClientError {
     parameterName?: string,
   ) {
     super(message);
-    this.name = 'EncryptionError';
+    this.name = "EncryptionError";
     this.code = code;
     this.parameterName = parameterName;
 

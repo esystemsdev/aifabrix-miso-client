@@ -39,10 +39,7 @@ for (const file of filesToPatch) {
   const originalContent = content;
 
   // Replace require('@ioredis/commands') or the old patched path with our stub
-  content = content.replace(
-    /require\(['"]@ioredis\/commands['"]\)/g,
-    `require('${relativePath}')`
-  );
+  content = content.replace(/require\(['"]@ioredis\/commands['"]\)/g, `require('${relativePath}')`);
   // Also replace the old patched path if it exists
   content = content.replace(
     /require\(['"].*server\/frontend\/src\/stubs\/ioredis-commands\.js['"]\)/g,
@@ -63,7 +60,10 @@ if (patched > 0) {
 }
 
 // Also ensure @ioredis/commands package.json points to our stub
-const commandsPkgPath = path.join(__dirname, '../../../node_modules/@ioredis/commands/package.json');
+const commandsPkgPath = path.join(
+  __dirname,
+  '../../../node_modules/@ioredis/commands/package.json'
+);
 const commandsBuiltDir = path.join(__dirname, '../../../node_modules/@ioredis/commands/built');
 if (fs.existsSync(commandsPkgPath)) {
   const pkg = JSON.parse(fs.readFileSync(commandsPkgPath, 'utf8'));
@@ -72,7 +72,7 @@ if (fs.existsSync(commandsPkgPath)) {
     fs.writeFileSync(commandsPkgPath, JSON.stringify(pkg, null, 2));
     console.log('✅ Updated @ioredis/commands package.json main to index.js');
   }
-  
+
   // Move built/ directory so Vite can't use it
   if (fs.existsSync(commandsBuiltDir) && !fs.existsSync(commandsBuiltDir + '.backup')) {
     fs.renameSync(commandsBuiltDir, commandsBuiltDir + '.backup');
@@ -119,4 +119,3 @@ if (!Array.isArray(module.exports)) {
 
 fs.writeFileSync(stubDest, pureCommonJSStub, 'utf8');
 console.log('✅ Created pure CommonJS stub at node_modules/@ioredis/commands/index.js');
-

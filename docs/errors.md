@@ -7,23 +7,29 @@ Express error handling: the "must do" pattern only. Use `asyncHandler`, `handleR
 Wrap every async route handler with `asyncHandler` so errors are caught and handled consistently:
 
 ```typescript
-import { asyncHandler, handleRouteError, AppError } from '@aifabrix/miso-client';
-import { Request, Response } from 'express';
+import {
+  asyncHandler,
+  handleRouteError,
+  AppError,
+} from "@aifabrix/miso-client";
+import { Request, Response } from "express";
 
 router.get(
-  '/api/user',
+  "/api/user",
   asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token = req.headers.authorization?.replace("Bearer ", "");
     const user = await client.getUser(token);
-    if (!user) throw new AppError('User not found', 404);
+    if (!user) throw new AppError("User not found", 404);
     res.json({ user });
-  }, 'getUser')
+  }, "getUser"),
 );
 
 // Error middleware (register last)
-router.use(async (error: Error, req: Request, res: Response, _next: Function) => {
-  await handleRouteError(error, req, res);
-});
+router.use(
+  async (error: Error, req: Request, res: Response, _next: Function) => {
+    await handleRouteError(error, req, res);
+  },
+);
 ```
 
 Benefits: no try-catch in handlers, RFC 7807 responses, consistent logging, `Content-Type: application/problem+json` set automatically.
@@ -33,13 +39,13 @@ Benefits: no try-catch in handlers, RFC 7807 responses, consistent logging, `Con
 Throw `AppError` for known failures (not found, validation, etc.):
 
 ```typescript
-import { AppError } from '@aifabrix/miso-client';
+import { AppError } from "@aifabrix/miso-client";
 
-if (!resource) throw new AppError('Resource not found', 404);
+if (!resource) throw new AppError("Resource not found", 404);
 
 const errors = validateInput(data);
 if (errors.length > 0) {
-  throw new AppError('Validation failed', 422, true, errors);
+  throw new AppError("Validation failed", 422, true, errors);
 }
 ```
 
@@ -54,7 +60,7 @@ Register one error middleware that calls `handleRouteError`. It formats errors a
 When the SDK or an external API throws, you get `MisoClientError` with optional structured body:
 
 ```typescript
-import { MisoClientError, AppError } from '@aifabrix/miso-client';
+import { MisoClientError, AppError } from "@aifabrix/miso-client";
 
 try {
   const user = await client.getUser(token);
@@ -69,7 +75,7 @@ try {
         undefined,
         error.errorResponse.type,
         error.errorResponse.instance,
-        error.errorResponse.correlationId
+        error.errorResponse.correlationId,
       );
     }
     throw new AppError(error.message, error.statusCode || 500);
@@ -89,11 +95,11 @@ Prefer rethrowing as `AppError` so `handleRouteError` can format and log.
 
 ## Summary
 
-| Task | Use |
-|------|-----|
-| Wrap route handler | `asyncHandler(async (req, res) => { ... }, 'operationName')` |
-| Business error | `throw new AppError(message, statusCode, ...)` |
-| Error middleware | `router.use((err, req, res, next) => handleRouteError(err, req, res))` |
+| Task               | Use                                                                       |
+| ------------------ | ------------------------------------------------------------------------- |
+| Wrap route handler | `asyncHandler(async (req, res) => { ... }, 'operationName')`              |
+| Business error     | `throw new AppError(message, statusCode, ...)`                            |
+| Error middleware   | `router.use((err, req, res, next) => handleRouteError(err, req, res))`    |
 | SDK/external error | Check `MisoClientError`, use `error.errorResponse`, rethrow as `AppError` |
 
 See [audit-and-logging.md](audit-and-logging.md) for error logging context.

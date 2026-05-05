@@ -3,7 +3,15 @@ import { ErrorDetails } from '../../types';
 
 // Mock the Dialog component since we're testing logic, not rendering
 vi.mock('../ui/dialog', () => ({
-  Dialog: ({ children, open, onOpenChange }: { children: React.ReactNode; open: boolean; onOpenChange: (open: boolean) => void }) => {
+  Dialog: ({
+    children,
+    open,
+    onOpenChange,
+  }: {
+    children: React.ReactNode;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+  }) => {
     return open ? <div data-testid="dialog">{children}</div> : null;
   },
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

@@ -13,9 +13,11 @@ import { KeycloakConfig } from "../../src/types/token-validation.types";
 describe("Controller URL Resolver", () => {
   const originalGlobalThis = globalThis;
   const originalWindow = (globalThis as { window?: unknown }).window;
-  const originalLocalStorage = (globalThis as {
-    localStorage?: unknown;
-  }).localStorage;
+  const originalLocalStorage = (
+    globalThis as {
+      localStorage?: unknown;
+    }
+  ).localStorage;
   const originalFetch = (globalThis as { fetch?: unknown }).fetch;
 
   beforeEach(() => {
@@ -99,7 +101,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveControllerUrl(config)).toThrow(
-          "No controller URL configured. Please provide controllerPublicUrl or controllerUrl in your configuration."
+          "No controller URL configured. Please provide controllerPublicUrl or controllerUrl in your configuration.",
         );
       });
 
@@ -143,7 +145,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveControllerUrl(config)).toThrow(
-          "No controller URL configured. Please provide controllerPrivateUrl or controllerUrl in your configuration."
+          "No controller URL configured. Please provide controllerPrivateUrl or controllerUrl in your configuration.",
         );
       });
 
@@ -212,7 +214,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveControllerUrl(config)).toThrow(
-          'Invalid controller URL format: "not-a-url". URL must be a valid HTTP or HTTPS URL.'
+          'Invalid controller URL format: "not-a-url". URL must be a valid HTTP or HTTPS URL.',
         );
       });
 
@@ -223,7 +225,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveControllerUrl(config)).toThrow(
-          'Invalid controller URL format: "ftp://example.com". URL must be a valid HTTP or HTTPS URL.'
+          'Invalid controller URL format: "ftp://example.com". URL must be a valid HTTP or HTTPS URL.',
         );
       });
 
@@ -234,7 +236,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveControllerUrl(config)).toThrow(
-          "No controller URL configured. Please provide controllerPrivateUrl or controllerUrl in your configuration."
+          "No controller URL configured. Please provide controllerPrivateUrl or controllerUrl in your configuration.",
         );
       });
     });
@@ -349,7 +351,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveKeycloakUrl(config)).toThrow(
-          "No Keycloak URL configured. Please provide authServerPublicUrl or authServerUrl in your Keycloak configuration."
+          "No Keycloak URL configured. Please provide authServerPublicUrl or authServerUrl in your Keycloak configuration.",
         );
       });
 
@@ -394,7 +396,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveKeycloakUrl(config)).toThrow(
-          "No Keycloak URL configured. Please provide authServerPrivateUrl or authServerUrl in your Keycloak configuration."
+          "No Keycloak URL configured. Please provide authServerPrivateUrl or authServerUrl in your Keycloak configuration.",
         );
       });
 
@@ -453,7 +455,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveKeycloakUrl(config)).toThrow(
-          'Invalid Keycloak URL format: "not-a-url". URL must be a valid HTTP or HTTPS URL.'
+          'Invalid Keycloak URL format: "not-a-url". URL must be a valid HTTP or HTTPS URL.',
         );
       });
 
@@ -464,7 +466,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveKeycloakUrl(config)).toThrow(
-          'Invalid Keycloak URL format: "ftp://keycloak.example.com". URL must be a valid HTTP or HTTPS URL.'
+          'Invalid Keycloak URL format: "ftp://keycloak.example.com". URL must be a valid HTTP or HTTPS URL.',
         );
       });
 
@@ -475,7 +477,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveKeycloakUrl(config)).toThrow(
-          "No Keycloak URL configured. Please provide authServerPrivateUrl or authServerUrl in your Keycloak configuration."
+          "No Keycloak URL configured. Please provide authServerPrivateUrl or authServerUrl in your Keycloak configuration.",
         );
       });
     });
@@ -581,4 +583,3 @@ describe("Controller URL Resolver", () => {
     });
   });
 });
-

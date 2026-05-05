@@ -1,10 +1,10 @@
 // CRITICAL: Set up unhandled rejection handler BEFORE anything else
 // This must be done at the module level, not in setupFilesAfterEnv
-if (typeof process !== 'undefined') {
-  const existingHandlers = process.listeners('unhandledRejection').slice();
-  process.removeAllListeners('unhandledRejection');
-  
-  process.on('unhandledRejection', (reason, promise) => {
+if (typeof process !== "undefined") {
+  const existingHandlers = process.listeners("unhandledRejection").slice();
+  process.removeAllListeners("unhandledRejection");
+
+  process.on("unhandledRejection", (reason, promise) => {
     // Silently swallow all unhandled rejections during tests
     // The interceptors use setTimeout(() => { logHttpRequestAudit().catch(...) }, 0)
     // In tests, these promises may reject after the test completes
@@ -15,21 +15,21 @@ if (typeof process !== 'undefined') {
 }
 
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  roots: ['<rootDir>/tests'],
-  testMatch: ['**/*.test.ts'],
+  preset: "ts-jest",
+  testEnvironment: "node",
+  roots: ["<rootDir>/tests"],
+  testMatch: ["**/*.test.ts"],
   testPathIgnorePatterns: [
-    '/node_modules/',
-    '/tests/integration/' // Exclude integration tests from normal test run (require real controller)
+    "/node_modules/",
+    "/tests/integration/", // Exclude integration tests from normal test run (require real controller)
   ],
   // Setup file runs before all tests to configure unhandled rejection handling
-  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
+  setupFilesAfterEnv: ["<rootDir>/tests/setup.ts"],
   // Performance optimizations - maximize speed for < 0.5s execution
-  maxWorkers: '100%', // Use all available CPU cores for maximum parallelism
+  maxWorkers: "100%", // Use all available CPU cores for maximum parallelism
   testTimeout: 5000, // 5 second timeout per test
   cache: true, // Enable Jest cache for faster subsequent runs
-  cacheDirectory: '<rootDir>/.jest-cache',
+  cacheDirectory: "<rootDir>/.jest-cache",
   // Skip slow operations for faster test execution
   detectOpenHandles: false, // Disable open handle detection for speed
   forceExit: false, // Allow Jest to exit normally (avoids warning)
@@ -41,41 +41,37 @@ module.exports = {
   // Disable coverage collection for maximum speed
   collectCoverage: false,
   // Use faster test runner
-  testRunner: 'jest-circus/runner',
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/**/index.ts'
-  ],
-  coverageDirectory: 'coverage',
+  testRunner: "jest-circus/runner",
+  collectCoverageFrom: ["src/**/*.ts", "!src/**/*.d.ts", "!src/**/index.ts"],
+  coverageDirectory: "coverage",
   coverageThreshold: {
     global: {
       branches: 80,
       functions: 80,
       lines: 80,
-      statements: 80
-    }
+      statements: 80,
+    },
   },
   // Collect coverage only when --coverage flag is used (for performance)
   collectCoverage: false,
   // Show coverage summary after tests
   coverageReporters: [
-    'text-summary',   // Brief summary in terminal
-    'text',           // Detailed per-file coverage
-    'lcov',          // For CI/CD
-    'html'           // HTML report in coverage/index.html
+    "text-summary", // Brief summary in terminal
+    "text", // Detailed per-file coverage
+    "lcov", // For CI/CD
+    "html", // HTML report in coverage/index.html
   ],
-  moduleFileExtensions: ['ts', 'js', 'json'],
+  moduleFileExtensions: ["ts", "js", "json"],
   transform: {
-    '^.+\\.ts$': [
-      'ts-jest',
+    "^.+\\.ts$": [
+      "ts-jest",
       {
         tsconfig: {
-          esModuleInterop: true
-        }
-      }
-    ]
+          esModuleInterop: true,
+        },
+      },
+    ],
   },
   // Ensure coverage is tracked for all code paths including closures
-  coverageProvider: 'v8'
+  coverageProvider: "v8",
 };

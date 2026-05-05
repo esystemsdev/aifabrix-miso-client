@@ -8,7 +8,7 @@ import { codeExamples } from './codeExamplesData';
 
 /**
  * Code Examples page component displaying copyable code examples for DataClient usage
- * 
+ *
  * Provides copyable code examples for:
  * - Getting started guide (server and client setup)
  * - DataClient initialization (zero-config and manual)
@@ -66,9 +66,7 @@ export function CodeExamplesPage() {
       <div className="border-b border-border bg-background">
         <div className="px-8 py-6">
           <h1 className="text-2xl font-semibold text-foreground">Code Examples</h1>
-          <p className="text-muted-foreground mt-1">
-            Copyable code examples for using DataClient
-          </p>
+          <p className="text-muted-foreground mt-1">Copyable code examples for using DataClient</p>
         </div>
       </div>
 
@@ -97,19 +95,23 @@ export function CodeExamplesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.gettingStarted.serverSetup} id="getting-started-server" />
+                  <CodeBlock
+                    code={codeExamples.gettingStarted.serverSetup}
+                    id="getting-started-server"
+                  />
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
                   <CardTitle>Environment Variables</CardTitle>
-                  <CardDescription>
-                    Configure server-side environment variables
-                  </CardDescription>
+                  <CardDescription>Configure server-side environment variables</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.gettingStarted.environmentVariables} id="getting-started-env" />
+                  <CodeBlock
+                    code={codeExamples.gettingStarted.environmentVariables}
+                    id="getting-started-env"
+                  />
                 </CardContent>
               </Card>
 
@@ -121,19 +123,23 @@ export function CodeExamplesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.gettingStarted.clientSetup} id="getting-started-client" />
+                  <CodeBlock
+                    code={codeExamples.gettingStarted.clientSetup}
+                    id="getting-started-client"
+                  />
                 </CardContent>
               </Card>
 
               <Card>
                 <CardHeader>
                   <CardTitle>Complete Example</CardTitle>
-                  <CardDescription>
-                    Full server and client integration example
-                  </CardDescription>
+                  <CardDescription>Full server and client integration example</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.gettingStarted.completeExample} id="getting-started-complete" />
+                  <CodeBlock
+                    code={codeExamples.gettingStarted.completeExample}
+                    id="getting-started-complete"
+                  />
                 </CardContent>
               </Card>
 
@@ -145,7 +151,10 @@ export function CodeExamplesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.gettingStarted.howItWorks} id="getting-started-how-it-works" />
+                  <CodeBlock
+                    code={codeExamples.gettingStarted.howItWorks}
+                    id="getting-started-how-it-works"
+                  />
                 </CardContent>
               </Card>
 
@@ -157,7 +166,10 @@ export function CodeExamplesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.gettingStarted.validateUserTokens} id="getting-started-validate-tokens" />
+                  <CodeBlock
+                    code={codeExamples.gettingStarted.validateUserTokens}
+                    id="getting-started-validate-tokens"
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -286,7 +298,10 @@ export function CodeExamplesPage() {
                   <CardTitle>Redirect to Login</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.authentication.redirectToLogin} id="auth-redirect" />
+                  <CodeBlock
+                    code={codeExamples.authentication.redirectToLogin}
+                    id="auth-redirect"
+                  />
                 </CardContent>
               </Card>
 
@@ -298,7 +313,10 @@ export function CodeExamplesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.authentication.handleOAuthCallback} id="auth-oauth-callback" />
+                  <CodeBlock
+                    code={codeExamples.authentication.handleOAuthCallback}
+                    id="auth-oauth-callback"
+                  />
                 </CardContent>
               </Card>
 
@@ -310,7 +328,10 @@ export function CodeExamplesPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.authentication.tokenRefresh} id="auth-token-refresh" />
+                  <CodeBlock
+                    code={codeExamples.authentication.tokenRefresh}
+                    id="auth-token-refresh"
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -475,7 +496,10 @@ export function CodeExamplesPage() {
                   <CardTitle>Refresh Permissions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.permissions.refreshPermissions} id="perms-refresh" />
+                  <CodeBlock
+                    code={codeExamples.permissions.refreshPermissions}
+                    id="perms-refresh"
+                  />
                 </CardContent>
               </Card>
 
@@ -484,7 +508,10 @@ export function CodeExamplesPage() {
                   <CardTitle>Clear Permissions Cache</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CodeBlock code={codeExamples.permissions.clearPermissionsCache} id="perms-clear" />
+                  <CodeBlock
+                    code={codeExamples.permissions.clearPermissionsCache}
+                    id="perms-clear"
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
@@ -528,4 +555,3 @@ export function CodeExamplesPage() {
     </div>
   );
 }
-

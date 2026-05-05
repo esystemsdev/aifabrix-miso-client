@@ -160,10 +160,15 @@ describe("LoggerService Getter Methods", () => {
         ip: "192.168.1.1",
       } as unknown as Request;
 
-      const logEntry = loggerService.getLogWithRequest(mockReq, "Login", "info", {
-        password: "secret123",
-        username: "john",
-      });
+      const logEntry = loggerService.getLogWithRequest(
+        mockReq,
+        "Login",
+        "info",
+        {
+          password: "secret123",
+          username: "john",
+        },
+      );
 
       expect(logEntry.context).toBeDefined();
       const contextStr = JSON.stringify(logEntry.context);
@@ -181,9 +186,14 @@ describe("LoggerService Getter Methods", () => {
         ip: "192.168.1.1",
       } as unknown as Request;
 
-      const logEntry = loggerService.getLogWithRequest(mockReq, "Login", "info", {
-        password: "secret123",
-      });
+      const logEntry = loggerService.getLogWithRequest(
+        mockReq,
+        "Login",
+        "info",
+        {
+          password: "secret123",
+        },
+      );
 
       expect(logEntry.context).toEqual({ password: "secret123" });
     });
@@ -283,9 +293,14 @@ describe("LoggerService Getter Methods", () => {
 
       mockedJwt.decode.mockReturnValue({ sub: "user-123" });
 
-      const logEntry = loggerService.getForRequest(mockReq, "Test message", "info", {
-        test: "data",
-      });
+      const logEntry = loggerService.getForRequest(
+        mockReq,
+        "Test message",
+        "info",
+        {
+          test: "data",
+        },
+      );
 
       expect(logEntry).toBeDefined();
       expect(logEntry.message).toBe("Test message");
@@ -307,9 +322,14 @@ describe("LoggerService Getter Methods", () => {
 
       mockedJwt.decode.mockReturnValue({ sub: "user-456" });
 
-      const logEntry1 = loggerService.getLogWithRequest(mockReq, "Test", "info", {
-        data: "value",
-      });
+      const logEntry1 = loggerService.getLogWithRequest(
+        mockReq,
+        "Test",
+        "info",
+        {
+          data: "value",
+        },
+      );
       const logEntry2 = loggerService.getForRequest(mockReq, "Test", "info", {
         data: "value",
       });

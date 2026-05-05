@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { Settings, Radio, Database, BarChart, Shield, Code, LogIn, LogOut, User } from 'lucide-react';
+import {
+  Settings,
+  Radio,
+  Database,
+  BarChart,
+  Shield,
+  Code,
+  LogIn,
+  LogOut,
+  User,
+} from 'lucide-react';
 import { ConfigurationPage } from './components/demo/ConfigurationPage';
 import { ApiTestingPage } from './components/demo/ApiTestingPage';
 import { CachingPage } from './components/demo/CachingPage';
@@ -44,13 +54,8 @@ export default function App() {
 
   return (
     <div className="flex h-screen bg-background">
-      <DemoSidebar 
-        activeSection={activeSection} 
-        onSectionChange={setActiveSection}
-      />
-      <main className="flex-1 overflow-auto">
-        {renderContent()}
-      </main>
+      <DemoSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+      <main className="flex-1 overflow-auto">{renderContent()}</main>
       <Toaster position="top-right" />
     </div>
   );
@@ -70,7 +75,7 @@ function AuthSection() {
     const handleAuthCheck = () => {
       // Handle OAuth callback (extract token from hash if present)
       const token = dataClient.handleOAuthCallback();
-      
+
       if (token) {
         setIsAuthenticated(true);
         toast.success('Authentication successful', {
@@ -122,7 +127,7 @@ function AuthSection() {
       setAuthLoading(false);
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error('Login failed', { 
+      toast.error('Login failed', {
         description: errorMessage,
         duration: 10000,
       });
@@ -195,13 +200,12 @@ function AuthSection() {
   );
 }
 
-
 // Custom Sidebar for Demo App
-function DemoSidebar({ 
-  activeSection, 
-  onSectionChange
-}: { 
-  activeSection: string; 
+function DemoSidebar({
+  activeSection,
+  onSectionChange,
+}: {
+  activeSection: string;
   onSectionChange: (section: string) => void;
 }) {
   const navigationItems = [
@@ -234,16 +238,17 @@ function DemoSidebar({
           {navigationItems.map((item) => {
             const isActive = activeSection === item.id;
             const Icon = item.icon;
-            
+
             return (
               <li key={item.id}>
                 <button
                   onClick={() => onSectionChange(item.id)}
                   className={`
                     w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors
-                    ${isActive 
-                      ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' 
-                      : 'text-sidebar-foreground hover:bg-sidebar-accent/50'
+                    ${
+                      isActive
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent/50'
                     }
                   `}
                 >

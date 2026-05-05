@@ -2,7 +2,10 @@
  * Unit tests for client-token-endpoint helper
  */
 
-import { createClientTokenEndpoint, hasConfig } from "../../src/express/client-token-endpoint";
+import {
+  createClientTokenEndpoint,
+  hasConfig,
+} from "../../src/express/client-token-endpoint";
 import { MisoClient } from "../../src/index";
 import { Request, Response } from "express";
 import { getEnvironmentToken } from "../../src/utils/environment-token";
@@ -81,11 +84,7 @@ describe("client-token-endpoint", () => {
       mockGetEnvironmentToken.mockResolvedValue("test-token-123");
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(mockGetEnvironmentToken).toHaveBeenCalledWith(
         mockMisoClient,
@@ -112,11 +111,7 @@ describe("client-token-endpoint", () => {
         clientTokenUri: "/custom/token",
         expiresIn: 3600,
       });
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(jsonSpy).toHaveBeenCalledWith({
         token: "test-token-123",
@@ -137,11 +132,7 @@ describe("client-token-endpoint", () => {
       const handler = createClientTokenEndpoint(mockMisoClient, {
         includeConfig: false,
       });
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(jsonSpy).toHaveBeenCalledWith({
         token: "test-token-123",
@@ -153,19 +144,17 @@ describe("client-token-endpoint", () => {
       mockMisoClient.isInitialized = jest.fn().mockReturnValue(false);
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(statusSpy).toHaveBeenCalledWith(503);
-      expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
-        type: "/Errors/ServiceUnavailable",
-        title: "Service Unavailable",
-        status: 503,
-        detail: "MisoClient is not initialized",
-      }));
+      expect(jsonSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "/Errors/ServiceUnavailable",
+          title: "Service Unavailable",
+          status: 503,
+          detail: "MisoClient is not initialized",
+        }),
+      );
       expect(mockGetEnvironmentToken).not.toHaveBeenCalled();
     });
 
@@ -175,19 +164,17 @@ describe("client-token-endpoint", () => {
       );
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(statusSpy).toHaveBeenCalledWith(403);
-      expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
-        type: "/Errors/Forbidden",
-        title: "Forbidden",
-        status: 403,
-        detail: "Origin validation failed: Origin not allowed",
-      }));
+      expect(jsonSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "/Errors/Forbidden",
+          title: "Forbidden",
+          status: 403,
+          detail: "Origin validation failed: Origin not allowed",
+        }),
+      );
     });
 
     it("should return 500 if controller URL is not configured", async () => {
@@ -198,19 +185,17 @@ describe("client-token-endpoint", () => {
       mockGetEnvironmentToken.mockResolvedValue("test-token-123");
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(statusSpy).toHaveBeenCalledWith(500);
-      expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
-        type: "/Errors/InternalServerError",
-        title: "Internal Server Error",
-        status: 500,
-        detail: "Controller URL not configured",
-      }));
+      expect(jsonSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "/Errors/InternalServerError",
+          title: "Internal Server Error",
+          status: 500,
+          detail: "Controller URL not configured",
+        }),
+      );
     });
 
     it("should use controllerPublicUrl when available", async () => {
@@ -222,11 +207,7 @@ describe("client-token-endpoint", () => {
       mockGetEnvironmentToken.mockResolvedValue("test-token-123");
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(jsonSpy).toHaveBeenCalledWith({
         token: "test-token-123",
@@ -250,11 +231,7 @@ describe("client-token-endpoint", () => {
       mockGetEnvironmentToken.mockResolvedValue("test-token-123");
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(jsonSpy).toHaveBeenCalledWith({
         token: "test-token-123",
@@ -275,19 +252,17 @@ describe("client-token-endpoint", () => {
       );
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(statusSpy).toHaveBeenCalledWith(500);
-      expect(jsonSpy).toHaveBeenCalledWith(expect.objectContaining({
-        type: "/Errors/InternalServerError",
-        title: "Internal Server Error",
-        status: 500,
-        detail: "Token fetch failed",
-      }));
+      expect(jsonSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "/Errors/InternalServerError",
+          title: "Internal Server Error",
+          status: 500,
+          detail: "Token fetch failed",
+        }),
+      );
     });
   });
 
@@ -330,4 +305,3 @@ describe("client-token-endpoint", () => {
     });
   });
 });
-

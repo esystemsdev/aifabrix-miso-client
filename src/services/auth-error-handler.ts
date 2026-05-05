@@ -73,10 +73,7 @@ export function handleAuthErrorSilent(
 ): null {
   const formatted = formatAuthError(error, operation, correlationId, clientId);
   // eslint-disable-next-line no-console -- Architecture-approved service-layer error logging with context
-  console.error(
-    formatted,
-    { operation, correlationId, clientId },
-  );
+  console.error(formatted, { operation, correlationId, clientId });
   const errorInfo = extractErrorInfo(error, {
     endpoint: operation,
     method: "AUTH",

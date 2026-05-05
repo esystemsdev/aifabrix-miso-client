@@ -3,15 +3,11 @@
  * Handles log export endpoints
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
-import {
-
-  ExportLogsQueryParams,
-  ExportLogsResponse,
-} from './types/logs.types';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
+import { ExportLogsQueryParams, ExportLogsResponse } from "./types/logs.types";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /**
  * Logs Export API class
@@ -19,7 +15,7 @@ import { logErrorWithContext } from '../utils/console-logger';
  */
 export class LogsExportApi {
   // Centralize endpoint URLs as constants
-  private static readonly LOGS_EXPORT_ENDPOINT = '/api/v1/logs/export';
+  private static readonly LOGS_EXPORT_ENDPOINT = "/api/v1/logs/export";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -37,8 +33,10 @@ export class LogsExportApi {
       // Export endpoint returns different content types based on format parameter
       // CSV returns text/csv (string), JSON returns application/json (object)
       if (authStrategy?.bearerToken) {
-        return await this.httpClient.authenticatedRequest<string | ExportLogsResponse>(
-          'GET',
+        return await this.httpClient.authenticatedRequest<
+          string | ExportLogsResponse
+        >(
+          "GET",
           LogsExportApi.LOGS_EXPORT_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -47,28 +45,25 @@ export class LogsExportApi {
         );
       }
       if (authStrategy) {
-        return await this.httpClient.requestWithAuthStrategy<string | ExportLogsResponse>(
-          'GET',
-          LogsExportApi.LOGS_EXPORT_ENDPOINT,
-          authStrategy,
-          undefined,
-          { params },
-        );
+        return await this.httpClient.requestWithAuthStrategy<
+          string | ExportLogsResponse
+        >("GET", LogsExportApi.LOGS_EXPORT_ENDPOINT, authStrategy, undefined, {
+          params,
+        });
       }
       return await this.httpClient.request<string | ExportLogsResponse>(
-        'GET',
+        "GET",
         LogsExportApi.LOGS_EXPORT_ENDPOINT,
         undefined,
         { params },
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: undefined,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsExportApi]');
+      logErrorWithContext(errorInfo, "[LogsExportApi]");
       throw error;
     }
   }
 }
-

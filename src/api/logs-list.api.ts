@@ -3,8 +3,8 @@
  * Handles listing and retrieving logs (general, audit, jobs)
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
 import {
   LogsListQueryParams,
   JobLogsQueryParams,
@@ -12,9 +12,9 @@ import {
   GeneralLogEntry,
   AuditLogEntry,
   JobLogEntry,
-} from './types/logs.types';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
+} from "./types/logs.types";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /**
  * Logs List API class
@@ -22,9 +22,9 @@ import { logErrorWithContext } from '../utils/console-logger';
  */
 export class LogsListApi {
   // Centralize endpoint URLs as constants
-  private static readonly LOGS_GENERAL_ENDPOINT = '/api/v1/logs/general';
-  private static readonly LOGS_AUDIT_ENDPOINT = '/api/v1/logs/audit';
-  private static readonly LOGS_JOBS_ENDPOINT = '/api/v1/logs/jobs';
+  private static readonly LOGS_GENERAL_ENDPOINT = "/api/v1/logs/general";
+  private static readonly LOGS_AUDIT_ENDPOINT = "/api/v1/logs/audit";
+  private static readonly LOGS_JOBS_ENDPOINT = "/api/v1/logs/jobs";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -40,8 +40,10 @@ export class LogsListApi {
   ): Promise<PaginatedLogsResponse<GeneralLogEntry>> {
     try {
       if (authStrategy?.bearerToken) {
-        return await this.httpClient.authenticatedRequest<PaginatedLogsResponse<GeneralLogEntry>>(
-          'GET',
+        return await this.httpClient.authenticatedRequest<
+          PaginatedLogsResponse<GeneralLogEntry>
+        >(
+          "GET",
           LogsListApi.LOGS_GENERAL_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -50,26 +52,21 @@ export class LogsListApi {
         );
       }
       if (authStrategy) {
-        return await this.httpClient.requestWithAuthStrategy<PaginatedLogsResponse<GeneralLogEntry>>(
-          'GET',
-          LogsListApi.LOGS_GENERAL_ENDPOINT,
-          authStrategy,
-          undefined,
-          { params },
-        );
+        return await this.httpClient.requestWithAuthStrategy<
+          PaginatedLogsResponse<GeneralLogEntry>
+        >("GET", LogsListApi.LOGS_GENERAL_ENDPOINT, authStrategy, undefined, {
+          params,
+        });
       }
-      return await this.httpClient.request<PaginatedLogsResponse<GeneralLogEntry>>(
-        'GET',
-        LogsListApi.LOGS_GENERAL_ENDPOINT,
-        undefined,
-        { params },
-      );
+      return await this.httpClient.request<
+        PaginatedLogsResponse<GeneralLogEntry>
+      >("GET", LogsListApi.LOGS_GENERAL_ENDPOINT, undefined, { params });
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: LogsListApi.LOGS_GENERAL_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsListApi]');
+      logErrorWithContext(errorInfo, "[LogsListApi]");
       throw error;
     }
   }
@@ -91,7 +88,7 @@ export class LogsListApi {
       const params = environment ? { environment } : undefined;
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<GeneralLogEntry>(
-          'GET',
+          "GET",
           url,
           authStrategy.bearerToken,
           undefined,
@@ -101,7 +98,7 @@ export class LogsListApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<GeneralLogEntry>(
-          'GET',
+          "GET",
           url,
           authStrategy,
           undefined,
@@ -109,17 +106,17 @@ export class LogsListApi {
         );
       }
       return await this.httpClient.request<GeneralLogEntry>(
-        'GET',
+        "GET",
         url,
         undefined,
         { params },
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: LogsListApi.LOGS_GENERAL_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsListApi]');
+      logErrorWithContext(errorInfo, "[LogsListApi]");
       throw error;
     }
   }
@@ -136,8 +133,10 @@ export class LogsListApi {
   ): Promise<PaginatedLogsResponse<AuditLogEntry>> {
     try {
       if (authStrategy?.bearerToken) {
-        return await this.httpClient.authenticatedRequest<PaginatedLogsResponse<AuditLogEntry>>(
-          'GET',
+        return await this.httpClient.authenticatedRequest<
+          PaginatedLogsResponse<AuditLogEntry>
+        >(
+          "GET",
           LogsListApi.LOGS_AUDIT_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -146,26 +145,21 @@ export class LogsListApi {
         );
       }
       if (authStrategy) {
-        return await this.httpClient.requestWithAuthStrategy<PaginatedLogsResponse<AuditLogEntry>>(
-          'GET',
-          LogsListApi.LOGS_AUDIT_ENDPOINT,
-          authStrategy,
-          undefined,
-          { params },
-        );
+        return await this.httpClient.requestWithAuthStrategy<
+          PaginatedLogsResponse<AuditLogEntry>
+        >("GET", LogsListApi.LOGS_AUDIT_ENDPOINT, authStrategy, undefined, {
+          params,
+        });
       }
-      return await this.httpClient.request<PaginatedLogsResponse<AuditLogEntry>>(
-        'GET',
-        LogsListApi.LOGS_AUDIT_ENDPOINT,
-        undefined,
-        { params },
-      );
+      return await this.httpClient.request<
+        PaginatedLogsResponse<AuditLogEntry>
+      >("GET", LogsListApi.LOGS_AUDIT_ENDPOINT, undefined, { params });
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: LogsListApi.LOGS_AUDIT_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsListApi]');
+      logErrorWithContext(errorInfo, "[LogsListApi]");
       throw error;
     }
   }
@@ -187,7 +181,7 @@ export class LogsListApi {
       const params = environment ? { environment } : undefined;
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<AuditLogEntry>(
-          'GET',
+          "GET",
           url,
           authStrategy.bearerToken,
           undefined,
@@ -197,7 +191,7 @@ export class LogsListApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<AuditLogEntry>(
-          'GET',
+          "GET",
           url,
           authStrategy,
           undefined,
@@ -205,17 +199,17 @@ export class LogsListApi {
         );
       }
       return await this.httpClient.request<AuditLogEntry>(
-        'GET',
+        "GET",
         url,
         undefined,
         { params },
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: LogsListApi.LOGS_AUDIT_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsListApi]');
+      logErrorWithContext(errorInfo, "[LogsListApi]");
       throw error;
     }
   }
@@ -232,8 +226,10 @@ export class LogsListApi {
   ): Promise<PaginatedLogsResponse<JobLogEntry>> {
     try {
       if (authStrategy?.bearerToken) {
-        return await this.httpClient.authenticatedRequest<PaginatedLogsResponse<JobLogEntry>>(
-          'GET',
+        return await this.httpClient.authenticatedRequest<
+          PaginatedLogsResponse<JobLogEntry>
+        >(
+          "GET",
           LogsListApi.LOGS_JOBS_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -242,26 +238,24 @@ export class LogsListApi {
         );
       }
       if (authStrategy) {
-        return await this.httpClient.requestWithAuthStrategy<PaginatedLogsResponse<JobLogEntry>>(
-          'GET',
-          LogsListApi.LOGS_JOBS_ENDPOINT,
-          authStrategy,
-          undefined,
-          { params },
-        );
+        return await this.httpClient.requestWithAuthStrategy<
+          PaginatedLogsResponse<JobLogEntry>
+        >("GET", LogsListApi.LOGS_JOBS_ENDPOINT, authStrategy, undefined, {
+          params,
+        });
       }
       return await this.httpClient.request<PaginatedLogsResponse<JobLogEntry>>(
-        'GET',
+        "GET",
         LogsListApi.LOGS_JOBS_ENDPOINT,
         undefined,
         { params },
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: undefined,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsListApi]');
+      logErrorWithContext(errorInfo, "[LogsListApi]");
       throw error;
     }
   }
@@ -280,7 +274,7 @@ export class LogsListApi {
       const url = `${LogsListApi.LOGS_JOBS_ENDPOINT}/${id}`;
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<JobLogEntry>(
-          'GET',
+          "GET",
           url,
           authStrategy.bearerToken,
           undefined,
@@ -290,23 +284,19 @@ export class LogsListApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<JobLogEntry>(
-          'GET',
+          "GET",
           url,
           authStrategy,
         );
       }
-      return await this.httpClient.request<JobLogEntry>(
-        'GET',
-        url,
-      );
+      return await this.httpClient.request<JobLogEntry>("GET", url);
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: undefined,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsListApi]');
+      logErrorWithContext(errorInfo, "[LogsListApi]");
       throw error;
     }
   }
 }
-

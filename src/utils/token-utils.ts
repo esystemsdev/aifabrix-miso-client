@@ -25,7 +25,7 @@ function decodeJWT(token: string): Record<string, unknown> | null {
   if (isBrowser()) {
     // Browser: use manual base64 decoding
     try {
-      const parts = token.split('.');
+      const parts = token.split(".");
       if (parts.length !== 3) {
         return null;
       }
@@ -34,10 +34,10 @@ function decodeJWT(token: string): Record<string, unknown> | null {
       let payloadStr = parts[1];
       // Add padding if needed
       while (payloadStr.length % 4) {
-        payloadStr += '=';
+        payloadStr += "=";
       }
       // Replace URL-safe characters
-      payloadStr = payloadStr.replace(/-/g, '+').replace(/_/g, '/');
+      payloadStr = payloadStr.replace(/-/g, "+").replace(/_/g, "/");
 
       const decoded = JSON.parse(atob(payloadStr));
       return decoded as Record<string, unknown>;
@@ -83,7 +83,9 @@ export function extractClientTokenInfo(clientToken: string): ClientTokenInfo {
   try {
     const decoded = decodeJWT(clientToken);
     if (!decoded || typeof decoded !== "object") {
-      writeWarn("[extractClientTokenInfo] Failed to decode client token: Invalid token format");
+      writeWarn(
+        "[extractClientTokenInfo] Failed to decode client token: Invalid token format",
+      );
       return {};
     }
 
@@ -99,7 +101,9 @@ export function extractClientTokenInfo(clientToken: string): ClientTokenInfo {
     if (clientId) info.clientId = clientId;
     return info;
   } catch (error) {
-    writeWarn(`[extractClientTokenInfo] Failed to decode client token: ${error instanceof Error ? error.message : String(error)}`);
+    writeWarn(
+      `[extractClientTokenInfo] Failed to decode client token: ${error instanceof Error ? error.message : String(error)}`,
+    );
     return {};
   }
 }

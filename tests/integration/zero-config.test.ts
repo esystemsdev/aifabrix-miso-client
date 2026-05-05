@@ -31,12 +31,23 @@ jest.mock("../../src/utils/data-client-utils", () => ({
   removeLocalStorage: jest.fn(),
 }));
 
-import { isBrowser, getLocalStorage, setLocalStorage, removeLocalStorage } from "../../src/utils/data-client-utils";
+import {
+  isBrowser,
+  getLocalStorage,
+  setLocalStorage,
+  removeLocalStorage,
+} from "../../src/utils/data-client-utils";
 
 const mockIsBrowser = isBrowser as jest.MockedFunction<typeof isBrowser>;
-const mockGetLocalStorage = getLocalStorage as jest.MockedFunction<typeof getLocalStorage>;
-const mockSetLocalStorage = setLocalStorage as jest.MockedFunction<typeof setLocalStorage>;
-const mockRemoveLocalStorage = removeLocalStorage as jest.MockedFunction<typeof removeLocalStorage>;
+const mockGetLocalStorage = getLocalStorage as jest.MockedFunction<
+  typeof getLocalStorage
+>;
+const mockSetLocalStorage = setLocalStorage as jest.MockedFunction<
+  typeof setLocalStorage
+>;
+const mockRemoveLocalStorage = removeLocalStorage as jest.MockedFunction<
+  typeof removeLocalStorage
+>;
 
 // Mock fetch
 const mockFetch = jest.fn();
@@ -109,11 +120,7 @@ describe("Zero-Config Integration", () => {
       mockGetEnvironmentToken.mockResolvedValue("test-token-123");
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       // Verify server response includes config
       expect(jsonSpy).toHaveBeenCalledWith({
@@ -222,11 +229,7 @@ describe("Zero-Config Integration", () => {
         expiresIn: 3600,
       });
 
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(jsonSpy).toHaveBeenCalledWith({
         token: "custom-token",
@@ -289,11 +292,7 @@ describe("Zero-Config Integration", () => {
       );
 
       const handler = createClientTokenEndpoint(mockMisoClient);
-      await handler(
-        mockRequest as Request,
-        mockResponse as Response,
-        nextSpy,
-      );
+      await handler(mockRequest as Request, mockResponse as Response, nextSpy);
 
       expect(statusSpy).toHaveBeenCalledWith(403);
       expect(jsonSpy).toHaveBeenCalledWith({
@@ -315,4 +314,3 @@ describe("Zero-Config Integration", () => {
     });
   });
 });
-

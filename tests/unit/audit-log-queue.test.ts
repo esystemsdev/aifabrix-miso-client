@@ -297,7 +297,8 @@ describe("AuditLogQueue", () => {
       await auditLogQueue.add(entry);
       await auditLogQueue.flush();
 
-      const payload = (mockHttpClient.request as jest.Mock).mock.calls[0]?.[2] as {
+      const payload = (mockHttpClient.request as jest.Mock).mock
+        .calls[0]?.[2] as {
         logs: LogEntry[];
       };
       expect(payload.logs).toHaveLength(1);
@@ -552,7 +553,8 @@ describe("AuditLogQueue", () => {
       await auditLogQueue.add(entry2);
       await auditLogQueue.flush();
 
-      const payload = (mockHttpClient.request as jest.Mock).mock.calls[0]?.[2] as {
+      const payload = (mockHttpClient.request as jest.Mock).mock
+        .calls[0]?.[2] as {
         logs: LogEntry[];
       };
       expect(payload.logs).toHaveLength(2);

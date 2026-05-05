@@ -52,11 +52,22 @@ function applyBase(
   info.stackTrace = stack;
 }
 
-function extractMisoClientError(error: MisoClientError, info: StructuredErrorInfo): void {
-  applyBase(info, "MisoClientError", error.name, error.message, error.statusCode, error.stack);
+function extractMisoClientError(
+  error: MisoClientError,
+  info: StructuredErrorInfo,
+): void {
+  applyBase(
+    info,
+    "MisoClientError",
+    error.name,
+    error.message,
+    error.statusCode,
+    error.stack,
+  );
   if (error.errorResponse && "correlationId" in error.errorResponse) {
     info.correlationId =
-      info.correlationId || (error.errorResponse as { correlationId?: string }).correlationId;
+      info.correlationId ||
+      (error.errorResponse as { correlationId?: string }).correlationId;
   }
   if (error.errorResponse) {
     info.responseBody = {
@@ -65,7 +76,8 @@ function extractMisoClientError(error: MisoClientError, info: StructuredErrorInf
       title: error.errorResponse.title,
       statusCode: error.errorResponse.statusCode,
       instance: error.errorResponse.instance,
-      correlationId: (error.errorResponse as { correlationId?: string }).correlationId,
+      correlationId: (error.errorResponse as { correlationId?: string })
+        .correlationId,
     };
   } else if (error.errorBody) {
     info.responseBody = error.errorBody;
@@ -73,7 +85,14 @@ function extractMisoClientError(error: MisoClientError, info: StructuredErrorInf
 }
 
 function extractApiError(error: ApiError, info: StructuredErrorInfo): void {
-  applyBase(info, error.name, error.name, error.message, error.statusCode, error.stack);
+  applyBase(
+    info,
+    error.name,
+    error.name,
+    error.message,
+    error.statusCode,
+    error.stack,
+  );
   info.originalError = error.originalError;
   if (error.response) {
     try {
@@ -135,13 +154,41 @@ export function extractErrorInfo(
   } else if (error instanceof ApiError) {
     extractApiError(error, errorInfo);
   } else if (error instanceof AuthenticationError) {
-    applyBase(errorInfo, "AuthenticationError", error.name, error.message, 401, error.stack);
+    applyBase(
+      errorInfo,
+      "AuthenticationError",
+      error.name,
+      error.message,
+      401,
+      error.stack,
+    );
   } else if (error instanceof NetworkError) {
-    applyBase(errorInfo, "NetworkError", error.name, error.message, 0, error.stack);
+    applyBase(
+      errorInfo,
+      "NetworkError",
+      error.name,
+      error.message,
+      0,
+      error.stack,
+    );
   } else if (error instanceof TimeoutError) {
-    applyBase(errorInfo, "TimeoutError", error.name, error.message, 408, error.stack);
+    applyBase(
+      errorInfo,
+      "TimeoutError",
+      error.name,
+      error.message,
+      408,
+      error.stack,
+    );
   } else if (error instanceof Error) {
-    applyBase(errorInfo, "Error", error.name, error.message, undefined, error.stack);
+    applyBase(
+      errorInfo,
+      "Error",
+      error.name,
+      error.message,
+      undefined,
+      error.stack,
+    );
   } else {
     extractUnknownError(error, errorInfo);
   }

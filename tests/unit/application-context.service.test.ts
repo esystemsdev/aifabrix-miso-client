@@ -13,9 +13,8 @@ const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 
 // Mock token-utils
 jest.mock("../../src/utils/token-utils");
-const mockedExtractClientTokenInfo = extractClientTokenInfo as jest.MockedFunction<
-  typeof extractClientTokenInfo
->;
+const mockedExtractClientTokenInfo =
+  extractClientTokenInfo as jest.MockedFunction<typeof extractClientTokenInfo>;
 
 describe("ApplicationContextService", () => {
   let applicationContextService: ApplicationContextService;
@@ -110,7 +109,8 @@ describe("ApplicationContextService", () => {
 
   describe("getClientToken", () => {
     it("should extract from client token in config", () => {
-      const clientToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcHAiOiJteS1hcHAiLCJlbnYiOiJkZXYiLCJhcHBsaWNhdGlvbklkIjoiYXBwLTEyMyJ9.signature";
+      const clientToken =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhcHAiOiJteS1hcHAiLCJlbnYiOiJkZXYiLCJhcHBsaWNhdGlvbklkIjoiYXBwLTEyMyJ9.signature";
       (mockHttpClient as any).config = {
         ...config,
         clientToken,
@@ -131,7 +131,8 @@ describe("ApplicationContextService", () => {
     });
 
     it("should fallback to clientId parsing when token is only in internal client", () => {
-      const clientToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbnZpcm9ubWVudCI6InByb2QifQ.signature";
+      const clientToken =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbnZpcm9ubWVudCI6InByb2QifQ.signature";
       (mockHttpClient as any).internalClient = {
         clientToken,
       };

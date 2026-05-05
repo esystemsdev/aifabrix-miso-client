@@ -4,7 +4,11 @@
  */
 
 import { AxiosError } from "axios";
-import { ErrorResponse, isErrorResponse, AuthMethod } from "../types/config.types";
+import {
+  ErrorResponse,
+  isErrorResponse,
+  AuthMethod,
+} from "../types/config.types";
 import { MisoClientError } from "./errors";
 
 interface Rfc7807LikeError {
@@ -55,7 +59,10 @@ function toRfc7807ErrorResponse(
   };
 }
 
-function parseErrorLikeData(data: unknown, requestUrl?: string): ErrorResponse | null {
+function parseErrorLikeData(
+  data: unknown,
+  requestUrl?: string,
+): ErrorResponse | null {
   if (isErrorResponse(data)) return toConfigErrorResponse(data, requestUrl);
   if (isRfc7807LikeError(data)) return toRfc7807ErrorResponse(data, requestUrl);
   return null;
@@ -67,7 +74,9 @@ function parseErrorLikeData(data: unknown, requestUrl?: string): ErrorResponse |
  * @param headers - Request headers object
  * @returns The detected auth method or null if no auth headers found
  */
-export function detectAuthMethodFromHeaders(headers?: Record<string, unknown>): AuthMethod | null {
+export function detectAuthMethodFromHeaders(
+  headers?: Record<string, unknown>,
+): AuthMethod | null {
   if (!headers) return null;
   if (headers["Authorization"]) return "bearer";
   if (headers["x-client-token"]) return "client-token";
@@ -118,8 +127,11 @@ export function createMisoClientError(
   // For 401 errors, detect auth method if not in response
   let authMethod: AuthMethod | null = null;
   if (statusCode === 401) {
-    authMethod = errorResponse?.authMethod ??
-                 detectAuthMethodFromHeaders(error.config?.headers as Record<string, unknown>);
+    authMethod =
+      errorResponse?.authMethod ??
+      detectAuthMethodFromHeaders(
+        error.config?.headers as Record<string, unknown>,
+      );
   }
 
   let errorBody: Record<string, unknown> | undefined;
@@ -129,10 +141,18 @@ export function createMisoClientError(
 
   let message = error.message || "Request failed";
   if (error.response) {
-    message = error.response.statusText || `Request failed with status code ${statusCode}`;
+    message =
+      error.response.statusText ||
+      `Request failed with status code ${statusCode}`;
   }
 
-  return new MisoClientError(message, errorResponse || undefined, errorBody, statusCode, authMethod);
+  return new MisoClientError(
+    message,
+    errorResponse || undefined,
+    errorBody,
+    statusCode,
+    authMethod,
+  );
 }
 
 /**

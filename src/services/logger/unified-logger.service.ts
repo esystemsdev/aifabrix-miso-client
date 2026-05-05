@@ -87,7 +87,9 @@ export class UnifiedLoggerService implements UnifiedLogger {
    * Build traceability context passed to LoggerService methods.
    * Keeps logger paths consistent when context exists in AsyncLocalStorage.
    */
-  private buildTraceContext(context: LoggerContext): Record<string, unknown> | undefined {
+  private buildTraceContext(
+    context: LoggerContext,
+  ): Record<string, unknown> | undefined {
     const traceContext: Record<string, unknown> = {};
     const applicationId = pickFirstNonEmpty(context.applicationId);
     const correlationId = pickFirstNonEmpty(context.correlationId);

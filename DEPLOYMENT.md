@@ -26,7 +26,7 @@
 ### 1. Version Management
 
 - **Patch**: `pnpm version patch` - Bug fixes (1.0.0 → 1.0.1)
-- **Minor**: `pnpm version minor` - New features (1.0.0 → 1.1.0)  
+- **Minor**: `pnpm version minor` - New features (1.0.0 → 1.1.0)
 - **Major**: `pnpm version major` - Breaking changes (1.0.0 → 2.0.0)
 
 ### 2. Authentication
@@ -71,4 +71,4 @@ After publishing, verify at:
 pnpm unpublish @aifabrix/miso-client@version
 ```
 
-*Note: Unpublishing is only possible within 72 hours of publishing*
+_Note: Unpublishing is only possible within 72 hours of publishing_

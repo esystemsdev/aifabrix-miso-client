@@ -2,9 +2,9 @@
  * Unit tests for AuthCacheApi
  */
 
-import { AuthCacheApi } from '../../../src/api/auth-cache.api';
-import { HttpClient } from '../../../src/utils/http-client';
-import { AuthStrategy } from '../../../src/types/config.types';
+import { AuthCacheApi } from "../../../src/api/auth-cache.api";
+import { HttpClient } from "../../../src/utils/http-client";
+import { AuthStrategy } from "../../../src/types/config.types";
 import {
   CacheStatsResponse,
   CachePerformanceResponse,
@@ -12,13 +12,13 @@ import {
   ClearCacheResponse,
   InvalidateCacheRequest,
   InvalidateCacheResponse,
-} from '../../../src/api/types/auth.types';
+} from "../../../src/api/types/auth.types";
 
 // Mock HttpClient
-jest.mock('../../../src/utils/http-client');
+jest.mock("../../../src/utils/http-client");
 const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 
-describe('AuthCacheApi', () => {
+describe("AuthCacheApi", () => {
   let authCacheApi: AuthCacheApi;
   let mockHttpClient: jest.Mocked<HttpClient>;
   const originalConsoleError = console.error;
@@ -40,8 +40,8 @@ describe('AuthCacheApi', () => {
     console.error = originalConsoleError;
   });
 
-  describe('getCacheStats', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("getCacheStats", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: CacheStatsResponse = {
         success: true,
         data: {
@@ -57,16 +57,16 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.getCacheStats();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/cache/stats',
+        "GET",
+        "/api/v1/auth/cache/stats",
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: CacheStatsResponse = {
         success: true,
@@ -83,8 +83,8 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.getCacheStats(authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/cache/stats',
+        "GET",
+        "/api/v1/auth/cache/stats",
         authStrategy.bearerToken,
         undefined,
         undefined,
@@ -93,9 +93,9 @@ describe('AuthCacheApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: CacheStatsResponse = {
         success: true,
@@ -112,28 +112,30 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.getCacheStats(authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/cache/stats',
+        "GET",
+        "/api/v1/auth/cache/stats",
         authStrategy,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Network error');
+    it("should handle errors", async () => {
+      const error = new Error("Network error");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(authCacheApi.getCacheStats()).rejects.toThrow('Network error');
+      await expect(authCacheApi.getCacheStats()).rejects.toThrow(
+        "Network error",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthCacheApi]'),
-        expect.stringContaining('Network error'),
+        expect.stringContaining("[AuthCacheApi]"),
+        expect.stringContaining("Network error"),
       );
     });
   });
 
-  describe('getCachePerformance', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("getCachePerformance", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: CachePerformanceResponse = {
         success: true,
         data: {
@@ -148,16 +150,16 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.getCachePerformance();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/cache/performance',
+        "GET",
+        "/api/v1/auth/cache/performance",
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: CachePerformanceResponse = {
         success: true,
@@ -173,8 +175,8 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.getCachePerformance(authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/cache/performance',
+        "GET",
+        "/api/v1/auth/cache/performance",
         authStrategy.bearerToken,
         undefined,
         undefined,
@@ -183,9 +185,9 @@ describe('AuthCacheApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: CachePerformanceResponse = {
         success: true,
@@ -201,28 +203,30 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.getCachePerformance(authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/cache/performance',
+        "GET",
+        "/api/v1/auth/cache/performance",
         authStrategy,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Performance fetch failed');
+    it("should handle errors", async () => {
+      const error = new Error("Performance fetch failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(authCacheApi.getCachePerformance()).rejects.toThrow('Performance fetch failed');
+      await expect(authCacheApi.getCachePerformance()).rejects.toThrow(
+        "Performance fetch failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthCacheApi]'),
-        expect.stringContaining('Performance fetch failed'),
+        expect.stringContaining("[AuthCacheApi]"),
+        expect.stringContaining("Performance fetch failed"),
       );
     });
   });
 
-  describe('getCacheEfficiency', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("getCacheEfficiency", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: CacheEfficiencyResponse = {
         success: true,
         data: {
@@ -236,16 +240,16 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.getCacheEfficiency();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/cache/efficiency',
+        "GET",
+        "/api/v1/auth/cache/efficiency",
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: CacheEfficiencyResponse = {
         success: true,
@@ -260,8 +264,8 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.getCacheEfficiency(authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/cache/efficiency',
+        "GET",
+        "/api/v1/auth/cache/efficiency",
         authStrategy.bearerToken,
         undefined,
         undefined,
@@ -270,9 +274,9 @@ describe('AuthCacheApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: CacheEfficiencyResponse = {
         success: true,
@@ -287,31 +291,33 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.getCacheEfficiency(authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/cache/efficiency',
+        "GET",
+        "/api/v1/auth/cache/efficiency",
         authStrategy,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Efficiency calculation failed');
+    it("should handle errors", async () => {
+      const error = new Error("Efficiency calculation failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(authCacheApi.getCacheEfficiency()).rejects.toThrow('Efficiency calculation failed');
+      await expect(authCacheApi.getCacheEfficiency()).rejects.toThrow(
+        "Efficiency calculation failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthCacheApi]'),
-        expect.stringContaining('Efficiency calculation failed'),
+        expect.stringContaining("[AuthCacheApi]"),
+        expect.stringContaining("Efficiency calculation failed"),
       );
     });
   });
 
-  describe('clearCache', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("clearCache", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const mockResponse: ClearCacheResponse = {
         success: true,
-        message: 'Cache cleared successfully',
+        message: "Cache cleared successfully",
         timestamp: new Date().toISOString(),
       };
 
@@ -320,20 +326,20 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.clearCache();
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/cache/clear',
+        "POST",
+        "/api/v1/auth/cache/clear",
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: ClearCacheResponse = {
         success: true,
-        message: 'Cache cleared successfully',
+        message: "Cache cleared successfully",
         timestamp: new Date().toISOString(),
       };
 
@@ -342,8 +348,8 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.clearCache(authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/cache/clear',
+        "POST",
+        "/api/v1/auth/cache/clear",
         authStrategy.bearerToken,
         undefined,
         undefined,
@@ -352,13 +358,13 @@ describe('AuthCacheApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: ClearCacheResponse = {
         success: true,
-        message: 'Cache cleared successfully',
+        message: "Cache cleared successfully",
         timestamp: new Date().toISOString(),
       };
 
@@ -367,34 +373,36 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.clearCache(authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/cache/clear',
+        "POST",
+        "/api/v1/auth/cache/clear",
         authStrategy,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
-      const error = new Error('Clear cache failed');
+    it("should handle errors", async () => {
+      const error = new Error("Clear cache failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(authCacheApi.clearCache()).rejects.toThrow('Clear cache failed');
+      await expect(authCacheApi.clearCache()).rejects.toThrow(
+        "Clear cache failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthCacheApi]'),
-        expect.stringContaining('Clear cache failed'),
+        expect.stringContaining("[AuthCacheApi]"),
+        expect.stringContaining("Clear cache failed"),
       );
     });
   });
 
-  describe('invalidateCache', () => {
-    it('should call HttpClient.request when no authStrategy', async () => {
+  describe("invalidateCache", () => {
+    it("should call HttpClient.request when no authStrategy", async () => {
       const params: InvalidateCacheRequest = {
-        pattern: 'user:*',
+        pattern: "user:*",
       };
       const mockResponse: InvalidateCacheResponse = {
         success: true,
-        message: 'Cache invalidated successfully',
+        message: "Cache invalidated successfully",
         invalidated: 42,
         timestamp: new Date().toISOString(),
       };
@@ -404,18 +412,18 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.invalidateCache(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/cache/invalidate',
+        "POST",
+        "/api/v1/auth/cache/invalidate",
         params,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.request when no authStrategy and no pattern', async () => {
+    it("should call HttpClient.request when no authStrategy and no pattern", async () => {
       const params: InvalidateCacheRequest = {};
       const mockResponse: InvalidateCacheResponse = {
         success: true,
-        message: 'Cache invalidated successfully',
+        message: "Cache invalidated successfully",
         invalidated: 0,
         timestamp: new Date().toISOString(),
       };
@@ -425,24 +433,24 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.invalidateCache(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/cache/invalidate',
+        "POST",
+        "/api/v1/auth/cache/invalidate",
         params,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const params: InvalidateCacheRequest = {
-        pattern: 'roles:*',
+        pattern: "roles:*",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: InvalidateCacheResponse = {
         success: true,
-        message: 'Cache invalidated successfully',
+        message: "Cache invalidated successfully",
         invalidated: 15,
         timestamp: new Date().toISOString(),
       };
@@ -452,8 +460,8 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.invalidateCache(params, authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/cache/invalidate',
+        "POST",
+        "/api/v1/auth/cache/invalidate",
         authStrategy.bearerToken,
         params,
         undefined,
@@ -462,16 +470,16 @@ describe('AuthCacheApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
       const params: InvalidateCacheRequest = {
-        pattern: 'permissions:*',
+        pattern: "permissions:*",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
       const mockResponse: InvalidateCacheResponse = {
         success: true,
-        message: 'Cache invalidated successfully',
+        message: "Cache invalidated successfully",
         invalidated: 8,
         timestamp: new Date().toISOString(),
       };
@@ -481,28 +489,29 @@ describe('AuthCacheApi', () => {
       const result = await authCacheApi.invalidateCache(params, authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/cache/invalidate',
+        "POST",
+        "/api/v1/auth/cache/invalidate",
         authStrategy,
         params,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
+    it("should handle errors", async () => {
       const params: InvalidateCacheRequest = {
-        pattern: 'invalid:*',
+        pattern: "invalid:*",
       };
-      const error = new Error('Invalidate cache failed');
+      const error = new Error("Invalidate cache failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(authCacheApi.invalidateCache(params)).rejects.toThrow('Invalidate cache failed');
+      await expect(authCacheApi.invalidateCache(params)).rejects.toThrow(
+        "Invalidate cache failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthCacheApi]'),
-        expect.stringContaining('Invalidate cache failed'),
+        expect.stringContaining("[AuthCacheApi]"),
+        expect.stringContaining("Invalidate cache failed"),
       );
     });
   });
 });
-

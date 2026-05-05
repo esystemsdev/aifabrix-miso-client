@@ -30,10 +30,16 @@ import { extractErrorInfo } from "../utils/error-extractor";
 import { logErrorWithContext } from "../utils/console-logger";
 
 /** Cache data structure for token validation results */
-interface TokenCacheData { authenticated: boolean; timestamp: number; }
+interface TokenCacheData {
+  authenticated: boolean;
+  timestamp: number;
+}
 
 /** Cache data structure for user info */
-interface UserInfoCacheData { user: UserInfo; timestamp: number; }
+interface UserInfoCacheData {
+  user: UserInfo;
+  timestamp: number;
+}
 
 export class AuthService {
   private httpClient: HttpClient;
@@ -43,7 +49,11 @@ export class AuthService {
   private minValidationTTL: number;
   private userTTL: number;
 
-  constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
+  constructor(
+    httpClient: HttpClient,
+    apiClient: ApiClient,
+    cache: CacheService,
+  ) {
     this.cache = cache;
     this.httpClient = httpClient;
     this.apiClient = apiClient;
@@ -66,19 +76,25 @@ export class AuthService {
     token: string,
     authStrategy?: AuthStrategy,
   ): AuthStrategy {
-    const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
+    const authStrategyToUse =
+      authStrategy || this.httpClient.config.authStrategy;
     return authStrategyToUse
       ? { ...authStrategyToUse, bearerToken: token }
       : { methods: ["bearer"], bearerToken: token };
   }
 
-  private async getCachedUserInfo(cacheKey: string | null): Promise<UserInfo | null> {
+  private async getCachedUserInfo(
+    cacheKey: string | null,
+  ): Promise<UserInfo | null> {
     if (!cacheKey) return null;
     const cached = await this.cache.get<UserInfoCacheData>(cacheKey);
     return cached ? cached.user : null;
   }
 
-  private async cacheUserInfo(cacheKey: string | null, user: UserInfo): Promise<void> {
+  private async cacheUserInfo(
+    cacheKey: string | null,
+    user: UserInfo,
+  ): Promise<void> {
     if (!cacheKey) return;
     await this.cache.set<UserInfoCacheData>(
       cacheKey,
@@ -87,12 +103,18 @@ export class AuthService {
     );
   }
 
-  private async getCachedTokenValidation(cacheKey: string): Promise<boolean | null> {
+  private async getCachedTokenValidation(
+    cacheKey: string,
+  ): Promise<boolean | null> {
     const cached = await this.cache.get<TokenCacheData>(cacheKey);
     return cached ? cached.authenticated : null;
   }
 
-  private async cacheTokenValidation(cacheKey: string, token: string, authenticated: boolean): Promise<void> {
+  private async cacheTokenValidation(
+    cacheKey: string,
+    token: string,
+    authenticated: boolean,
+  ): Promise<void> {
     const ttl = getCacheTtlFromToken(
       token,
       this.tokenValidationTTL,
@@ -105,7 +127,11 @@ export class AuthService {
     );
   }
 
-  private mapUserInfo(user: { id: string; username: string; email: string }): UserInfo {
+  private mapUserInfo(user: {
+    id: string;
+    username: string;
+    email: string;
+  }): UserInfo {
     return {
       id: user.id,
       username: user.username,
@@ -158,7 +184,12 @@ export class AuthService {
       );
       return "";
     } catch (error) {
-      handleAuthErrorSilent(error, "Get environment token", correlationId, clientId);
+      handleAuthErrorSilent(
+        error,
+        "Get environment token",
+        correlationId,
+        clientId,
+      );
       return "";
     }
   }
@@ -192,7 +223,7 @@ export class AuthService {
         success: response.success,
         data: {
           loginUrl: response.data.loginUrl,
-          state: response.data.state || '',
+          state: response.data.state || "",
         },
         timestamp: response.timestamp,
       };
@@ -232,7 +263,10 @@ export class AuthService {
       if (cached !== null) return cached;
 
       // Cache miss - fetch from controller using ApiClient
-      const authStrategyWithToken = this.buildAuthStrategyWithToken(token, authStrategy);
+      const authStrategyWithToken = this.buildAuthStrategyWithToken(
+        token,
+        authStrategy,
+      );
 
       const result = await this.apiClient.auth.validateToken(
         { token },
@@ -245,7 +279,12 @@ export class AuthService {
 
       return authenticated;
     } catch (error) {
-      this.logAuthServiceError("Validate token", error, token, "/api/auth/validate");
+      this.logAuthServiceError(
+        "Validate token",
+        error,
+        token,
+        "/api/auth/validate",
+      );
       return false;
     }
   }
@@ -268,7 +307,10 @@ export class AuthService {
     }
 
     try {
-      const authStrategyWithToken = this.buildAuthStrategyWithToken(token, authStrategy);
+      const authStrategyWithToken = this.buildAuthStrategyWithToken(
+        token,
+        authStrategy,
+      );
 
       const result = await this.apiClient.auth.validateToken(
         { token },
@@ -330,7 +372,10 @@ export class AuthService {
       if (cached) return cached;
 
       // Cache miss - fetch from controller
-      const authStrategyWithToken = this.buildAuthStrategyWithToken(token, authStrategy);
+      const authStrategyWithToken = this.buildAuthStrategyWithToken(
+        token,
+        authStrategy,
+      );
 
       const result = await this.apiClient.auth.getUser(authStrategyWithToken);
 
@@ -342,7 +387,13 @@ export class AuthService {
 
       return null;
     } catch (error) {
-      this.logAuthServiceError("Get user info", error, token, "/api/auth/user", "GET");
+      this.logAuthServiceError(
+        "Get user info",
+        error,
+        token,
+        "/api/auth/user",
+        "GET",
+      );
       return null;
     }
   }
@@ -394,7 +445,11 @@ export class AuthService {
         );
         this.clearTokenCache(params.token);
         this.clearUserCache(params.token);
-        return { success: true, message: "Logout successful (no active session)", timestamp: new Date().toISOString() };
+        return {
+          success: true,
+          message: "Logout successful (no active session)",
+          timestamp: new Date().toISOString(),
+        };
       }
       handleAuthErrorSilent(error, "Logout", correlationId, clientId);
       return {
@@ -420,7 +475,8 @@ export class AuthService {
 
     try {
       // Use ApiClient for typed API call
-      const authStrategyToUse = authStrategy || this.httpClient.config.authStrategy;
+      const authStrategyToUse =
+        authStrategy || this.httpClient.config.authStrategy;
       const response = await this.apiClient.auth.refreshToken(
         { refreshToken },
         authStrategyToUse,
@@ -440,7 +496,12 @@ export class AuthService {
 
       return null;
     } catch (error) {
-      return handleAuthErrorSilent(error, "Refresh token", correlationId, clientId);
+      return handleAuthErrorSilent(
+        error,
+        "Refresh token",
+        correlationId,
+        clientId,
+      );
     }
   }
 
@@ -460,9 +521,17 @@ export class AuthService {
     const clientId = this.httpClient.config.clientId;
 
     try {
-      return await this.apiClient.auth.exchangeUserToken({ token }, authStrategy);
+      return await this.apiClient.auth.exchangeUserToken(
+        { token },
+        authStrategy,
+      );
     } catch (error) {
-      handleAuthErrorSilent(error, "Exchange user token", correlationId, clientId);
+      handleAuthErrorSilent(
+        error,
+        "Exchange user token",
+        correlationId,
+        clientId,
+      );
       return {
         success: false,
         data: {

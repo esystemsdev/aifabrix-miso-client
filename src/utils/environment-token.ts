@@ -39,9 +39,13 @@ async function logTokenSuccess(
   req: Request,
   config: ReturnType<MisoClient["getConfig"]>,
 ): Promise<void> {
-  const maskedClientId = DataMasker.maskSensitiveData({ clientId: config.clientId }) as { clientId: string };
+  const maskedClientId = DataMasker.maskSensitiveData({
+    clientId: config.clientId,
+  }) as { clientId: string };
   const maskedClientSecret = config.clientSecret
-    ? (DataMasker.maskSensitiveData({ clientSecret: config.clientSecret }) as { clientSecret: string })
+    ? (DataMasker.maskSensitiveData({ clientSecret: config.clientSecret }) as {
+        clientSecret: string;
+      })
     : { clientSecret: undefined };
   await misoClient.log
     .forRequest(req)
@@ -58,7 +62,9 @@ async function logTokenFailure(
   errorMessage: string,
   stack?: string,
 ): Promise<void> {
-  const maskedClientId = DataMasker.maskSensitiveData({ clientId: config.clientId }) as { clientId: string };
+  const maskedClientId = DataMasker.maskSensitiveData({
+    clientId: config.clientId,
+  }) as { clientId: string };
   const logger = misoClient.log.forRequest(req);
   await logger
     .addContext("clientId", maskedClientId.clientId)
@@ -107,7 +113,8 @@ export async function getEnvironmentToken(
     await logTokenSuccess(misoClient, req, config);
     return token;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     await logTokenFailure(
       misoClient,
       req,

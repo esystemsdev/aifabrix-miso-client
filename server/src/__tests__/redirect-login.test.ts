@@ -209,7 +209,7 @@ describe('Redirect to Login Integration Tests', () => {
 
     function mockInternalClientToken(
       client: DataClient,
-      impl: () => Promise<string | null>,
+      impl: () => Promise<string | null>
     ): jest.SpyInstance<Promise<string | null>, []> {
       return jest
         .spyOn(client as unknown as DataClientWithInternalToken, 'getClientToken')

@@ -2,7 +2,10 @@
  * Filter schema loading from JSON
  */
 
-import type { FilterSchema, FilterFieldDefinition } from "../types/filter-schema.types";
+import type {
+  FilterSchema,
+  FilterFieldDefinition,
+} from "../types/filter-schema.types";
 import type { FilterOperator } from "../types/filter.types";
 
 function getFilterSchemaObject(json: unknown): {
@@ -34,27 +37,38 @@ function parseFilterField(
   fieldDef: unknown,
 ): FilterFieldDefinition {
   if (typeof fieldDef !== "object" || fieldDef === null) {
-    throw new Error(`Invalid filter schema: field '${fieldName}' must be an object`);
+    throw new Error(
+      `Invalid filter schema: field '${fieldName}' must be an object`,
+    );
   }
 
   const def = fieldDef as Record<string, unknown>;
   if (typeof def.column !== "string") {
-    throw new Error(`Invalid filter schema: field '${fieldName}' missing 'column'`);
+    throw new Error(
+      `Invalid filter schema: field '${fieldName}' missing 'column'`,
+    );
   }
   if (typeof def.type !== "string") {
-    throw new Error(`Invalid filter schema: field '${fieldName}' missing 'type'`);
+    throw new Error(
+      `Invalid filter schema: field '${fieldName}' missing 'type'`,
+    );
   }
   if (!Array.isArray(def.operators)) {
-    throw new Error(`Invalid filter schema: field '${fieldName}' missing 'operators' array`);
+    throw new Error(
+      `Invalid filter schema: field '${fieldName}' missing 'operators' array`,
+    );
   }
 
   return {
     column: def.column,
     type: def.type as FilterFieldDefinition["type"],
     operators: def.operators as FilterOperator[],
-    enumValues: Array.isArray(def.enumValues) ? (def.enumValues as string[]) : undefined,
+    enumValues: Array.isArray(def.enumValues)
+      ? (def.enumValues as string[])
+      : undefined,
     nullable: typeof def.nullable === "boolean" ? def.nullable : undefined,
-    description: typeof def.description === "string" ? def.description : undefined,
+    description:
+      typeof def.description === "string" ? def.description : undefined,
   };
 }
 

@@ -7,22 +7,46 @@ class ReadableStub {
     return instance;
   }
   constructor() {}
-  pipe() { return {}; }
-  on() { return this; }
-  once() { return Promise.resolve({}); }
-  read() { return null; }
-  push() { return true; }
+  pipe() {
+    return {};
+  }
+  on() {
+    return this;
+  }
+  once() {
+    return Promise.resolve({});
+  }
+  read() {
+    return null;
+  }
+  push() {
+    return true;
+  }
   destroy() {}
-  emit() { return false; }
-  removeListener() { return this; }
-  removeAllListeners() { return this; }
+  emit() {
+    return false;
+  }
+  removeListener() {
+    return this;
+  }
+  removeAllListeners() {
+    return this;
+  }
 }
 
 class WritableStub {
-  write() { return true; }
-  end() { return this; }
-  on() { return this; }
-  once() { return Promise.resolve({}); }
+  write() {
+    return true;
+  }
+  end() {
+    return this;
+  }
+  on() {
+    return this;
+  }
+  once() {
+    return Promise.resolve({});
+  }
   destroy() {}
 }
 
@@ -31,8 +55,12 @@ class TransformStub extends ReadableStub {
 }
 
 class DuplexStub extends ReadableStub {
-  write() { return true; }
-  end() { return this; }
+  write() {
+    return true;
+  }
+  end() {
+    return this;
+  }
 }
 
 class PassThroughStub extends TransformStub {}

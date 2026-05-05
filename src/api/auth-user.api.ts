@@ -3,17 +3,16 @@
  * Handles user info, logout, and callback
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
 import {
-
   GetUserResponse,
   LogoutResponse,
   CallbackRequest,
   CallbackResponse,
-} from './types/auth.types';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
+} from "./types/auth.types";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /**
  * Auth User API class
@@ -21,9 +20,9 @@ import { logErrorWithContext } from '../utils/console-logger';
  */
 export class AuthUserApi {
   // Centralize endpoint URLs as constants
-  private static readonly USER_ENDPOINT = '/api/v1/auth/user';
-  private static readonly LOGOUT_ENDPOINT = '/api/v1/auth/logout';
-  private static readonly CALLBACK_ENDPOINT = '/api/v1/auth/callback';
+  private static readonly USER_ENDPOINT = "/api/v1/auth/user";
+  private static readonly LOGOUT_ENDPOINT = "/api/v1/auth/logout";
+  private static readonly CALLBACK_ENDPOINT = "/api/v1/auth/callback";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -36,7 +35,7 @@ export class AuthUserApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<GetUserResponse>(
-          'GET',
+          "GET",
           AuthUserApi.USER_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -46,18 +45,20 @@ export class AuthUserApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<GetUserResponse>(
-          'GET',
+          "GET",
           AuthUserApi.USER_ENDPOINT,
           authStrategy,
         );
       }
-      throw new Error('getUser requires authentication - provide authStrategy with bearerToken');
+      throw new Error(
+        "getUser requires authentication - provide authStrategy with bearerToken",
+      );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthUserApi.USER_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[AuthUserApi]');
+      logErrorWithContext(errorInfo, "[AuthUserApi]");
       throw error;
     }
   }
@@ -69,15 +70,15 @@ export class AuthUserApi {
   async logout(): Promise<LogoutResponse> {
     try {
       return await this.httpClient.request<LogoutResponse>(
-        'POST',
+        "POST",
         AuthUserApi.LOGOUT_ENDPOINT,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthUserApi.LOGOUT_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthUserApi]');
+      logErrorWithContext(errorInfo, "[AuthUserApi]");
       throw error;
     }
   }
@@ -90,16 +91,16 @@ export class AuthUserApi {
   async logoutWithToken(token: string): Promise<LogoutResponse> {
     try {
       return await this.httpClient.request<LogoutResponse>(
-        'POST',
+        "POST",
         AuthUserApi.LOGOUT_ENDPOINT,
         { token },
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthUserApi.LOGOUT_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthUserApi]');
+      logErrorWithContext(errorInfo, "[AuthUserApi]");
       throw error;
     }
   }
@@ -117,7 +118,7 @@ export class AuthUserApi {
     try {
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<CallbackResponse>(
-          'GET',
+          "GET",
           AuthUserApi.CALLBACK_ENDPOINT,
           authStrategy,
           undefined,
@@ -125,7 +126,7 @@ export class AuthUserApi {
         );
       }
       return await this.httpClient.request<CallbackResponse>(
-        'GET',
+        "GET",
         AuthUserApi.CALLBACK_ENDPOINT,
         undefined,
         { params },
@@ -133,11 +134,10 @@ export class AuthUserApi {
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthUserApi.CALLBACK_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[AuthUserApi]');
+      logErrorWithContext(errorInfo, "[AuthUserApi]");
       throw error;
     }
   }
 }
-

@@ -1,11 +1,9 @@
+# Demo-miso
 
-  # Demo-miso
+This is a code bundle for Demo-miso. The original project is available at https://www.figma.com/design/eYw4ljaDyz7wWTHqeefZeg/Demo-miso.
 
-  This is a code bundle for Demo-miso. The original project is available at https://www.figma.com/design/eYw4ljaDyz7wWTHqeefZeg/Demo-miso.
-
-  ## Running the code
+## Running the code
 
 Run `pnpm install` to install the dependencies.
 
 Run `pnpm run dev` to start the development server.
-  

@@ -43,7 +43,11 @@ export function isColonFormat(str: string): boolean {
   return !trimmed.startsWith("{") && !trimmed.startsWith("[");
 }
 
-function parseColonFilterParts(filterStr: string): { field: string; opStr: string; valueStr: string } {
+function parseColonFilterParts(filterStr: string): {
+  field: string;
+  opStr: string;
+  valueStr: string;
+} {
   const firstColonIndex = filterStr.indexOf(":");
   if (firstColonIndex === -1) {
     throw new Error(
@@ -60,8 +64,10 @@ function parseColonFilterParts(filterStr: string): { field: string; opStr: strin
 
   const rest = filterStr.substring(firstColonIndex + 1);
   const secondColonIndex = rest.indexOf(":");
-  const opStr = secondColonIndex === -1 ? rest : rest.substring(0, secondColonIndex);
-  const valueStr = secondColonIndex === -1 ? "" : rest.substring(secondColonIndex + 1);
+  const opStr =
+    secondColonIndex === -1 ? rest : rest.substring(0, secondColonIndex);
+  const valueStr =
+    secondColonIndex === -1 ? "" : rest.substring(secondColonIndex + 1);
 
   if (!opStr) {
     throw new Error(

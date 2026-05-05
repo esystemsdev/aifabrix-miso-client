@@ -1,1 +1,2 @@
-export const fs = {}; export default fs;
+export const fs = {};
+export default fs;

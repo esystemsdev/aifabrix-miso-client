@@ -76,7 +76,8 @@ describe('error-handler', () => {
       const result = parseError(error);
       expect(result).toEqual({
         title: 'Connection Error',
-        detail: 'The server closed the connection without sending a response. Please check if the server is running and accessible.',
+        detail:
+          'The server closed the connection without sending a response. Please check if the server is running and accessible.',
       });
     });
 
@@ -85,7 +86,8 @@ describe('error-handler', () => {
       const result = parseError(error);
       expect(result).toEqual({
         title: 'Timeout Error',
-        detail: 'Request timed out. Please check your network connection and ensure the server is running.',
+        detail:
+          'Request timed out. Please check your network connection and ensure the server is running.',
       });
     });
 
@@ -94,7 +96,8 @@ describe('error-handler', () => {
       const result = parseError(error);
       expect(result).toEqual({
         title: 'Network Error',
-        detail: 'Unable to connect to server. Please check if the server is running and accessible.',
+        detail:
+          'Unable to connect to server. Please check if the server is running and accessible.',
       });
     });
 

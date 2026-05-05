@@ -249,6 +249,7 @@ This server uses a **factory function pattern** for route handlers that allows d
 ### Pattern Overview
 
 Route handlers are factory functions that:
+
 1. Accept `misoClient: MisoClient | null` as a parameter
 2. Return an `asyncHandler()`-wrapped route handler
 3. Use MisoClient for logging and error handling
@@ -266,7 +267,7 @@ export function getUsers(misoClient: MisoClient | null) {
     if (misoClient) {
       await misoClient.log.forRequest(req).info('Fetching users list');
     }
-    
+
     const users = await fetchUsers();
     res.json({ users, count: users.length });
   }, 'getUsers'); // Operation name for error tracking
@@ -287,6 +288,7 @@ app.get('/api/users', getUsers(misoClient));
 ### Error Handling
 
 All route handlers use `asyncHandler()` which:
+
 - Automatically catches errors
 - Formats errors as RFC 7807 Problem Details
 - Logs errors with full context via configured error logger
@@ -338,30 +340,27 @@ The server configures error logging after MisoClient initialization to use MisoC
 **Configuration Pattern:**
 
 ```typescript
-misoClient.initialize()
-  .then(async () => {
-    // Configure error logger to use MisoClient logger with forRequest()
-    setErrorLogger({
-      async logError(message, options) {
-        const req = (options as { req?: Request })?.req;
-        if (req && misoClient) {
-          // Use forRequest() for automatic context extraction
-          await misoClient.log
-            .forRequest(req)
-            .error(message, (options as { stack?: string })?.stack);
-        } else if (misoClient) {
-          // Fallback for non-Express contexts
-          await misoClient.log.error(message, options as Record<string, unknown>);
-        } else {
-          // Final fallback to console if MisoClient not available
-          console.error('[ERROR]', message);
-          if ((options as { stack?: string })?.stack) {
-            console.error('[ERROR] Stack:', (options as { stack?: string }).stack);
-          }
+misoClient.initialize().then(async () => {
+  // Configure error logger to use MisoClient logger with forRequest()
+  setErrorLogger({
+    async logError(message, options) {
+      const req = (options as { req?: Request })?.req;
+      if (req && misoClient) {
+        // Use forRequest() for automatic context extraction
+        await misoClient.log.forRequest(req).error(message, (options as { stack?: string })?.stack);
+      } else if (misoClient) {
+        // Fallback for non-Express contexts
+        await misoClient.log.error(message, options as Record<string, unknown>);
+      } else {
+        // Final fallback to console if MisoClient not available
+        console.error('[ERROR]', message);
+        if ((options as { stack?: string })?.stack) {
+          console.error('[ERROR] Stack:', (options as { stack?: string }).stack);
         }
       }
-    });
+    },
   });
+});
 ```
 
 **Benefits:**
@@ -391,7 +390,7 @@ export function getUsers(misoClient: MisoClient | null) {
     if (misoClient) {
       await misoClient.log.forRequest(req).info('Fetching users list');
     }
-    
+
     // Business logic continues regardless of MisoClient availability
     const users = await fetchUsers();
     res.json({ users, count: users.length });
@@ -433,7 +432,7 @@ describe('getUsers', () => {
   it('should work with null MisoClient', async () => {
     const handler = getUsers(null);
     await handler(mockRequest, mockResponse, mockNext);
-    
+
     expect(mockResponse.json).toHaveBeenCalled();
   });
 
@@ -483,7 +482,7 @@ describe('MisoClient Fallback', () => {
   it('should handle null MisoClient gracefully', async () => {
     const handler = getUsers(null);
     await handler(mockRequest, mockResponse, mockNext);
-    
+
     // Should complete successfully without logging
     expect(mockResponse.json).toHaveBeenCalled();
   });

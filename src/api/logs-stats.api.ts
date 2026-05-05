@@ -3,10 +3,9 @@
  * Handles log statistics endpoints
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
 import {
-
   GetLogStatsQueryParams,
   LogStatsSummaryResponse,
   ErrorStatsQueryParams,
@@ -14,9 +13,9 @@ import {
   UserActivityStatsQueryParams,
   UserActivityStatsResponse,
   ApplicationStatsResponse,
-} from './types/logs.types';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
+} from "./types/logs.types";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 
 /**
  * Logs Stats API class
@@ -24,10 +23,14 @@ import { logErrorWithContext } from '../utils/console-logger';
  */
 export class LogsStatsApi {
   // Centralize endpoint URLs as constants
-  private static readonly LOGS_STATS_SUMMARY_ENDPOINT = '/api/v1/logs/stats/summary';
-  private static readonly LOGS_STATS_ERRORS_ENDPOINT = '/api/v1/logs/stats/errors';
-  private static readonly LOGS_STATS_USERS_ENDPOINT = '/api/v1/logs/stats/users';
-  private static readonly LOGS_STATS_APPLICATIONS_ENDPOINT = '/api/v1/logs/stats/applications';
+  private static readonly LOGS_STATS_SUMMARY_ENDPOINT =
+    "/api/v1/logs/stats/summary";
+  private static readonly LOGS_STATS_ERRORS_ENDPOINT =
+    "/api/v1/logs/stats/errors";
+  private static readonly LOGS_STATS_USERS_ENDPOINT =
+    "/api/v1/logs/stats/users";
+  private static readonly LOGS_STATS_APPLICATIONS_ENDPOINT =
+    "/api/v1/logs/stats/applications";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -44,7 +47,7 @@ export class LogsStatsApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<LogStatsSummaryResponse>(
-          'GET',
+          "GET",
           LogsStatsApi.LOGS_STATS_SUMMARY_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -54,7 +57,7 @@ export class LogsStatsApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<LogStatsSummaryResponse>(
-          'GET',
+          "GET",
           LogsStatsApi.LOGS_STATS_SUMMARY_ENDPOINT,
           authStrategy,
           undefined,
@@ -62,17 +65,17 @@ export class LogsStatsApi {
         );
       }
       return await this.httpClient.request<LogStatsSummaryResponse>(
-        'GET',
+        "GET",
         LogsStatsApi.LOGS_STATS_SUMMARY_ENDPOINT,
         undefined,
         { params },
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: undefined,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsStatsApi]');
+      logErrorWithContext(errorInfo, "[LogsStatsApi]");
       throw error;
     }
   }
@@ -90,7 +93,7 @@ export class LogsStatsApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<ErrorStatsResponse>(
-          'GET',
+          "GET",
           LogsStatsApi.LOGS_STATS_ERRORS_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -100,7 +103,7 @@ export class LogsStatsApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<ErrorStatsResponse>(
-          'GET',
+          "GET",
           LogsStatsApi.LOGS_STATS_ERRORS_ENDPOINT,
           authStrategy,
           undefined,
@@ -108,17 +111,17 @@ export class LogsStatsApi {
         );
       }
       return await this.httpClient.request<ErrorStatsResponse>(
-        'GET',
+        "GET",
         LogsStatsApi.LOGS_STATS_ERRORS_ENDPOINT,
         undefined,
         { params },
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: undefined,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsStatsApi]');
+      logErrorWithContext(errorInfo, "[LogsStatsApi]");
       throw error;
     }
   }
@@ -136,7 +139,7 @@ export class LogsStatsApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<UserActivityStatsResponse>(
-          'GET',
+          "GET",
           LogsStatsApi.LOGS_STATS_USERS_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -146,7 +149,7 @@ export class LogsStatsApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<UserActivityStatsResponse>(
-          'GET',
+          "GET",
           LogsStatsApi.LOGS_STATS_USERS_ENDPOINT,
           authStrategy,
           undefined,
@@ -154,17 +157,17 @@ export class LogsStatsApi {
         );
       }
       return await this.httpClient.request<UserActivityStatsResponse>(
-        'GET',
+        "GET",
         LogsStatsApi.LOGS_STATS_USERS_ENDPOINT,
         undefined,
         { params },
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: undefined,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsStatsApi]');
+      logErrorWithContext(errorInfo, "[LogsStatsApi]");
       throw error;
     }
   }
@@ -182,7 +185,7 @@ export class LogsStatsApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<ApplicationStatsResponse>(
-          'GET',
+          "GET",
           LogsStatsApi.LOGS_STATS_APPLICATIONS_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -192,7 +195,7 @@ export class LogsStatsApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<ApplicationStatsResponse>(
-          'GET',
+          "GET",
           LogsStatsApi.LOGS_STATS_APPLICATIONS_ENDPOINT,
           authStrategy,
           undefined,
@@ -200,19 +203,18 @@ export class LogsStatsApi {
         );
       }
       return await this.httpClient.request<ApplicationStatsResponse>(
-        'GET',
+        "GET",
         LogsStatsApi.LOGS_STATS_APPLICATIONS_ENDPOINT,
         undefined,
         { params },
       );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: undefined,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[LogsStatsApi]');
+      logErrorWithContext(errorInfo, "[LogsStatsApi]");
       throw error;
     }
   }
 }
-

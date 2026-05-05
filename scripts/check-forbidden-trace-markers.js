@@ -29,7 +29,11 @@ const ALLOWED_EXTENSIONS = new Set([
 
 function walk(dir, files) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name === "node_modules" || entry.name === "dist" || entry.name === ".git") {
+    if (
+      entry.name === "node_modules" ||
+      entry.name === "dist" ||
+      entry.name === ".git"
+    ) {
       continue;
     }
 
@@ -87,4 +91,6 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log("Forbidden marker check passed (no temporary trace/debug markers).");
+console.log(
+  "Forbidden marker check passed (no temporary trace/debug markers).",
+);

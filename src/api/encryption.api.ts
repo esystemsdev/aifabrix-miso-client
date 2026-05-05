@@ -4,15 +4,15 @@
  * Uses x-client-token authentication (automatic via HttpClient)
  */
 
-import { HttpClient } from '../utils/http-client';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
+import { HttpClient } from "../utils/http-client";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 import {
   EncryptRequest,
   EncryptResponse,
   DecryptRequest,
   DecryptResponse,
-} from './types/encryption.types';
+} from "./types/encryption.types";
 
 /**
  * Encryption API class
@@ -21,8 +21,8 @@ import {
  */
 export class EncryptionApi {
   // Centralize endpoint URLs as constants
-  private static readonly ENCRYPT_ENDPOINT = '/api/security/parameters/encrypt';
-  private static readonly DECRYPT_ENDPOINT = '/api/security/parameters/decrypt';
+  private static readonly ENCRYPT_ENDPOINT = "/api/security/parameters/encrypt";
+  private static readonly DECRYPT_ENDPOINT = "/api/security/parameters/decrypt";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -34,16 +34,16 @@ export class EncryptionApi {
   async encrypt(params: EncryptRequest): Promise<EncryptResponse> {
     try {
       return await this.httpClient.request<EncryptResponse>(
-        'POST',
+        "POST",
         EncryptionApi.ENCRYPT_ENDPOINT,
         params,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: EncryptionApi.ENCRYPT_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[EncryptionApi]');
+      logErrorWithContext(errorInfo, "[EncryptionApi]");
       throw error;
     }
   }
@@ -56,16 +56,16 @@ export class EncryptionApi {
   async decrypt(params: DecryptRequest): Promise<DecryptResponse> {
     try {
       return await this.httpClient.request<DecryptResponse>(
-        'POST',
+        "POST",
         EncryptionApi.DECRYPT_ENDPOINT,
         params,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: EncryptionApi.DECRYPT_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[EncryptionApi]');
+      logErrorWithContext(errorInfo, "[EncryptionApi]");
       throw error;
     }
   }

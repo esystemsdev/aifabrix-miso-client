@@ -67,7 +67,10 @@ describe("filter-schema.utils", () => {
 
   describe("createFilterError", () => {
     it("should create error with code and message", () => {
-      const error = createFilterError(FilterErrorCode.UNKNOWN_FIELD, "Field not found");
+      const error = createFilterError(
+        FilterErrorCode.UNKNOWN_FIELD,
+        "Field not found",
+      );
       expect(error.code).toBe("UNKNOWN_FIELD");
       expect(error.message).toBe("Field not found");
     });
@@ -169,7 +172,11 @@ describe("filter-schema.utils", () => {
     });
 
     it("should return error for unknown field", () => {
-      const filter: FilterOption = { field: "unknown", op: "eq", value: "test" };
+      const filter: FilterOption = {
+        field: "unknown",
+        op: "eq",
+        value: "test",
+      };
       const error = validateFilter(filter, testSchema);
       expect(error).not.toBeNull();
       expect(error?.code).toBe(FilterErrorCode.UNKNOWN_FIELD);
@@ -177,7 +184,11 @@ describe("filter-schema.utils", () => {
     });
 
     it("should return error for invalid operator", () => {
-      const filter: FilterOption = { field: "status", op: "ilike", value: "test" };
+      const filter: FilterOption = {
+        field: "status",
+        op: "ilike",
+        value: "test",
+      };
       const error = validateFilter(filter, testSchema);
       expect(error).not.toBeNull();
       expect(error?.code).toBe(FilterErrorCode.INVALID_OPERATOR);
@@ -186,7 +197,11 @@ describe("filter-schema.utils", () => {
     });
 
     it("should return error for invalid enum value", () => {
-      const filter: FilterOption = { field: "status", op: "eq", value: "invalid" };
+      const filter: FilterOption = {
+        field: "status",
+        op: "eq",
+        value: "invalid",
+      };
       const error = validateFilter(filter, testSchema);
       expect(error).not.toBeNull();
       expect(error?.code).toBe(FilterErrorCode.INVALID_ENUM);
@@ -194,7 +209,11 @@ describe("filter-schema.utils", () => {
     });
 
     it("should return error for invalid UUID", () => {
-      const filter: FilterOption = { field: "environmentId", op: "eq", value: "not-a-uuid" };
+      const filter: FilterOption = {
+        field: "environmentId",
+        op: "eq",
+        value: "not-a-uuid",
+      };
       const error = validateFilter(filter, testSchema);
       expect(error).not.toBeNull();
       expect(error?.code).toBe(FilterErrorCode.INVALID_UUID);
@@ -211,20 +230,32 @@ describe("filter-schema.utils", () => {
     });
 
     it("should return error for invalid timestamp", () => {
-      const filter: FilterOption = { field: "createdAt", op: "gte", value: "not-a-date" };
+      const filter: FilterOption = {
+        field: "createdAt",
+        op: "gte",
+        value: "not-a-date",
+      };
       const error = validateFilter(filter, testSchema);
       expect(error).not.toBeNull();
       expect(error?.code).toBe(FilterErrorCode.INVALID_DATE);
     });
 
     it("should return null for valid timestamp", () => {
-      const filter: FilterOption = { field: "createdAt", op: "gte", value: "2024-01-01T00:00:00Z" };
+      const filter: FilterOption = {
+        field: "createdAt",
+        op: "gte",
+        value: "2024-01-01T00:00:00Z",
+      };
       const error = validateFilter(filter, testSchema);
       expect(error).toBeNull();
     });
 
     it("should return error for non-array value with in operator", () => {
-      const filter: FilterOption = { field: "name", op: "in", value: "single-value" as unknown as string[] };
+      const filter: FilterOption = {
+        field: "name",
+        op: "in",
+        value: "single-value" as unknown as string[],
+      };
       const error = validateFilter(filter, testSchema);
       expect(error).not.toBeNull();
       expect(error?.code).toBe(FilterErrorCode.INVALID_IN);
@@ -238,13 +269,21 @@ describe("filter-schema.utils", () => {
     });
 
     it("should return null for isNull operator", () => {
-      const filter: FilterOption = { field: "deletedAt", op: "isNull", value: null };
+      const filter: FilterOption = {
+        field: "deletedAt",
+        op: "isNull",
+        value: null,
+      };
       const error = validateFilter(filter, testSchema);
       expect(error).toBeNull();
     });
 
     it("should return null for isNotNull operator", () => {
-      const filter: FilterOption = { field: "deletedAt", op: "isNotNull", value: null };
+      const filter: FilterOption = {
+        field: "deletedAt",
+        op: "isNotNull",
+        value: null,
+      };
       const error = validateFilter(filter, testSchema);
       expect(error).toBeNull();
     });
@@ -281,7 +320,9 @@ describe("filter-schema.utils", () => {
 
   describe("compileFilter", () => {
     it("should compile single eq filter", () => {
-      const filters: FilterOption[] = [{ field: "name", op: "eq", value: "test" }];
+      const filters: FilterOption[] = [
+        { field: "name", op: "eq", value: "test" },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("name = $1");
       expect(result.params).toEqual(["test"]);
@@ -308,52 +349,70 @@ describe("filter-schema.utils", () => {
     });
 
     it("should compile neq filter", () => {
-      const filters: FilterOption[] = [{ field: "name", op: "neq", value: "test" }];
+      const filters: FilterOption[] = [
+        { field: "name", op: "neq", value: "test" },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("name != $1");
     });
 
     it("should compile gt filter", () => {
-      const filters: FilterOption[] = [{ field: "priority", op: "gt", value: 5 }];
+      const filters: FilterOption[] = [
+        { field: "priority", op: "gt", value: 5 },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("priority > $1");
       expect(result.params).toEqual([5]);
     });
 
     it("should compile gte filter", () => {
-      const filters: FilterOption[] = [{ field: "priority", op: "gte", value: 5 }];
+      const filters: FilterOption[] = [
+        { field: "priority", op: "gte", value: 5 },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("priority >= $1");
     });
 
     it("should compile lt filter", () => {
-      const filters: FilterOption[] = [{ field: "priority", op: "lt", value: 10 }];
+      const filters: FilterOption[] = [
+        { field: "priority", op: "lt", value: 10 },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("priority < $1");
     });
 
     it("should compile lte filter", () => {
-      const filters: FilterOption[] = [{ field: "priority", op: "lte", value: 10 }];
+      const filters: FilterOption[] = [
+        { field: "priority", op: "lte", value: 10 },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("priority <= $1");
     });
 
     it("should compile in filter with ANY", () => {
-      const filters: FilterOption[] = [{ field: "name", op: "in", value: ["a", "b", "c"] }];
+      const filters: FilterOption[] = [
+        { field: "name", op: "in", value: ["a", "b", "c"] },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("name = ANY($1)");
       expect(result.params).toEqual([["a", "b", "c"]]);
     });
 
     it("should compile nin filter with ALL", () => {
-      const filters: FilterOption[] = [{ field: "name", op: "in", value: ["a", "b"] }];
-      const filtersNin: FilterOption[] = [{ field: "name", op: "nin", value: ["a", "b"] }];
+      const filters: FilterOption[] = [
+        { field: "name", op: "in", value: ["a", "b"] },
+      ];
+      const filtersNin: FilterOption[] = [
+        { field: "name", op: "nin", value: ["a", "b"] },
+      ];
       const resultNin = compileFilter(filtersNin, testSchema);
       expect(resultNin.sql).toBe("name != ALL($1)");
     });
 
     it("should compile like filter", () => {
-      const filters: FilterOption[] = [{ field: "name", op: "ilike", value: "%test%" }];
+      const filters: FilterOption[] = [
+        { field: "name", op: "ilike", value: "%test%" },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("name ILIKE $1");
       expect(result.params).toEqual(["%test%"]);
@@ -366,28 +425,36 @@ describe("filter-schema.utils", () => {
           name: { column: "name", type: "string", operators: ["contains"] },
         },
       };
-      const filters: FilterOption[] = [{ field: "name", op: "contains", value: "test" }];
+      const filters: FilterOption[] = [
+        { field: "name", op: "contains", value: "test" },
+      ];
       const result = compileFilter(filters, schema);
       expect(result.sql).toBe("name ILIKE $1");
       expect(result.params).toEqual(["%test%"]);
     });
 
     it("should compile isNull filter without param", () => {
-      const filters: FilterOption[] = [{ field: "deletedAt", op: "isNull", value: null }];
+      const filters: FilterOption[] = [
+        { field: "deletedAt", op: "isNull", value: null },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("deleted_at IS NULL");
       expect(result.params).toHaveLength(0);
     });
 
     it("should compile isNotNull filter without param", () => {
-      const filters: FilterOption[] = [{ field: "deletedAt", op: "isNotNull", value: null }];
+      const filters: FilterOption[] = [
+        { field: "deletedAt", op: "isNotNull", value: null },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("deleted_at IS NOT NULL");
       expect(result.params).toHaveLength(0);
     });
 
     it("should use column name from schema", () => {
-      const filters: FilterOption[] = [{ field: "createdAt", op: "gte", value: "2024-01-01" }];
+      const filters: FilterOption[] = [
+        { field: "createdAt", op: "gte", value: "2024-01-01" },
+      ];
       const result = compileFilter(filters, testSchema);
       expect(result.sql).toBe("created_at >= $1");
     });
@@ -399,7 +466,9 @@ describe("filter-schema.utils", () => {
     });
 
     it("should throw error for unknown field", () => {
-      const filters: FilterOption[] = [{ field: "unknown", op: "eq", value: "test" }];
+      const filters: FilterOption[] = [
+        { field: "unknown", op: "eq", value: "test" },
+      ];
       expect(() => compileFilter(filters, testSchema)).toThrow("Unknown field");
     });
   });
@@ -461,15 +530,21 @@ describe("filter-schema.utils", () => {
     });
 
     it("should throw error for non-object input", () => {
-      expect(() => loadFilterSchema("not an object")).toThrow("expected object");
+      expect(() => loadFilterSchema("not an object")).toThrow(
+        "expected object",
+      );
     });
 
     it("should throw error for missing resource", () => {
-      expect(() => loadFilterSchema({ fields: {} })).toThrow("missing 'resource'");
+      expect(() => loadFilterSchema({ fields: {} })).toThrow(
+        "missing 'resource'",
+      );
     });
 
     it("should throw error for missing fields", () => {
-      expect(() => loadFilterSchema({ resource: "test" })).toThrow("missing 'fields'");
+      expect(() => loadFilterSchema({ resource: "test" })).toThrow(
+        "missing 'fields'",
+      );
     });
 
     it("should throw error for invalid field definition", () => {

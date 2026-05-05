@@ -5,27 +5,27 @@ class BufferStub {
     stub._data = data;
     return stub;
   }
-  
+
   static alloc(size: number, fill?: unknown, _encoding?: string) {
     const stub = new BufferStub();
     stub._size = size;
     stub._fill = fill;
     return stub;
   }
-  
+
   static allocUnsafe(size: number) {
     return BufferStub.alloc(size);
   }
-  
+
   static isBuffer(obj: unknown): boolean {
     return obj instanceof BufferStub;
   }
-  
+
   _data?: unknown;
   _encoding?: string;
   _size?: number;
   _fill?: unknown;
-  
+
   toString(_encoding?: string): string {
     if (this._data !== undefined) {
       if (typeof this._data === 'string') {
@@ -37,11 +37,11 @@ class BufferStub {
     }
     return '';
   }
-  
+
   toJSON() {
     return { type: 'Buffer', data: [] };
   }
-  
+
   length = 0;
 }
 

@@ -34,7 +34,11 @@ export function setErrorLogger(logger: ErrorLogger | null): void {
 }
 
 /** Prisma error code to HTTP status mapping */
-const PRISMA_ERROR_MAP: Record<string, number> = { P2002: 409, P2025: 404, P2003: 400 };
+const PRISMA_ERROR_MAP: Record<string, number> = {
+  P2002: 409,
+  P2025: 404,
+  P2003: 400,
+};
 
 /** Error message patterns to HTTP status mapping */
 const MESSAGE_PATTERN_MAP: Array<{ pattern: RegExp; status: number }> = [
@@ -123,18 +127,33 @@ interface LogErrorOptions {
 
 /** Log error using custom logger or stderr */
 async function logError(error: unknown, opts: LogErrorOptions): Promise<void> {
-  const { errorInfo, logMessage, req, correlationId, statusCode, operationName } = opts;
+  const {
+    errorInfo,
+    logMessage,
+    req,
+    correlationId,
+    statusCode,
+    operationName,
+  } = opts;
   logErrorWithContext(errorInfo, "[Express]");
 
   if (customErrorLogger) {
     try {
       await customErrorLogger.logError(logMessage, {
-        req, correlationId: errorInfo.correlationId || correlationId, operation: operationName,
-        statusCode: errorInfo.statusCode || statusCode, url: req.originalUrl, method: req.method,
-        errorMessage: errorInfo.message, errorName: errorInfo.errorName, errorType: errorInfo.errorType, stack: errorInfo.stackTrace,
+        req,
+        correlationId: errorInfo.correlationId || correlationId,
+        operation: operationName,
+        statusCode: errorInfo.statusCode || statusCode,
+        url: req.originalUrl,
+        method: req.method,
+        errorMessage: errorInfo.message,
+        errorName: errorInfo.errorName,
+        errorType: errorInfo.errorType,
+        stack: errorInfo.stackTrace,
       });
     } catch (logError) {
-      const logErr = logError instanceof Error ? logError : new Error(String(logError));
+      const logErr =
+        logError instanceof Error ? logError : new Error(String(logError));
       // eslint-disable-next-line no-console -- Fallback logging when injected logger fails
       console.error(`Failed to log error: ${logErr.message}`);
       // eslint-disable-next-line no-console -- Preserve original error context for diagnostics
@@ -158,19 +177,42 @@ async function logError(error: unknown, opts: LogErrorOptions): Promise<void> {
  * @param operation - Optional operation name for logging.
  * @returns Promise that resolves when response is sent.
  */
-export async function handleRouteError(error: unknown, req: Request, res: Response, operation?: string): Promise<void> {
+export async function handleRouteError(
+  error: unknown,
+  req: Request,
+  res: Response,
+  operation?: string,
+): Promise<void> {
   const requestContext = extractRequestContext(req);
-  const correlationId = (req as Request & { correlationId?: string }).correlationId || requestContext.correlationId || generateCorrelationId();
+  const correlationId =
+    (req as Request & { correlationId?: string }).correlationId ||
+    requestContext.correlationId ||
+    generateCorrelationId();
   const statusCode = mapErrorToStatusCode(error);
   const errorMessage = extractErrorMessage(error);
   const operationName = operation || "unknown operation";
 
-  const errorInfo = extractErrorInfo(error, { endpoint: req.originalUrl || req.path, method: req.method, correlationId });
+  const errorInfo = extractErrorInfo(error, {
+    endpoint: req.originalUrl || req.path,
+    method: req.method,
+    correlationId,
+  });
   await logError(error, {
-    errorInfo, logMessage: `${operationName} failed: ${errorMessage}`, req, correlationId, statusCode, operationName,
+    errorInfo,
+    logMessage: `${operationName} failed: ${errorMessage}`,
+    req,
+    correlationId,
+    statusCode,
+    operationName,
   });
 
-  const errorResponse = createErrorResponseFromError(error, statusCode, req, correlationId);
-  if (error instanceof AppError && error.correlationId) errorResponse.correlationId = error.correlationId;
+  const errorResponse = createErrorResponseFromError(
+    error,
+    statusCode,
+    req,
+    correlationId,
+  );
+  if (error instanceof AppError && error.correlationId)
+    errorResponse.correlationId = error.correlationId;
   sendErrorResponse(res, errorResponse);
 }

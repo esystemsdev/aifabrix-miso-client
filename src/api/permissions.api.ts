@@ -3,15 +3,15 @@
  * Provides typed interfaces for permissions-related controller API calls
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
-import { extractErrorInfo } from '../utils/error-extractor';
-import { logErrorWithContext } from '../utils/console-logger';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
+import { extractErrorInfo } from "../utils/error-extractor";
+import { logErrorWithContext } from "../utils/console-logger";
 import {
   GetPermissionsQueryParams,
   GetPermissionsResponse,
   RefreshPermissionsResponse,
-} from './types/permissions.types';
+} from "./types/permissions.types";
 
 /**
  * Permissions API class
@@ -19,8 +19,9 @@ import {
  */
 export class PermissionsApi {
   // Centralize endpoint URLs as constants
-  private static readonly PERMISSIONS_ENDPOINT = '/api/v1/auth/permissions';
-  private static readonly PERMISSIONS_REFRESH_ENDPOINT = '/api/v1/auth/permissions/refresh';
+  private static readonly PERMISSIONS_ENDPOINT = "/api/v1/auth/permissions";
+  private static readonly PERMISSIONS_REFRESH_ENDPOINT =
+    "/api/v1/auth/permissions/refresh";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -37,7 +38,7 @@ export class PermissionsApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<GetPermissionsResponse>(
-          'GET',
+          "GET",
           PermissionsApi.PERMISSIONS_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -47,20 +48,22 @@ export class PermissionsApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<GetPermissionsResponse>(
-          'GET',
+          "GET",
           PermissionsApi.PERMISSIONS_ENDPOINT,
           authStrategy,
           undefined,
           { params },
         );
       }
-      throw new Error('getPermissions requires authentication - provide authStrategy with bearerToken');
+      throw new Error(
+        "getPermissions requires authentication - provide authStrategy with bearerToken",
+      );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: PermissionsApi.PERMISSIONS_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[PermissionsApi]');
+      logErrorWithContext(errorInfo, "[PermissionsApi]");
       throw error;
     }
   }
@@ -78,7 +81,7 @@ export class PermissionsApi {
     try {
       if (authStrategy?.bearerToken) {
         return await this.httpClient.authenticatedRequest<RefreshPermissionsResponse>(
-          'GET',
+          "GET",
           PermissionsApi.PERMISSIONS_REFRESH_ENDPOINT,
           authStrategy.bearerToken,
           undefined,
@@ -88,22 +91,23 @@ export class PermissionsApi {
       }
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<RefreshPermissionsResponse>(
-          'GET',
+          "GET",
           PermissionsApi.PERMISSIONS_REFRESH_ENDPOINT,
           authStrategy,
           undefined,
           { params },
         );
       }
-      throw new Error('refreshPermissions requires authentication - provide authStrategy with bearerToken');
+      throw new Error(
+        "refreshPermissions requires authentication - provide authStrategy with bearerToken",
+      );
     } catch (error) {
-            const errorInfo = extractErrorInfo(error, {
+      const errorInfo = extractErrorInfo(error, {
         endpoint: PermissionsApi.PERMISSIONS_REFRESH_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[PermissionsApi]');
+      logErrorWithContext(errorInfo, "[PermissionsApi]");
       throw error;
     }
   }
 }
-

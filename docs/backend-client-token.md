@@ -24,15 +24,22 @@ Never expose `MISO_CLIENTSECRET` to the frontend.
 Use the SDK helper to add a route that returns a client token (and optional DataClient config):
 
 ```typescript
-import { MisoClient, loadConfig, createClientTokenEndpoint } from '@aifabrix/miso-client';
+import {
+  MisoClient,
+  loadConfig,
+  createClientTokenEndpoint,
+} from "@aifabrix/miso-client";
 
 const client = new MisoClient(loadConfig());
 await client.initialize();
 
-app.get('/api/client-token', createClientTokenEndpoint(client, {
-  clientTokenUri: '/api/client-token',
-  expiresIn: 1800,
-}));
+app.get(
+  "/api/client-token",
+  createClientTokenEndpoint(client, {
+    clientTokenUri: "/api/client-token",
+    expiresIn: 1800,
+  }),
+);
 ```
 
 Or return only token and expiry yourself:
@@ -55,9 +62,11 @@ The frontend uses this to call the controller (e.g. via DataClient) without ever
 The frontend fetches config and token from your backend and uses DataClient for API calls:
 
 ```typescript
-import { autoInitializeDataClient } from '@aifabrix/miso-client';
+import { autoInitializeDataClient } from "@aifabrix/miso-client";
 
-const dataClient = await autoInitializeDataClient({ clientTokenUri: '/api/client-token' });
+const dataClient = await autoInitializeDataClient({
+  clientTokenUri: "/api/client-token",
+});
 // dataClient uses the backend route for token and refresh
 ```
 

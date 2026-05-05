@@ -28,42 +28,64 @@ describe("filter.utils - Colon Format", () => {
 
     it("should parse colon format with in operator (array)", () => {
       const result = parseFilterParams({ filter: "region:in:eu,us,uk" });
-      expect(result).toEqual([{ field: "region", op: "in", value: ["eu", "us", "uk"] }]);
+      expect(result).toEqual([
+        { field: "region", op: "in", value: ["eu", "us", "uk"] },
+      ]);
     });
 
     it("should parse colon format with nin operator (array)", () => {
-      const result = parseFilterParams({ filter: "status:nin:deleted,archived" });
-      expect(result).toEqual([{ field: "status", op: "nin", value: ["deleted", "archived"] }]);
+      const result = parseFilterParams({
+        filter: "status:nin:deleted,archived",
+      });
+      expect(result).toEqual([
+        { field: "status", op: "nin", value: ["deleted", "archived"] },
+      ]);
     });
 
     it("should parse colon format with in operator and numeric values", () => {
       const result = parseFilterParams({ filter: "priority:in:1,2,3" });
-      expect(result).toEqual([{ field: "priority", op: "in", value: [1, 2, 3] }]);
+      expect(result).toEqual([
+        { field: "priority", op: "in", value: [1, 2, 3] },
+      ]);
     });
 
     it("should parse colon format with isNull operator (empty value)", () => {
       const result = parseFilterParams({ filter: "deletedAt:isNull:" });
-      expect(result).toEqual([{ field: "deletedAt", op: "isNull", value: null }]);
+      expect(result).toEqual([
+        { field: "deletedAt", op: "isNull", value: null },
+      ]);
     });
 
     it("should parse colon format with isNotNull operator", () => {
       const result = parseFilterParams({ filter: "email:isNotNull:" });
-      expect(result).toEqual([{ field: "email", op: "isNotNull", value: null }]);
+      expect(result).toEqual([
+        { field: "email", op: "isNotNull", value: null },
+      ]);
     });
 
     it("should parse colon format with isNull without trailing colon", () => {
       const result = parseFilterParams({ filter: "deletedAt:isNull" });
-      expect(result).toEqual([{ field: "deletedAt", op: "isNull", value: null }]);
+      expect(result).toEqual([
+        { field: "deletedAt", op: "isNull", value: null },
+      ]);
     });
 
     it("should preserve colons in timestamp values", () => {
-      const result = parseFilterParams({ filter: "createdAt:gte:2024-01-01T12:00:00" });
-      expect(result).toEqual([{ field: "createdAt", op: "gte", value: "2024-01-01T12:00:00" }]);
+      const result = parseFilterParams({
+        filter: "createdAt:gte:2024-01-01T12:00:00",
+      });
+      expect(result).toEqual([
+        { field: "createdAt", op: "gte", value: "2024-01-01T12:00:00" },
+      ]);
     });
 
     it("should preserve colons in ISO timestamp values", () => {
-      const result = parseFilterParams({ filter: "updatedAt:lte:2024-12-31T23:59:59.999Z" });
-      expect(result).toEqual([{ field: "updatedAt", op: "lte", value: "2024-12-31T23:59:59.999Z" }]);
+      const result = parseFilterParams({
+        filter: "updatedAt:lte:2024-12-31T23:59:59.999Z",
+      });
+      expect(result).toEqual([
+        { field: "updatedAt", op: "lte", value: "2024-12-31T23:59:59.999Z" },
+      ]);
     });
 
     it("should parse colon format with ilike operator", () => {
@@ -77,8 +99,12 @@ describe("filter.utils - Colon Format", () => {
     });
 
     it("should parse colon format with contains operator", () => {
-      const result = parseFilterParams({ filter: "description:contains:important" });
-      expect(result).toEqual([{ field: "description", op: "contains", value: "important" }]);
+      const result = parseFilterParams({
+        filter: "description:contains:important",
+      });
+      expect(result).toEqual([
+        { field: "description", op: "contains", value: "important" },
+      ]);
     });
 
     it("should parse array of colon format filters", () => {
@@ -87,7 +113,11 @@ describe("filter.utils - Colon Format", () => {
       });
       expect(result).toHaveLength(2);
       expect(result[0]).toEqual({ field: "status", op: "eq", value: "active" });
-      expect(result[1]).toEqual({ field: "region", op: "in", value: ["eu", "us"] });
+      expect(result[1]).toEqual({
+        field: "region",
+        op: "in",
+        value: ["eu", "us"],
+      });
     });
 
     it("should parse mixed array of colon and JSON formats", () => {
@@ -111,19 +141,27 @@ describe("filter.utils - Colon Format", () => {
 
     it("should trim whitespace from array values", () => {
       const result = parseFilterParams({ filter: "region:in: eu , us , uk " });
-      expect(result).toEqual([{ field: "region", op: "in", value: ["eu", "us", "uk"] }]);
+      expect(result).toEqual([
+        { field: "region", op: "in", value: ["eu", "us", "uk"] },
+      ]);
     });
 
     it("should throw error for missing field name", () => {
-      expect(() => parseFilterParams({ filter: ":eq:value" })).toThrow("missing field name");
+      expect(() => parseFilterParams({ filter: ":eq:value" })).toThrow(
+        "missing field name",
+      );
     });
 
     it("should throw error for missing operator", () => {
-      expect(() => parseFilterParams({ filter: "field:" })).toThrow("missing operator");
+      expect(() => parseFilterParams({ filter: "field:" })).toThrow(
+        "missing operator",
+      );
     });
 
     it("should throw error for missing value on non-null operators", () => {
-      expect(() => parseFilterParams({ filter: "status:eq:" })).toThrow("missing value");
+      expect(() => parseFilterParams({ filter: "status:eq:" })).toThrow(
+        "missing value",
+      );
     });
 
     it("should normalize operator aliases in colon format", () => {
@@ -138,7 +176,9 @@ describe("filter.utils - Colon Format", () => {
 
     it("should handle special characters in values", () => {
       const result = parseFilterParams({ filter: "name:eq:John O'Brien" });
-      expect(result).toEqual([{ field: "name", op: "eq", value: "John O'Brien" }]);
+      expect(result).toEqual([
+        { field: "name", op: "eq", value: "John O'Brien" },
+      ]);
     });
 
     it("should handle UUID values", () => {
@@ -148,12 +188,16 @@ describe("filter.utils - Colon Format", () => {
     });
 
     it("should prefer JSON format when string starts with {", () => {
-      const result = parseFilterParams({ filter: '{"status": {"eq": "active"}}' });
+      const result = parseFilterParams({
+        filter: '{"status": {"eq": "active"}}',
+      });
       expect(result).toEqual([{ field: "status", op: "eq", value: "active" }]);
     });
 
     it("should prefer JSON format when string starts with [", () => {
-      const result = parseFilterParams({ filter: '[{"status": {"eq": "active"}}]' });
+      const result = parseFilterParams({
+        filter: '[{"status": {"eq": "active"}}]',
+      });
       expect(result).toEqual([{ field: "status", op: "eq", value: "active" }]);
     });
   });
@@ -161,7 +205,9 @@ describe("filter.utils - Colon Format", () => {
   describe("colon format vs JSON format detection", () => {
     it("should detect colon format for simple filter", () => {
       const colonResult = parseFilterParams({ filter: "status:eq:active" });
-      const jsonResult = parseFilterParams({ filter: '{"status": {"eq": "active"}}' });
+      const jsonResult = parseFilterParams({
+        filter: '{"status": {"eq": "active"}}',
+      });
       expect(colonResult).toEqual(jsonResult);
     });
 

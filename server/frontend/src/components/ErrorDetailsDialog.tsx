@@ -1,11 +1,5 @@
 import { useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { ErrorDetails } from '../types';
 
 /**
@@ -20,11 +14,7 @@ interface ErrorDetailsDialogProps {
   errorDetails: ErrorDetails | null;
 }
 
-export function ErrorDetailsDialog({
-  open,
-  onOpenChange,
-  errorDetails,
-}: ErrorDetailsDialogProps) {
+export function ErrorDetailsDialog({ open, onOpenChange, errorDetails }: ErrorDetailsDialogProps) {
   // Inject style to make overlay non-interactive so page remains usable
   useEffect(() => {
     const styleId = 'error-dialog-overlay-style';
@@ -45,13 +35,10 @@ export function ErrorDetailsDialog({
   }
 
   return (
-    <Dialog 
-      open={open} 
-      onOpenChange={onOpenChange}
-    >
-      <DialogContent 
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
         className="max-w-2xl max-h-[80vh] overflow-y-auto bg-background [&_*]:select-text"
-        style={{ 
+        style={{
           zIndex: 10001,
           userSelect: 'text',
           WebkitUserSelect: 'text',
@@ -70,13 +57,11 @@ export function ErrorDetailsDialog({
       >
         <DialogHeader>
           <DialogTitle>Error Details</DialogTitle>
-          <DialogDescription>
-            Detailed information about the login error
-          </DialogDescription>
+          <DialogDescription>Detailed information about the login error</DialogDescription>
         </DialogHeader>
-        <div 
-          className="space-y-4 select-text" 
-          style={{ 
+        <div
+          className="space-y-4 select-text"
+          style={{
             userSelect: 'text',
             WebkitUserSelect: 'text',
             MozUserSelect: 'text',
@@ -89,7 +74,7 @@ export function ErrorDetailsDialog({
               {errorDetails.message}
             </p>
           </div>
-          
+
           {errorDetails.details ? (
             <div>
               <h4 className="text-sm font-semibold mb-2">Additional Details</h4>
@@ -98,7 +83,7 @@ export function ErrorDetailsDialog({
               </pre>
             </div>
           ) : null}
-          
+
           {errorDetails.stack && (
             <div>
               <h4 className="text-sm font-semibold mb-2">Stack Trace</h4>
@@ -112,4 +97,3 @@ export function ErrorDetailsDialog({
     </Dialog>
   );
 }
-

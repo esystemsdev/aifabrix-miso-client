@@ -2,7 +2,10 @@
  * Unit tests for token-utils
  */
 
-import { extractClientTokenInfo, ClientTokenInfo } from "../../src/utils/token-utils";
+import {
+  extractClientTokenInfo,
+  ClientTokenInfo,
+} from "../../src/utils/token-utils";
 import jwt from "jsonwebtoken";
 import * as consoleLogger from "../../src/utils/console-logger";
 

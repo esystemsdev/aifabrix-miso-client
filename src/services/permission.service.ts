@@ -5,10 +5,7 @@
 import { HttpClient } from "../utils/http-client";
 import { ApiClient } from "../api";
 import { CacheService } from "./cache.service";
-import {
-  AuthStrategy,
-  AuthMethod,
-} from "../types/config.types";
+import { AuthStrategy, AuthMethod } from "../types/config.types";
 import { extractUserIdFromToken } from "../utils/browser-jwt-decoder";
 import { ApplicationContextService } from "./application-context.service";
 import { extractErrorInfo } from "../utils/error-extractor";
@@ -26,7 +23,11 @@ export class PermissionService {
   private permissionTTL: number;
   private applicationContextService: ApplicationContextService;
 
-  constructor(httpClient: HttpClient, apiClient: ApiClient, cache: CacheService) {
+  constructor(
+    httpClient: HttpClient,
+    apiClient: ApiClient,
+    cache: CacheService,
+  ) {
     this.cache = cache;
     this.httpClient = httpClient;
     this.apiClient = apiClient;
@@ -37,9 +38,14 @@ export class PermissionService {
   /**
    * Build auth strategy with bearer token.
    */
-  private buildAuthStrategy(token: string, authStrategy?: AuthStrategy): AuthStrategy {
+  private buildAuthStrategy(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): AuthStrategy {
     const base = authStrategy || this.httpClient.config.authStrategy;
-    return base ? { ...base, bearerToken: token } : { methods: ['bearer'] as AuthMethod[], bearerToken: token };
+    return base
+      ? { ...base, bearerToken: token }
+      : { methods: ["bearer"] as AuthMethod[], bearerToken: token };
   }
 
   /**
@@ -47,17 +53,25 @@ export class PermissionService {
    */
   private getEnvironmentParams(): { environment: string } | undefined {
     const context = this.applicationContextService.getApplicationContext();
-    return context.environment ? { environment: context.environment } : undefined;
+    return context.environment
+      ? { environment: context.environment }
+      : undefined;
   }
 
   /**
    * Get userId from token, validating via API if not in JWT.
    */
-  private async resolveUserId(token: string, authStrategy?: AuthStrategy): Promise<string | null> {
+  private async resolveUserId(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string | null> {
     const userId = extractUserIdFromToken(token);
     if (userId) return userId;
     const authStrategyWithToken = this.buildAuthStrategy(token, authStrategy);
-    const userInfo = await this.apiClient.auth.validateToken({ token }, authStrategyWithToken);
+    const userInfo = await this.apiClient.auth.validateToken(
+      { token },
+      authStrategyWithToken,
+    );
     return userInfo.data?.user?.id || null;
   }
 
@@ -66,7 +80,10 @@ export class PermissionService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async getPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  async getPermissions(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     try {
       let userId = extractUserIdFromToken(token);
       const cacheKey = userId ? `permissions:${userId}` : null;
@@ -84,10 +101,17 @@ export class PermissionService {
       }
 
       // Fetch from controller
-      const permissions = await this.fetchPermissionsFromController(token, authStrategy);
+      const permissions = await this.fetchPermissionsFromController(
+        token,
+        authStrategy,
+      );
 
       // Cache result
-      await this.cache.set<PermissionCacheData>(`permissions:${userId}`, { permissions, timestamp: Date.now() }, this.permissionTTL);
+      await this.cache.set<PermissionCacheData>(
+        `permissions:${userId}`,
+        { permissions, timestamp: Date.now() },
+        this.permissionTTL,
+      );
       return permissions;
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
@@ -104,10 +128,16 @@ export class PermissionService {
   /**
    * Fetch permissions from controller API.
    */
-  private async fetchPermissionsFromController(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  private async fetchPermissionsFromController(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     const authStrategyWithToken = this.buildAuthStrategy(token, authStrategy);
     const queryParams = this.getEnvironmentParams();
-    const permissionResult = await this.apiClient.permissions.getPermissions(queryParams, authStrategyWithToken);
+    const permissionResult = await this.apiClient.permissions.getPermissions(
+      queryParams,
+      authStrategyWithToken,
+    );
     return permissionResult.data?.permissions || [];
   }
 
@@ -165,20 +195,34 @@ export class PermissionService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async refreshPermissions(token: string, authStrategy?: AuthStrategy): Promise<string[]> {
+  async refreshPermissions(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<string[]> {
     try {
       const authStrategyWithToken = this.buildAuthStrategy(token, authStrategy);
-      const userInfo = await this.apiClient.auth.validateToken({ token }, authStrategyWithToken);
+      const userInfo = await this.apiClient.auth.validateToken(
+        { token },
+        authStrategyWithToken,
+      );
       const userId = userInfo.data?.user?.id;
       if (!userId) return [];
 
       // Fetch fresh permissions
       const queryParams = this.getEnvironmentParams();
-      const permissionResult = await this.apiClient.permissions.refreshPermissions(queryParams, authStrategyWithToken);
+      const permissionResult =
+        await this.apiClient.permissions.refreshPermissions(
+          queryParams,
+          authStrategyWithToken,
+        );
       const permissions = permissionResult.data?.permissions || [];
 
       // Update cache
-      await this.cache.set<PermissionCacheData>(`permissions:${userId}`, { permissions, timestamp: Date.now() }, this.permissionTTL);
+      await this.cache.set<PermissionCacheData>(
+        `permissions:${userId}`,
+        { permissions, timestamp: Date.now() },
+        this.permissionTTL,
+      );
       return permissions;
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
@@ -197,10 +241,16 @@ export class PermissionService {
    * @param token - User authentication token
    * @param authStrategy - Optional authentication strategy override
    */
-  async clearPermissionsCache(token: string, authStrategy?: AuthStrategy): Promise<void> {
+  async clearPermissionsCache(
+    token: string,
+    authStrategy?: AuthStrategy,
+  ): Promise<void> {
     try {
       const authStrategyWithToken = this.buildAuthStrategy(token, authStrategy);
-      const userInfo = await this.apiClient.auth.validateToken({ token }, authStrategyWithToken);
+      const userInfo = await this.apiClient.auth.validateToken(
+        { token },
+        authStrategyWithToken,
+      );
       const userId = userInfo.data?.user?.id;
       if (!userId) return;
       await this.cache.delete(`permissions:${userId}`);

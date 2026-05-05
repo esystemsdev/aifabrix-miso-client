@@ -32,4 +32,3 @@ export interface RefreshPermissionsResponse {
   };
   timestamp: string;
 }
-

@@ -42,18 +42,18 @@ export interface UseApiTestingReturn {
 
 /**
  * Hook for API testing functionality
- * 
+ *
  * Provides test functions for HTTP methods, authentication, and error handling.
  * Manages loading state and results for all API test operations.
- * 
+ *
  * @param dataClient - DataClient instance (can be null if not initialized)
  * @param contextLoading - Whether DataClient context is loading
  * @returns Object containing test functions, loading state, and results
- * 
+ *
  * @example
  * ```tsx
  * const { loading, result, httpMethods, auth, errors } = useApiTesting(dataClient, isLoading);
- * 
+ *
  * // Use test functions
  * httpMethods.testGet();
  * await auth.testIsAuthenticated();
@@ -69,7 +69,7 @@ export function useApiTesting(
 
   /**
    * Execute HTTP request using DataClient
-   * 
+   *
    * @param method - HTTP method (GET, POST, PUT, PATCH, DELETE)
    * @param endpoint - API endpoint path (must start with /)
    * @param data - Optional request body data for POST, PUT, PATCH requests
@@ -89,7 +89,7 @@ export function useApiTesting(
     setLoading(true);
     try {
       let response: unknown;
-      
+
       switch (method) {
         case 'GET':
           response = await dataClient.get(endpoint, { cache: { enabled: false } });
@@ -141,14 +141,14 @@ export function useApiTesting(
   const testGet = (): void => {
     executeRequest('GET', '/api/users');
   };
-  
+
   /**
    * Test GET request to /api/users/:id endpoint
    */
   const testGetById = (): void => {
     executeRequest('GET', '/api/users/1');
   };
-  
+
   /**
    * Test POST request to create a new user
    */
@@ -158,7 +158,7 @@ export function useApiTesting(
       email: 'newuser@example.com',
     });
   };
-  
+
   /**
    * Test PUT request to update a user
    */
@@ -168,7 +168,7 @@ export function useApiTesting(
       email: 'john.updated@example.com',
     });
   };
-  
+
   /**
    * Test PATCH request to partially update a user
    */
@@ -177,7 +177,7 @@ export function useApiTesting(
       email: 'john.patched@example.com',
     });
   };
-  
+
   /**
    * Test DELETE request to delete a user
    */
@@ -188,7 +188,7 @@ export function useApiTesting(
   // Authentication Tests
   /**
    * Test checking if user is authenticated
-   * 
+   *
    * @returns Promise that resolves when check completes
    */
   const testIsAuthenticated = async (): Promise<void> => {
@@ -215,7 +215,7 @@ export function useApiTesting(
 
   /**
    * Test retrieving environment token
-   * 
+   *
    * @returns Promise that resolves when token retrieval completes
    */
   const testGetToken = async (): Promise<void> => {
@@ -242,7 +242,7 @@ export function useApiTesting(
 
   /**
    * Test retrieving client token information
-   * 
+   *
    * @returns Promise that resolves when token info retrieval completes
    */
   const testGetClientTokenInfo = async (): Promise<void> => {
@@ -269,7 +269,7 @@ export function useApiTesting(
 
   /**
    * Test retrieving user information
-   * 
+   *
    * @returns Promise that resolves when user info retrieval completes
    */
   const testGetUser = async (): Promise<void> => {
@@ -283,7 +283,7 @@ export function useApiTesting(
       // Use DataClient's getUser without token parameter - it will auto-retrieve from localStorage
       // This matches how the SDK is designed to work
       const userInfo = await dataClient.getUser();
-      
+
       if (!userInfo) {
         toast.error('No user info available. Please login first.');
         setResult({
@@ -301,16 +301,16 @@ export function useApiTesting(
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       const errorStatus = getErrorStatus(error);
-      
+
       // Provide helpful error message based on status code
       if (errorStatus === 401) {
-        toast.error('Authentication failed', { 
-          description: 'Token is invalid or expired. Please login again.' 
+        toast.error('Authentication failed', {
+          description: 'Token is invalid or expired. Please login again.',
         });
       } else {
         toast.error('Failed to get user info', { description: errorMessage });
       }
-      
+
       setResult({
         error: errorMessage,
         status: errorStatus,
@@ -323,7 +323,7 @@ export function useApiTesting(
 
   /**
    * Test user logout
-   * 
+   *
    * @returns Promise that resolves when logout completes
    */
   const testLogout = async (): Promise<void> => {
@@ -335,7 +335,7 @@ export function useApiTesting(
     setLoading(true);
     try {
       await dataClient.logout();
-      setResult({ 
+      setResult({
         message: 'User logged out successfully',
         timestamp: new Date().toISOString(),
       });
@@ -350,9 +350,9 @@ export function useApiTesting(
 
   /**
    * Test redirecting to login page
-   * 
+   *
    * Note: This will redirect the page, so execution may not complete.
-   * 
+   *
    * @returns Promise that resolves when redirect is initiated
    */
   const testRedirectToLogin = async (): Promise<void> => {
@@ -363,7 +363,7 @@ export function useApiTesting(
 
     setLoading(true);
     try {
-      setResult({ 
+      setResult({
         message: 'Redirecting to login... (Page will redirect to miso-controller login endpoint)',
         timestamp: new Date().toISOString(),
       });
@@ -383,9 +383,9 @@ export function useApiTesting(
   // Error Handling Tests
   /**
    * Test network error handling
-   * 
+   *
    * Attempts to access an invalid endpoint to trigger a network error.
-   * 
+   *
    * @returns Promise that resolves when error test completes
    */
   const testNetworkError = async (): Promise<void> => {
@@ -416,9 +416,9 @@ export function useApiTesting(
 
   /**
    * Test timeout error handling
-   * 
+   *
    * Attempts a request with a very short timeout (100ms) to trigger a timeout error.
-   * 
+   *
    * @returns Promise that resolves when timeout test completes
    */
   const testTimeout = async (): Promise<void> => {
@@ -450,9 +450,9 @@ export function useApiTesting(
 
   /**
    * Test API error handling (400 Bad Request)
-   * 
+   *
    * Attempts to trigger a validation error by sending invalid data.
-   * 
+   *
    * @returns Promise that resolves when error test completes
    */
   const testApiError = async (): Promise<void> => {

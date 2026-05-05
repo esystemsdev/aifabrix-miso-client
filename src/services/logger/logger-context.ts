@@ -234,7 +234,12 @@ export function getWithContext(
   level: LogEntry["level"] = "info",
   options: GetWithContextOptions,
 ): LogEntry {
-  const { applicationContextService, generateCorrelationId, maskSensitiveData, clientId } = options;
+  const {
+    applicationContextService,
+    generateCorrelationId,
+    maskSensitiveData,
+    clientId,
+  } = options;
   const metadata = extractEnvironmentMetadata();
   const correlationId = generateCorrelationId();
   const appContext = applicationContextService.getApplicationContext();
@@ -245,17 +250,11 @@ export function getWithContext(
     : context;
 
   const application =
-    pickFirstNonEmpty(
-      context.application,
-      appContext.application,
-      clientId,
-    ) || "";
+    pickFirstNonEmpty(context.application, appContext.application, clientId) ||
+    "";
   const environment =
-    pickFirstNonEmpty(
-      context.environment,
-      appContext.environment,
-      "unknown",
-    ) || "unknown";
+    pickFirstNonEmpty(context.environment, appContext.environment, "unknown") ||
+    "unknown";
   const applicationId =
     pickFirstNonEmpty(context.applicationId, appContext.applicationId) || "";
 
@@ -271,4 +270,3 @@ export function getWithContext(
     ...metadata,
   };
 }
-

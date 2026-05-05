@@ -23,18 +23,14 @@ describe("filter.utils", () => {
       const result = parseFilterParams({
         filter: { status: { eq: "active" } },
       });
-      expect(result).toEqual([
-        { field: "status", op: "eq", value: "active" },
-      ]);
+      expect(result).toEqual([{ field: "status", op: "eq", value: "active" }]);
     });
 
     it("should parse JSON string format", () => {
       const result = parseFilterParams({
         filter: '{"status": {"eq": "active"}}',
       });
-      expect(result).toEqual([
-        { field: "status", op: "eq", value: "active" },
-      ]);
+      expect(result).toEqual([{ field: "status", op: "eq", value: "active" }]);
     });
 
     it("should parse URL-encoded JSON format", () => {
@@ -42,9 +38,7 @@ describe("filter.utils", () => {
       const result = parseFilterParams({
         filter: encoded,
       });
-      expect(result).toEqual([
-        { field: "status", op: "eq", value: "active" },
-      ]);
+      expect(result).toEqual([{ field: "status", op: "eq", value: "active" }]);
     });
 
     it("should parse multiple filters in JSON format", () => {
@@ -326,9 +320,30 @@ describe("filter.utils", () => {
 
   describe("applyFilters", () => {
     const data = [
-      { id: 1, name: "Test", status: "active", age: 25, region: "eu", deletedAt: null },
-      { id: 2, name: "Sample", status: "inactive", age: 30, region: "us", deletedAt: "2024-01-01" },
-      { id: 3, name: "Example", status: "active", age: 20, region: "uk", deletedAt: null },
+      {
+        id: 1,
+        name: "Test",
+        status: "active",
+        age: 25,
+        region: "eu",
+        deletedAt: null,
+      },
+      {
+        id: 2,
+        name: "Sample",
+        status: "inactive",
+        age: 30,
+        region: "us",
+        deletedAt: "2024-01-01",
+      },
+      {
+        id: 3,
+        name: "Example",
+        status: "active",
+        age: 20,
+        region: "uk",
+        deletedAt: null,
+      },
     ];
 
     it("should filter with eq operator", () => {
@@ -460,9 +475,7 @@ describe("filter.utils", () => {
     it("should add single filter and build", () => {
       const builder = new FilterBuilder();
       const filters = builder.add("status", "eq", "active").build();
-      expect(filters).toEqual([
-        { field: "status", op: "eq", value: "active" },
-      ]);
+      expect(filters).toEqual([{ field: "status", op: "eq", value: "active" }]);
     });
 
     it("should chain multiple add calls", () => {

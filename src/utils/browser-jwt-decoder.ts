@@ -69,13 +69,9 @@ export function extractUserIdFromToken(token: string): string | null {
 
     // Try common JWT claim fields for user ID
     const userId =
-      decoded.sub ||
-      decoded.userId ||
-      decoded.user_id ||
-      decoded.id;
+      decoded.sub || decoded.userId || decoded.user_id || decoded.id;
     return userId ? (userId as string) : null;
   } catch (error) {
     return null;
   }
 }
-

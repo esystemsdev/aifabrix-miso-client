@@ -1,22 +1,27 @@
 /**
  * Event Emission Mode Example
- * 
+ *
  * Demonstrates how to use the SDK in event emission mode when embedding the SDK directly in your own application.
  * When emitEvents = true, logs are emitted as Node.js events instead of being sent via HTTP.
- * 
+ *
  * The unified logging interface works seamlessly with event emission mode - logs are still emitted
  * as events, but you use the simplified API with automatic context extraction.
  */
 
 // For development: import from '../src/index'
-import { MisoClient, loadConfig, LogEntry, getLogger } from '@aifabrix/miso-client';
+import {
+  MisoClient,
+  loadConfig,
+  LogEntry,
+  getLogger,
+} from "@aifabrix/miso-client";
 
 async function eventEmissionExample() {
   // Create client with emitEvents enabled
   // This mode is designed for direct SDK embedding in your own application
   const client = new MisoClient({
     ...loadConfig(),
-    emitEvents: true // Enable event emission mode
+    emitEvents: true, // Enable event emission mode
   });
 
   try {
@@ -26,23 +31,23 @@ async function eventEmissionExample() {
     const logger = getLogger();
 
     // Listen to log events
-    client.log.on('log', (logEntry: LogEntry) => {
-      console.log('📊 Log event received:', {
+    client.log.on("log", (logEntry: LogEntry) => {
+      console.log("📊 Log event received:", {
         level: logEntry.level,
         message: logEntry.message,
         userId: logEntry.userId,
-        timestamp: logEntry.timestamp
+        timestamp: logEntry.timestamp,
       });
-      
+
       // Save directly to database without HTTP
       // In your own application, you would save to DB here
       // await db.logs.insert(logEntry);
     });
 
     // Listen to batch events (for audit logs with batching)
-    client.log.on('log:batch', (logEntries: LogEntry[]) => {
+    client.log.on("log:batch", (logEntries: LogEntry[]) => {
       console.log(`📊 Batch event received: ${logEntries.length} logs`);
-      
+
       // Save batch directly to database without HTTP
       // In your own application, you would batch insert here
       // await db.logs.insertMany(logEntries);
@@ -50,17 +55,16 @@ async function eventEmissionExample() {
 
     // Use unified logging interface - events will be emitted instead of HTTP calls
     // Context is automatically extracted from AsyncLocalStorage
-    await logger.info('Application started');
+    await logger.info("Application started");
     await client.log
-      .withContext({ userId: 'user-123', correlationId: 'req-456' })
-      .info('User session started');
-    await logger.error('Error occurred', new Error('test error'));
-    await logger.audit('user.created', 'users', 'user-123');
+      .withContext({ userId: "user-123", correlationId: "req-456" })
+      .info("User session started");
+    await logger.error("Error occurred", new Error("test error"));
+    await logger.audit("user.created", "users", "user-123");
 
-    console.log('✅ Events emitted successfully');
-
+    console.log("✅ Events emitted successfully");
   } catch (error) {
-    console.error('❌ Event emission error:', error);
+    console.error("❌ Event emission error:", error);
   } finally {
     await client.disconnect();
   }
@@ -76,24 +80,24 @@ async function directEmbeddingSetupExample() {
     emitEvents: true,
     audit: {
       batchSize: 10,
-      batchInterval: 100
-    }
+      batchInterval: 100,
+    },
   });
 
   await client.initialize();
 
   // Single log event handler
-  client.log.on('log', async (logEntry: LogEntry) => {
+  client.log.on("log", async (logEntry: LogEntry) => {
     try {
       // Save to database directly
       // Replace with your actual database implementation
-      console.log('Saving log to DB:', {
+      console.log("Saving log to DB:", {
         timestamp: logEntry.timestamp,
         level: logEntry.level,
         message: logEntry.message,
-        userId: logEntry.userId
+        userId: logEntry.userId,
       });
-      
+
       // Example DB save (pseudo-code):
       // await db.logs.insert({
       //   timestamp: logEntry.timestamp,
@@ -106,16 +110,16 @@ async function directEmbeddingSetupExample() {
       //   sessionId: logEntry.sessionId
       // });
     } catch (error) {
-      console.error('Failed to save log:', error);
+      console.error("Failed to save log:", error);
     }
   });
 
   // Batch event handler (for audit logs with batching)
-  client.log.on('log:batch', async (logEntries: LogEntry[]) => {
+  client.log.on("log:batch", async (logEntries: LogEntry[]) => {
     try {
       // Batch insert to database
       console.log(`Saving ${logEntries.length} logs to DB in batch`);
-      
+
       // Example DB batch save (pseudo-code):
       // await db.logs.insertMany(
       //   logEntries.map(entry => ({
@@ -130,7 +134,7 @@ async function directEmbeddingSetupExample() {
       //   }))
       // );
     } catch (error) {
-      console.error('Failed to save batch logs:', error);
+      console.error("Failed to save batch logs:", error);
     }
   });
 
@@ -138,12 +142,11 @@ async function directEmbeddingSetupExample() {
   const logger = getLogger();
 
   // Use unified logging interface - events will be emitted
-  await logger.info('Application started');
+  await logger.info("Application started");
   await client.log
-    .withContext({ userId: 'user-123', correlationId: 'req-456' })
-    .info('User session started');
-  await logger.error('Operation failed', new Error('details'));
+    .withContext({ userId: "user-123", correlationId: "req-456" })
+    .info("User session started");
+  await logger.error("Operation failed", new Error("details"));
 }
 
 export { eventEmissionExample, directEmbeddingSetupExample };
-

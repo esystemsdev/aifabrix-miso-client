@@ -15,10 +15,10 @@ export interface ParsedError {
 
 /**
  * Parse error and extract human-readable title and detail following RFC 7807
- * 
+ *
  * @param error - Error object to parse
  * @returns Object with title and detail, or null if error can't be parsed
- * 
+ *
  * @example
  * ```typescript
  * const parsed = parseError(error);
@@ -36,14 +36,16 @@ export function parseError(error: Error | null): ParsedError | null {
   // This provides the most specific and accurate error messages
   // Check if error has response property (e.g., ApiError with response)
   try {
-    const errorWithResponse = error as Error & { response?: { data?: unknown; json?: () => Promise<unknown> } };
+    const errorWithResponse = error as Error & {
+      response?: { data?: unknown; json?: () => Promise<unknown> };
+    };
     if (errorWithResponse.response?.data) {
       const responseData = errorWithResponse.response.data;
       if (typeof responseData === 'object' && responseData !== null) {
         const data = responseData as Record<string, unknown>;
         // RFC 7807 Problem Details format: extract both title and detail
-        const title = (data.title && typeof data.title === 'string') ? data.title : 'Error';
-        const detail = (data.detail && typeof data.detail === 'string') ? data.detail : title;
+        const title = data.title && typeof data.title === 'string' ? data.title : 'Error';
+        const detail = data.detail && typeof data.detail === 'string' ? data.detail : title;
         if (data.title || data.detail) {
           return { title, detail };
         }
@@ -73,14 +75,14 @@ export function parseError(error: Error | null): ParsedError | null {
           }
         }
       }
-      
+
       if (braceEnd !== -1) {
         const jsonStr = message.substring(braceStart, braceEnd + 1);
         const parsed = JSON.parse(jsonStr);
         // RFC 7807 Problem Details format: extract both title and detail
         if (parsed.title || parsed.detail) {
-          const title = (parsed.title && typeof parsed.title === 'string') ? parsed.title : 'Error';
-          const detail = (parsed.detail && typeof parsed.detail === 'string') ? parsed.detail : title;
+          const title = parsed.title && typeof parsed.title === 'string' ? parsed.title : 'Error';
+          const detail = parsed.detail && typeof parsed.detail === 'string' ? parsed.detail : title;
           return { title, detail };
         }
         // Fallback to other common error fields
@@ -98,34 +100,70 @@ export function parseError(error: Error | null): ParsedError | null {
 
   // Fallback: Pattern matching for network/connection errors that don't have structured payloads
   // These errors typically don't come from API responses, so they won't have RFC 7807 format
-  
+
   // Empty response errors (server closed connection without response)
-  if (message.includes('ERR_EMPTY_RESPONSE') || message.includes('empty response') || message.includes('Connection error')) {
-    return { title: 'Connection Error', detail: 'The server closed the connection without sending a response. Please check if the server is running and accessible.' };
+  if (
+    message.includes('ERR_EMPTY_RESPONSE') ||
+    message.includes('empty response') ||
+    message.includes('Connection error')
+  ) {
+    return {
+      title: 'Connection Error',
+      detail:
+        'The server closed the connection without sending a response. Please check if the server is running and accessible.',
+    };
   }
 
   // Timeout errors (network-level timeouts) - check before general network errors
-  if (message.includes('timeout') || message.includes('Timeout') || message.includes('did not respond within')) {
-    return { title: 'Timeout Error', detail: 'Request timed out. Please check your network connection and ensure the server is running.' };
+  if (
+    message.includes('timeout') ||
+    message.includes('Timeout') ||
+    message.includes('did not respond within')
+  ) {
+    return {
+      title: 'Timeout Error',
+      detail:
+        'Request timed out. Please check your network connection and ensure the server is running.',
+    };
   }
 
   // Network errors (connection failures, fetch errors)
-  if (message.includes('Network') || message.includes('Failed to fetch') || message.includes('network')) {
-    return { title: 'Network Error', detail: 'Unable to connect to server. Please check if the server is running and accessible.' };
+  if (
+    message.includes('Network') ||
+    message.includes('Failed to fetch') ||
+    message.includes('network')
+  ) {
+    return {
+      title: 'Network Error',
+      detail: 'Unable to connect to server. Please check if the server is running and accessible.',
+    };
   }
 
   // CORS errors (browser-level, not API responses)
-  if (message.includes('CORS') || message.includes('cross-origin') || message.includes('CORS policy')) {
-    return { title: 'CORS Error', detail: 'Cross-origin request blocked. Please check CORS configuration on the server.' };
+  if (
+    message.includes('CORS') ||
+    message.includes('cross-origin') ||
+    message.includes('CORS policy')
+  ) {
+    return {
+      title: 'CORS Error',
+      detail: 'Cross-origin request blocked. Please check CORS configuration on the server.',
+    };
   }
 
   // Connection errors (system-level, not API responses)
   if (message.includes('ECONNREFUSED') || message.includes('connection refused')) {
-    return { title: 'Connection Error', detail: 'Connection refused. Please check if the server is running and accessible.' };
+    return {
+      title: 'Connection Error',
+      detail: 'Connection refused. Please check if the server is running and accessible.',
+    };
   }
 
   if (message.includes('ENOTFOUND') || message.includes('getaddrinfo')) {
-    return { title: 'Connection Error', detail: 'Unable to resolve server address. Please check the server URL configuration.' };
+    return {
+      title: 'Connection Error',
+      detail: 'Unable to resolve server address. Please check the server URL configuration.',
+    };
   }
 
   // If we can't parse it, return null to use original message
@@ -134,10 +172,10 @@ export function parseError(error: Error | null): ParsedError | null {
 
 /**
  * Extract error message from unknown error type
- * 
+ *
  * @param error - Unknown error value
  * @returns Error message string
- * 
+ *
  * @example
  * ```typescript
  * try {
@@ -156,10 +194,10 @@ export function getErrorMessage(error: unknown): string {
 
 /**
  * Extract error status code from error object
- * 
+ *
  * @param error - Error object
  * @returns HTTP status code or null
- * 
+ *
  * @example
  * ```typescript
  * const status = getErrorStatus(error);

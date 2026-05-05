@@ -15,7 +15,7 @@ MISO_CONTROLLER_URL=http://localhost:3000
 Load in code:
 
 ```typescript
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from "@aifabrix/miso-client";
 
 const client = new MisoClient(loadConfig());
 await client.initialize();
@@ -69,8 +69,12 @@ const client = new MisoClient({
 });
 await client.initialize();
 
-client.log.on('log', (logEntry) => { /* save to your DB */ });
-client.log.on('log:batch', (logEntries) => { /* batch insert */ });
+client.log.on("log", (logEntry) => {
+  /* save to your DB */
+});
+client.log.on("log:batch", (logEntries) => {
+  /* batch insert */
+});
 ```
 
 Use the same logging API (`client.log.info`, `logger.audit`, etc.); only the destination changes. See `examples/event-emission-mode.example.ts` in the repository for a full example.
@@ -97,7 +101,7 @@ const client = new MisoClient({
     permissionTTL: 900,
     tokenValidationTTL: 900,
     userTTL: 300,
-    encryptionCacheTTL: 300,  // 0 = disable encryption cache
+    encryptionCacheTTL: 300, // 0 = disable encryption cache
   },
 });
 ```
@@ -110,11 +114,11 @@ When you cannot use `.env` (e.g. config from another source):
 
 ```typescript
 const client = new MisoClient({
-  controllerUrl: 'https://controller.aifabrix.ai',
-  clientId: 'ctrl-dev-my-app',
-  clientSecret: 'your-secret',
-  redis: { host: 'localhost', port: 6379 },
-  logLevel: 'info',
+  controllerUrl: "https://controller.aifabrix.ai",
+  clientId: "ctrl-dev-my-app",
+  clientSecret: "your-secret",
+  redis: { host: "localhost", port: 6379 },
+  logLevel: "info",
 });
 ```
 

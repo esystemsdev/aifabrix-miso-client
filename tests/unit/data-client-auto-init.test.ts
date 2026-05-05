@@ -18,12 +18,23 @@ jest.mock("../../src/utils/data-client-utils", () => ({
   removeLocalStorage: jest.fn(),
 }));
 
-import { isBrowser, getLocalStorage, setLocalStorage, removeLocalStorage } from "../../src/utils/data-client-utils";
+import {
+  isBrowser,
+  getLocalStorage,
+  setLocalStorage,
+  removeLocalStorage,
+} from "../../src/utils/data-client-utils";
 
 const mockIsBrowser = isBrowser as jest.MockedFunction<typeof isBrowser>;
-const mockGetLocalStorage = getLocalStorage as jest.MockedFunction<typeof getLocalStorage>;
-const mockSetLocalStorage = setLocalStorage as jest.MockedFunction<typeof setLocalStorage>;
-const mockRemoveLocalStorage = removeLocalStorage as jest.MockedFunction<typeof removeLocalStorage>;
+const mockGetLocalStorage = getLocalStorage as jest.MockedFunction<
+  typeof getLocalStorage
+>;
+const mockSetLocalStorage = setLocalStorage as jest.MockedFunction<
+  typeof setLocalStorage
+>;
+const mockRemoveLocalStorage = removeLocalStorage as jest.MockedFunction<
+  typeof removeLocalStorage
+>;
 const MockDataClient = DataClient as jest.MockedClass<typeof DataClient>;
 
 // Mock fetch
@@ -180,7 +191,9 @@ describe("data-client-auto-init", () => {
       await autoInitializeDataClient();
 
       expect(mockFetch).toHaveBeenCalled();
-      expect(mockRemoveLocalStorage).toHaveBeenCalledWith("miso:dataclient-config");
+      expect(mockRemoveLocalStorage).toHaveBeenCalledWith(
+        "miso:dataclient-config",
+      );
     });
 
     it("should use custom clientTokenUri", async () => {
@@ -289,19 +302,27 @@ describe("data-client-auto-init", () => {
       await autoInitializeDataClient();
 
       expect(mockFetch).toHaveBeenCalledTimes(2);
-      expect(mockFetch).toHaveBeenNthCalledWith(1, expect.any(String), expect.objectContaining({
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        signal: expect.any(AbortSignal),
-      }));
-      expect(mockFetch).toHaveBeenNthCalledWith(2, expect.any(String), expect.objectContaining({
-        method: "GET",
-        credentials: "include",
-        signal: expect.any(AbortSignal),
-      }));
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        1,
+        expect.any(String),
+        expect.objectContaining({
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          signal: expect.any(AbortSignal),
+        }),
+      );
+      expect(mockFetch).toHaveBeenNthCalledWith(
+        2,
+        expect.any(String),
+        expect.objectContaining({
+          method: "GET",
+          credentials: "include",
+          signal: expect.any(AbortSignal),
+        }),
+      );
     });
 
     it("should throw error if response is not ok", async () => {
@@ -345,9 +366,9 @@ describe("data-client-auto-init", () => {
       const onError = jest.fn();
       mockFetch.mockRejectedValue(new Error("Network error"));
 
-      await expect(
-        autoInitializeDataClient({ onError }),
-      ).rejects.toThrow("Network error");
+      await expect(autoInitializeDataClient({ onError })).rejects.toThrow(
+        "Network error",
+      );
 
       expect(onError).toHaveBeenCalledWith(expect.any(Error));
     });
@@ -428,9 +449,10 @@ describe("data-client-auto-init", () => {
 
       await autoInitializeDataClient();
 
-      expect(mockRemoveLocalStorage).toHaveBeenCalledWith("miso:dataclient-config");
+      expect(mockRemoveLocalStorage).toHaveBeenCalledWith(
+        "miso:dataclient-config",
+      );
       expect(mockFetch).toHaveBeenCalled();
     });
   });
 });
-

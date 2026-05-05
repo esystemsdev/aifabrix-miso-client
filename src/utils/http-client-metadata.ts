@@ -15,8 +15,7 @@ export interface RequestMetadata {
   baseURL?: string;
 }
 
-export interface AxiosRequestConfigWithMetadata
-  extends InternalAxiosRequestConfig {
+export interface AxiosRequestConfigWithMetadata extends InternalAxiosRequestConfig {
   metadata?: RequestMetadata;
 }
 
@@ -88,8 +87,7 @@ function extractBasicMetadata(
   const duration = Date.now() - metadata.startTime;
   const method = metadata.method || "UNKNOWN";
   const url = metadata.url || "";
-  const baseURL =
-    metadata.baseURL || resolveControllerUrl(misoConfig);
+  const baseURL = metadata.baseURL || resolveControllerUrl(misoConfig);
   const fullUrl = `${baseURL}${url}`;
   const authHeader = config.headers?.authorization as string | undefined;
   const userId = extractUserIdFromToken(authHeader);

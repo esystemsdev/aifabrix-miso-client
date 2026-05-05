@@ -15,15 +15,28 @@ export { asyncHandler, asyncHandlerNamed } from "./async-handler";
 export { ValidationHelper } from "./validation-helper";
 
 // Error handling - Types
-export { AppError, createSuccessResponse, createErrorResponse } from "./error-types";
-export type { ApiError, ValidationError, ApiResponse, AppErrorOptions } from "./error-types";
+export {
+  AppError,
+  createSuccessResponse,
+  createErrorResponse,
+} from "./error-types";
+export type {
+  ApiError,
+  ValidationError,
+  ApiResponse,
+  AppErrorOptions,
+} from "./error-types";
 
 // Error handling - Utilities
 export { setErrorLogger, handleRouteError } from "./error-handler";
 export type { ErrorLogger } from "./error-handler";
 
 // Error handling - Response
-export { getErrorTypeUri, getErrorTitle, sendErrorResponse } from "./error-response";
+export {
+  getErrorTypeUri,
+  getErrorTitle,
+  sendErrorResponse,
+} from "./error-response";
 export type { ErrorResponse, RBACErrorExtensions } from "./error-response";
 
 // Origin validation and environment token utilities
@@ -34,10 +47,7 @@ export type { ClientTokenInfo } from "../utils/token-utils";
 export type { OriginValidationResult } from "../utils/origin-validator";
 
 // Client token endpoint helper
-export {
-  createClientTokenEndpoint,
-  hasConfig,
-} from "./client-token-endpoint";
+export { createClientTokenEndpoint, hasConfig } from "./client-token-endpoint";
 export type {
   ClientTokenEndpointOptions,
   ClientTokenResponse,

@@ -1,7 +1,7 @@
 /**
  * Unit tests for Node.js module stubs
  * Run with: pnpm test
- * 
+ *
  * These tests verify that all stubs export correctly and can be used
  * as expected by the bundled code. This catches issues before browser testing.
  */
@@ -44,7 +44,7 @@ describe('Node.js Module Stubs', () => {
       const util = await import('../util.js');
       function Parent() {}
       function Child() {}
-      
+
       // Should not throw
       expect(() => util.inherits(Child, Parent)).not.toThrow();
       expect(Child.prototype).toBeDefined();
@@ -123,13 +123,13 @@ describe('Node.js Module Stubs', () => {
       const commandsModule = await import('../ioredis-commands.js');
       const commands = commandsModule.default;
       expect(Array.isArray(commands)).toBe(true);
-      
+
       // This is what cli-options.js does - CRITICAL TEST
       const result = commands.reduce((acc, cmd) => {
         acc[cmd] = true;
         return acc;
       }, {});
-      
+
       expect(result).toBeDefined();
       expect(typeof result).toBe('object');
     });
@@ -163,4 +163,3 @@ describe('Node.js Module Stubs', () => {
     });
   });
 });
-

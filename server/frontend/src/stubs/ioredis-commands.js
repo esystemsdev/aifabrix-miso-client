@@ -5,9 +5,15 @@
 const listStub = []; // Empty array - commands are server-side only
 
 // Stub functions
-const existsStub = function(command) { return false; };
-const hasFlagStub = function(command, flag) { return false; };
-const getKeyIndexesStub = function(command, args) { return []; };
+const existsStub = function (command) {
+  return false;
+};
+const hasFlagStub = function (command, flag) {
+  return false;
+};
+const getKeyIndexesStub = function (command, args) {
+  return [];
+};
 
 // Add properties to the array BEFORE exporting
 listStub.list = listStub;
@@ -24,7 +30,7 @@ listStub.getKeyIndexes = getKeyIndexesStub;
 if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
   // Set module.exports to the array directly
   module.exports = listStub;
-  
+
   // CRITICAL: Also set .default so Vite's transformation works
   // When Vite transforms: const x = require('@ioredis/commands')
   // It does: import x_default from '@ioredis/commands'; const x = x_default.default || x_default
@@ -33,15 +39,15 @@ if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
     value: listStub,
     enumerable: true,
     writable: false,
-    configurable: false
+    configurable: false,
   });
-  
+
   // Ensure properties are available
   module.exports.list = listStub;
   module.exports.exists = existsStub;
   module.exports.hasFlag = hasFlagStub;
   module.exports.getKeyIndexes = getKeyIndexesStub;
-  
+
   // CRITICAL: Ensure it's still an array after all property assignments
   if (!Array.isArray(module.exports)) {
     Object.setPrototypeOf(module.exports, Array.prototype);
@@ -63,6 +69,6 @@ if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
     value: true,
     enumerable: false,
     writable: false,
-    configurable: false
+    configurable: false,
   });
 }

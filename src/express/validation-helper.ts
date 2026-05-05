@@ -72,7 +72,9 @@ export class ValidationHelper {
       req.userRoles?.includes("admin") || req.userRoles?.includes("superuser");
 
     if (!isOwner && !isAdmin) {
-      throw new AppError(message, 403, true, { errorType: "/Errors/Forbidden" });
+      throw new AppError(message, 403, true, {
+        errorType: "/Errors/Forbidden",
+      });
     }
   }
 
@@ -120,12 +122,9 @@ export class ValidationHelper {
    */
   static ensureAuthenticated(req: Request & { userId?: string }): void {
     if (!req.userId) {
-      throw new AppError(
-        "Authentication required",
-        401,
-        true,
-        { errorType: "/Errors/Unauthorized" },
-      );
+      throw new AppError("Authentication required", 401, true, {
+        errorType: "/Errors/Unauthorized",
+      });
     }
   }
 

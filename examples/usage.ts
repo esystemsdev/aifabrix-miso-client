@@ -1,12 +1,12 @@
 /**
  * Example usage of MisoClient SDK with unified logging interface
- * 
+ *
  * The unified logging interface provides a minimal API (1-3 parameters) with
  * automatic context extraction from AsyncLocalStorage.
  */
 
 // For development: import from '../src/index'
-import { MisoClient, loadConfig, getLogger } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig, getLogger } from "@aifabrix/miso-client";
 
 async function example() {
   // Initialize the client with auto-loaded configuration
@@ -16,56 +16,56 @@ async function example() {
   try {
     // Initialize connection
     await client.initialize();
-    console.log('Client initialized successfully');
+    console.log("Client initialized successfully");
 
     // Example token (in real usage, this would come from request headers)
-    const token = 'your-jwt-token-here';
+    const token = "your-jwt-token-here";
 
     // Get logger instance - context is automatically extracted from AsyncLocalStorage
     const logger = getLogger();
 
     // Validate token
     const isValid = await client.validateToken(token);
-    console.log('Token valid:', isValid);
+    console.log("Token valid:", isValid);
 
     if (isValid) {
       // Get user info
       const user = await client.getUser(token);
-      console.log('User:', user);
+      console.log("User:", user);
 
       // Get user roles
       const roles = await client.getRoles(token);
-      console.log('User roles:', roles);
+      console.log("User roles:", roles);
 
       // Check specific role
-      const isAdmin = await client.hasRole(token, 'admin');
-      console.log('Is admin:', isAdmin);
+      const isAdmin = await client.hasRole(token, "admin");
+      console.log("Is admin:", isAdmin);
 
       // Log some events (no context object needed - auto-extracted)
-      await logger.info('User accessed application');
+      await logger.info("User accessed application");
 
       // For non-Express usage, attach context via LoggerChain
       await client.log
         .withContext({ userId: user?.id })
-        .info('User accessed application');
+        .info("User accessed application");
 
       // Audit: User login (no oldValues/newValues needed for login)
-      await logger.audit('user.login', 'authentication', user?.id || 'unknown');
+      await logger.audit("user.login", "authentication", user?.id || "unknown");
     }
 
     // Example error logging (error details are auto-extracted)
     try {
-      throw new Error('Something went wrong');
+      throw new Error("Something went wrong");
     } catch (error) {
       // Error details (stack trace, error name, error message) are auto-extracted
-      await logger.error('Application error', error);
+      await logger.error("Application error", error);
     }
   } catch (error) {
-    console.error('Example failed:', error);
+    console.error("Example failed:", error);
   } finally {
     // Cleanup
     await client.disconnect();
-    console.log('Client disconnected');
+    console.log("Client disconnected");
   }
 }
 

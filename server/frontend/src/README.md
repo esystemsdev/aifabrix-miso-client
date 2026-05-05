@@ -138,7 +138,7 @@ Individual navigation item with active states and badges.
   label="Dashboard"
   active={true}
   badge={5}
-  onClick={() => navigate("dashboard")}
+  onClick={() => navigate('dashboard')}
 />
 ```
 
@@ -149,8 +149,8 @@ Contextual navigation showing current page hierarchy.
 ```tsx
 <Breadcrumb
   items={[
-    { label: "Home", href: "/" },
-    { label: "Section", current: true },
+    { label: 'Home', href: '/' },
+    { label: 'Section', current: true },
   ]}
 />
 ```
@@ -162,8 +162,8 @@ Horizontal tabs for detail pages.
 ```tsx
 <TabNavigation
   tabs={[
-    { id: "overview", label: "Overview" },
-    { id: "settings", label: "Settings" },
+    { id: 'overview', label: 'Overview' },
+    { id: 'settings', label: 'Settings' },
   ]}
   activeTab="overview"
   onChange={setActiveTab}
@@ -177,8 +177,8 @@ Secondary navigation for section views.
 ```tsx
 <SubNavigation
   items={[
-    { id: "list", label: "List View" },
-    { id: "create", label: "Create New" },
+    { id: 'list', label: 'List View' },
+    { id: 'create', label: 'Create New' },
   ]}
   activeItem="list"
   onChange={setActiveItem}
@@ -190,8 +190,8 @@ Secondary navigation for section views.
 Follow this template for consistency:
 
 ```tsx
-import React from "react";
-import { Breadcrumb } from "./navigation/Breadcrumb";
+import React from 'react';
+import { Breadcrumb } from './navigation/Breadcrumb';
 
 export function MyPage() {
   return (
@@ -200,17 +200,15 @@ export function MyPage() {
       <div className="px-6 py-4 border-b border-border">
         <Breadcrumb
           items={[
-            { label: "Home", href: "/" },
-            { label: "My Page", current: true },
+            { label: 'Home', href: '/' },
+            { label: 'My Page', current: true },
           ]}
         />
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-auto p-6">
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* Your content */}
-        </div>
+        <div className="max-w-7xl mx-auto space-y-6">{/* Your content */}</div>
       </div>
     </div>
   );

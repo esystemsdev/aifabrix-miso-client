@@ -8,7 +8,7 @@ import { useDataClient } from '../../hooks/useDataClient';
 
 /**
  * Monitoring page component for viewing metrics and audit logs
- * 
+ *
  * Provides UI for:
  * - Displaying real-time request metrics
  * - Viewing cache performance
@@ -107,23 +107,38 @@ export function MonitoringPage() {
     try {
       toast.info('Making multiple requests...');
       const startTime = Date.now();
-      
+
       const requests = [
         dataClient.get('/api/users', { cache: { enabled: false } }).catch(() => null),
         dataClient.get('/api/products', { cache: { enabled: false } }).catch(() => null),
         dataClient.get('/api/orders', { cache: { enabled: false } }).catch(() => null),
       ];
-      
+
       await Promise.all(requests);
       const duration = Date.now() - startTime;
-      
+
       const newLogs = [
-        { endpoint: '/api/users', status: 200, duration: `${Math.round(duration / 3)}ms`, timestamp: new Date().toISOString() },
-        { endpoint: '/api/products', status: 200, duration: `${Math.round(duration / 3)}ms`, timestamp: new Date().toISOString() },
-        { endpoint: '/api/orders', status: 200, duration: `${Math.round(duration / 3)}ms`, timestamp: new Date().toISOString() },
+        {
+          endpoint: '/api/users',
+          status: 200,
+          duration: `${Math.round(duration / 3)}ms`,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          endpoint: '/api/products',
+          status: 200,
+          duration: `${Math.round(duration / 3)}ms`,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          endpoint: '/api/orders',
+          status: 200,
+          duration: `${Math.round(duration / 3)}ms`,
+          timestamp: new Date().toISOString(),
+        },
       ];
-      
-      setAuditLogs(prev => [...newLogs, ...prev]);
+
+      setAuditLogs((prev) => [...newLogs, ...prev]);
       loadMetrics(); // Refresh metrics
       toast.success('All requests completed', {
         description: `Total duration: ${duration}ms`,
@@ -148,9 +163,11 @@ export function MonitoringPage() {
     setLoading(true);
     try {
       const startTime = Date.now();
-      await dataClient.put('/api/users/1', { name: 'Updated User', email: 'updated@example.com' }).catch(() => null);
+      await dataClient
+        .put('/api/users/1', { name: 'Updated User', email: 'updated@example.com' })
+        .catch(() => null);
       const duration = Date.now() - startTime;
-      
+
       const newLog = {
         id: 'audit-' + Date.now(),
         action: 'USER_UPDATE',
@@ -160,7 +177,7 @@ export function MonitoringPage() {
         status: 200,
         duration: `${duration}ms`,
       };
-      setAuditLogs(prev => [newLog, ...prev]);
+      setAuditLogs((prev) => [newLog, ...prev]);
       loadMetrics(); // Refresh metrics
       toast.success('Audit log created');
     } catch (error: unknown) {
@@ -176,14 +193,16 @@ export function MonitoringPage() {
     toast.success('Audit logs cleared');
   };
 
-  const successRate = metrics && metrics.totalRequests > 0
-    ? ((metrics.successfulRequests / metrics.totalRequests) * 100).toFixed(1)
-    : '0';
-  const cacheHitRate = metrics && metrics.cacheHitRate !== undefined
-    ? (metrics.cacheHitRate * 100).toFixed(1)
-    : metrics && (metrics.cacheHits + metrics.cacheMisses) > 0
-    ? ((metrics.cacheHits / (metrics.cacheHits + metrics.cacheMisses)) * 100).toFixed(1)
-    : '0';
+  const successRate =
+    metrics && metrics.totalRequests > 0
+      ? ((metrics.successfulRequests / metrics.totalRequests) * 100).toFixed(1)
+      : '0';
+  const cacheHitRate =
+    metrics && metrics.cacheHitRate !== undefined
+      ? (metrics.cacheHitRate * 100).toFixed(1)
+      : metrics && metrics.cacheHits + metrics.cacheMisses > 0
+        ? ((metrics.cacheHits / (metrics.cacheHits + metrics.cacheMisses)) * 100).toFixed(1)
+        : '0';
 
   const isDisabled = loading || contextLoading || !dataClient;
 
@@ -212,11 +231,19 @@ export function MonitoringPage() {
             <TabsContent value="metrics" className="space-y-6">
               {/* Action Buttons */}
               <div className="flex gap-2">
-                <Button onClick={testGetMetrics} disabled={isDisabled} className="bg-blue-600 hover:bg-blue-700">
+                <Button
+                  onClick={testGetMetrics}
+                  disabled={isDisabled}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
                   <Activity className="w-4 h-4 mr-2" />
                   Refresh Metrics
                 </Button>
-                <Button onClick={testMultipleRequests} disabled={isDisabled} className="bg-green-600 hover:bg-green-700">
+                <Button
+                  onClick={testMultipleRequests}
+                  disabled={isDisabled}
+                  className="bg-green-600 hover:bg-green-700"
+                >
                   <TrendingUp className="w-4 h-4 mr-2" />
                   Make Multiple Requests
                 </Button>
@@ -249,7 +276,9 @@ export function MonitoringPage() {
 
                     <Card>
                       <CardContent className="pt-6">
-                        <div className="text-2xl font-semibold">{metrics.averageResponseTime}ms</div>
+                        <div className="text-2xl font-semibold">
+                          {metrics.averageResponseTime}ms
+                        </div>
                         <div className="text-sm text-muted-foreground mt-1">Avg Response Time</div>
                       </CardContent>
                     </Card>
@@ -265,11 +294,15 @@ export function MonitoringPage() {
                         <div className="space-y-3">
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-muted-foreground">Successful</span>
-                            <span className="text-sm font-medium text-green-600">{metrics.successfulRequests}</span>
+                            <span className="text-sm font-medium text-green-600">
+                              {metrics.successfulRequests}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-muted-foreground">Failed</span>
-                            <span className="text-sm font-medium text-red-600">{metrics.failedRequests}</span>
+                            <span className="text-sm font-medium text-red-600">
+                              {metrics.failedRequests}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center pt-2 border-t border-border">
                             <span className="text-sm font-medium">Total</span>
@@ -288,15 +321,21 @@ export function MonitoringPage() {
                         <div className="space-y-3">
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-muted-foreground">Cache Hits</span>
-                            <span className="text-sm font-medium text-green-600">{metrics.cacheHits}</span>
+                            <span className="text-sm font-medium text-green-600">
+                              {metrics.cacheHits}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-sm text-muted-foreground">Cache Misses</span>
-                            <span className="text-sm font-medium text-orange-600">{metrics.cacheMisses}</span>
+                            <span className="text-sm font-medium text-orange-600">
+                              {metrics.cacheMisses}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center pt-2 border-t border-border">
                             <span className="text-sm font-medium">Hit Rate</span>
-                            <span className="text-sm font-medium text-blue-600">{cacheHitRate}%</span>
+                            <span className="text-sm font-medium text-blue-600">
+                              {cacheHitRate}%
+                            </span>
                           </div>
                         </div>
                       </CardContent>
@@ -317,15 +356,21 @@ export function MonitoringPage() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Successful</span>
-                            <span className="font-medium text-green-600">{metrics.successfulRequests}</span>
+                            <span className="font-medium text-green-600">
+                              {metrics.successfulRequests}
+                            </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Failed</span>
-                            <span className="font-medium text-red-600">{metrics.failedRequests}</span>
+                            <span className="font-medium text-red-600">
+                              {metrics.failedRequests}
+                            </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Error Rate</span>
-                            <span className="font-medium">{(metrics.errorRate * 100).toFixed(1)}%</span>
+                            <span className="font-medium">
+                              {(metrics.errorRate * 100).toFixed(1)}%
+                            </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-muted-foreground">Average Response Time</span>
@@ -347,7 +392,11 @@ export function MonitoringPage() {
                     <FileText className="w-4 h-4 mr-2" />
                     Create Audit Log
                   </Button>
-                  <Button onClick={testMultipleRequests} disabled={isDisabled} className="bg-green-600 hover:bg-green-700">
+                  <Button
+                    onClick={testMultipleRequests}
+                    disabled={isDisabled}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
                     <TrendingUp className="w-4 h-4 mr-2" />
                     Make Multiple Requests
                   </Button>
@@ -380,9 +429,20 @@ export function MonitoringPage() {
                             </span>
                           </div>
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span>Method: <span className="font-medium">{log.method || 'GET'}</span></span>
-                            <span>Status: <span className={`font-medium ${log.status === 200 ? 'text-green-600' : 'text-red-600'}`}>{log.status}</span></span>
-                            <span>Duration: <span className="font-medium">{log.duration}</span></span>
+                            <span>
+                              Method: <span className="font-medium">{log.method || 'GET'}</span>
+                            </span>
+                            <span>
+                              Status:{' '}
+                              <span
+                                className={`font-medium ${log.status === 200 ? 'text-green-600' : 'text-red-600'}`}
+                              >
+                                {log.status}
+                              </span>
+                            </span>
+                            <span>
+                              Duration: <span className="font-medium">{log.duration}</span>
+                            </span>
                           </div>
                         </div>
                       ))}

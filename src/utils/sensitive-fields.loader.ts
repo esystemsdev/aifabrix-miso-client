@@ -65,7 +65,9 @@ function readJsonFile(filePath: string): Record<string, unknown> {
   try {
     const raw = fs.readFileSync(filePath, "utf8");
     const parsed: unknown = JSON.parse(raw);
-    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+    return typeof parsed === "object" &&
+      parsed !== null &&
+      !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : {};
   } catch {

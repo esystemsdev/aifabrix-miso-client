@@ -2,80 +2,80 @@
 
 :root {
   --font-size: 14px;
-  --background: #F9FAFB;
+  --background: #f9fafb;
   --foreground: #111827;
-  --card: #FFFFFF;
+  --card: #ffffff;
   --card-foreground: #111827;
-  --popover: #FFFFFF;
+  --popover: #ffffff;
   --popover-foreground: #111827;
-  --primary: #0062FF;
-  --primary-foreground: #FFFFFF;
-  --secondary: #3B82F6;
-  --secondary-foreground: #FFFFFF;
-  --muted: #F9FAFB;
-  --muted-foreground: #6B7280;
-  --accent: #E5E7EB;
+  --primary: #0062ff;
+  --primary-foreground: #ffffff;
+  --secondary: #3b82f6;
+  --secondary-foreground: #ffffff;
+  --muted: #f9fafb;
+  --muted-foreground: #6b7280;
+  --accent: #e5e7eb;
   --accent-foreground: #111827;
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
-  --border: #E5E7EB;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e5e7eb;
   --input: transparent;
-  --input-background: #FFFFFF;
-  --switch-background: #E5E7EB;
+  --input-background: #ffffff;
+  --switch-background: #e5e7eb;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #0062FF;
-  --chart-1: #0062FF;
-  --chart-2: #3B82F6;
-  --chart-3: #10B981;
-  --chart-4: #F59E0B;
-  --chart-5: #EF4444;
+  --ring: #0062ff;
+  --chart-1: #0062ff;
+  --chart-2: #3b82f6;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #ef4444;
   --radius: 0.625rem;
-  --sidebar: #FFFFFF;
+  --sidebar: #ffffff;
   --sidebar-foreground: #111827;
-  --sidebar-primary: #0062FF;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #F9FAFB;
+  --sidebar-primary: #0062ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f9fafb;
   --sidebar-accent-foreground: #111827;
-  --sidebar-border: #E5E7EB;
-  --sidebar-ring: #0062FF;
+  --sidebar-border: #e5e7eb;
+  --sidebar-ring: #0062ff;
 }
 
 .dark {
   --background: #111827;
-  --foreground: #F9FAFB;
-  --card: #1F2937;
-  --card-foreground: #F9FAFB;
-  --popover: #1F2937;
-  --popover-foreground: #F9FAFB;
-  --primary: #3B82F6;
-  --primary-foreground: #FFFFFF;
-  --secondary: #0062FF;
-  --secondary-foreground: #FFFFFF;
+  --foreground: #f9fafb;
+  --card: #1f2937;
+  --card-foreground: #f9fafb;
+  --popover: #1f2937;
+  --popover-foreground: #f9fafb;
+  --primary: #3b82f6;
+  --primary-foreground: #ffffff;
+  --secondary: #0062ff;
+  --secondary-foreground: #ffffff;
   --muted: #374151;
-  --muted-foreground: #9CA3AF;
+  --muted-foreground: #9ca3af;
   --accent: #374151;
-  --accent-foreground: #F9FAFB;
-  --destructive: #EF4444;
-  --destructive-foreground: #FFFFFF;
+  --accent-foreground: #f9fafb;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
   --border: #374151;
   --input: #374151;
-  --ring: #3B82F6;
+  --ring: #3b82f6;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --chart-1: #3B82F6;
-  --chart-2: #0062FF;
-  --chart-3: #10B981;
-  --chart-4: #F59E0B;
-  --chart-5: #EF4444;
-  --sidebar: #1F2937;
-  --sidebar-foreground: #F9FAFB;
-  --sidebar-primary: #3B82F6;
-  --sidebar-primary-foreground: #FFFFFF;
+  --chart-1: #3b82f6;
+  --chart-2: #0062ff;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #ef4444;
+  --sidebar: #1f2937;
+  --sidebar-foreground: #f9fafb;
+  --sidebar-primary: #3b82f6;
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #374151;
-  --sidebar-accent-foreground: #F9FAFB;
+  --sidebar-accent-foreground: #f9fafb;
   --sidebar-border: #374151;
-  --sidebar-ring: #3B82F6;
+  --sidebar-ring: #3b82f6;
 }
 
 @theme inline {
@@ -133,7 +133,7 @@
  * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
  */
 @layer base {
-  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+  :where(:not(:has([class*=' text-']), :not(:has([class^='text-'])))) {
     h1 {
       font-size: var(--text-2xl);
       font-weight: var(--font-weight-medium);

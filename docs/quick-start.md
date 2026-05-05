@@ -35,7 +35,7 @@ See [configuration.md](configuration.md) for all options.
 ## 3. Initialize
 
 ```typescript
-import { MisoClient, loadConfig } from '@aifabrix/miso-client';
+import { MisoClient, loadConfig } from "@aifabrix/miso-client";
 
 const client = new MisoClient(loadConfig());
 await client.initialize();
@@ -46,12 +46,15 @@ await client.initialize();
 Your backend must expose a route that returns a client token so the frontend (e.g. DataClient) can call the controller without using `clientSecret`. One route is enough:
 
 ```typescript
-import { createClientTokenEndpoint } from '@aifabrix/miso-client';
+import { createClientTokenEndpoint } from "@aifabrix/miso-client";
 
-app.get('/api/client-token', createClientTokenEndpoint(client, {
-  clientTokenUri: '/api/client-token',
-  expiresIn: 1800,
-}));
+app.get(
+  "/api/client-token",
+  createClientTokenEndpoint(client, {
+    clientTokenUri: "/api/client-token",
+    expiresIn: 1800,
+  }),
+);
 ```
 
 See [backend-client-token.md](backend-client-token.md) for details and frontend usage.
@@ -61,15 +64,15 @@ See [backend-client-token.md](backend-client-token.md) for details and frontend 
 Get the user token from the request (e.g. `Authorization: Bearer <token>`), then validate and fetch user:
 
 ```typescript
-const token = client.getToken(req);  // from Authorization header
+const token = client.getToken(req); // from Authorization header
 
 if (!token) {
-  return res.status(401).json({ error: 'Unauthorized' });
+  return res.status(401).json({ error: "Unauthorized" });
 }
 
 const isValid = await client.validateToken(token);
 if (!isValid) {
-  return res.status(401).json({ error: 'Unauthorized' });
+  return res.status(401).json({ error: "Unauthorized" });
 }
 
 const user = await client.getUser(token);
@@ -82,11 +85,13 @@ next();
 In the browser, use DataClient with the server-provided client token. No `clientSecret` in the frontend.
 
 ```typescript
-import { DataClient, autoInitializeDataClient } from '@aifabrix/miso-client';
+import { DataClient, autoInitializeDataClient } from "@aifabrix/miso-client";
 
 // One-time: fetches config (and token) from backend; use same path as your client-token route
-const dataClient = await autoInitializeDataClient({ clientTokenUri: '/api/client-token' });
-const users = await dataClient.get('/api/users');
+const dataClient = await autoInitializeDataClient({
+  clientTokenUri: "/api/client-token",
+});
+const users = await dataClient.get("/api/users");
 ```
 
 See [dataclient.md](dataclient.md) for full options.

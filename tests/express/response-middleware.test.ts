@@ -4,7 +4,10 @@
 
 import { Request, Response, NextFunction } from "express";
 import { injectResponseHelpers } from "../../src/express/response-middleware";
-import { ResponseHelper, PaginationMeta } from "../../src/express/response-helper";
+import {
+  ResponseHelper,
+  PaginationMeta,
+} from "../../src/express/response-helper";
 
 // Mock ResponseHelper
 jest.mock("../../src/express/response-helper");
@@ -57,11 +60,7 @@ describe("injectResponseHelpers", () => {
 
   describe("middleware injection", () => {
     it("should inject all helper methods into response object", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockRes.success).toBeDefined();
       expect(mockRes.created).toBeDefined();
@@ -71,11 +70,7 @@ describe("injectResponseHelpers", () => {
     });
 
     it("should call next() after injecting helpers", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       expect(mockNext).toHaveBeenCalledTimes(1);
       expect(mockNext).toHaveBeenCalledWith();
@@ -84,11 +79,7 @@ describe("injectResponseHelpers", () => {
 
   describe("injected success() method", () => {
     it("should call ResponseHelper.success with correct parameters", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       const data = { id: 1, name: "Test" };
       const message = "Success message";
@@ -104,11 +95,7 @@ describe("injectResponseHelpers", () => {
     });
 
     it("should work without message parameter", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       const data = { id: 1 };
 
@@ -122,11 +109,7 @@ describe("injectResponseHelpers", () => {
     });
 
     it("should handle null data", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       mockRes.success!(null);
 
@@ -138,11 +121,7 @@ describe("injectResponseHelpers", () => {
     });
 
     it("should handle array data", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       const data = [1, 2, 3];
 
@@ -158,11 +137,7 @@ describe("injectResponseHelpers", () => {
 
   describe("injected created() method", () => {
     it("should call ResponseHelper.created with correct parameters", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       const data = { id: 1, name: "New Resource" };
       const message = "Resource created successfully";
@@ -178,11 +153,7 @@ describe("injectResponseHelpers", () => {
     });
 
     it("should work without message parameter", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       const data = { id: 1 };
 
@@ -198,11 +169,7 @@ describe("injectResponseHelpers", () => {
 
   describe("injected paginated() method", () => {
     it("should call ResponseHelper.paginated with correct parameters", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       const items = [{ id: 1 }, { id: 2 }];
       const meta: PaginationMeta = {
@@ -223,11 +190,7 @@ describe("injectResponseHelpers", () => {
     });
 
     it("should handle empty array", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       const items: unknown[] = [];
       const meta: PaginationMeta = {
@@ -249,11 +212,7 @@ describe("injectResponseHelpers", () => {
 
   describe("injected noContent() method", () => {
     it("should call ResponseHelper.noContent", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       mockRes.noContent!();
 
@@ -264,11 +223,7 @@ describe("injectResponseHelpers", () => {
 
   describe("injected accepted() method", () => {
     it("should call ResponseHelper.accepted with correct parameters", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       const data = { jobId: "123" };
       const message = "Job queued";
@@ -284,11 +239,7 @@ describe("injectResponseHelpers", () => {
     });
 
     it("should work without data parameter", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       const message = "Request accepted";
 
@@ -302,11 +253,7 @@ describe("injectResponseHelpers", () => {
     });
 
     it("should work without any parameters", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       mockRes.accepted!();
 
@@ -320,11 +267,7 @@ describe("injectResponseHelpers", () => {
 
   describe("multiple calls", () => {
     it("should allow multiple calls to injected methods", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       mockRes.success!({ id: 1 });
       mockRes.success!({ id: 2 });
@@ -333,11 +276,7 @@ describe("injectResponseHelpers", () => {
     });
 
     it("should allow calling different methods in sequence", () => {
-      injectResponseHelpers(
-        mockReq as Request,
-        mockRes as Response,
-        mockNext,
-      );
+      injectResponseHelpers(mockReq as Request, mockRes as Response, mockNext);
 
       mockRes.success!({ id: 1 });
       mockRes.created!({ id: 2 });
@@ -349,4 +288,3 @@ describe("injectResponseHelpers", () => {
     });
   });
 });
-

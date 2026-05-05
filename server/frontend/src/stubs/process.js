@@ -20,25 +20,25 @@ const processStub = {
     tz: '2022a',
     unicode: '14.0',
     ngtcp2: '0.8.1',
-    nghttp3: '0.7.0'
+    nghttp3: '0.7.0',
   },
   platform: 'browser',
   arch: 'x64',
   pid: 1,
-  nextTick: function(callback) {
+  nextTick: function (callback) {
     setTimeout(callback, 0);
   },
-  cwd: function() {
+  cwd: function () {
     return '/';
   },
-  exit: function(code) {
+  exit: function (code) {
     console.warn('process.exit called with code:', code);
   },
-  on: function() {},
-  off: function() {},
-  emit: function() {},
+  on: function () {},
+  off: function () {},
+  emit: function () {},
   browser: true,
-  type: 'browser'
+  type: 'browser',
 };
 
 // Make process available globally
@@ -60,4 +60,3 @@ if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
 
 // ESM export
 export default processStub;
-

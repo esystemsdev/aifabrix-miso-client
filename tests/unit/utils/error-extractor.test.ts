@@ -54,7 +54,12 @@ describe("extractErrorInfo", () => {
         code: "INVALID_REQUEST",
       };
 
-      const error = new MisoClientError("Invalid request", undefined, errorBody, 400);
+      const error = new MisoClientError(
+        "Invalid request",
+        undefined,
+        errorBody,
+        400,
+      );
       const errorInfo = extractErrorInfo(error);
 
       expect(errorInfo.errorType).toBe("MisoClientError");
@@ -99,7 +104,12 @@ describe("extractErrorInfo", () => {
   describe("ApiError", () => {
     it("should extract error info from ApiError", () => {
       const originalError = new Error("Original error");
-      const error = new ApiError("Request failed", 400, undefined, originalError);
+      const error = new ApiError(
+        "Request failed",
+        400,
+        undefined,
+        originalError,
+      );
       const errorInfo = extractErrorInfo(error, {
         endpoint: "/api/test",
         method: "GET",

@@ -68,9 +68,9 @@ export function isCacheEnabled(
 ): boolean {
   const isGetRequest = method.toUpperCase() === "GET";
   return (
-    (cacheConfig?.enabled !== false) &&
+    cacheConfig?.enabled !== false &&
     isGetRequest &&
-    (options?.cache?.enabled !== false)
+    options?.cache?.enabled !== false
   );
 }
 
@@ -83,4 +83,3 @@ export function getCacheKeyForRequest(
 ): string {
   return options?.cache?.key || generateCacheKey(endpoint, options);
 }
-

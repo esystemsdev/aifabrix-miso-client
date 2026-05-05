@@ -2,15 +2,15 @@
 /**
  * Comprehensive integration tests for Auth, Logs, and Applications API endpoints
  * Tests against real controller using credentials from .env file
- * 
+ *
  * To run these tests:
  * 1. Ensure .env file exists with MISO_CLIENTID, MISO_CLIENTSECRET, MISO_CONTROLLER_URL
  * 2. Optionally set TEST_USER_TOKEN for authenticated endpoint tests
  * 3. Optionally set TEST_ENV_KEY and TEST_APP_KEY for application status endpoint tests
  * 4. Run: pnpm run test:integration:api
- * 
+ *
  * Tests will gracefully skip if controller is unavailable (don't fail CI/CD)
- * 
+ *
  * NOTE: This file is excluded from normal test runs (requires real controller)
  * Run via: pnpm run test:integration:api
  */
@@ -42,19 +42,42 @@ describe("API Endpoints Integration Tests", () => {
     try {
       config = loadConfig();
     } catch (error) {
-      console.warn("Failed to load config from .env, skipping integration tests:", error instanceof Error ? error.message : error);
-      console.warn("Environment check - MISO_CLIENTID:", process.env.MISO_CLIENTID ? "SET" : "NOT SET");
-      console.warn("Environment check - MISO_CLIENTSECRET:", process.env.MISO_CLIENTSECRET ? "SET" : "NOT SET");
-      console.warn("Environment check - MISO_CONTROLLER_URL:", process.env.MISO_CONTROLLER_URL || "NOT SET");
+      console.warn(
+        "Failed to load config from .env, skipping integration tests:",
+        error instanceof Error ? error.message : error,
+      );
+      console.warn(
+        "Environment check - MISO_CLIENTID:",
+        process.env.MISO_CLIENTID ? "SET" : "NOT SET",
+      );
+      console.warn(
+        "Environment check - MISO_CLIENTSECRET:",
+        process.env.MISO_CLIENTSECRET ? "SET" : "NOT SET",
+      );
+      console.warn(
+        "Environment check - MISO_CONTROLLER_URL:",
+        process.env.MISO_CONTROLLER_URL || "NOT SET",
+      );
       return;
     }
 
     // Check if required environment variables are set
     if (!config.controllerUrl || !config.clientId || !config.clientSecret) {
-      console.warn("Missing required environment variables (MISO_CONTROLLER_URL, MISO_CLIENTID, MISO_CLIENTSECRET), skipping integration tests");
-      console.warn("Config check - controllerUrl:", config.controllerUrl || "NOT SET");
-      console.warn("Config check - clientId:", config.clientId ? "SET" : "NOT SET");
-      console.warn("Config check - clientSecret:", config.clientSecret ? "SET" : "NOT SET");
+      console.warn(
+        "Missing required environment variables (MISO_CONTROLLER_URL, MISO_CLIENTID, MISO_CLIENTSECRET), skipping integration tests",
+      );
+      console.warn(
+        "Config check - controllerUrl:",
+        config.controllerUrl || "NOT SET",
+      );
+      console.warn(
+        "Config check - clientId:",
+        config.clientId ? "SET" : "NOT SET",
+      );
+      console.warn(
+        "Config check - clientSecret:",
+        config.clientSecret ? "SET" : "NOT SET",
+      );
       return;
     }
 
@@ -88,8 +111,11 @@ describe("API Endpoints Integration Tests", () => {
 
   // Helper to verify timeout/network error when controller is down
   const verifyTimeoutOrNetworkError = (error: unknown): void => {
-    const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-    const isTimeoutOrNetworkError = 
+    const errorMessage =
+      error instanceof Error
+        ? error.message.toLowerCase()
+        : String(error).toLowerCase();
+    const isTimeoutOrNetworkError =
       errorMessage.includes("timeout") ||
       errorMessage.includes("canceled") ||
       errorMessage.includes("econnrefused") ||
@@ -125,9 +151,12 @@ describe("API Endpoints Integration Tests", () => {
         // Use Promise.race to fail fast if endpoint hangs
         const requestPromise = client.apiClient.auth.getClientToken();
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error("Request timeout after 3 seconds")), 3000);
+          setTimeout(
+            () => reject(new Error("Request timeout after 3 seconds")),
+            3000,
+          );
         });
-        
+
         try {
           const response = await Promise.race([requestPromise, timeoutPromise]);
           expect(response).toBeDefined();
@@ -137,8 +166,12 @@ describe("API Endpoints Integration Tests", () => {
         } catch (error) {
           // In Node.js test environment, frontend endpoint may timeout (origin validation),
           // return 404 (endpoint not available), or be canceled
-          const errorMessage = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
-          const is404 = error instanceof MisoClientError && error.statusCode === 404;
+          const errorMessage =
+            error instanceof Error
+              ? error.message.toLowerCase()
+              : String(error).toLowerCase();
+          const is404 =
+            error instanceof MisoClientError && error.statusCode === 404;
           const isAcceptableError =
             errorMessage.includes("timeout") ||
             errorMessage.includes("canceled") ||
@@ -175,7 +208,7 @@ describe("API Endpoints Integration Tests", () => {
         // This should succeed when controller is up, or fail with timeout when controller is down
         const response = await client.apiClient.auth.validateToken(
           { token: userToken },
-          { bearerToken: userToken }
+          { bearerToken: userToken },
         );
         expect(response).toBeDefined();
         expect(response.success).toBe(true);
@@ -210,7 +243,8 @@ describe("API Endpoints Integration Tests", () => {
           expect(typeof response.data.accessToken).toBe("string");
           expect(typeof response.data.tokenExchanged).toBe("boolean");
         } catch (error) {
-          const is404 = error instanceof MisoClientError && error.statusCode === 404;
+          const is404 =
+            error instanceof MisoClientError && error.statusCode === 404;
           if (is404) {
             return; // Endpoint not implemented on controller yet
           }
@@ -259,10 +293,9 @@ describe("API Endpoints Integration Tests", () => {
         }
 
         // This should succeed when controller is up, or fail with timeout when controller is down
-        const response = await client.apiClient.roles.getRoles(
-          undefined,
-          { bearerToken: userToken }
-        );
+        const response = await client.apiClient.roles.getRoles(undefined, {
+          bearerToken: userToken,
+        });
         expect(response).toBeDefined();
         expect(response.success).toBe(true);
         expect(Array.isArray(response.data.roles)).toBe(true);
@@ -294,7 +327,7 @@ describe("API Endpoints Integration Tests", () => {
         // This should succeed when controller is up, or fail with timeout when controller is down
         const response = await client.apiClient.permissions.getPermissions(
           undefined,
-          { bearerToken: userToken }
+          { bearerToken: userToken },
         );
         expect(response).toBeDefined();
         expect(response.success).toBe(true);
@@ -471,7 +504,7 @@ describe("API Endpoints Integration Tests", () => {
         // This should succeed when controller is up, or fail with timeout when controller is down
         const response = await client.apiClient.logs.listGeneralLogs(
           { page: 1, pageSize: 10 },
-          { bearerToken: userToken }
+          { bearerToken: userToken },
         );
         expect(response).toBeDefined();
         expect(response.success).toBe(true);
@@ -488,7 +521,7 @@ describe("API Endpoints Integration Tests", () => {
         // This should succeed when controller is up, or fail with timeout when controller is down
         const response = await client.apiClient.logs.listAuditLogs(
           { page: 1, pageSize: 10 },
-          { bearerToken: userToken }
+          { bearerToken: userToken },
         );
         expect(response).toBeDefined();
         expect(response.success).toBe(true);
@@ -505,7 +538,7 @@ describe("API Endpoints Integration Tests", () => {
         // This should succeed when controller is up, or fail with timeout when controller is down
         const response = await client.apiClient.logs.listJobLogs(
           { page: 1, pageSize: 10 },
-          { bearerToken: userToken }
+          { bearerToken: userToken },
         );
         expect(response).toBeDefined();
         expect(response.success).toBe(true);
@@ -565,15 +598,18 @@ describe("API Endpoints Integration Tests", () => {
 
       test("GET /api/v1/environments/:envKey/applications/:appKey/status - Get application status (client token)", async () => {
         if (shouldSkip() || !envKey || !appKey) {
-          console.log("Skipping test - config, TEST_ENV_KEY or TEST_APP_KEY not available");
+          console.log(
+            "Skipping test - config, TEST_ENV_KEY or TEST_APP_KEY not available",
+          );
           return;
         }
 
         // Uses client credentials when no authStrategy provided
-        const response = await client.apiClient.applications.getApplicationStatus(
-          envKey,
-          appKey,
-        );
+        const response =
+          await client.apiClient.applications.getApplicationStatus(
+            envKey,
+            appKey,
+          );
         expect(response).toBeDefined();
         if (response.id !== undefined) expect(response.id).toBeDefined();
         if (response.key !== undefined) expect(response.key).toBeDefined();
@@ -584,20 +620,21 @@ describe("API Endpoints Integration Tests", () => {
   describe("Negative Test Cases - Controller Down", () => {
     // These tests validate that errors are properly thrown when the controller is unavailable.
     // They should FAIL (not skip) when the controller is down to ensure proper error handling.
-    // 
+    //
     // To test with controller down:
     // 1. Set MISO_CONTROLLER_URL to an invalid/unreachable URL (e.g., http://localhost:9999)
     // 2. Run: pnpm run test:integration:api
     // 3. Tests should fail with proper error messages
-    
+
     let invalidClient: MisoClient;
     let invalidConfig: MisoClientConfig | undefined;
 
     beforeAll(async () => {
       // Create config with invalid controller URL (unreachable)
       // Use a port that's definitely not running (65535 is the highest port number)
-      const invalidControllerUrl = process.env.MISO_CONTROLLER_URL_INVALID || "http://localhost:65535";
-      
+      const invalidControllerUrl =
+        process.env.MISO_CONTROLLER_URL_INVALID || "http://localhost:65535";
+
       try {
         // Try to load real config first to get clientId and clientSecret
         const realConfig = loadConfig();
@@ -631,14 +668,18 @@ describe("API Endpoints Integration Tests", () => {
 
     const shouldSkipNegativeTests = (): boolean => {
       // Skip if we don't have valid config to create invalid client
-      return !invalidConfig?.controllerUrl || !invalidConfig?.clientId || !invalidConfig?.clientSecret;
+      return (
+        !invalidConfig?.controllerUrl ||
+        !invalidConfig?.clientId ||
+        !invalidConfig?.clientSecret
+      );
     };
 
     // Helper to verify network error or HTTP error from invalid endpoint
     const verifyNetworkError = (error: unknown): void => {
       expect(error).toBeDefined();
       expect(error).toBeInstanceOf(Error); // Must be an Error
-      
+
       if (error instanceof MisoClientError) {
         // Network errors typically don't have status codes, but HTTP errors from invalid endpoints might
         // Accept both cases: no status code (true network error) or 4xx/5xx (invalid endpoint)
@@ -648,7 +689,7 @@ describe("API Endpoints Integration Tests", () => {
         } else {
           // If no status code, check error message for network-related errors
           const errorMessage = error.message.toLowerCase();
-          const isNetworkRelatedError = 
+          const isNetworkRelatedError =
             errorMessage.includes("timeout") ||
             errorMessage.includes("failed to get client token") ||
             errorMessage.includes("network error") ||
@@ -665,7 +706,7 @@ describe("API Endpoints Integration Tests", () => {
         // This covers network errors, timeouts, HTTP errors, and any other error types
         // The important thing is that an error was thrown (not a successful response)
         const errorMessage = error.message.toLowerCase();
-        const isNetworkError = 
+        const isNetworkError =
           errorMessage.includes("econnrefused") ||
           errorMessage.includes("enotfound") ||
           errorMessage.includes("etimedout") ||
@@ -686,7 +727,9 @@ describe("API Endpoints Integration Tests", () => {
         // (invalid endpoint should always throw some kind of error)
         if (!isNetworkError) {
           // Log the error message for debugging, but still accept the error
-          console.log(`Unexpected error message format (but accepting as error): ${error.message}`);
+          console.log(
+            `Unexpected error message format (but accepting as error): ${error.message}`,
+          );
         }
         // Always pass - any error from invalid endpoint is acceptable
         expect(error).toBeInstanceOf(Error);
@@ -703,11 +746,15 @@ describe("API Endpoints Integration Tests", () => {
         // Expect error to be thrown when controller is unreachable
         // If invalid URL somehow responds (e.g., port 9999 has a service), verify it's actually the invalid endpoint
         try {
-          const response = await invalidClient.apiClient.auth.generateClientToken();
+          const response =
+            await invalidClient.apiClient.auth.generateClientToken();
           // If we get here, the invalid endpoint responded (unexpected)
           // Verify it's actually from the invalid endpoint by checking the client config
-          const invalidUrl = process.env.MISO_CONTROLLER_URL_INVALID || "http://localhost:9999";
-          expect(invalidClient.apiClient.httpClient.config.controllerUrl).toBe(invalidUrl);
+          const invalidUrl =
+            process.env.MISO_CONTROLLER_URL_INVALID || "http://localhost:9999";
+          expect(invalidClient.apiClient.httpClient.config.controllerUrl).toBe(
+            invalidUrl,
+          );
           // If URL matches but request succeeded, port 9999 might be responding
           // This is acceptable - the test validates error handling, not that port 9999 is down
           expect(response).toBeDefined();
@@ -751,15 +798,15 @@ describe("API Endpoints Integration Tests", () => {
         await expect(
           invalidClient.apiClient.auth.validateToken(
             { token: testToken },
-            { bearerToken: testToken }
-          )
+            { bearerToken: testToken },
+          ),
         ).rejects.toThrow();
 
         // Verify error details
         try {
           await invalidClient.apiClient.auth.validateToken(
             { token: testToken },
-            { bearerToken: testToken }
+            { bearerToken: testToken },
           );
         } catch (error) {
           verifyNetworkError(error);
@@ -778,7 +825,7 @@ describe("API Endpoints Integration Tests", () => {
         await expect(
           invalidClient.apiClient.auth.getUser({
             bearerToken: testToken,
-          })
+          }),
         ).rejects.toThrow();
 
         // Verify error details
@@ -801,18 +848,16 @@ describe("API Endpoints Integration Tests", () => {
 
         // Expect error to be thrown when controller is unreachable
         await expect(
-          invalidClient.apiClient.roles.getRoles(
-            undefined,
-            { bearerToken: testToken }
-          )
+          invalidClient.apiClient.roles.getRoles(undefined, {
+            bearerToken: testToken,
+          }),
         ).rejects.toThrow();
 
         // Verify error details
         try {
-          await invalidClient.apiClient.roles.getRoles(
-            undefined,
-            { bearerToken: testToken }
-          );
+          await invalidClient.apiClient.roles.getRoles(undefined, {
+            bearerToken: testToken,
+          });
         } catch (error) {
           verifyNetworkError(error);
         }
@@ -828,18 +873,16 @@ describe("API Endpoints Integration Tests", () => {
 
         // Expect error to be thrown when controller is unreachable
         await expect(
-          invalidClient.apiClient.permissions.getPermissions(
-            undefined,
-            { bearerToken: testToken }
-          )
+          invalidClient.apiClient.permissions.getPermissions(undefined, {
+            bearerToken: testToken,
+          }),
         ).rejects.toThrow();
 
         // Verify error details
         try {
-          await invalidClient.apiClient.permissions.getPermissions(
-            undefined,
-            { bearerToken: testToken }
-          );
+          await invalidClient.apiClient.permissions.getPermissions(undefined, {
+            bearerToken: testToken,
+          });
         } catch (error) {
           verifyNetworkError(error);
         }
@@ -856,7 +899,7 @@ describe("API Endpoints Integration Tests", () => {
         // Logger service silently swallows errors, so we need to test HTTP client directly
         // For this test, we'll verify that the API client throws errors
         // Note: Logger service may not throw, but API client should
-        
+
         // Try to create log via API client (if available) or verify HTTP client throws
         try {
           await invalidClient.apiClient.logs.createLog({
@@ -917,15 +960,15 @@ describe("API Endpoints Integration Tests", () => {
         await expect(
           invalidClient.apiClient.logs.listGeneralLogs(
             { page: 1, pageSize: 10 },
-            { bearerToken: testToken }
-          )
+            { bearerToken: testToken },
+          ),
         ).rejects.toThrow();
 
         // Verify error details
         try {
           await invalidClient.apiClient.logs.listGeneralLogs(
             { page: 1, pageSize: 10 },
-            { bearerToken: testToken }
+            { bearerToken: testToken },
           );
         } catch (error) {
           verifyNetworkError(error);

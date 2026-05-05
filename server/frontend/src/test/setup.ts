@@ -56,10 +56,18 @@ globalThis.window.addEventListener = vi.fn();
 globalThis.window.removeEventListener = vi.fn();
 
 // Mock toast
-(globalThis as { toast?: { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn>; warning: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> } }).toast = {
+(
+  globalThis as {
+    toast?: {
+      success: ReturnType<typeof vi.fn>;
+      error: ReturnType<typeof vi.fn>;
+      warning: ReturnType<typeof vi.fn>;
+      info: ReturnType<typeof vi.fn>;
+    };
+  }
+).toast = {
   success: vi.fn(),
   error: vi.fn(),
   warning: vi.fn(),
   info: vi.fn(),
 };
-

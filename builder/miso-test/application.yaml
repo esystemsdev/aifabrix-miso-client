@@ -18,12 +18,12 @@ build:
   language: typescript
   envOutputPath: ../../.env
   context: null
-  dockerfile: ''
+  dockerfile: ""
 repository:
   enabled: false
-  repositoryUrl: ''
+  repositoryUrl: ""
 deployment:
-  controllerUrl: ''
+  controllerUrl: ""
   environment: dev
 healthCheck:
   path: /health

@@ -4,7 +4,7 @@ type EventListener = (...args: unknown[]) => void;
 
 class EventEmitter {
   private _events: Map<string, EventListener[]> = new Map();
-  
+
   on(event: string, listener: EventListener) {
     if (!this._events.has(event)) {
       this._events.set(event, []);
@@ -12,7 +12,7 @@ class EventEmitter {
     this._events.get(event)!.push(listener);
     return this;
   }
-  
+
   once(event: string, listener: EventListener): Promise<EventEmitter> {
     const onceWrapper = (...args: unknown[]) => {
       this.removeListener(event, onceWrapper);
@@ -20,11 +20,11 @@ class EventEmitter {
     };
     return Promise.resolve(this.on(event, onceWrapper));
   }
-  
+
   emit(event: string, ...args: unknown[]): boolean {
     const listeners = this._events.get(event);
     if (listeners && listeners.length > 0) {
-      listeners.forEach(listener => {
+      listeners.forEach((listener) => {
         try {
           listener(...args);
         } catch (e) {
@@ -35,7 +35,7 @@ class EventEmitter {
     }
     return false;
   }
-  
+
   removeListener(event: string, listener: EventListener) {
     const listeners = this._events.get(event);
     if (listeners) {
@@ -46,7 +46,7 @@ class EventEmitter {
     }
     return this;
   }
-  
+
   removeAllListeners(event?: string) {
     if (event) {
       this._events.delete(event);
@@ -55,11 +55,11 @@ class EventEmitter {
     }
     return this;
   }
-  
+
   off(event: string, listener: EventListener) {
     return this.removeListener(event, listener);
   }
-  
+
   addListener(event: string, listener: EventListener) {
     return this.on(event, listener);
   }

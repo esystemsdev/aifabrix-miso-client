@@ -27,23 +27,34 @@ import { writeWarn } from "./console-logger";
 /**
  * Token refresh callback function type
  */
-export type RefreshUserTokenFn = () => Promise<{ token: string; expiresIn: number } | null>;
+export type RefreshUserTokenFn = () => Promise<{
+  token: string;
+  expiresIn: number;
+} | null>;
 
 /**
  * Extract headers from Headers object or Record
  */
 export function extractHeaders(
-  headers?: Headers | Record<string, string> | string[][] | Record<string, string | readonly string[]>,
+  headers?:
+    | Headers
+    | Record<string, string>
+    | string[][]
+    | Record<string, string | readonly string[]>,
 ): Record<string, string> | undefined {
   if (!headers) return undefined;
   if (headers instanceof Headers) {
     const result: Record<string, string> = {};
-    headers.forEach((value, key) => { result[key] = value; });
+    headers.forEach((value, key) => {
+      result[key] = value;
+    });
     return result;
   }
   if (Array.isArray(headers)) {
     const result: Record<string, string> = {};
-    headers.forEach(([key, value]) => { result[key] = String(value); });
+    headers.forEach(([key, value]) => {
+      result[key] = String(value);
+    });
     return result;
   }
   const result: Record<string, string> = {};
@@ -70,7 +81,10 @@ export async function parseResponse<T>(response: Response): Promise<T> {
 /**
  * Merge AbortSignals
  */
-export function mergeSignals(signal1: AbortSignal, signal2: AbortSignal): AbortSignal {
+export function mergeSignals(
+  signal1: AbortSignal,
+  signal2: AbortSignal,
+): AbortSignal {
   const controller = new AbortController();
   const abort = () => {
     controller.abort();
@@ -88,7 +102,11 @@ export function mergeSignals(signal1: AbortSignal, signal2: AbortSignal): AbortS
 
 function applyOptionHeaders(
   headers: Headers,
-  optionHeaders?: Headers | Record<string, string> | string[][] | Record<string, string | readonly string[]>,
+  optionHeaders?:
+    | Headers
+    | Record<string, string>
+    | string[][]
+    | Record<string, string | readonly string[]>,
 ): void {
   if (!optionHeaders) return;
   if (optionHeaders instanceof Headers) {
@@ -117,8 +135,18 @@ function createRequestSignal(
 
 function normalizeFetchOptions(
   options?: ApiRequestOptions,
-): Omit<ApiRequestOptions, "cache" | "skipAuth" | "retries" | "skipAudit" | "timeout"> {
-  const { cache: _c, skipAuth: _s, retries: _r, skipAudit: _a, timeout: _t, ...fetchOptions } = options || {};
+): Omit<
+  ApiRequestOptions,
+  "cache" | "skipAuth" | "retries" | "skipAudit" | "timeout"
+> {
+  const {
+    cache: _c,
+    skipAuth: _s,
+    retries: _r,
+    skipAudit: _a,
+    timeout: _t,
+    ...fetchOptions
+  } = options || {};
   return fetchOptions;
 }
 
@@ -145,7 +173,13 @@ export async function makeFetchRequest(
   const fetchOptions = normalizeFetchOptions(options);
 
   try {
-    const response = await fetch(url, { method, headers, body: fetchOptions.body, signal, ...fetchOptions });
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: fetchOptions.body,
+      signal,
+      ...fetchOptions,
+    });
     clearTimeout(timeoutId);
     return response;
   } catch (error) {
@@ -191,7 +225,11 @@ interface AttemptRequestParams {
   handleAuthError: () => void;
   refreshUserToken: RefreshUserTokenFn;
   interceptors: InterceptorConfig;
-  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] };
+  metrics: {
+    totalRequests: number;
+    totalFailures: number;
+    responseTimes: number[];
+  };
   options?: ApiRequestOptions;
   retryConfig: RetryConfig;
   state: RequestRetryState;
@@ -240,7 +278,8 @@ function shouldRetryError(
   attempt: number,
   error: Error,
 ): boolean {
-  const is500Error = statusCode !== undefined && statusCode >= 500 && statusCode < 600;
+  const is500Error =
+    statusCode !== undefined && statusCode >= 500 && statusCode < 600;
   const effectiveMaxRetries = is500Error ? 0 : retryConfig.maxRetries;
   return (
     retryConfig.retryEnabled &&
@@ -273,7 +312,9 @@ async function handleAuthResponse<T>(
         return attemptRequest<T>({ ...params, attempt: attempt + 1 });
       }
     } catch (refreshError) {
-      writeWarn(`Token refresh failed, redirecting to login: ${String(refreshError)}`);
+      writeWarn(
+        `Token refresh failed, redirecting to login: ${String(refreshError)}`,
+      );
       state.authErrorDetected = true;
     }
   }
@@ -314,14 +355,23 @@ async function handleAttemptError<T>(
     throw error;
   }
 
-  if (error instanceof AuthenticationError || isAuthStatus(responseStatus) || isAuthErrorInstance(error)) {
+  if (
+    error instanceof AuthenticationError ||
+    isAuthStatus(responseStatus) ||
+    isAuthErrorInstance(error)
+  ) {
     state.authErrorDetected = true;
     throw error;
   }
 
   const errorObj = error as ApiError;
   const statusCode = resolveStatusCode(errorObj, responseStatus);
-  const isRetryable = shouldRetryError(statusCode, retryConfig, attempt, error as Error);
+  const isRetryable = shouldRetryError(
+    statusCode,
+    retryConfig,
+    attempt,
+    error as Error,
+  );
 
   if (!isRetryable) {
     if (isAuthStatus(statusCode)) {
@@ -350,20 +400,33 @@ async function handleAttemptError<T>(
     throw error;
   }
 
-  await waitForRetry(attempt, retryConfig.baseDelay, retryConfig.maxDelay, calculateBackoffDelay);
+  await waitForRetry(
+    attempt,
+    retryConfig.baseDelay,
+    retryConfig.maxDelay,
+    calculateBackoffDelay,
+  );
   return attemptRequest<T>({ ...params, attempt: attempt + 1 });
 }
 
 async function attemptRequest<T>(params: AttemptRequestParams): Promise<T> {
   if (params.state.authErrorDetected) {
-    throw new AuthenticationError("Authentication error detected - should not retry");
+    throw new AuthenticationError(
+      "Authentication error detected - should not retry",
+    );
   }
 
   let responseStatus: number | undefined;
   let response: Response | undefined;
 
   try {
-    response = await makeFetchRequest(params.method, params.fullUrl, params.config, params.getToken, params.options);
+    response = await makeFetchRequest(
+      params.method,
+      params.fullUrl,
+      params.config,
+      params.getToken,
+      params.options,
+    );
     responseStatus = response.status;
 
     const authResult = await handleAuthResponse<T>({
@@ -432,7 +495,11 @@ export interface ExecuteHttpRequestOptions {
   handleAuthError: () => void;
   refreshUserToken: RefreshUserTokenFn;
   interceptors: InterceptorConfig;
-  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] };
+  metrics: {
+    totalRequests: number;
+    totalFailures: number;
+    responseTimes: number[];
+  };
   options?: ApiRequestOptions;
 }
 
@@ -440,7 +507,10 @@ export async function executeHttpRequest<T>(
   opts: ExecuteHttpRequestOptions,
 ): Promise<T> {
   const retryConfig = resolveRetryConfig(opts.config, opts.options);
-  const state: RequestRetryState = { authErrorDetected: false, tokenRefreshAttempted: false };
+  const state: RequestRetryState = {
+    authErrorDetected: false,
+    tokenRefreshAttempted: false,
+  };
 
   try {
     return await attemptRequest<T>({

@@ -16,14 +16,17 @@ function cleanupHash(): void {
     const window = globalThis as unknown as {
       window?: {
         location?: { pathname: string; search: string; hash: string };
-        history?: { replaceState: (data: unknown, title: string, url: string) => void };
+        history?: {
+          replaceState: (data: unknown, title: string, url: string) => void;
+        };
       };
     };
     if (!window.window?.location || !window.window.history) {
       writeWarn("[handleOAuthCallback] window not available for hash cleanup");
       return;
     }
-    const cleanUrl = window.window.location.pathname + window.window.location.search;
+    const cleanUrl =
+      window.window.location.pathname + window.window.location.search;
     window.window.history.replaceState(null, "", cleanUrl);
   } catch (e) {
     writeWarn(`[handleOAuthCallback] Failed to clean up hash: ${String(e)}`);
@@ -63,17 +66,23 @@ function parseHashParams(hash: string): URLSearchParams | null {
 }
 
 function getTokenFromParams(params: URLSearchParams): string | null {
-  return params.get("token") || params.get("access_token") || params.get("accessToken");
+  return (
+    params.get("token") ||
+    params.get("access_token") ||
+    params.get("accessToken")
+  );
 }
 
 function rejectInvalidToken(token: string): void {
   writeErr(
-    `[handleOAuthCallback] Invalid token format - token rejected: ${JSON.stringify({
-      tokenLength: token.length,
-      isEmpty: !token || token.trim().length === 0,
-      tooShort: token.length > 0 && token.length < 5,
-      expectedFormat: "Non-empty string with at least 5 characters",
-    })}`,
+    `[handleOAuthCallback] Invalid token format - token rejected: ${JSON.stringify(
+      {
+        tokenLength: token.length,
+        isEmpty: !token || token.trim().length === 0,
+        tooShort: token.length > 0 && token.length < 5,
+        expectedFormat: "Non-empty string with at least 5 characters",
+      },
+    )}`,
   );
   cleanupHash();
 }
@@ -89,7 +98,9 @@ function storeTokenSecurely(tokenKeys: string[], token: string): void {
     try {
       setLocalStorage(key, token);
     } catch (e) {
-      writeWarn(`[handleOAuthCallback] Failed to store token in key ${key}: ${String(e)}`);
+      writeWarn(
+        `[handleOAuthCallback] Failed to store token in key ${key}: ${String(e)}`,
+      );
     }
   });
 }
@@ -101,7 +112,14 @@ function resolveWindowLocation(): {
   pathname: string;
 } | null {
   const win = globalThis as unknown as {
-    window?: { location?: { hash: string; protocol: string; hostname?: string; pathname?: string } };
+    window?: {
+      location?: {
+        hash: string;
+        protocol: string;
+        hostname?: string;
+        pathname?: string;
+      };
+    };
   };
   if (!win.window?.location) return null;
   return {
@@ -132,11 +150,13 @@ function logStoredOAuthToken(
 ): void {
   if (!isDebug) return;
   writeWarn(
-    `[handleOAuthCallback] OAuth token extracted and stored securely: ${JSON.stringify({
-      tokenLength: token.length,
-      tokenKeys,
-      storedInKeys: tokenKeys.length,
-    })}`,
+    `[handleOAuthCallback] OAuth token extracted and stored securely: ${JSON.stringify(
+      {
+        tokenLength: token.length,
+        tokenKeys,
+        storedInKeys: tokenKeys.length,
+      },
+    )}`,
   );
 }
 
@@ -163,7 +183,9 @@ export function handleOAuthCallback(config: DataClientConfig): string | null {
   if (!token) return null;
 
   if (!checkHttpsInProduction(location.protocol, location.hostname)) {
-    writeErr("[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production");
+    writeErr(
+      "[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production",
+    );
     cleanupHash();
     return null;
   }
@@ -173,7 +195,11 @@ export function handleOAuthCallback(config: DataClientConfig): string | null {
 
   try {
     storeTokenSecurely(tokenKeys, token);
-    logStoredOAuthToken(config.misoConfig?.logLevel === "debug", token, tokenKeys);
+    logStoredOAuthToken(
+      config.misoConfig?.logLevel === "debug",
+      token,
+      tokenKeys,
+    );
     return token;
   } catch (e) {
     const error = e instanceof Error ? e : new Error(String(e));

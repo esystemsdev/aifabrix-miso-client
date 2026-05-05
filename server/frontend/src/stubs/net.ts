@@ -1,1 +1,2 @@
-export const net = {}; export default net;
+export const net = {};
+export default net;

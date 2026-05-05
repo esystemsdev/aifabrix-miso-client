@@ -22,25 +22,25 @@ if (typeof process === 'undefined') {
       tz: '2022a',
       unicode: '14.0',
       ngtcp2: '0.8.1',
-      nghttp3: '0.7.0'
+      nghttp3: '0.7.0',
     },
     platform: 'browser',
     arch: 'x64',
     pid: 1,
-    nextTick: function(callback) {
+    nextTick: function (callback) {
       setTimeout(callback, 0);
     },
-    cwd: function() {
+    cwd: function () {
       return '/';
     },
-    exit: function(code) {
+    exit: function (code) {
       console.warn('process.exit called with code:', code);
     },
-    on: function() {},
-    off: function() {},
-    emit: function() {},
+    on: function () {},
+    off: function () {},
+    emit: function () {},
     browser: true,
-    type: 'browser'
+    type: 'browser',
   };
 
   if (typeof window !== 'undefined') {
@@ -63,7 +63,7 @@ if (typeof Buffer === 'undefined') {
       stub._encoding = encoding;
       return stub;
     }
-    
+
     static alloc(size, fill, encoding) {
       const stub = new BufferStub();
       stub._size = size;
@@ -71,15 +71,15 @@ if (typeof Buffer === 'undefined') {
       stub._encoding = encoding;
       return stub;
     }
-    
+
     static allocUnsafe(size) {
       return BufferStub.alloc(size);
     }
-    
+
     static isBuffer(obj) {
       return obj instanceof BufferStub;
     }
-    
+
     toString(encoding) {
       if (this._data !== undefined) {
         if (typeof this._data === 'string') {
@@ -91,11 +91,11 @@ if (typeof Buffer === 'undefined') {
       }
       return '';
     }
-    
+
     toJSON() {
       return { type: 'Buffer', data: [] };
     }
-    
+
     length = 0;
   }
 
@@ -120,4 +120,3 @@ if (typeof global === 'undefined') {
 }
 
 console.log('✅ Node.js globals polyfill loaded');
-

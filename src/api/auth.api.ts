@@ -4,12 +4,12 @@
  * Composed from specialized sub-modules to keep file size manageable
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
-import { AuthLoginApi } from './auth-login.api';
-import { AuthTokenApi } from './auth-token.api';
-import { AuthUserApi } from './auth-user.api';
-import { AuthCacheApi } from './auth-cache.api';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
+import { AuthLoginApi } from "./auth-login.api";
+import { AuthTokenApi } from "./auth-token.api";
+import { AuthUserApi } from "./auth-user.api";
+import { AuthCacheApi } from "./auth-cache.api";
 import {
   LoginRequest,
   LoginResponse,
@@ -37,7 +37,7 @@ import {
   InvalidateCacheRequest,
   InvalidateCacheResponse,
   DiagnosticsResponse,
-} from './types/auth.types';
+} from "./types/auth.types";
 
 /**
  * Auth API class
@@ -165,9 +165,7 @@ export class AuthApi {
     return this.cacheApi.getCacheEfficiency(authStrategy);
   }
 
-  async clearCache(
-    authStrategy?: AuthStrategy,
-  ): Promise<ClearCacheResponse> {
+  async clearCache(authStrategy?: AuthStrategy): Promise<ClearCacheResponse> {
     return this.cacheApi.clearCache(authStrategy);
   }
 

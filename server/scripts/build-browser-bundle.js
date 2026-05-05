@@ -72,4 +72,3 @@ esbuild
     console.error('❌ Failed to build browser bundle:', error);
     process.exit(1);
   });
-

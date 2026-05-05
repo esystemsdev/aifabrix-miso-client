@@ -11,10 +11,9 @@ export function extractUserIdFromToken(token: string): string | null {
   try {
     const decoded = jwt.decode(token) as Record<string, unknown> | null;
     if (!decoded) return null;
-    return (decoded.sub ||
-      decoded.userId ||
-      decoded.user_id ||
-      decoded.id) as string | null;
+    return (decoded.sub || decoded.userId || decoded.user_id || decoded.id) as
+      | string
+      | null;
   } catch {
     return null;
   }
@@ -46,10 +45,7 @@ export function getCacheTtlFromToken(
     const now = Math.floor(Date.now() / 1000);
     const tokenTtl = decoded.exp - now - BUFFER_SECONDS;
 
-    return Math.max(
-      minValidationTTL,
-      Math.min(tokenTtl, tokenValidationTTL),
-    );
+    return Math.max(minValidationTTL, Math.min(tokenTtl, tokenValidationTTL));
   } catch {
     return tokenValidationTTL;
   }
@@ -63,7 +59,10 @@ export function clearTokenCache(cache: CacheService, token: string): void {
     const cacheKey = getTokenCacheKey(token);
     void cache.delete(cacheKey).catch((error: unknown) => {
       logErrorWithContext(
-        extractErrorInfo(error, { endpoint: "clearTokenCache", method: "delete" }),
+        extractErrorInfo(error, {
+          endpoint: "clearTokenCache",
+          method: "delete",
+        }),
         "[AuthCacheHelpers]",
       );
     });
@@ -84,7 +83,10 @@ export function clearUserCache(cache: CacheService, token: string): void {
     if (userId) {
       void cache.delete(`user:${userId}`).catch((error: unknown) => {
         logErrorWithContext(
-          extractErrorInfo(error, { endpoint: "clearUserCache", method: "delete" }),
+          extractErrorInfo(error, {
+            endpoint: "clearUserCache",
+            method: "delete",
+          }),
           "[AuthCacheHelpers]",
         );
       });

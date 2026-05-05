@@ -2,7 +2,10 @@
  * Unit tests for Unified Logger components
  */
 
-import { LoggerContextStorage, LoggerContext } from "../../src/services/logger/logger-context-storage";
+import {
+  LoggerContextStorage,
+  LoggerContext,
+} from "../../src/services/logger/logger-context-storage";
 import jwt from "jsonwebtoken";
 import {
   UnifiedLoggerService,
@@ -56,7 +59,9 @@ describe("LoggerContextStorage", () => {
       const context = storage.getContext();
       // In test environment, AsyncLocalStorage might have a store from previous tests
       // So we check that it's either null or empty object
-      expect(context === null || Object.keys(context || {}).length === 0).toBe(true);
+      expect(context === null || Object.keys(context || {}).length === 0).toBe(
+        true,
+      );
     });
 
     it("should return context when set", () => {
@@ -149,10 +154,13 @@ describe("LoggerContextStorage", () => {
         userId: "user-123",
       };
 
-      const result = await storage.runWithContextAsync(testContext, async () => {
-        const ctx = storage.getContext();
-        return ctx?.userId;
-      });
+      const result = await storage.runWithContextAsync(
+        testContext,
+        async () => {
+          const ctx = storage.getContext();
+          return ctx?.userId;
+        },
+      );
 
       expect(result).toBe("user-123");
     });
@@ -240,8 +248,9 @@ describe("UnifiedLoggerService", () => {
 
     it("should log info message with JWT token context", async () => {
       // Mock JWT token that will be decoded
-      const mockToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLWp3dCIsInNlc3Npb25JZCI6InNlc3MtMTIzIiwiYXBwbGljYXRpb25JZCI6ImFwcC00NTYifQ.test";
-      
+      const mockToken =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLWp3dCIsInNlc3Npb25JZCI6InNlc3MtMTIzIiwiYXBwbGljYXRpb25JZCI6ImFwcC00NTYifQ.test";
+
       contextStorage.setContext({
         token: mockToken,
       });
@@ -275,7 +284,9 @@ describe("UnifiedLoggerService", () => {
     });
 
     it("should handle errors silently", async () => {
-      mockLoggerService.info = jest.fn().mockRejectedValue(new Error("Test error"));
+      mockLoggerService.info = jest
+        .fn()
+        .mockRejectedValue(new Error("Test error"));
 
       await expect(unifiedLogger.info("Test message")).resolves.not.toThrow();
     });
@@ -422,7 +433,13 @@ describe("UnifiedLoggerService", () => {
       const oldValues = { name: "Old Name" };
       const newValues = { name: "New Name" };
 
-      await unifiedLogger.audit("UPDATE", "User", "user-123", oldValues, newValues);
+      await unifiedLogger.audit(
+        "UPDATE",
+        "User",
+        "user-123",
+        oldValues,
+        newValues,
+      );
 
       expect(mockLoggerService.audit).toHaveBeenCalledWith(
         "UPDATE",

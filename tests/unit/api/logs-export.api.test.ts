@@ -2,19 +2,19 @@
  * Unit tests for LogsExportApi
  */
 
-import { LogsExportApi } from '../../../src/api/logs-export.api';
-import { HttpClient } from '../../../src/utils/http-client';
-import { AuthStrategy } from '../../../src/types/config.types';
+import { LogsExportApi } from "../../../src/api/logs-export.api";
+import { HttpClient } from "../../../src/utils/http-client";
+import { AuthStrategy } from "../../../src/types/config.types";
 import {
   ExportLogsQueryParams,
   ExportLogsResponse,
-} from '../../../src/api/types/logs.types';
+} from "../../../src/api/types/logs.types";
 
 // Mock HttpClient
-jest.mock('../../../src/utils/http-client');
+jest.mock("../../../src/utils/http-client");
 const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 
-describe('LogsExportApi', () => {
+describe("LogsExportApi", () => {
   let logsExportApi: LogsExportApi;
   let mockHttpClient: jest.Mocked<HttpClient>;
   const originalConsoleError = console.error;
@@ -36,49 +36,50 @@ describe('LogsExportApi', () => {
     console.error = originalConsoleError;
   });
 
-  describe('exportLogs', () => {
-    it('should call HttpClient.request when no authStrategy and return CSV string', async () => {
+  describe("exportLogs", () => {
+    it("should call HttpClient.request when no authStrategy and return CSV string", async () => {
       const params: ExportLogsQueryParams = {
-        type: 'general',
-        format: 'csv',
-        startDate: '2024-01-01',
-        endDate: '2024-01-31',
+        type: "general",
+        format: "csv",
+        startDate: "2024-01-01",
+        endDate: "2024-01-31",
       };
-      const mockResponse = 'timestamp,level,message\n2024-01-01T00:00:00Z,info,Test log';
+      const mockResponse =
+        "timestamp,level,message\n2024-01-01T00:00:00Z,info,Test log";
 
       mockHttpClient.request.mockResolvedValue(mockResponse);
 
       const result = await logsExportApi.exportLogs(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/export',
+        "GET",
+        "/api/v1/logs/export",
         undefined,
         { params },
       );
       expect(result).toEqual(mockResponse);
-      expect(typeof result).toBe('string');
+      expect(typeof result).toBe("string");
     });
 
-    it('should call HttpClient.request when no authStrategy and return JSON ExportLogsResponse', async () => {
+    it("should call HttpClient.request when no authStrategy and return JSON ExportLogsResponse", async () => {
       const params: ExportLogsQueryParams = {
-        type: 'general',
-        format: 'json',
-        startDate: '2024-01-01',
-        endDate: '2024-01-31',
+        type: "general",
+        format: "json",
+        startDate: "2024-01-01",
+        endDate: "2024-01-31",
       };
       const mockResponse: ExportLogsResponse = {
         success: true,
         data: [
           {
-            timestamp: '2024-01-01T00:00:00Z',
-            level: 'info',
-            message: 'Test log',
+            timestamp: "2024-01-01T00:00:00Z",
+            level: "info",
+            message: "Test log",
           },
         ],
         meta: {
-          type: 'general',
-          environment: 'production',
+          type: "general",
+          environment: "production",
           exportedAt: new Date().toISOString(),
           count: 1,
         },
@@ -89,52 +90,52 @@ describe('LogsExportApi', () => {
       const result = await logsExportApi.exportLogs(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/export',
+        "GET",
+        "/api/v1/logs/export",
         undefined,
         { params },
       );
       expect(result).toEqual(mockResponse);
-      expect(typeof result).toBe('object');
+      expect(typeof result).toBe("object");
     });
 
-    it('should call HttpClient.request with minimal params', async () => {
+    it("should call HttpClient.request with minimal params", async () => {
       const params: ExportLogsQueryParams = {
-        type: 'general',
-        format: 'csv',
+        type: "general",
+        format: "csv",
       };
-      const mockResponse = 'timestamp,level,message\n';
+      const mockResponse = "timestamp,level,message\n";
 
       mockHttpClient.request.mockResolvedValue(mockResponse);
 
       const result = await logsExportApi.exportLogs(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/export',
+        "GET",
+        "/api/v1/logs/export",
         undefined,
         { params },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.authenticatedRequest when bearerToken provided', async () => {
+    it("should call HttpClient.authenticatedRequest when bearerToken provided", async () => {
       const params: ExportLogsQueryParams = {
-        type: 'general',
-        format: 'json',
-        environment: 'production',
-        applicationId: 'app-123',
+        type: "general",
+        format: "json",
+        environment: "production",
+        applicationId: "app-123",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: ExportLogsResponse = {
         success: true,
         data: [],
         meta: {
-          type: 'general',
-          environment: 'production',
+          type: "general",
+          environment: "production",
           exportedAt: new Date().toISOString(),
           count: 0,
         },
@@ -145,8 +146,8 @@ describe('LogsExportApi', () => {
       const result = await logsExportApi.exportLogs(params, authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/export',
+        "GET",
+        "/api/v1/logs/export",
         authStrategy.bearerToken,
         undefined,
         { params },
@@ -155,24 +156,24 @@ describe('LogsExportApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken', async () => {
+    it("should call HttpClient.requestWithAuthStrategy when authStrategy without bearerToken", async () => {
       const params: ExportLogsQueryParams = {
-        type: 'general',
-        format: 'csv',
-        startDate: '2024-01-01',
+        type: "general",
+        format: "csv",
+        startDate: "2024-01-01",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
+        methods: ["bearer"],
       };
-      const mockResponse = 'timestamp,level,message\n';
+      const mockResponse = "timestamp,level,message\n";
 
       mockHttpClient.requestWithAuthStrategy.mockResolvedValue(mockResponse);
 
       const result = await logsExportApi.exportLogs(params, authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/logs/export',
+        "GET",
+        "/api/v1/logs/export",
         authStrategy,
         undefined,
         { params },
@@ -180,21 +181,22 @@ describe('LogsExportApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
+    it("should handle errors", async () => {
       const params: ExportLogsQueryParams = {
-        type: 'general',
-        format: 'csv',
+        type: "general",
+        format: "csv",
       };
-      const error = new Error('Export logs failed');
+      const error = new Error("Export logs failed");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(logsExportApi.exportLogs(params)).rejects.toThrow('Export logs failed');
+      await expect(logsExportApi.exportLogs(params)).rejects.toThrow(
+        "Export logs failed",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[LogsExportApi]'),
-        expect.stringContaining('Export logs'),
+        expect.stringContaining("[LogsExportApi]"),
+        expect.stringContaining("Export logs"),
       );
     });
   });
 });
-

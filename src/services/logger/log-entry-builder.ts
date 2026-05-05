@@ -224,7 +224,9 @@ function removeUndefinedFields(context: Record<string, unknown>): void {
   });
 }
 
-export function buildEnrichedLogContext(logEntry: LogEntry): Record<string, unknown> {
+export function buildEnrichedLogContext(
+  logEntry: LogEntry,
+): Record<string, unknown> {
   const rawContext = logEntry.context || {};
   const enrichedContext = createBaseEnrichedContext(logEntry, rawContext);
   applyTraceOverrides(logEntry, rawContext, enrichedContext);

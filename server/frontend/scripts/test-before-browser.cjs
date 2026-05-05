@@ -2,7 +2,7 @@
 /**
  * Comprehensive test that runs BEFORE opening browser
  * This catches the reduce() error by testing the actual bundle
- * 
+ *
  * Run: node frontend/scripts/test-before-browser.cjs
  */
 
@@ -39,25 +39,25 @@ console.log('2️⃣  Testing import behavior...');
     const fileUrl = 'file://' + stubPath;
     const commandsModule = await import(fileUrl);
     const commands = commandsModule.default;
-    
+
     if (!Array.isArray(commands)) {
       throw new Error('Default export is not an array');
     }
-    
+
     if (typeof commands.reduce !== 'function') {
       throw new Error('Array does not have reduce method');
     }
-    
+
     // Test reduce - this is what fails in browser
     const result = commands.reduce((acc, cmd) => {
       acc[cmd] = true;
       return acc;
     }, {});
-    
+
     if (typeof result !== 'object') {
       throw new Error('reduce() failed');
     }
-    
+
     console.log('✅ Import test passed - reduce() works\n');
   } catch (error) {
     console.error('❌ Import test failed:', error.message);
@@ -70,7 +70,7 @@ console.log('3️⃣  Building frontend bundle...');
 try {
   execSync('pnpm run build:frontend', {
     cwd: path.join(__dirname, '../..'),
-    stdio: 'inherit'
+    stdio: 'inherit',
   });
   console.log('✅ Build completed\n');
 } catch (error) {
@@ -85,7 +85,9 @@ if (!fs.existsSync(bundleDir)) {
   console.error('❌ Bundle directory does not exist:', bundleDir);
   process.exit(1);
 }
-const bundleFiles = fs.readdirSync(bundleDir).filter(f => f.endsWith('.js') && f.startsWith('index-'));
+const bundleFiles = fs
+  .readdirSync(bundleDir)
+  .filter((f) => f.endsWith('.js') && f.startsWith('index-'));
 
 if (bundleFiles.length === 0) {
   console.error('❌ No bundle files found');
@@ -96,13 +98,14 @@ const bundleFile = path.join(bundleDir, bundleFiles[0]);
 const bundleContent = fs.readFileSync(bundleFile, 'utf8');
 
 // Check for stub indicators
-const hasStub = bundleContent.includes('listStub') || 
-                bundleContent.includes('ioredis-commands');
+const hasStub = bundleContent.includes('listStub') || bundleContent.includes('ioredis-commands');
 
 if (!hasStub) {
   console.error('❌ Bundle does not contain stub');
   console.error('   This means Vite is not using our alias');
-  console.error('   The browser will fail with: Cannot read properties of undefined (reading reduce)');
+  console.error(
+    '   The browser will fail with: Cannot read properties of undefined (reading reduce)'
+  );
   console.error('\n   DIAGNOSIS:');
   console.error('   - Vite is resolving @ioredis/commands from node_modules');
   console.error('   - Our resolveId hook is not intercepting the import');
@@ -130,4 +133,3 @@ console.log('='.repeat(70));
 console.log('✅ ALL PRE-BROWSER TESTS PASSED');
 console.log('   Bundle is ready - you can now test in browser');
 console.log('='.repeat(70));
-

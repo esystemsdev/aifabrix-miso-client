@@ -15,7 +15,9 @@ export function extractTokenFromEnvResponse(data: unknown): string | undefined {
   const rd = data as Record<string, unknown>;
   const dataObj = rd?.data as Record<string, unknown> | undefined;
   const nestedData = dataObj?.data as Record<string, unknown> | undefined;
-  return (nestedData?.token || dataObj?.token || rd?.token) as string | undefined;
+  return (nestedData?.token || dataObj?.token || rd?.token) as
+    | string
+    | undefined;
 }
 
 /**

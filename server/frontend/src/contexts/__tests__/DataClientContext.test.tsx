@@ -89,7 +89,9 @@ describe('DataClientContext', () => {
           if (attempt < MAX_RETRIES) {
             attempt++;
             // Wait for exponential backoff
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, attempt - 1)));
+            await new Promise((resolve) =>
+              setTimeout(resolve, RETRY_DELAY * Math.pow(2, attempt - 1))
+            );
             return initializeWithRetry();
           }
           throw error;
@@ -141,7 +143,7 @@ describe('DataClientContext', () => {
         } catch (error) {
           if (attempt < MAX_RETRIES) {
             attempt++;
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise((resolve) => setTimeout(resolve, 100));
             return initializeWithRetry();
           }
           throw error;
@@ -262,7 +264,7 @@ describe('DataClientContext', () => {
 
     it('should reset retry count on success', () => {
       let retryCount = 2;
-      
+
       // Simulate success
       retryCount = 0;
 

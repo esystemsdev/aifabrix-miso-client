@@ -31,7 +31,9 @@ describe('validation', () => {
     it('should reject role name with invalid characters', () => {
       const result = validateRoleName('role@name');
       expect(result.valid).toBe(false);
-      expect(result.error).toBe('Role name can only contain letters, numbers, underscores, and hyphens');
+      expect(result.error).toBe(
+        'Role name can only contain letters, numbers, underscores, and hyphens'
+      );
     });
 
     it('should accept valid role name with letters', () => {
@@ -94,7 +96,9 @@ describe('validation', () => {
     it('should reject permission name with invalid characters', () => {
       const result = validatePermissionName('permission@name');
       expect(result.valid).toBe(false);
-      expect(result.error).toBe('Permission name can only contain letters, numbers, underscores, dots, and hyphens');
+      expect(result.error).toBe(
+        'Permission name can only contain letters, numbers, underscores, dots, and hyphens'
+      );
     });
 
     it('should accept valid permission name with dots', () => {

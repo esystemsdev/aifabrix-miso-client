@@ -10,7 +10,7 @@ import { useAuthorizationTests } from '../../hooks/useAuthorizationTests';
 
 /**
  * Authorization page component for testing roles and permissions
- * 
+ *
  * Provides UI for:
  * - Getting user roles and permissions
  * - Checking specific roles and permissions
@@ -38,12 +38,11 @@ export function AuthorizationPage() {
     testClearRolesCache,
     testClearPermissionsCache,
   } = useAuthorizationTests(dataClient, contextLoading);
-  
+
   const [roleToCheck, setRoleToCheck] = useState('');
   const [permissionToCheck, setPermissionToCheck] = useState('');
   const [rolesToCheck, setRolesToCheck] = useState('');
   const [permissionsToCheck, setPermissionsToCheck] = useState('');
-
 
   return (
     <div className="flex flex-col h-full">
@@ -72,7 +71,9 @@ export function AuthorizationPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Get Roles</CardTitle>
-                    <CardDescription>Retrieve user roles (auto-retrieves token from localStorage)</CardDescription>
+                    <CardDescription>
+                      Retrieve user roles (auto-retrieves token from localStorage)
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Button onClick={testGetRoles} disabled={isDisabled} className="w-full">
@@ -102,7 +103,11 @@ export function AuthorizationPage() {
                         placeholder="admin"
                       />
                     </div>
-                    <Button onClick={() => testHasRole(roleToCheck)} disabled={isDisabled} className="w-full">
+                    <Button
+                      onClick={() => testHasRole(roleToCheck)}
+                      disabled={isDisabled}
+                      className="w-full"
+                    >
                       hasRole()
                     </Button>
                   </CardContent>
@@ -123,7 +128,11 @@ export function AuthorizationPage() {
                         placeholder="admin, user"
                       />
                     </div>
-                    <Button onClick={() => testHasAnyRole(rolesToCheck)} disabled={isDisabled} className="w-full">
+                    <Button
+                      onClick={() => testHasAnyRole(rolesToCheck)}
+                      disabled={isDisabled}
+                      className="w-full"
+                    >
                       hasAnyRole()
                     </Button>
                   </CardContent>
@@ -144,7 +153,11 @@ export function AuthorizationPage() {
                         placeholder="admin, user"
                       />
                     </div>
-                    <Button onClick={() => testHasAllRoles(rolesToCheck)} disabled={isDisabled} className="w-full">
+                    <Button
+                      onClick={() => testHasAllRoles(rolesToCheck)}
+                      disabled={isDisabled}
+                      className="w-full"
+                    >
                       hasAllRoles()
                     </Button>
                   </CardContent>
@@ -169,7 +182,12 @@ export function AuthorizationPage() {
                     <CardDescription>Clear cached roles</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Button onClick={testClearRolesCache} disabled={isDisabled} variant="outline" className="w-full">
+                    <Button
+                      onClick={testClearRolesCache}
+                      disabled={isDisabled}
+                      variant="outline"
+                      className="w-full"
+                    >
                       <Trash2 className="w-4 h-4 mr-2" />
                       clearRolesCache()
                     </Button>
@@ -184,7 +202,9 @@ export function AuthorizationPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Get Permissions</CardTitle>
-                    <CardDescription>Retrieve user permissions (auto-retrieves token from localStorage)</CardDescription>
+                    <CardDescription>
+                      Retrieve user permissions (auto-retrieves token from localStorage)
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <Button onClick={testGetPermissions} disabled={isDisabled} className="w-full">
@@ -214,7 +234,11 @@ export function AuthorizationPage() {
                         placeholder="users:read"
                       />
                     </div>
-                    <Button onClick={() => testHasPermission(permissionToCheck)} disabled={isDisabled} className="w-full">
+                    <Button
+                      onClick={() => testHasPermission(permissionToCheck)}
+                      disabled={isDisabled}
+                      className="w-full"
+                    >
                       hasPermission()
                     </Button>
                   </CardContent>
@@ -223,7 +247,9 @@ export function AuthorizationPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Check Any Permission</CardTitle>
-                    <CardDescription>Check if user has any of the specified permissions</CardDescription>
+                    <CardDescription>
+                      Check if user has any of the specified permissions
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="space-y-2">
@@ -235,7 +261,11 @@ export function AuthorizationPage() {
                         placeholder="users:read, users:write"
                       />
                     </div>
-                    <Button onClick={() => testHasAnyPermission(permissionsToCheck)} disabled={isDisabled} className="w-full">
+                    <Button
+                      onClick={() => testHasAnyPermission(permissionsToCheck)}
+                      disabled={isDisabled}
+                      className="w-full"
+                    >
                       hasAnyPermission()
                     </Button>
                   </CardContent>
@@ -244,7 +274,9 @@ export function AuthorizationPage() {
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Check All Permissions</CardTitle>
-                    <CardDescription>Check if user has all of the specified permissions</CardDescription>
+                    <CardDescription>
+                      Check if user has all of the specified permissions
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="space-y-2">
@@ -256,7 +288,11 @@ export function AuthorizationPage() {
                         placeholder="users:read, users:write"
                       />
                     </div>
-                    <Button onClick={() => testHasAllPermissions(permissionsToCheck)} disabled={isDisabled} className="w-full">
+                    <Button
+                      onClick={() => testHasAllPermissions(permissionsToCheck)}
+                      disabled={isDisabled}
+                      className="w-full"
+                    >
                       hasAllPermissions()
                     </Button>
                   </CardContent>
@@ -268,7 +304,11 @@ export function AuthorizationPage() {
                     <CardDescription>Force refresh permissions (bypass cache)</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Button onClick={testRefreshPermissions} disabled={isDisabled} className="w-full">
+                    <Button
+                      onClick={testRefreshPermissions}
+                      disabled={isDisabled}
+                      className="w-full"
+                    >
                       <RefreshCw className="w-4 h-4 mr-2" />
                       refreshPermissions()
                     </Button>
@@ -281,7 +321,12 @@ export function AuthorizationPage() {
                     <CardDescription>Clear cached permissions</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Button onClick={testClearPermissionsCache} disabled={isDisabled} variant="outline" className="w-full">
+                    <Button
+                      onClick={testClearPermissionsCache}
+                      disabled={isDisabled}
+                      variant="outline"
+                      className="w-full"
+                    >
                       <Trash2 className="w-4 h-4 mr-2" />
                       clearPermissionsCache()
                     </Button>
@@ -309,4 +354,3 @@ export function AuthorizationPage() {
     </div>
   );
 }
-

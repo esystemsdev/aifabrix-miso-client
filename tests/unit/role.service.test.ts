@@ -25,17 +25,24 @@ const MockedCacheService = CacheService as jest.MockedClass<
 // Mock browser-jwt-decoder
 jest.mock("../../src/utils/browser-jwt-decoder");
 import * as browserJwtDecoder from "../../src/utils/browser-jwt-decoder";
-const mockExtractUserIdFromToken = browserJwtDecoder.extractUserIdFromToken as jest.MockedFunction<typeof browserJwtDecoder.extractUserIdFromToken>;
+const mockExtractUserIdFromToken =
+  browserJwtDecoder.extractUserIdFromToken as jest.MockedFunction<
+    typeof browserJwtDecoder.extractUserIdFromToken
+  >;
 
 describe("RoleService", () => {
   let roleService: RoleService;
   let mockHttpClient: jest.Mocked<HttpClient>;
   let mockApiClient: {
     auth: {
-      validateToken: jest.MockedFunction<(params: any, authStrategy?: any) => Promise<any>>;
+      validateToken: jest.MockedFunction<
+        (params: any, authStrategy?: any) => Promise<any>
+      >;
     };
     roles: {
-      getRoles: jest.MockedFunction<(params?: any, authStrategy?: any) => Promise<any>>;
+      getRoles: jest.MockedFunction<
+        (params?: any, authStrategy?: any) => Promise<any>
+      >;
       refreshRoles: jest.MockedFunction<(authStrategy?: any) => Promise<any>>;
     };
   };
@@ -76,7 +83,11 @@ describe("RoleService", () => {
     MockedApiClient.mockImplementation(() => mockApiClient as any);
     MockedCacheService.mockImplementation(() => mockCacheService);
 
-    roleService = new RoleService(mockHttpClient, mockApiClient as any, mockCacheService);
+    roleService = new RoleService(
+      mockHttpClient,
+      mockApiClient as any,
+      mockCacheService,
+    );
   });
 
   afterEach(() => {
@@ -119,8 +130,8 @@ describe("RoleService", () => {
       expect(mockApiClient.roles.getRoles).toHaveBeenCalledWith(
         undefined,
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(
@@ -148,8 +159,8 @@ describe("RoleService", () => {
       expect(mockApiClient.roles.getRoles).toHaveBeenCalledWith(
         undefined,
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
     });
@@ -327,15 +338,15 @@ describe("RoleService", () => {
       expect(mockApiClient.auth.validateToken).toHaveBeenCalledWith(
         { token: "token" },
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockApiClient.roles.refreshRoles).toHaveBeenCalledWith(
         undefined,
         expect.objectContaining({
-          methods: ['bearer'],
-          bearerToken: 'token',
+          methods: ["bearer"],
+          bearerToken: "token",
         }),
       );
       expect(mockCacheService.set).toHaveBeenCalledWith(

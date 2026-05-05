@@ -3,10 +3,10 @@
  * Handles login, device code flow, and diagnostics
  */
 
-import { HttpClient } from '../utils/http-client';
-import { AuthStrategy } from '../types/config.types';
-import { logErrorWithContext } from '../utils/console-logger';
-import { extractErrorInfo } from '../utils/error-extractor';
+import { HttpClient } from "../utils/http-client";
+import { AuthStrategy } from "../types/config.types";
+import { logErrorWithContext } from "../utils/console-logger";
+import { extractErrorInfo } from "../utils/error-extractor";
 import {
   LoginRequest,
   LoginResponse,
@@ -16,7 +16,7 @@ import {
   DeviceCodeTokenResponse,
   DeviceCodeRefreshRequest,
   DiagnosticsResponse,
-} from './types/auth.types';
+} from "./types/auth.types";
 
 /**
  * Auth Login API class
@@ -24,10 +24,13 @@ import {
  */
 export class AuthLoginApi {
   // Centralize endpoint URLs as constants
-  private static readonly LOGIN_ENDPOINT = '/api/v1/auth/login';
-  private static readonly DEVICE_CODE_TOKEN_ENDPOINT = '/api/v1/auth/login/device/token';
-  private static readonly DEVICE_CODE_REFRESH_ENDPOINT = '/api/v1/auth/login/device/refresh';
-  private static readonly LOGIN_DIAGNOSTICS_ENDPOINT = '/api/v1/auth/login/diagnostics';
+  private static readonly LOGIN_ENDPOINT = "/api/v1/auth/login";
+  private static readonly DEVICE_CODE_TOKEN_ENDPOINT =
+    "/api/v1/auth/login/device/token";
+  private static readonly DEVICE_CODE_REFRESH_ENDPOINT =
+    "/api/v1/auth/login/device/refresh";
+  private static readonly LOGIN_DIAGNOSTICS_ENDPOINT =
+    "/api/v1/auth/login/diagnostics";
 
   constructor(private httpClient: HttpClient) {}
 
@@ -44,7 +47,7 @@ export class AuthLoginApi {
     try {
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<LoginResponse>(
-          'GET',
+          "GET",
           AuthLoginApi.LOGIN_ENDPOINT,
           authStrategy,
           undefined,
@@ -52,7 +55,7 @@ export class AuthLoginApi {
         );
       }
       return await this.httpClient.request<LoginResponse>(
-        'GET',
+        "GET",
         AuthLoginApi.LOGIN_ENDPOINT,
         undefined,
         { params },
@@ -60,9 +63,9 @@ export class AuthLoginApi {
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthLoginApi.LOGIN_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[AuthLoginApi]');
+      logErrorWithContext(errorInfo, "[AuthLoginApi]");
       throw error;
     }
   }
@@ -80,23 +83,23 @@ export class AuthLoginApi {
     try {
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<DeviceCodeResponse>(
-          'POST',
+          "POST",
           AuthLoginApi.LOGIN_ENDPOINT,
           authStrategy,
           params,
         );
       }
       return await this.httpClient.request<DeviceCodeResponse>(
-        'POST',
+        "POST",
         AuthLoginApi.LOGIN_ENDPOINT,
         params,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthLoginApi.LOGIN_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthLoginApi]');
+      logErrorWithContext(errorInfo, "[AuthLoginApi]");
       throw error;
     }
   }
@@ -111,16 +114,16 @@ export class AuthLoginApi {
   ): Promise<DeviceCodeTokenResponse> {
     try {
       return await this.httpClient.request<DeviceCodeTokenResponse>(
-        'POST',
+        "POST",
         AuthLoginApi.DEVICE_CODE_TOKEN_ENDPOINT,
         params,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthLoginApi.DEVICE_CODE_TOKEN_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthLoginApi]');
+      logErrorWithContext(errorInfo, "[AuthLoginApi]");
       throw error;
     }
   }
@@ -135,16 +138,16 @@ export class AuthLoginApi {
   ): Promise<DeviceCodeTokenResponse> {
     try {
       return await this.httpClient.request<DeviceCodeTokenResponse>(
-        'POST',
+        "POST",
         AuthLoginApi.DEVICE_CODE_REFRESH_ENDPOINT,
         params,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthLoginApi.DEVICE_CODE_REFRESH_ENDPOINT,
-        method: 'POST',
+        method: "POST",
       });
-      logErrorWithContext(errorInfo, '[AuthLoginApi]');
+      logErrorWithContext(errorInfo, "[AuthLoginApi]");
       throw error;
     }
   }
@@ -160,7 +163,7 @@ export class AuthLoginApi {
     try {
       const params = environment ? { environment } : undefined;
       const response = await this.httpClient.request<Record<string, unknown>>(
-        'GET',
+        "GET",
         AuthLoginApi.LOGIN_DIAGNOSTICS_ENDPOINT,
         undefined,
         { params },
@@ -170,7 +173,7 @@ export class AuthLoginApi {
       // Handle both formats: {success: true, data: {...}} and {data: {...}}
       if (response.success !== undefined) {
         return response as unknown as DiagnosticsResponse;
-      } else if (response.data && typeof response.data === 'object') {
+      } else if (response.data && typeof response.data === "object") {
         // New format without success field - add it
         const data = response.data as Record<string, unknown>;
         return {
@@ -181,20 +184,24 @@ export class AuthLoginApi {
             environment: (data.environment as Record<string, unknown>) || {},
             keycloak: (data.keycloak as Record<string, unknown>) || {},
           },
-          timestamp: typeof response.timestamp === 'string' ? response.timestamp : new Date().toISOString(),
+          timestamp:
+            typeof response.timestamp === "string"
+              ? response.timestamp
+              : new Date().toISOString(),
         };
       }
 
       // If we get here, response format is unexpected
-      throw new Error(`Unexpected response format from login diagnostics endpoint: ${JSON.stringify(response)}`);
+      throw new Error(
+        `Unexpected response format from login diagnostics endpoint: ${JSON.stringify(response)}`,
+      );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: AuthLoginApi.LOGIN_DIAGNOSTICS_ENDPOINT,
-        method: 'GET',
+        method: "GET",
       });
-      logErrorWithContext(errorInfo, '[AuthLoginApi]');
+      logErrorWithContext(errorInfo, "[AuthLoginApi]");
       throw error;
     }
   }
 }
-

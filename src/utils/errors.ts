@@ -57,7 +57,11 @@ export class MisoClientError extends Error {
 /** Transform error envelope format to ErrorResponse */
 function transformErrorEnvelope(
   envelope: ErrorEnvelope,
-  axiosError: { response?: { status?: number }; config?: { url?: string }; message?: string },
+  axiosError: {
+    response?: { status?: number };
+    config?: { url?: string };
+    message?: string;
+  },
 ): ErrorResponseFromErrors {
   const errorData = envelope.error;
   return {
@@ -73,16 +77,30 @@ function transformErrorEnvelope(
 /** Transform direct error format to ErrorResponse */
 function transformDirectError(
   errorData: Record<string, unknown>,
-  axiosError: { response?: { status?: number }; config?: { url?: string }; message?: string },
+  axiosError: {
+    response?: { status?: number };
+    config?: { url?: string };
+    message?: string;
+  },
 ): ErrorResponseFromErrors {
-  const statusCode = typeof errorData.statusCode === "number" ? errorData.statusCode
-    : typeof axiosError.response?.status === "number" ? axiosError.response.status : 500;
+  const statusCode =
+    typeof errorData.statusCode === "number"
+      ? errorData.statusCode
+      : typeof axiosError.response?.status === "number"
+        ? axiosError.response.status
+        : 500;
   return {
-    errors: Array.isArray(errorData.errors) ? (errorData.errors as string[]) : ["Unknown error"],
+    errors: Array.isArray(errorData.errors)
+      ? (errorData.errors as string[])
+      : ["Unknown error"],
     type: (errorData.type as string | undefined) ?? "about:blank",
-    title: (errorData.title as string | undefined) ?? axiosError.message ?? "Unknown error",
+    title:
+      (errorData.title as string | undefined) ??
+      axiosError.message ??
+      "Unknown error",
     statusCode,
-    instance: (errorData.instance as string | undefined) ?? axiosError.config?.url,
+    instance:
+      (errorData.instance as string | undefined) ?? axiosError.config?.url,
     correlationId: errorData.correlationId as string | undefined,
   };
 }
@@ -95,25 +113,46 @@ function transformDirectError(
 export function transformError(err: unknown): ErrorResponseFromErrors {
   // Handle Axios errors
   if (err && typeof err === "object" && "response" in err) {
-    const axiosError = err as { response?: { data?: unknown; status?: number }; config?: { url?: string }; message?: string };
+    const axiosError = err as {
+      response?: { data?: unknown; status?: number };
+      config?: { url?: string };
+      message?: string;
+    };
     const data = axiosError.response?.data;
 
     if (data && typeof data === "object") {
       // Error envelope format
-      if ("error" in data) return transformErrorEnvelope(data as ErrorEnvelope, axiosError);
+      if ("error" in data)
+        return transformErrorEnvelope(data as ErrorEnvelope, axiosError);
       // Direct error format
       return transformDirectError(data as Record<string, unknown>, axiosError);
     }
 
     // Response without data
-    return { errors: [axiosError.message ?? "Network error"], type: "about:blank", title: "Network error", statusCode: axiosError.response?.status ?? 0 };
+    return {
+      errors: [axiosError.message ?? "Network error"],
+      type: "about:blank",
+      title: "Network error",
+      statusCode: axiosError.response?.status ?? 0,
+    };
   }
 
   // Non-Axios errors
-  if (err instanceof Error) return { errors: [err.message ?? "Unknown error"], type: "about:blank", title: "Error", statusCode: 0 };
+  if (err instanceof Error)
+    return {
+      errors: [err.message ?? "Unknown error"],
+      type: "about:blank",
+      title: "Error",
+      statusCode: 0,
+    };
 
   // Last resort
-  return { errors: ["Unknown error"], type: "about:blank", title: "Unknown error", statusCode: 0 };
+  return {
+    errors: ["Unknown error"],
+    type: "about:blank",
+    title: "Unknown error",
+    statusCode: 0,
+  };
 }
 
 /**

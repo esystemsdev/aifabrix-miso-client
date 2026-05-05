@@ -12,7 +12,11 @@ import {
 } from "../types/data-client.types";
 import { calculateSize } from "./data-client-utils";
 import { setCacheEntry } from "./data-client-cache";
-import { logDataClientAudit, HasAnyTokenFn, GetTokenFn } from "./data-client-audit";
+import {
+  logDataClientAudit,
+  HasAnyTokenFn,
+  GetTokenFn,
+} from "./data-client-audit";
 import { MisoClient } from "../index";
 import { extractErrorInfo } from "./error-extractor";
 import { logErrorWithContext } from "./console-logger";
@@ -23,7 +27,10 @@ import { LoggerContextStorage } from "../services/logger/logger-context-storage"
  * Generate correlation ID helper
  */
 export function generateCorrelationId(misoClient: MisoClient | null): string {
-  if (misoClient?.log && typeof misoClient.log.generateCorrelationId === "function") {
+  if (
+    misoClient?.log &&
+    typeof misoClient.log.generateCorrelationId === "function"
+  ) {
     return misoClient.log.generateCorrelationId();
   }
   const timestamp = Date.now();
@@ -46,19 +53,49 @@ export interface ProcessSuccessOpts {
   hasAnyToken: HasAnyTokenFn;
   getToken: GetTokenFn;
   interceptors: InterceptorConfig;
-  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] };
+  metrics: {
+    totalRequests: number;
+    totalFailures: number;
+    responseTimes: number[];
+  };
   options?: ApiRequestOptions;
 }
 
 /**
  * Process successful response (cache, interceptors, audit)
  */
-export async function processSuccessfulResponse<T>(opts: ProcessSuccessOpts): Promise<T> {
-  const { response, data, method, endpoint, startTime, config, cache, cacheKey, cacheEnabled, misoClient, hasAnyToken, getToken, interceptors, metrics, options } = opts;
+export async function processSuccessfulResponse<T>(
+  opts: ProcessSuccessOpts,
+): Promise<T> {
+  const {
+    response,
+    data,
+    method,
+    endpoint,
+    startTime,
+    config,
+    cache,
+    cacheKey,
+    cacheEnabled,
+    misoClient,
+    hasAnyToken,
+    getToken,
+    interceptors,
+    metrics,
+    options,
+  } = opts;
   const duration = Date.now() - startTime;
   recordRequestMetrics(metrics, duration);
 
-  cacheSuccessfulResponse({ cacheEnabled, response, data: data as T, options, config, cache, cacheKey });
+  cacheSuccessfulResponse({
+    cacheEnabled,
+    response,
+    data: data as T,
+    options,
+    config,
+    cache,
+    cacheKey,
+  });
 
   if (interceptors.onResponse) {
     return await interceptors.onResponse<T>(response, data as T);
@@ -78,7 +115,11 @@ export async function processSuccessfulResponse<T>(opts: ProcessSuccessOpts): Pr
   });
 
   if (!response.ok) {
-    throw new ApiError(`Request failed with status ${response.status}`, response.status, response);
+    throw new ApiError(
+      `Request failed with status ${response.status}`,
+      response.status,
+      response,
+    );
   }
   return data as T;
 }
@@ -95,15 +136,34 @@ export interface HandleNonRetryableOpts {
   misoClient: MisoClient | null;
   hasAnyToken: HasAnyTokenFn;
   getToken: GetTokenFn;
-  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] };
+  metrics: {
+    totalRequests: number;
+    totalFailures: number;
+    responseTimes: number[];
+  };
   options?: ApiRequestOptions;
 }
 
 /**
  * Handle non-retryable error (audit log and throw)
  */
-export async function handleNonRetryableError(opts: HandleNonRetryableOpts): Promise<never> {
-  const { error, method, endpoint, startTime, statusCode, responseStatus, config, misoClient, hasAnyToken, getToken, metrics, options } = opts;
+export async function handleNonRetryableError(
+  opts: HandleNonRetryableOpts,
+): Promise<never> {
+  const {
+    error,
+    method,
+    endpoint,
+    startTime,
+    statusCode,
+    responseStatus,
+    config,
+    misoClient,
+    hasAnyToken,
+    getToken,
+    metrics,
+    options,
+  } = opts;
   const duration = Date.now() - startTime;
   recordFailure(metrics);
 
@@ -139,7 +199,11 @@ export interface HandleAuthErrorOpts {
   hasAnyToken: HasAnyTokenFn;
   getToken: GetTokenFn;
   handleAuthError: () => void;
-  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] };
+  metrics: {
+    totalRequests: number;
+    totalFailures: number;
+    responseTimes: number[];
+  };
   options?: ApiRequestOptions;
 }
 
@@ -147,7 +211,20 @@ export interface HandleAuthErrorOpts {
  * Handle authentication error cleanup (synchronous only - no await)
  */
 export function handleAuthErrorCleanup(opts: HandleAuthErrorOpts): void {
-  const { error, responseStatus, method, endpoint, startTime, config, misoClient, hasAnyToken, getToken, handleAuthError, metrics, options } = opts;
+  const {
+    error,
+    responseStatus,
+    method,
+    endpoint,
+    startTime,
+    config,
+    misoClient,
+    hasAnyToken,
+    getToken,
+    handleAuthError,
+    metrics,
+    options,
+  } = opts;
   handleAuthError();
   recordFailure(metrics);
 
@@ -175,16 +252,22 @@ export function handleAuthErrorCleanup(opts: HandleAuthErrorOpts): void {
 }
 
 function recordRequestMetrics(
-  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] },
+  metrics: {
+    totalRequests: number;
+    totalFailures: number;
+    responseTimes: number[];
+  },
   duration: number,
 ): void {
   metrics.totalRequests++;
   metrics.responseTimes.push(duration);
 }
 
-function recordFailure(
-  metrics: { totalRequests: number; totalFailures: number; responseTimes: number[] },
-): void {
+function recordFailure(metrics: {
+  totalRequests: number;
+  totalFailures: number;
+  responseTimes: number[];
+}): void {
   metrics.totalFailures++;
 }
 
@@ -197,7 +280,8 @@ function cacheSuccessfulResponse<T>(opts: {
   cache: Map<string, CacheEntry>;
   cacheKey: string;
 }): void {
-  const { cacheEnabled, response, data, options, config, cache, cacheKey } = opts;
+  const { cacheEnabled, response, data, options, config, cache, cacheKey } =
+    opts;
   if (!cacheEnabled || !response.ok) return;
   const ttl = options?.cache?.ttl || config.cache?.defaultTTL || 300;
   setCacheEntry(cache, cacheKey, data, ttl, config.cache?.maxSize || 100);
@@ -215,7 +299,18 @@ async function auditSuccessResponse<T>(opts: {
   getToken: GetTokenFn;
   options?: ApiRequestOptions;
 }): Promise<void> {
-  const { response, data, method, endpoint, duration, config, misoClient, hasAnyToken, getToken, options } = opts;
+  const {
+    response,
+    data,
+    method,
+    endpoint,
+    duration,
+    config,
+    misoClient,
+    hasAnyToken,
+    getToken,
+    options,
+  } = opts;
   if (options?.skipAudit) return;
   await logDataClientAudit({
     method,
@@ -269,7 +364,20 @@ async function auditFailureResponse(opts: {
   errorInfo: ReturnType<typeof extractErrorInfo>;
   responseStatus: number | undefined;
 }): Promise<void> {
-  const { error, statusCode, duration, method, endpoint, config, misoClient, hasAnyToken, getToken, options, errorInfo, responseStatus } = opts;
+  const {
+    error,
+    statusCode,
+    duration,
+    method,
+    endpoint,
+    config,
+    misoClient,
+    hasAnyToken,
+    getToken,
+    options,
+    errorInfo,
+    responseStatus,
+  } = opts;
   if (options?.skipAudit || !misoClient?.log) return;
   await logDataClientAudit({
     method,
@@ -285,7 +393,9 @@ async function auditFailureResponse(opts: {
     requestHeaders: extractHeaders(options?.headers),
     requestBody: options?.body,
   });
-  const httpStatusCategory = getHttpStatusCategory(statusCode || responseStatus);
+  const httpStatusCategory = getHttpStatusCategory(
+    statusCode || responseStatus,
+  );
   await logFailureToClient(misoClient, errorInfo, httpStatusCategory);
 }
 
@@ -311,7 +421,9 @@ async function logFailureToClient(
           },
           errorInfo.stackTrace,
           {
-            errorCategory: errorInfo.errorType.toLowerCase().replace("error", ""),
+            errorCategory: errorInfo.errorType
+              .toLowerCase()
+              .replace("error", ""),
             httpStatusCategory,
           },
         );
@@ -329,22 +441,28 @@ function logAuthFailureToClient(
   if (!misoClient?.log) return;
   const contextStorage = LoggerContextStorage.getInstance();
   contextStorage
-    .runWithContextAsync({ correlationId: errorInfo.correlationId }, async () => {
-      await misoClient.log.error(
-        `Authentication error: ${errorInfo.message}`,
-        {
-          authFlow: "token_validation_failed",
-          errorType: errorInfo.errorType,
-          errorName: errorInfo.errorName,
-          statusCode: errorInfo.statusCode,
-          endpoint: errorInfo.endpoint,
-          method: errorInfo.method,
-          responseBody: errorInfo.responseBody,
-        },
-        errorInfo.stackTrace,
-        { errorCategory: "authentication", httpStatusCategory: "client-error" },
-      );
-    })
+    .runWithContextAsync(
+      { correlationId: errorInfo.correlationId },
+      async () => {
+        await misoClient.log.error(
+          `Authentication error: ${errorInfo.message}`,
+          {
+            authFlow: "token_validation_failed",
+            errorType: errorInfo.errorType,
+            errorName: errorInfo.errorName,
+            statusCode: errorInfo.statusCode,
+            endpoint: errorInfo.endpoint,
+            method: errorInfo.method,
+            responseBody: errorInfo.responseBody,
+          },
+          errorInfo.stackTrace,
+          {
+            errorCategory: "authentication",
+            httpStatusCategory: "client-error",
+          },
+        );
+      },
+    )
     .catch(() => {});
 }
 
@@ -355,7 +473,11 @@ export async function waitForRetry(
   attempt: number,
   baseDelay: number,
   maxDelay: number,
-  calculateBackoffDelay: (attempt: number, baseDelay: number, maxDelay: number) => number,
+  calculateBackoffDelay: (
+    attempt: number,
+    baseDelay: number,
+    maxDelay: number,
+  ) => number,
 ): Promise<void> {
   const delay = calculateBackoffDelay(attempt, baseDelay, maxDelay);
   await new Promise((resolve) => setTimeout(resolve, delay));

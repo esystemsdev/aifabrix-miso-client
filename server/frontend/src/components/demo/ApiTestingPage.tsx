@@ -8,18 +8,20 @@ import { ErrorHandlingTab } from './api-testing/ErrorHandlingTab';
 
 /**
  * API Testing page component for testing HTTP methods, authentication, and error handling
- * 
+ *
  * Provides UI for:
  * - Testing GET, POST, PUT, PATCH, DELETE requests
  * - Testing authentication methods (isAuthenticated, getEnvironmentToken, getClientTokenInfo, logout)
  * - Testing error handling (network errors, timeouts, API errors)
- * 
+ *
  * Uses the useApiTesting hook for all test logic and sub-components for tab content.
  */
 export function ApiTestingPage() {
   const { dataClient, isLoading: contextLoading } = useDataClient();
-  const { result, isDisabled, httpMethods, auth, errors } = useApiTesting(dataClient, contextLoading);
-
+  const { result, isDisabled, httpMethods, auth, errors } = useApiTesting(
+    dataClient,
+    contextLoading
+  );
 
   return (
     <div className="flex flex-col h-full">

@@ -4,7 +4,11 @@
  */
 
 import axios from "axios";
-import { MisoClientConfig, ClientTokenResponse, ErrorResponse } from "../types/config.types";
+import {
+  MisoClientConfig,
+  ClientTokenResponse,
+  ErrorResponse,
+} from "../types/config.types";
 import { resolveControllerUrl } from "./controller-url-resolver";
 import { isAxiosError } from "./http-error-handler";
 import { MisoClientError } from "./errors";
@@ -35,10 +39,15 @@ export function generateCorrelationId(clientId: string): string {
  * @param timeout - Connection timeout in milliseconds
  * @returns HTTP or HTTPS agent
  */
-export async function createHttpAgent(isHttps: boolean, timeout: number): Promise<import("http").Agent> {
+export async function createHttpAgent(
+  isHttps: boolean,
+  timeout: number,
+): Promise<import("http").Agent> {
   const http = await import("http");
   const https = await import("https");
-  return isHttps ? new https.Agent({ family: 4, timeout }) : new http.Agent({ family: 4, timeout });
+  return isHttps
+    ? new https.Agent({ family: 4, timeout })
+    : new http.Agent({ family: 4, timeout });
 }
 
 /**
@@ -80,15 +89,20 @@ export function formatTokenFetchError(
 ): MisoClientError {
   const errorMessage = error instanceof Error ? error.message : "Unknown error";
   const statusCode = isAxiosError(error) ? error.response?.status : undefined;
-  const details = isAxiosError(error) && error.response
-    ? `status: ${error.response.status}, data: ${JSON.stringify(error.response.data)}`
-    : isAxiosError(error) && error.request ? `code: ${error.code || "N/A"}` : "";
+  const details =
+    isAxiosError(error) && error.response
+      ? `status: ${error.response.status}, data: ${JSON.stringify(error.response.data)}`
+      : isAxiosError(error) && error.request
+        ? `code: ${error.code || "N/A"}`
+        : "";
 
   // Use a descriptive title that includes "Failed to get client token" for backward compatibility
   const title = `Failed to get client token: ${errorMessage}${details ? `. ${details}` : ""}`;
 
   const errorResponse: ErrorResponse = {
-    errors: [`Client credential authentication failed: ${errorMessage}${details ? `. ${details}` : ""}`],
+    errors: [
+      `Client credential authentication failed: ${errorMessage}${details ? `. ${details}` : ""}`,
+    ],
     type: "/Errors/Unauthorized",
     title: title,
     statusCode: statusCode || 401,
@@ -137,13 +151,18 @@ async function executeTokenRequest(config: MisoClientConfig): Promise<{
   });
 
   const timeoutPromise = new Promise<never>((_, reject) => {
-    const t = setTimeout(() => reject(new Error(`Request timeout after ${requestTimeout}ms`)), requestTimeout);
+    const t = setTimeout(
+      () => reject(new Error(`Request timeout after ${requestTimeout}ms`)),
+      requestTimeout,
+    );
     if (typeof t.unref === "function") t.unref();
   });
 
   try {
     const response = await Promise.race([
-      tempAxios.post<ClientTokenResponse>(config.clientTokenUri || "/api/v1/auth/token"),
+      tempAxios.post<ClientTokenResponse>(
+        config.clientTokenUri || "/api/v1/auth/token",
+      ),
       timeoutPromise,
     ]);
     clearTimeout(timeoutId);
@@ -159,7 +178,9 @@ export async function fetchClientToken(
   tokenState: TokenState,
 ): Promise<string> {
   if (!config.clientSecret) {
-    throw new Error("Cannot fetch client token: clientSecret is required but not provided");
+    throw new Error(
+      "Cannot fetch client token: clientSecret is required but not provided",
+    );
   }
 
   const correlationId = generateCorrelationId(config.clientId);
@@ -171,10 +192,12 @@ export async function fetchClientToken(
     if (token) return token;
 
     throw new Error(
-      `Failed to get client token: Invalid response format. Full response: ${JSON.stringify({
-        status: response.status,
-        data: response.data,
-      })} [correlationId: ${correlationId}, clientId: ${clientId}]`,
+      `Failed to get client token: Invalid response format. Full response: ${JSON.stringify(
+        {
+          status: response.status,
+          data: response.data,
+        },
+      )} [correlationId: ${correlationId}, clientId: ${clientId}]`,
     );
   } catch (error) {
     throw formatTokenFetchError(error, correlationId, clientId);
@@ -223,7 +246,10 @@ export async function refreshClientTokenFromCallback(
  * @param bufferMs - Buffer time in milliseconds (default 60000 = 60s)
  * @returns true if token is valid
  */
-export function isTokenValid(tokenState: TokenState, bufferMs: number = 60000): boolean {
+export function isTokenValid(
+  tokenState: TokenState,
+  bufferMs: number = 60000,
+): boolean {
   const now = new Date();
   return !!(
     tokenState.token &&

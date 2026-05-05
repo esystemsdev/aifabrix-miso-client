@@ -2,9 +2,9 @@
  * Unit tests for AuthApi
  */
 
-import { AuthApi } from '../../../src/api/auth.api';
-import { HttpClient } from '../../../src/utils/http-client';
-import { AuthStrategy } from '../../../src/types/config.types';
+import { AuthApi } from "../../../src/api/auth.api";
+import { HttpClient } from "../../../src/utils/http-client";
+import { AuthStrategy } from "../../../src/types/config.types";
 import {
   LoginRequest,
   LoginResponse,
@@ -13,13 +13,13 @@ import {
   ExchangeTokenRequest,
   ExchangeTokenResponse,
   GetUserResponse,
-} from '../../../src/api/types/auth.types';
+} from "../../../src/api/types/auth.types";
 
 // Mock HttpClient
-jest.mock('../../../src/utils/http-client');
+jest.mock("../../../src/utils/http-client");
 const MockedHttpClient = HttpClient as jest.MockedClass<typeof HttpClient>;
 
-describe('AuthApi', () => {
+describe("AuthApi", () => {
   let authApi: AuthApi;
   let mockHttpClient: jest.Mocked<HttpClient>;
   const originalConsoleError = console.error;
@@ -41,17 +41,17 @@ describe('AuthApi', () => {
     console.error = originalConsoleError;
   });
 
-  describe('login', () => {
-    it('should call HttpClient.request with correct parameters', async () => {
+  describe("login", () => {
+    it("should call HttpClient.request with correct parameters", async () => {
       const params: LoginRequest = {
-        redirect: 'http://localhost:3000/callback',
-        state: 'abc123',
+        redirect: "http://localhost:3000/callback",
+        state: "abc123",
       };
       const mockResponse: LoginResponse = {
         success: true,
         data: {
-          loginUrl: 'https://keycloak.example.com/auth',
-          state: 'abc123',
+          loginUrl: "https://keycloak.example.com/auth",
+          state: "abc123",
         },
         timestamp: new Date().toISOString(),
       };
@@ -61,26 +61,26 @@ describe('AuthApi', () => {
       const result = await authApi.login(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/login',
+        "GET",
+        "/api/v1/auth/login",
         undefined,
         { params },
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle authStrategy', async () => {
+    it("should handle authStrategy", async () => {
       const params: LoginRequest = {
-        redirect: 'http://localhost:3000/callback',
+        redirect: "http://localhost:3000/callback",
       };
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: LoginResponse = {
         success: true,
         data: {
-          loginUrl: 'https://keycloak.example.com/auth',
+          loginUrl: "https://keycloak.example.com/auth",
         },
         timestamp: new Date().toISOString(),
       };
@@ -90,8 +90,8 @@ describe('AuthApi', () => {
       const result = await authApi.login(params, authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/login',
+        "GET",
+        "/api/v1/auth/login",
         authStrategy,
         undefined,
         { params },
@@ -99,35 +99,35 @@ describe('AuthApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
+    it("should handle errors", async () => {
       const params: LoginRequest = {
-        redirect: 'http://localhost:3000/callback',
+        redirect: "http://localhost:3000/callback",
       };
-      const error = new Error('Network error');
+      const error = new Error("Network error");
 
       mockHttpClient.request.mockRejectedValue(error);
 
-      await expect(authApi.login(params)).rejects.toThrow('Network error');
+      await expect(authApi.login(params)).rejects.toThrow("Network error");
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthLoginApi]'),
-        expect.stringContaining('Network error'),
+        expect.stringContaining("[AuthLoginApi]"),
+        expect.stringContaining("Network error"),
       );
     });
   });
 
-  describe('validateToken', () => {
-    it('should call HttpClient.authenticatedRequest with correct parameters', async () => {
+  describe("validateToken", () => {
+    it("should call HttpClient.authenticatedRequest with correct parameters", async () => {
       const params: ValidateTokenRequest = {
-        token: 'test-token',
+        token: "test-token",
       };
       const mockResponse: ValidateTokenResponse = {
         success: true,
         data: {
           authenticated: true,
           user: {
-            id: 'user-123',
-            username: 'testuser',
-            email: 'test@example.com',
+            id: "user-123",
+            username: "testuser",
+            email: "test@example.com",
           },
         },
         timestamp: new Date().toISOString(),
@@ -138,8 +138,8 @@ describe('AuthApi', () => {
       const result = await authApi.validateToken(params);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/validate',
+        "POST",
+        "/api/v1/auth/validate",
         params.token,
         params,
         undefined,
@@ -148,35 +148,37 @@ describe('AuthApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should handle errors', async () => {
+    it("should handle errors", async () => {
       const params: ValidateTokenRequest = {
-        token: 'invalid-token',
+        token: "invalid-token",
       };
-      const error = new Error('Invalid token');
+      const error = new Error("Invalid token");
 
       mockHttpClient.authenticatedRequest.mockRejectedValue(error);
 
-      await expect(authApi.validateToken(params)).rejects.toThrow('Invalid token');
+      await expect(authApi.validateToken(params)).rejects.toThrow(
+        "Invalid token",
+      );
       expect(console.error).toHaveBeenCalledWith(
-        expect.stringContaining('[AuthTokenApi]'),
-        expect.stringContaining('Invalid token'),
+        expect.stringContaining("[AuthTokenApi]"),
+        expect.stringContaining("Invalid token"),
       );
     });
   });
 
-  describe('getUser', () => {
-    it('should call HttpClient.authenticatedRequest with bearerToken', async () => {
+  describe("getUser", () => {
+    it("should call HttpClient.authenticatedRequest with bearerToken", async () => {
       const authStrategy: AuthStrategy = {
-        methods: ['bearer'],
-        bearerToken: 'test-token',
+        methods: ["bearer"],
+        bearerToken: "test-token",
       };
       const mockResponse: GetUserResponse = {
         success: true,
         data: {
           user: {
-            id: 'user-123',
-            username: 'testuser',
-            email: 'test@example.com',
+            id: "user-123",
+            username: "testuser",
+            email: "test@example.com",
           },
           authenticated: true,
         },
@@ -188,8 +190,8 @@ describe('AuthApi', () => {
       const result = await authApi.getUser(authStrategy);
 
       expect(mockHttpClient.authenticatedRequest).toHaveBeenCalledWith(
-        'GET',
-        '/api/v1/auth/user',
+        "GET",
+        "/api/v1/auth/user",
         authStrategy.bearerToken,
         undefined,
         undefined,
@@ -198,20 +200,20 @@ describe('AuthApi', () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it('should throw error if no authStrategy provided', async () => {
+    it("should throw error if no authStrategy provided", async () => {
       await expect(authApi.getUser()).rejects.toThrow(
-        'getUser requires authentication - provide authStrategy with bearerToken',
+        "getUser requires authentication - provide authStrategy with bearerToken",
       );
     });
   });
 
-  describe('exchangeUserToken', () => {
-    it('should call HttpClient.request with exchange body when no authStrategy', async () => {
-      const params: ExchangeTokenRequest = { token: 'external-token' };
+  describe("exchangeUserToken", () => {
+    it("should call HttpClient.request with exchange body when no authStrategy", async () => {
+      const params: ExchangeTokenRequest = { token: "external-token" };
       const mockResponse: ExchangeTokenResponse = {
         success: true,
         data: {
-          accessToken: 'keycloak-token',
+          accessToken: "keycloak-token",
           tokenExchanged: true,
           expiresIn: 3600,
         },
@@ -223,19 +225,19 @@ describe('AuthApi', () => {
       const result = await authApi.exchangeUserToken(params);
 
       expect(mockHttpClient.request).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/token/exchange',
+        "POST",
+        "/api/v1/auth/token/exchange",
         params,
       );
       expect(result).toEqual(mockResponse);
     });
 
-    it('should delegate to requestWithAuthStrategy when authStrategy provided', async () => {
-      const params: ExchangeTokenRequest = { token: 'external-token' };
-      const authStrategy: AuthStrategy = { methods: ['bearer'] };
+    it("should delegate to requestWithAuthStrategy when authStrategy provided", async () => {
+      const params: ExchangeTokenRequest = { token: "external-token" };
+      const authStrategy: AuthStrategy = { methods: ["bearer"] };
       const mockResponse: ExchangeTokenResponse = {
         success: true,
-        data: { accessToken: 'kc', tokenExchanged: false },
+        data: { accessToken: "kc", tokenExchanged: false },
         timestamp: new Date().toISOString(),
       };
 
@@ -244,8 +246,8 @@ describe('AuthApi', () => {
       const result = await authApi.exchangeUserToken(params, authStrategy);
 
       expect(mockHttpClient.requestWithAuthStrategy).toHaveBeenCalledWith(
-        'POST',
-        '/api/v1/auth/token/exchange',
+        "POST",
+        "/api/v1/auth/token/exchange",
         authStrategy,
         params,
       );
@@ -253,4 +255,3 @@ describe('AuthApi', () => {
     });
   });
 });
-

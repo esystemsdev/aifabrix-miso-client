@@ -2,7 +2,10 @@
  * Unit tests for request-context utility
  */
 
-import { extractRequestContext, RequestContext } from "../../src/utils/request-context";
+import {
+  extractRequestContext,
+  RequestContext,
+} from "../../src/utils/request-context";
 import { Request } from "express";
 import { Socket } from "net";
 
@@ -333,25 +336,25 @@ describe("request-context", () => {
       });
 
       it("should handle undefined headers gracefully", () => {
-      const request: Partial<Request> = {
-        ...mockRequest,
-        headers: undefined,
-      };
-      const ctx = extractRequestContext(request as Request);
+        const request: Partial<Request> = {
+          ...mockRequest,
+          headers: undefined,
+        };
+        const ctx = extractRequestContext(request as Request);
 
         expect(ctx.method).toBe("GET");
         expect(ctx.path).toBe("/api/users");
       });
 
       it("should handle x-forwarded-for with whitespace", () => {
-      const request: Partial<Request> = {
-        ...mockRequest,
-        ip: undefined,
-        headers: {
-          "x-forwarded-for": "  192.168.1.1  ,  10.0.0.1  ",
-        },
-      };
-      const ctx = extractRequestContext(request as Request);
+        const request: Partial<Request> = {
+          ...mockRequest,
+          ip: undefined,
+          headers: {
+            "x-forwarded-for": "  192.168.1.1  ,  10.0.0.1  ",
+          },
+        };
+        const ctx = extractRequestContext(request as Request);
 
         expect(ctx.ipAddress).toBe("192.168.1.1");
       });
@@ -419,4 +422,3 @@ describe("request-context", () => {
     });
   });
 });
-

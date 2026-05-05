@@ -67,18 +67,14 @@ async function handleMinimalAudit(
     ? undefined
     : metadata.authHeader?.replace("Bearer ", "");
   await runWithTokenContext(token, async () => {
-    await logger.audit(
-      `http.request.${metadata.method}`,
-      metadata.url,
-      {
-        method: metadata.method,
-        url: metadata.fullUrl,
-        statusCode: metadata.statusCode,
-        duration: metadata.duration,
-        userId: metadata.userId || undefined,
-        error: error?.message || undefined,
-      },
-    );
+    await logger.audit(`http.request.${metadata.method}`, metadata.url, {
+      method: metadata.method,
+      url: metadata.fullUrl,
+      statusCode: metadata.statusCode,
+      duration: metadata.duration,
+      userId: metadata.userId || undefined,
+      error: error?.message || undefined,
+    });
   });
 }
 
@@ -125,16 +121,28 @@ async function handleStandardOrDetailedAudit(
       : { requestSize: undefined, responseSize: undefined };
 
   const auditContext = buildAuditContext(
-    { method: metadata.method, fullUrl: metadata.fullUrl, duration: metadata.duration, statusCode: metadata.statusCode, userId: metadata.userId },
+    {
+      method: metadata.method,
+      fullUrl: metadata.fullUrl,
+      duration: metadata.duration,
+      statusCode: metadata.statusCode,
+      userId: metadata.userId,
+    },
     sizes,
     masked,
     auditLevel,
     error,
   );
 
-  const token = metadata.userId ? undefined : metadata.authHeader?.replace("Bearer ", "");
+  const token = metadata.userId
+    ? undefined
+    : metadata.authHeader?.replace("Bearer ", "");
   await runWithTokenContext(token, async () => {
-    await logger.audit(`http.request.${metadata.method}`, metadata.url, auditContext);
+    await logger.audit(
+      `http.request.${metadata.method}`,
+      metadata.url,
+      auditContext,
+    );
   });
 
   if (config.logLevel === "debug") {
