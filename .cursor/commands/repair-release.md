@@ -7,6 +7,7 @@ When the `/repair-release` command is used, the agent must automatically prepare
 1. **Validation Step**:
    - First, run the `/validate-tests` command to ensure all tests pass, linting is clean, and the codebase is in a validated state
    - This includes: `pnpm run tests:typecheck:silent`, `pnpm run lint:fix:silent`, `pnpm run lint:silent`, `pnpm run test:silent`, and final verification
+   - On any `*:silent` failure, inspect `.temp/validation/*` logs first; run non-silent fallback only when silent runner/logs are not usable for diagnostics
    - Do not proceed until all validation steps pass
 
 2. **Change Detection Step**:

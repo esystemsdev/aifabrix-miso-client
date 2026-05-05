@@ -4,6 +4,12 @@ When the `/validate-tests` command is used, the agent must automatically fix all
 
 **Execution Process:**
 
+**Silent failure handling policy (mandatory):**
+
+- When a `*:silent` command fails, first inspect its log file in `.temp/validation/*`.
+- Use non-silent fallback command only if the silent runner or log is unavailable, corrupted, truncated, or does not provide actionable diagnostics.
+- Do not run non-silent fallback by default when a readable log already contains sufficient error details.
+
 1. **Test Typecheck Step**:
    - Run `pnpm run tests:typecheck:silent` to validate TypeScript in tests (full logs: `.temp/validation/00-tests-typecheck`)
    - If it fails, fix test type errors and re-run until it passes

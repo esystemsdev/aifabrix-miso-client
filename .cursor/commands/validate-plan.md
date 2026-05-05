@@ -113,12 +113,17 @@ For code plans, ensure a test todo equivalent to:
 
 DoD must include this exact order (never reordered):
 
-1. `pnpm run tests:typecheck:silent` (fallback: `pnpm run tests:typecheck`)
-2. `pnpm run build:silent` (fallback: `pnpm run build`)
-3. `pnpm run fmt:silent` (fallback: `pnpm run fmt`)
-4. `pnpm run md:lint:silent` then optional `pnpm run md:fix:silent` (fallback: non-silent variants)
-5. `pnpm run lint:silent` (fallback: `pnpm run lint`)
-6. `pnpm run test:silent` (fallback: `pnpm run test`)
+1. `pnpm run tests:typecheck:silent` (fallback `pnpm run tests:typecheck` only if silent runner/log is not usable)
+2. `pnpm run build:silent` (fallback `pnpm run build` only if silent runner/log is not usable)
+3. `pnpm run fmt:silent` (fallback `pnpm run fmt` only if silent runner/log is not usable)
+4. `pnpm run md:lint:silent` then optional `pnpm run md:fix:silent` (fallback non-silent variants only if silent runner/log is not usable)
+5. `pnpm run lint:silent` (fallback `pnpm run lint` only if silent runner/log is not usable)
+6. `pnpm run test:silent` (fallback `pnpm run test` only if silent runner/log is not usable)
+
+Silent failure handling rule:
+
+- On `*:silent` failure, inspect `.temp/validation/*` log first.
+- Run non-silent fallback only when silent output/log cannot provide actionable diagnostics.
 
 Mandatory statements:
 

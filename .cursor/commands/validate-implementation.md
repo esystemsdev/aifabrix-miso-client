@@ -57,14 +57,20 @@ Check:
 
 Stop on first failure; do not continue to next gate.
 
+Silent failure handling rule (mandatory):
+
+- On `*:silent` failure, inspect the corresponding `.temp/validation/*` log first.
+- Use non-silent fallback only when the silent runner or log is unavailable, corrupted, truncated, or lacks actionable diagnostics.
+- Do not run non-silent fallback by default when the silent log already provides clear diagnostics.
+
 1. **TEST TYPECHECK**  
    `pnpm run tests:typecheck:silent`  
-   Fallback: `pnpm run tests:typecheck`  
+   Fallback (only if silent/log is not usable): `pnpm run tests:typecheck`  
    Log: `.temp/validation/00-tests-typecheck`
 
 2. **BUILD**  
    `pnpm run build:silent`  
-   Fallback: `pnpm run build`  
+   Fallback (only if silent/log is not usable): `pnpm run build`  
    Log: `.temp/validation/01-build`
 
 3. **FORMAT**  
@@ -91,7 +97,7 @@ Stop on first failure; do not continue to next gate.
 
 6. **TEST**  
    `pnpm run test:silent`  
-   Fallback: `pnpm run test`  
+   Fallback (only if silent/log is not usable): `pnpm run test`  
    Log: `.temp/validation/06-test`
 
 ### 5) Validate Rule Compliance (SDK-Specific)

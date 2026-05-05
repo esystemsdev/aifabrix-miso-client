@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [4.12.0] - 2026-05-05
 
 ### Added
 
@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **DataClient default token key compatibility** - Default token keys now include `miso_token` alongside existing keys for migration-safe interoperability.
 - **401 auth recovery behavior** - DataClient now attempts session restore first (when configured), then token refresh, then stale browser auth cleanup before redirect.
+
+### Technical
+
+- **Release preparation and validation** - Completed release validation gates with silent logs (`tests:typecheck`, `lint:fix`, `lint`, `test`) and aligned SDK release metadata for `4.12.0`.
 
 ## [4.10.0] - 2026-04-15
 

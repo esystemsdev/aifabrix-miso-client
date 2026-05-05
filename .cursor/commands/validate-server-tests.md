@@ -4,6 +4,12 @@ When the `/validate-server-tests` command is used, the agent must automatically 
 
 **Execution Process:**
 
+**Silent failure handling policy (mandatory):**
+
+- When a `*:silent` command fails, first inspect its log file in `.temp/validation/*`.
+- Use non-silent fallback command only if the silent runner or log is unavailable, corrupted, truncated, or does not provide actionable diagnostics.
+- Do not run non-silent fallback by default when a readable log already contains sufficient error details.
+
 1. **Lint Fix Step**:
    - Run `pnpm run server:lint:fix:silent` to automatically fix linting and formatting issues (full logs: `.temp/validation/server-01-lint-fix`)
    - If lint:fix fails or produces errors, automatically fix the issues in the server codebase

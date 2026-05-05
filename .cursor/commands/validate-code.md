@@ -156,6 +156,8 @@ Creates or updates a single plan file in `.cursor/plans/` with:
 
 **Execution Behavior**: When generating or updating the consolidated plan, immediately proceed to implement the fixes in the plan. Do not ask for user input or show progress details unless there are breaking changes or other critical reasons that require user confirmation. The focus is on silent, automated execution of code improvements based on the analysis.
 
+**Silent validation handling**: If this command invokes any `*:silent` validation steps during implementation, inspect `.temp/validation/*` logs first on failure. Use non-silent fallback only when silent runner/log output is unavailable or not actionable.
+
 ## Example Plan Structure
 
 ```markdown
