@@ -11,11 +11,9 @@ import {
   AuthenticationError,
   ApiError,
   InterceptorConfig,
-  CacheEntry,
 } from "../types/data-client.types";
 import { isRetryableError, calculateBackoffDelay } from "./data-client-utils";
-import { MisoClient } from "../index";
-import { HasAnyTokenFn, GetTokenFn } from "./data-client-audit";
+import { GetTokenFn } from "./data-client-audit";
 import {
   processSuccessfulResponse,
   handleNonRetryableError,
@@ -23,6 +21,12 @@ import {
   waitForRetry,
 } from "./data-client-response";
 import { writeWarn } from "./console-logger";
+import {
+  RetryConfig,
+  RequestRetryState,
+  AttemptRequestParams,
+  ExecuteHttpRequestOptions,
+} from "./data-client-request.types";
 
 /**
  * Token refresh callback function type
@@ -194,47 +198,6 @@ export async function makeFetchRequest(
   }
 }
 
-/**
- * Execute HTTP request with retry logic
- */
-interface RetryConfig {
-  maxRetries: number;
-  retryEnabled: boolean;
-  baseDelay: number;
-  maxDelay: number;
-}
-
-interface RequestRetryState {
-  authErrorDetected: boolean;
-  tokenRefreshAttempted: boolean;
-}
-
-interface AttemptRequestParams {
-  attempt: number;
-  method: string;
-  fullUrl: string;
-  endpoint: string;
-  config: DataClientConfig;
-  cache: Map<string, CacheEntry>;
-  cacheKey: string;
-  cacheEnabled: boolean;
-  startTime: number;
-  misoClient: MisoClient | null;
-  hasAnyToken: HasAnyTokenFn;
-  getToken: GetTokenFn;
-  handleAuthError: () => void;
-  refreshUserToken: RefreshUserTokenFn;
-  interceptors: InterceptorConfig;
-  metrics: {
-    totalRequests: number;
-    totalFailures: number;
-    responseTimes: number[];
-  };
-  options?: ApiRequestOptions;
-  retryConfig: RetryConfig;
-  state: RequestRetryState;
-}
-
 function resolveRetryConfig(
   config: DataClientConfig,
   options?: ApiRequestOptions,
@@ -349,20 +312,7 @@ async function handleAttemptError<T>(
   },
 ): Promise<T> {
   const { error, responseStatus, state, attempt, retryConfig } = params;
-
-  if (state.tokenRefreshAttempted && isAuthStatus(responseStatus)) {
-    state.authErrorDetected = true;
-    throw error;
-  }
-
-  if (
-    error instanceof AuthenticationError ||
-    isAuthStatus(responseStatus) ||
-    isAuthErrorInstance(error)
-  ) {
-    state.authErrorDetected = true;
-    throw error;
-  }
+  if (shouldPropagateAuthError(error, responseStatus, state)) throw error;
 
   const errorObj = error as ApiError;
   const statusCode = resolveStatusCode(errorObj, responseStatus);
@@ -373,28 +323,8 @@ async function handleAttemptError<T>(
     error as Error,
   );
 
-  if (!isRetryable) {
-    if (isAuthStatus(statusCode)) {
-      state.authErrorDetected = true;
-      throw error;
-    }
-
-    params.metrics.totalFailures++;
-    await handleNonRetryableError({
-      error: error as Error,
-      method: params.method,
-      endpoint: params.endpoint,
-      startTime: params.startTime,
-      statusCode,
-      responseStatus,
-      config: params.config,
-      misoClient: params.misoClient,
-      hasAnyToken: params.hasAnyToken,
-      getToken: params.getToken,
-      metrics: params.metrics,
-      options: params.options,
-    });
-  }
+  if (!isRetryable)
+    await handleNonRetryableRequestError(params, error as Error, statusCode);
 
   if (state.authErrorDetected) {
     throw error;
@@ -407,6 +337,52 @@ async function handleAttemptError<T>(
     calculateBackoffDelay,
   );
   return attemptRequest<T>({ ...params, attempt: attempt + 1 });
+}
+
+function shouldPropagateAuthError(
+  error: unknown,
+  responseStatus: number | undefined,
+  state: RequestRetryState,
+): boolean {
+  if (state.tokenRefreshAttempted && isAuthStatus(responseStatus)) {
+    state.authErrorDetected = true;
+    return true;
+  }
+  if (
+    error instanceof AuthenticationError ||
+    isAuthStatus(responseStatus) ||
+    isAuthErrorInstance(error)
+  ) {
+    state.authErrorDetected = true;
+    return true;
+  }
+  return false;
+}
+
+async function handleNonRetryableRequestError(
+  params: AttemptRequestParams & { responseStatus?: number },
+  error: Error,
+  statusCode: number | undefined,
+): Promise<void> {
+  if (isAuthStatus(statusCode)) {
+    params.state.authErrorDetected = true;
+    throw error;
+  }
+  params.metrics.totalFailures++;
+  await handleNonRetryableError({
+    error,
+    method: params.method,
+    endpoint: params.endpoint,
+    startTime: params.startTime,
+    statusCode,
+    responseStatus: params.responseStatus,
+    config: params.config,
+    misoClient: params.misoClient,
+    hasAnyToken: params.hasAnyToken,
+    getToken: params.getToken,
+    metrics: params.metrics,
+    options: params.options,
+  });
 }
 
 async function attemptRequest<T>(params: AttemptRequestParams): Promise<T> {
@@ -479,29 +455,7 @@ async function handleFinalError(
   throw error;
 }
 
-/** Options for executeHttpRequest */
-export interface ExecuteHttpRequestOptions {
-  method: string;
-  fullUrl: string;
-  endpoint: string;
-  config: DataClientConfig;
-  cache: Map<string, CacheEntry>;
-  cacheKey: string;
-  cacheEnabled: boolean;
-  startTime: number;
-  misoClient: MisoClient | null;
-  hasAnyToken: HasAnyTokenFn;
-  getToken: GetTokenFn;
-  handleAuthError: () => void;
-  refreshUserToken: RefreshUserTokenFn;
-  interceptors: InterceptorConfig;
-  metrics: {
-    totalRequests: number;
-    totalFailures: number;
-    responseTimes: number[];
-  };
-  options?: ApiRequestOptions;
-}
+export type { ExecuteHttpRequestOptions } from "./data-client-request.types";
 
 export async function executeHttpRequest<T>(
   opts: ExecuteHttpRequestOptions,

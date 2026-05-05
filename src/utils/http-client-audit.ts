@@ -43,7 +43,13 @@ export async function logHttpRequestAudit(
       logger,
     );
   } catch {
-    // Silently swallow all logging errors - never break HTTP requests
+    // Fall back to minimal audit to avoid losing critical traceability.
+    if (!metadata) return;
+    try {
+      await handleMinimalAudit(metadata, error, logger);
+    } catch {
+      // Silently swallow all logging errors - never break HTTP requests
+    }
   }
 }
 
@@ -103,23 +109,8 @@ async function handleStandardOrDetailedAudit(
   config: MisoClientConfig,
   logger: LoggerService,
 ): Promise<void> {
-  const masked = await applyMaskingStrategy(
-    {
-      requestHeaders: metadata.requestHeaders,
-      requestBody: metadata.requestBody,
-      responseBody: metadata.responseBody,
-      responseHeaders: metadata.responseHeaders,
-    },
-    auditLevel as "standard" | "detailed" | "full",
-    auditConfig.maxResponseSize ?? 10000,
-    auditConfig.maxMaskingSize ?? 50000,
-  );
-
-  const sizes =
-    auditLevel === "detailed" || auditLevel === "full"
-      ? calculateRequestSizes(metadata.requestBody, metadata.responseBody)
-      : { requestSize: undefined, responseSize: undefined };
-
+  const masked = await maskAuditPayload(metadata, auditLevel, auditConfig);
+  const sizes = resolveAuditSizes(auditLevel, metadata);
   const auditContext = buildAuditContext(
     {
       method: metadata.method,
@@ -133,25 +124,58 @@ async function handleStandardOrDetailedAudit(
     auditLevel,
     error,
   );
+  await logAuditEventWithToken(logger, metadata, auditContext);
+  if (config.logLevel !== "debug") return;
+  try {
+    await logDebugEvent(metadata, masked, sizes, error, logger);
+  } catch {
+    // Silently swallow debug logging errors to not break audit logging
+  }
+}
 
+async function maskAuditPayload(
+  metadata: {
+    requestHeaders: Record<string, unknown>;
+    requestBody: unknown;
+    responseBody: unknown;
+    responseHeaders: Record<string, unknown>;
+  },
+  auditLevel: string,
+  auditConfig: { maxResponseSize?: number; maxMaskingSize?: number },
+): ReturnType<typeof applyMaskingStrategy> {
+  return applyMaskingStrategy(
+    {
+      requestHeaders: metadata.requestHeaders,
+      requestBody: metadata.requestBody,
+      responseBody: metadata.responseBody,
+      responseHeaders: metadata.responseHeaders,
+    },
+    auditLevel as "standard" | "detailed" | "full",
+    auditConfig.maxResponseSize ?? 10000,
+    auditConfig.maxMaskingSize ?? 50000,
+  );
+}
+
+function resolveAuditSizes(
+  auditLevel: string,
+  metadata: { requestBody: unknown; responseBody: unknown },
+): { requestSize: number | undefined; responseSize: number | undefined } {
+  return auditLevel === "detailed" || auditLevel === "full"
+    ? calculateRequestSizes(metadata.requestBody, metadata.responseBody)
+    : { requestSize: undefined, responseSize: undefined };
+}
+
+async function logAuditEventWithToken(
+  logger: LoggerService,
+  metadata: { method: string; url: string; userId: string | null; authHeader?: string },
+  auditContext: Record<string, unknown>,
+): Promise<void> {
   const token = metadata.userId
     ? undefined
     : metadata.authHeader?.replace("Bearer ", "");
   await runWithTokenContext(token, async () => {
-    await logger.audit(
-      `http.request.${metadata.method}`,
-      metadata.url,
-      auditContext,
-    );
+    await logger.audit(`http.request.${metadata.method}`, metadata.url, auditContext);
   });
-
-  if (config.logLevel === "debug") {
-    try {
-      await logDebugEvent(metadata, masked, sizes, error, logger);
-    } catch {
-      // Silently swallow debug logging errors to not break audit logging
-    }
-  }
 }
 
 async function runWithTokenContext(
@@ -163,7 +187,22 @@ async function runWithTokenContext(
     return;
   }
   const contextStorage = LoggerContextStorage.getInstance();
-  await contextStorage.runWithContextAsync({ token }, handler);
+  const runWithContext = (
+    contextStorage as { runWithContextAsync?: (ctx: { token: string }, cb: () => Promise<void>) => Promise<void> }
+  ).runWithContextAsync;
+  if (typeof runWithContext !== "function") {
+    await handler();
+    return;
+  }
+
+  let handlerExecuted = false;
+  await runWithContext.call(contextStorage, { token }, async () => {
+    handlerExecuted = true;
+    await handler();
+  });
+  if (!handlerExecuted) {
+    await handler();
+  }
 }
 
 /**

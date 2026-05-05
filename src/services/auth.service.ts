@@ -23,23 +23,19 @@ import {
   clearTokenCache as clearTokenCacheHelper,
   clearUserCache as clearUserCacheHelper,
   extractUserIdFromToken,
-  getCacheTtlFromToken,
   getTokenCacheKey,
 } from "./auth-cache-helpers";
 import { extractErrorInfo } from "../utils/error-extractor";
 import { logErrorWithContext } from "../utils/console-logger";
-
-/** Cache data structure for token validation results */
-interface TokenCacheData {
-  authenticated: boolean;
-  timestamp: number;
-}
-
-/** Cache data structure for user info */
-interface UserInfoCacheData {
-  user: UserInfo;
-  timestamp: number;
-}
+import {
+  buildAuthStrategyWithToken,
+  getCachedUserInfo,
+  cacheUserInfo,
+  getCachedTokenValidation,
+  cacheTokenValidation,
+  mapUserInfo,
+  generateCorrelationId,
+} from "./auth.service.helpers";
 
 export class AuthService {
   private httpClient: HttpClient;
@@ -72,90 +68,13 @@ export class AuthService {
     return config.apiKey !== undefined && token === config.apiKey;
   }
 
-  private buildAuthStrategyWithToken(
-    token: string,
-    authStrategy?: AuthStrategy,
-  ): AuthStrategy {
-    const authStrategyToUse =
-      authStrategy || this.httpClient.config.authStrategy;
-    return authStrategyToUse
-      ? { ...authStrategyToUse, bearerToken: token }
-      : { methods: ["bearer"], bearerToken: token };
-  }
-
-  private async getCachedUserInfo(
-    cacheKey: string | null,
-  ): Promise<UserInfo | null> {
-    if (!cacheKey) return null;
-    const cached = await this.cache.get<UserInfoCacheData>(cacheKey);
-    return cached ? cached.user : null;
-  }
-
-  private async cacheUserInfo(
-    cacheKey: string | null,
-    user: UserInfo,
-  ): Promise<void> {
-    if (!cacheKey) return;
-    await this.cache.set<UserInfoCacheData>(
-      cacheKey,
-      { user, timestamp: Date.now() },
-      this.userTTL,
-    );
-  }
-
-  private async getCachedTokenValidation(
-    cacheKey: string,
-  ): Promise<boolean | null> {
-    const cached = await this.cache.get<TokenCacheData>(cacheKey);
-    return cached ? cached.authenticated : null;
-  }
-
-  private async cacheTokenValidation(
-    cacheKey: string,
-    token: string,
-    authenticated: boolean,
-  ): Promise<void> {
-    const ttl = getCacheTtlFromToken(
-      token,
-      this.tokenValidationTTL,
-      this.minValidationTTL,
-    );
-    await this.cache.set<TokenCacheData>(
-      cacheKey,
-      { authenticated, timestamp: Date.now() },
-      ttl,
-    );
-  }
-
-  private mapUserInfo(user: {
-    id: string;
-    username: string;
-    email: string;
-  }): UserInfo {
-    return {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-    };
-  }
-
-  /**
-   * Generate unique correlation ID for request tracking
-   */
-  private generateCorrelationId(): string {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
-    const clientPrefix = this.httpClient.config.clientId.substring(0, 10);
-    return `${clientPrefix}-${timestamp}-${random}`;
-  }
-
   /**
    * Get environment token using client credentials.
    * Never throws from service layer. Logs details and returns safe fallback on failure.
    * @returns Environment token string; empty string when the token cannot be obtained.
    */
   async getEnvironmentToken(): Promise<string> {
-    const correlationId = this.generateCorrelationId();
+    const correlationId = generateCorrelationId(this.httpClient.config.clientId);
     const clientId = this.httpClient.config.clientId;
     const axiosTimeout = 4000;
 
@@ -207,7 +126,7 @@ export class AuthService {
     redirect: string;
     state?: string;
   }): Promise<LoginResponse> {
-    const correlationId = this.generateCorrelationId();
+    const correlationId = generateCorrelationId(this.httpClient.config.clientId);
     const clientId = this.httpClient.config.clientId;
 
     try {
@@ -259,13 +178,14 @@ export class AuthService {
       // Generate cache key using token hash (security - no userId exposure)
       const cacheKey = getTokenCacheKey(token);
 
-      const cached = await this.getCachedTokenValidation(cacheKey);
+      const cached = await getCachedTokenValidation(this.cache, cacheKey);
       if (cached !== null) return cached;
 
       // Cache miss - fetch from controller using ApiClient
-      const authStrategyWithToken = this.buildAuthStrategyWithToken(
+      const authStrategyWithToken = buildAuthStrategyWithToken(
         token,
         authStrategy,
+        this.httpClient.config.authStrategy,
       );
 
       const result = await this.apiClient.auth.validateToken(
@@ -275,7 +195,14 @@ export class AuthService {
 
       const authenticated = result.data?.authenticated || false;
 
-      await this.cacheTokenValidation(cacheKey, token, authenticated);
+      await cacheTokenValidation(
+        this.cache,
+        cacheKey,
+        token,
+        authenticated,
+        this.tokenValidationTTL,
+        this.minValidationTTL,
+      );
 
       return authenticated;
     } catch (error) {
@@ -307,9 +234,10 @@ export class AuthService {
     }
 
     try {
-      const authStrategyWithToken = this.buildAuthStrategyWithToken(
+      const authStrategyWithToken = buildAuthStrategyWithToken(
         token,
         authStrategy,
+        this.httpClient.config.authStrategy,
       );
 
       const result = await this.apiClient.auth.validateToken(
@@ -318,7 +246,7 @@ export class AuthService {
       );
 
       if (result.data?.authenticated && result.data.user) {
-        return this.mapUserInfo(result.data.user);
+        return mapUserInfo(result.data.user);
       }
 
       return null;
@@ -368,20 +296,21 @@ export class AuthService {
       // Extract userId from token to check cache first (avoids API call on cache hit)
       const userId = extractUserIdFromToken(token);
       const cacheKey = userId ? `user:${userId}` : null;
-      const cached = await this.getCachedUserInfo(cacheKey);
+      const cached = await getCachedUserInfo(this.cache, cacheKey);
       if (cached) return cached;
 
       // Cache miss - fetch from controller
-      const authStrategyWithToken = this.buildAuthStrategyWithToken(
+      const authStrategyWithToken = buildAuthStrategyWithToken(
         token,
         authStrategy,
+        this.httpClient.config.authStrategy,
       );
 
       const result = await this.apiClient.auth.getUser(authStrategyWithToken);
 
       if (result.data?.authenticated && result.data.user) {
-        const user = this.mapUserInfo(result.data.user);
-        await this.cacheUserInfo(cacheKey, user);
+        const user = mapUserInfo(result.data.user);
+        await cacheUserInfo(this.cache, cacheKey, user, this.userTTL);
         return user;
       }
 
@@ -423,7 +352,7 @@ export class AuthService {
    * @returns Logout response with success status/message; 400/no-session is treated as successful logout.
    */
   async logout(params: { token: string }): Promise<LogoutResponse> {
-    const correlationId = this.generateCorrelationId();
+    const correlationId = generateCorrelationId(this.httpClient.config.clientId);
     const clientId = this.httpClient.config.clientId;
 
     try {
@@ -470,7 +399,7 @@ export class AuthService {
     refreshToken: string,
     authStrategy?: AuthStrategy,
   ): Promise<RefreshTokenResponse | null> {
-    const correlationId = this.generateCorrelationId();
+    const correlationId = generateCorrelationId(this.httpClient.config.clientId);
     const clientId = this.httpClient.config.clientId;
 
     try {
@@ -517,7 +446,7 @@ export class AuthService {
     token: string,
     authStrategy?: AuthStrategy,
   ): Promise<ExchangeTokenResponse> {
-    const correlationId = this.generateCorrelationId();
+    const correlationId = generateCorrelationId(this.httpClient.config.clientId);
     const clientId = this.httpClient.config.clientId;
 
     try {
