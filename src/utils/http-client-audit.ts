@@ -167,14 +167,23 @@ function resolveAuditSizes(
 
 async function logAuditEventWithToken(
   logger: LoggerService,
-  metadata: { method: string; url: string; userId: string | null; authHeader?: string },
+  metadata: {
+    method: string;
+    url: string;
+    userId: string | null;
+    authHeader?: string;
+  },
   auditContext: Record<string, unknown>,
 ): Promise<void> {
   const token = metadata.userId
     ? undefined
     : metadata.authHeader?.replace("Bearer ", "");
   await runWithTokenContext(token, async () => {
-    await logger.audit(`http.request.${metadata.method}`, metadata.url, auditContext);
+    await logger.audit(
+      `http.request.${metadata.method}`,
+      metadata.url,
+      auditContext,
+    );
   });
 }
 
@@ -188,7 +197,12 @@ async function runWithTokenContext(
   }
   const contextStorage = LoggerContextStorage.getInstance();
   const runWithContext = (
-    contextStorage as { runWithContextAsync?: (ctx: { token: string }, cb: () => Promise<void>) => Promise<void> }
+    contextStorage as {
+      runWithContextAsync?: (
+        ctx: { token: string },
+        cb: () => Promise<void>,
+      ) => Promise<void>;
+    }
   ).runWithContextAsync;
   if (typeof runWithContext !== "function") {
     await handler();

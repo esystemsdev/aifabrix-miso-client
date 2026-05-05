@@ -255,14 +255,18 @@ export class HttpClient {
       // Last-resort fallback to preserve audit/debug observability.
       if (!metadata) return;
       try {
-        await this.logger.audit(`http.request.${metadata.method}`, metadata.url, {
-          method: metadata.method,
-          url: metadata.fullUrl,
-          statusCode: metadata.statusCode,
-          duration: metadata.duration,
-          userId: metadata.userId || undefined,
-          error: error?.message || undefined,
-        });
+        await this.logger.audit(
+          `http.request.${metadata.method}`,
+          metadata.url,
+          {
+            method: metadata.method,
+            url: metadata.fullUrl,
+            statusCode: metadata.statusCode,
+            duration: metadata.duration,
+            userId: metadata.userId || undefined,
+            error: error?.message || undefined,
+          },
+        );
         if (this.config.logLevel === "debug") {
           await this.logger.debug(`HTTP ${metadata.method} ${metadata.url}`, {
             method: metadata.method,

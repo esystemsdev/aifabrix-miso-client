@@ -163,3 +163,53 @@ function UsersList() {
 - Works with React, Vue, Angular, etc.
 
 See [backend-client-token.md](backend-client-token.md) and [quick-start.md](quick-start.md) for the full backend + frontend flow.
+
+## Enterprise auth flow
+
+For enterprise SSO flows, DataClient now supports a cookie-first recovery sequence:
+
+1. On `401`, call optional `onSessionRestore` callback first (recommended).
+2. If restore does not return a token, call `onTokenRefresh`.
+3. Retry the original request once with refreshed/restored token.
+4. If both fail, clear cached browser auth state and continue with login redirect flow.
+
+Recommended config:
+
+```typescript
+const dc = new DataClient({
+  baseUrl: "/api",
+  misoConfig: {
+    controllerUrl: "https://controller.example.com",
+    clientId: "my-client",
+  },
+  preferCookieSessionRestore: true,
+  onSessionRestore: async () => {
+    const response = await fetch("/api/v1/auth/session", {
+      credentials: "include",
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return { token: data.token, expiresAt: data.expiresAt };
+  },
+  onTokenRefresh: async () => {
+    const response = await fetch("/api/v1/auth/refresh", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    return {
+      token: data.accessToken,
+      refreshToken: data.refreshToken,
+      expiresAt: data.expiresAt,
+    };
+  },
+});
+```
+
+Notes:
+
+- Keep refresh/session secrets in HttpOnly cookies; localStorage is compatibility-only for access token values.
+- Public API outputs remain camelCase.

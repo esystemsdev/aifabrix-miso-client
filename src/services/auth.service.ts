@@ -74,7 +74,9 @@ export class AuthService {
    * @returns Environment token string; empty string when the token cannot be obtained.
    */
   async getEnvironmentToken(): Promise<string> {
-    const correlationId = generateCorrelationId(this.httpClient.config.clientId);
+    const correlationId = generateCorrelationId(
+      this.httpClient.config.clientId,
+    );
     const clientId = this.httpClient.config.clientId;
     const axiosTimeout = 4000;
 
@@ -126,7 +128,9 @@ export class AuthService {
     redirect: string;
     state?: string;
   }): Promise<LoginResponse> {
-    const correlationId = generateCorrelationId(this.httpClient.config.clientId);
+    const correlationId = generateCorrelationId(
+      this.httpClient.config.clientId,
+    );
     const clientId = this.httpClient.config.clientId;
 
     try {
@@ -352,7 +356,9 @@ export class AuthService {
    * @returns Logout response with success status/message; 400/no-session is treated as successful logout.
    */
   async logout(params: { token: string }): Promise<LogoutResponse> {
-    const correlationId = generateCorrelationId(this.httpClient.config.clientId);
+    const correlationId = generateCorrelationId(
+      this.httpClient.config.clientId,
+    );
     const clientId = this.httpClient.config.clientId;
 
     try {
@@ -399,7 +405,9 @@ export class AuthService {
     refreshToken: string,
     authStrategy?: AuthStrategy,
   ): Promise<RefreshTokenResponse | null> {
-    const correlationId = generateCorrelationId(this.httpClient.config.clientId);
+    const correlationId = generateCorrelationId(
+      this.httpClient.config.clientId,
+    );
     const clientId = this.httpClient.config.clientId;
 
     try {
@@ -446,7 +454,9 @@ export class AuthService {
     token: string,
     authStrategy?: AuthStrategy,
   ): Promise<ExchangeTokenResponse> {
-    const correlationId = generateCorrelationId(this.httpClient.config.clientId);
+    const correlationId = generateCorrelationId(
+      this.httpClient.config.clientId,
+    );
     const clientId = this.httpClient.config.clientId;
 
     try {

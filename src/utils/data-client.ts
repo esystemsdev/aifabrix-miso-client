@@ -15,7 +15,6 @@ import { DataClientCore } from "./data-client-core";
 import { UserInfo } from "../types/config.types";
 
 export class DataClient extends DataClientCore {
-
   async get<T>(endpoint: string, options?: ApiRequestOptions): Promise<T> {
     const finalOptions = await this.applyRequestInterceptor(endpoint, {
       ...options,

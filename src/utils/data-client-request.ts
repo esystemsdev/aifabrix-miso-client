@@ -29,14 +29,6 @@ import {
 } from "./data-client-request.types";
 
 /**
- * Token refresh callback function type
- */
-export type RefreshUserTokenFn = () => Promise<{
-  token: string;
-  expiresIn: number;
-} | null>;
-
-/**
  * Extract headers from Headers object or Record
  */
 export function extractHeaders(
@@ -255,25 +247,16 @@ function shouldRetryError(
 async function handleAuthResponse<T>(
   params: AttemptRequestParams & { response: Response; responseStatus: number },
 ): Promise<T | null> {
-  const { responseStatus, config, refreshUserToken, attempt, state } = params;
+  const { responseStatus, attempt, state } = params;
   if (!isAuthStatus(responseStatus)) {
     return null;
   }
 
-  if (
-    responseStatus === 401 &&
-    config.onTokenRefresh &&
-    refreshUserToken &&
-    attempt === 0 &&
-    !state.tokenRefreshAttempted
-  ) {
+  if (responseStatus === 401 && attempt === 0 && !state.tokenRefreshAttempted) {
     state.tokenRefreshAttempted = true;
     try {
-      const refreshResult = await refreshUserToken();
-      if (refreshResult?.token) {
-        await new Promise((resolve) => setTimeout(resolve, 10));
-        return attemptRequest<T>({ ...params, attempt: attempt + 1 });
-      }
+      const recovered = await tryRecoverFrom401Auth(params);
+      if (recovered !== null && recovered !== undefined) return recovered as T;
     } catch (refreshError) {
       writeWarn(
         `Token refresh failed, redirecting to login: ${String(refreshError)}`,
@@ -303,6 +286,32 @@ async function handleAuthResponse<T>(
     options: params.options,
   });
   throw authError;
+}
+
+async function tryRecoverFrom401Auth<T>(
+  params: AttemptRequestParams & { response: Response; responseStatus: number },
+): Promise<T | null> {
+  const canRestore =
+    params.config.preferCookieSessionRestore !== false &&
+    params.config.onSessionRestore &&
+    params.restoreUserSession;
+  if (canRestore) {
+    const restoreResult = await params.restoreUserSession();
+    if (restoreResult?.token) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return attemptRequest<T>({ ...params, attempt: params.attempt + 1 });
+    }
+  }
+
+  const canRefresh = params.config.onTokenRefresh && params.refreshUserToken;
+  if (canRefresh) {
+    const refreshResult = await params.refreshUserToken();
+    if (refreshResult?.token) {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      return attemptRequest<T>({ ...params, attempt: params.attempt + 1 });
+    }
+  }
+  return null;
 }
 
 async function handleAttemptError<T>(

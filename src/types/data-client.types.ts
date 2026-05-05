@@ -92,6 +92,16 @@ export interface RetryConfig {
 }
 
 /**
+ * User session token payload returned by refresh/restore callbacks.
+ */
+export interface UserSessionTokenResult {
+  token: string;
+  expiresIn?: number;
+  expiresAt?: string;
+  refreshToken?: string;
+}
+
+/**
  * DataClient configuration
  */
 export interface DataClientConfig {
@@ -149,9 +159,26 @@ export interface DataClientConfig {
    * Callback to refresh user token when expired (for browser usage)
    * Called automatically when a request receives 401 Unauthorized
    * Should call backend endpoint that handles refresh token securely
-   * Returns new access token and expiration time
+   * Returns new access token and optional expiration metadata
    */
-  onTokenRefresh?: () => Promise<{ token: string; expiresIn: number }>;
+  onTokenRefresh?: () => Promise<UserSessionTokenResult | null>;
+
+  /**
+   * Callback to restore browser user session (cookie-first flow).
+   * Called before onTokenRefresh when 401 is received and preferCookieSessionRestore is enabled.
+   */
+  onSessionRestore?: () => Promise<UserSessionTokenResult | null>;
+
+  /**
+   * Optional callback to clear browser auth state after failed restore/refresh.
+   */
+  clearCachedBrowserAuthState?: () => Promise<void> | void;
+
+  /**
+   * Prefer session-restore callback before explicit token refresh callback on 401.
+   * Default: true.
+   */
+  preferCookieSessionRestore?: boolean;
 }
 
 /**

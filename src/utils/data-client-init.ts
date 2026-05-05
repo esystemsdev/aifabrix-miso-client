@@ -149,8 +149,9 @@ export function createDefaultConfig(
   config: DataClientConfig,
 ): DataClientConfig {
   return {
-    tokenKeys: ["token", "accessToken", "authToken"],
+    tokenKeys: ["miso_token", "token", "accessToken", "authToken"],
     loginUrl: "/login",
+    preferCookieSessionRestore: true,
     timeout: 30000,
     cache: {
       enabled: true,

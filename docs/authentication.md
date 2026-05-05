@@ -82,6 +82,16 @@ if (response) {
 
 Returns `null` on error.
 
+## Browser session restore and cleanup
+
+For browser clients, prefer cookie-backed session restore before explicit refresh:
+
+- Configure `onSessionRestore` in DataClient for cookie-first recovery.
+- Keep `onTokenRefresh` as fallback for refresh endpoint integration.
+- Use `clearCachedBrowserAuthState` callback (or built-in default cleanup) when restore/refresh fails.
+
+This keeps refresh/session secrets outside browser-accessible storage while preserving compatibility for access-token key mappings.
+
 ## Summary
 
 | Need                 | Method                               |

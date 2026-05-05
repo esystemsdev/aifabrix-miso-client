@@ -12,6 +12,11 @@ export type RefreshUserTokenFn = () => Promise<{
   expiresIn: number;
 } | null>;
 
+export type RestoreUserSessionFn = () => Promise<{
+  token: string;
+  expiresIn: number;
+} | null>;
+
 export interface RetryConfig {
   maxRetries: number;
   retryEnabled: boolean;
@@ -44,6 +49,7 @@ export interface AttemptRequestParams {
   hasAnyToken: HasAnyTokenFn;
   getToken: GetTokenFn;
   handleAuthError: () => void;
+  restoreUserSession: RestoreUserSessionFn;
   refreshUserToken: RefreshUserTokenFn;
   interceptors: InterceptorConfig;
   metrics: RequestMetricsState;
@@ -65,6 +71,7 @@ export interface ExecuteHttpRequestOptions {
   hasAnyToken: HasAnyTokenFn;
   getToken: GetTokenFn;
   handleAuthError: () => void;
+  restoreUserSession: RestoreUserSessionFn;
   refreshUserToken: RefreshUserTokenFn;
   interceptors: InterceptorConfig;
   metrics: RequestMetricsState;

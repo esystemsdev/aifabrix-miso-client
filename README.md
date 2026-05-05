@@ -206,6 +206,15 @@ const dataClientWithRefresh = new DataClient({
     });
     return await response.json(); // { token: string, expiresIn: number }
   },
+
+  // Optional cookie-first restore callback (preferred for enterprise SSO)
+  onSessionRestore: async () => {
+    const response = await fetch("/api/session/restore", {
+      credentials: "include",
+    });
+    if (!response.ok) return null;
+    return await response.json(); // { token: string, expiresAt?: string }
+  },
 });
 ```
 

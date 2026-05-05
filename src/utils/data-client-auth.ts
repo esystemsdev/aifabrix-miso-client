@@ -17,6 +17,15 @@ import { shouldSkipAudit } from "./data-client-audit";
 import { extractErrorInfo } from "./error-extractor";
 import { logErrorWithContext, writeErr, writeWarn } from "./console-logger";
 import { LoggerContextStorage } from "../services/logger/logger-context-storage";
+import {
+  ACCESS_TOKEN_EXPIRES_AT_KEYS,
+  ACCESS_TOKEN_KEYS,
+  REFRESH_TOKEN_KEYS,
+  storeAccessToken,
+  storeRefreshToken,
+  clearStoredSessionTokens,
+  TokenStorageMap,
+} from "./user-token-refresh";
 
 // Re-export OAuth callback from dedicated module
 export { handleOAuthCallback } from "./data-client-oauth";
@@ -26,12 +35,72 @@ export { handleOAuthCallback } from "./data-client-oauth";
  */
 export function getToken(tokenKeys?: string[]): string | null {
   if (!isBrowser()) return null;
-  const keys = tokenKeys || ["token", "accessToken", "authToken"];
+  const keys = tokenKeys || [...ACCESS_TOKEN_KEYS];
   for (const key of keys) {
     const token = getLocalStorage(key);
     if (token) return token;
   }
   return null;
+}
+
+function localStorageMap(): TokenStorageMap {
+  const map: TokenStorageMap = {};
+  for (const key of [
+    ...ACCESS_TOKEN_KEYS,
+    ...REFRESH_TOKEN_KEYS,
+    ...ACCESS_TOKEN_EXPIRES_AT_KEYS,
+  ]) {
+    const value = getLocalStorage(key);
+    if (value) map[key] = value;
+  }
+  return map;
+}
+
+function applyStorageMap(storage: TokenStorageMap): void {
+  for (const key of [
+    ...ACCESS_TOKEN_KEYS,
+    ...REFRESH_TOKEN_KEYS,
+    ...ACCESS_TOKEN_EXPIRES_AT_KEYS,
+  ]) {
+    const value = storage[key];
+    if (typeof value === "string" && value.trim() !== "") {
+      setLocalStorage(key, value);
+    } else {
+      removeLocalStorage(key);
+    }
+  }
+}
+
+export function storeBrowserSessionTokens(params: {
+  tokenKeys?: string[];
+  accessToken: string;
+  refreshToken?: string;
+  expiresAt?: string;
+}): void {
+  if (!isBrowser()) return;
+  const storage = localStorageMap();
+  storeAccessToken(storage, params.accessToken, params.expiresAt);
+  if (params.refreshToken) {
+    storeRefreshToken(storage, params.refreshToken);
+  }
+  applyStorageMap(storage);
+
+  const tokenKeys = params.tokenKeys || [...ACCESS_TOKEN_KEYS];
+  for (const key of tokenKeys) {
+    setLocalStorage(key, params.accessToken);
+  }
+}
+
+export function clearCachedBrowserAuthState(tokenKeys?: string[]): void {
+  if (!isBrowser()) return;
+  const storage = localStorageMap();
+  clearStoredSessionTokens(storage);
+  applyStorageMap(storage);
+
+  const keys = tokenKeys || [...ACCESS_TOKEN_KEYS];
+  for (const key of keys) {
+    removeLocalStorage(key);
+  }
 }
 
 /**

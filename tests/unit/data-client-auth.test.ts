@@ -9,7 +9,11 @@ jest.mock("../../src/utils/console-logger", () => ({
   logErrorWithContext: jest.fn(),
 }));
 
-import { handleOAuthCallback } from "../../src/utils/data-client-auth";
+import {
+  handleOAuthCallback,
+  clearCachedBrowserAuthState,
+  storeBrowserSessionTokens,
+} from "../../src/utils/data-client-auth";
 import { DataClientConfig } from "../../src/types/data-client.types";
 import * as consoleLogger from "../../src/utils/console-logger";
 
@@ -694,5 +698,58 @@ describe("handleOAuthCallback", () => {
       expect(result).toBe(token);
       expect(mockLocalStorage["token"]).toBe(token);
     });
+  });
+});
+
+describe("browser auth state helpers", () => {
+  let mockLocalStorage: Record<string, string>;
+
+  beforeEach(() => {
+    mockLocalStorage = {};
+    (global as any).localStorage = {
+      getItem: jest.fn((key: string) => mockLocalStorage[key] || null),
+      setItem: jest.fn((key: string, value: string) => {
+        mockLocalStorage[key] = value;
+      }),
+      removeItem: jest.fn((key: string) => {
+        delete mockLocalStorage[key];
+      }),
+      clear: jest.fn(() => {
+        Object.keys(mockLocalStorage).forEach(
+          (key) => delete mockLocalStorage[key],
+        );
+      }),
+    };
+    (globalThis as any).window = {
+      location: {},
+      history: { replaceState: jest.fn() },
+    };
+    (globalThis as any).localStorage = (global as any).localStorage;
+    (globalThis as any).fetch = jest.fn();
+  });
+
+  afterEach(() => {
+    delete (globalThis as any).window;
+    delete (globalThis as any).localStorage;
+    delete (globalThis as any).fetch;
+  });
+
+  it("stores and clears browser auth state with compatibility keys", () => {
+    storeBrowserSessionTokens({
+      accessToken: "access",
+      refreshToken: "refresh",
+      expiresAt: "2026-05-05T12:00:00.000Z",
+    });
+
+    expect(mockLocalStorage["miso_token"]).toBe("access");
+    expect(mockLocalStorage["refreshToken"]).toBe("refresh");
+    expect(mockLocalStorage["miso_token_expires_at"]).toBe(
+      "2026-05-05T12:00:00.000Z",
+    );
+
+    clearCachedBrowserAuthState();
+    expect(mockLocalStorage["miso_token"]).toBeUndefined();
+    expect(mockLocalStorage["refreshToken"]).toBeUndefined();
+    expect(mockLocalStorage["miso_token_expires_at"]).toBeUndefined();
   });
 });

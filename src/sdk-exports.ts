@@ -112,6 +112,7 @@ export type { ErrorResponse as ExpressErrorResponse } from "./express/error-resp
 export { DataClient, dataClient } from "./utils/data-client";
 export type {
   DataClientConfig,
+  UserSessionTokenResult,
   ApiRequestOptions,
   InterceptorConfig,
   RequestMetrics,
@@ -122,6 +123,25 @@ export type {
   AuthenticationError,
   ApiError as DataClientApiError,
 } from "./types/data-client.types";
+export {
+  ACCESS_TOKEN_KEYS,
+  REFRESH_TOKEN_KEYS,
+  ACCESS_TOKEN_EXPIRES_AT_KEYS,
+  normalizeExpiresAt,
+  getJwtExpiresAt,
+  getEffectiveUserTokenRefreshBuffer,
+  getUserTokenRefreshDueAt,
+  isUserTokenRefreshDue,
+  isUserTokenExpired,
+  storeAccessToken,
+  storeRefreshToken,
+  clearStoredAccessToken,
+  clearStoredRefreshToken,
+  clearStoredSessionTokens,
+  getStoredRefreshToken,
+  getUserTokenExpiresAt,
+  UserTokenRefreshManager,
+} from "./utils/user-token-refresh";
 export {
   autoInitializeDataClient,
   getCachedDataClientConfig,

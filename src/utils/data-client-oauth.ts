@@ -7,6 +7,7 @@ import { DataClientConfig } from "../types/data-client.types";
 import { isBrowser, setLocalStorage } from "./data-client-utils";
 import { extractErrorInfo } from "./error-extractor";
 import { logErrorWithContext, writeWarn, writeErr } from "./console-logger";
+import { ACCESS_TOKEN_KEYS } from "./user-token-refresh";
 
 /**
  * Clean up hash fragment from URL (security measure)
@@ -191,7 +192,7 @@ export function handleOAuthCallback(config: DataClientConfig): string | null {
   }
 
   cleanupHash();
-  const tokenKeys = config.tokenKeys || ["token", "accessToken", "authToken"];
+  const tokenKeys = config.tokenKeys || [...ACCESS_TOKEN_KEYS];
 
   try {
     storeTokenSecurely(tokenKeys, token);

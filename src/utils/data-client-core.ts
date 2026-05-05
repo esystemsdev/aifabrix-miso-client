@@ -6,6 +6,7 @@ import {
   RequestMetrics,
   CacheEntry,
   AuditConfig,
+  UserSessionTokenResult,
 } from "../types/data-client.types";
 import { DataMasker } from "./data-masker";
 import { ClientTokenInfo } from "./token-utils";
@@ -26,6 +27,8 @@ import {
   getEnvironmentToken,
   getClientTokenInfo,
   handleOAuthCallback,
+  storeBrowserSessionTokens,
+  clearCachedBrowserAuthState,
 } from "./data-client-auth";
 import { redirectToLogin as redirectToLoginAuth } from "./data-client-redirect";
 import {
@@ -37,6 +40,7 @@ import {
 import { writeErr } from "./console-logger";
 import { BrowserPermissionService } from "../services/browser-permission.service";
 import { BrowserRoleService } from "../services/browser-role.service";
+import { UserTokenRefreshManager } from "./user-token-refresh";
 
 export class DataClientCore {
   protected config: DataClientConfig;
@@ -57,6 +61,7 @@ export class DataClientCore {
   };
   protected permissionService: BrowserPermissionService | null = null;
   protected roleService: BrowserRoleService | null = null;
+  protected userTokenRefreshManager = new UserTokenRefreshManager();
 
   constructor(config: DataClientConfig) {
     this.config = createDefaultConfig(config);
@@ -238,6 +243,7 @@ export class DataClientCore {
       hasAnyToken: () => this.hasAnyToken(),
       getToken: () => this.getToken(),
       handleAuthError: () => this.handleAuthError(),
+      restoreUserSession: () => this.restoreUserSession(),
       refreshUserToken: () => this.refreshUserToken(),
       interceptors: this.interceptors,
       metrics: this.metrics,
@@ -346,29 +352,76 @@ export class DataClientCore {
     if (!this.config.onTokenRefresh) return null;
     try {
       const result = await this.config.onTokenRefresh();
-      if (isBrowser() && result.token) {
-        const { setLocalStorage } = await import("./data-client-utils");
-        for (const key of this.config.tokenKeys || [
-          "token",
-          "accessToken",
-          "authToken",
-        ]) {
-          setLocalStorage(key, result.token);
-        }
-      }
-      return result;
+      if (!result?.token) return null;
+      this.persistBrowserSession(result);
+      return {
+        token: result.token,
+        expiresIn: result.expiresIn || 0,
+      };
     } catch (error) {
       writeErr(`Token refresh failed: ${String(error)}`);
       return null;
     }
   }
 
+  protected async restoreUserSession(): Promise<{
+    token: string;
+    expiresIn: number;
+  } | null> {
+    const shouldUseRestore = this.config.preferCookieSessionRestore !== false;
+    if (!shouldUseRestore || !this.config.onSessionRestore) return null;
+    try {
+      const result = await this.config.onSessionRestore();
+      if (!result?.token) return null;
+      this.persistBrowserSession(result);
+      return {
+        token: result.token,
+        expiresIn: result.expiresIn || 0,
+      };
+    } catch (error) {
+      writeErr(`Session restore failed: ${String(error)}`);
+      return null;
+    }
+  }
+
+  protected persistBrowserSession(result: UserSessionTokenResult): void {
+    if (!isBrowser() || !result.token) return;
+    storeBrowserSessionTokens({
+      tokenKeys: this.config.tokenKeys,
+      accessToken: result.token,
+      refreshToken: result.refreshToken,
+      expiresAt: result.expiresAt,
+    });
+    this.userTokenRefreshManager.storeAccessToken(
+      "browser",
+      result.token,
+      result.expiresAt,
+    );
+    if (result.refreshToken) {
+      this.userTokenRefreshManager.storeRefreshToken(
+        "browser",
+        result.refreshToken,
+      );
+    }
+  }
+
   protected handleAuthError(): void {
+    this.clearBrowserAuthState().catch(() => {});
     if (isBrowser()) {
       this.redirectToLogin().catch((err) =>
         writeErr(`Failed to redirect to login: ${String(err)}`),
       );
     }
+  }
+
+  protected async clearBrowserAuthState(): Promise<void> {
+    if (!isBrowser()) return;
+    if (this.config.clearCachedBrowserAuthState) {
+      await this.config.clearCachedBrowserAuthState();
+      return;
+    }
+    clearCachedBrowserAuthState(this.config.tokenKeys);
+    this.userTokenRefreshManager.clearUserTokens("browser");
   }
 
   protected async applyRequestInterceptor(
