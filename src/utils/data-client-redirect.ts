@@ -8,6 +8,7 @@ import { DataClientConfig } from "../types/data-client.types";
 import { getControllerUrl } from "./data-client-auth";
 import { isBrowser } from "./data-client-utils";
 import { writeWarn } from "./console-logger";
+import { joinApiRoot } from "./url-join";
 
 /**
  * Validate redirect URL for safety and format
@@ -155,7 +156,7 @@ export async function redirectToLogin(
   const loginPath = resolveLoginPath(config);
   const loginUrl = /^https?:\/\//i.test(loginPath)
     ? new URL(loginPath)
-    : new URL(loginPath, controllerUrl);
+    : new URL(joinApiRoot(controllerUrl, loginPath));
 
   loginUrl.searchParams.set("redirect", finalRedirectUrl);
   if (clientToken) loginUrl.searchParams.set("x-client-token", clientToken);
@@ -243,7 +244,7 @@ export async function logout(
   const logoutPath = config.logoutUrl || config.loginUrl || "/logout";
   const logoutUrl = /^https?:\/\//i.test(logoutPath)
     ? new URL(logoutPath)
-    : new URL(logoutPath, controllerUrl);
+    : new URL(joinApiRoot(controllerUrl, logoutPath));
 
   logoutUrl.searchParams.set(
     "redirect",

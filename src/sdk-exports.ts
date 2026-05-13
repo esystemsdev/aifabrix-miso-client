@@ -37,6 +37,7 @@ export {
   isBrowser,
   validateUrl,
 } from "./utils/controller-url-resolver";
+export { joinApiRoot, normalizeRootUrl } from "./utils/url-join";
 export { extractLoggingContext } from "./utils/logging-helpers";
 export type {
   IndexedLoggingContext,

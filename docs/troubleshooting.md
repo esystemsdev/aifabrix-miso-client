@@ -15,6 +15,14 @@ Common issues and fixes: connection, auth, Redis, CORS.
 - Update Node and system CA certificates.
 - For **development only** with self-signed certs you can set `NODE_TLS_REJECT_UNAUTHORIZED=0`; never use this in production.
 
+### Duplicated path segments in URLs (double-prefix)
+
+Symptoms: requests hit URLs like `…/miso/miso/api/v1/…` or `…/data/data/api/…` and return 404.
+
+Cause: the virtual-directory segment is in `controllerPublicUrl` (or `baseUrl`) **and** also added a second time elsewhere — for example, a separate `basePath` setting in your host app, or a duplicate prefix in a custom `clientTokenUri`.
+
+Fix: keep the virtual-directory segment in the configured root **exactly once**. Use one full URL such as `https://domain.com/miso` and let the SDK join API paths to it. Do not configure a separate base-path setting on top. See [configuration.md](configuration.md#full-urls-and-virtual-directories) for the full-URL convention and the table of supported mounts.
+
 ## Authentication
 
 ### Token validation fails

@@ -14,22 +14,41 @@ import { createErrorResponse, sendErrorResponse } from "./error-response";
 
 /**
  * DataClient configuration returned by client-token endpoint
- * Contains all necessary configuration for browser-side DataClient initialization
+ *
+ * Contains all necessary configuration for browser-side DataClient
+ * initialization.
+ *
+ * URL convention (see plan 57): every URL field is a **full** URL. The
+ * controller and dataplane URLs may include a virtual-directory path
+ * (e.g. `https://domain.com/miso`, `https://domain.com/data`) and are joined
+ * with API paths via the single `joinApiRoot` helper. There is intentionally
+ * no `basePath` field on this response: virtual-directory mounts must live in
+ * the URL itself, not as a separate prefix to apply on top of an origin.
  */
 export interface DataClientConfigResponse {
-  /** API base URL (derived from request) */
+  /**
+   * API base URL for the host application's backend (derived from request).
+   * Full URL, may include a virtual-directory path.
+   */
   baseUrl: string;
 
-  /** MISO Controller URL (from misoClient config) */
+  /**
+   * MISO Controller URL (from misoClient config).
+   * Full URL, may include a virtual-directory path (e.g. `/miso`).
+   */
   controllerUrl: string;
 
-  /** Public controller URL for browser environments (if set) */
+  /**
+   * Public controller URL for browser environments (if set).
+   * Full URL, may include a virtual-directory path. Preferred over
+   * `controllerUrl` in browser environments.
+   */
   controllerPublicUrl?: string;
 
   /** Client ID (from misoClient config) */
   clientId: string;
 
-  /** Client token endpoint URI */
+  /** Client token endpoint URI (relative path starting with "/") */
   clientTokenUri: string;
 }
 

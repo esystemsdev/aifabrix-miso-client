@@ -41,6 +41,7 @@ import { writeErr } from "./console-logger";
 import { BrowserPermissionService } from "../services/browser-permission.service";
 import { BrowserRoleService } from "../services/browser-role.service";
 import { UserTokenRefreshManager } from "./user-token-refresh";
+import { joinApiRoot } from "./url-join";
 
 export class DataClientCore {
   protected config: DataClientConfig;
@@ -313,7 +314,7 @@ export class DataClientCore {
     options?: ApiRequestOptions,
   ): Promise<T> {
     const startTime = Date.now();
-    const fullUrl = `${this.config.baseUrl}${endpoint}`;
+    const fullUrl = joinApiRoot(this.config.baseUrl, endpoint);
     const cacheKey = getCacheKeyForRequest(endpoint, {
       ...options,
       method: method.toUpperCase(),

@@ -13,6 +13,7 @@ import axios, {
 import { MisoClientConfig, AuthStrategy } from "../types/config.types";
 import { AuthStrategyHandler } from "./auth-strategy";
 import { resolveControllerUrl } from "./controller-url-resolver";
+import { normalizeRootUrl } from "./url-join";
 import { validateHttpResponse } from "./http-response-validator";
 import { createMisoClientError, isAxiosError } from "./http-error-handler";
 import {
@@ -52,7 +53,7 @@ export class InternalHttpClient {
 
   /** Create and configure axios instance */
   private createAxiosInstance(config: MisoClientConfig): AxiosInstance {
-    const controllerUrl = resolveControllerUrl(config);
+    const controllerUrl = normalizeRootUrl(resolveControllerUrl(config));
     const isHttps = controllerUrl.startsWith("https://");
     let httpAgent: import("http").Agent | undefined;
     let httpsAgent: import("https").Agent | undefined;

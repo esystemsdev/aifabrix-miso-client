@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.13.0] - 2026-05-13
+
+### Added
+
+- **`joinApiRoot(root, path)` and `normalizeRootUrl(root)` URL helpers** - Single, exported helper for joining a full base URL with a relative API path. Same code for every mount: `/`, `/miso`, `/data`, `/myapp`, or any custom virtual directory. `normalizeRootUrl` validates http/https and trims trailing slashes; `joinApiRoot` enforces leading-`/` paths and rejects absolute URLs as the path argument. Both are exported from `@aifabrix/miso-client` (see `src/sdk-exports.ts`).
+
+### Changed
+
+- **All backend HTTP URL building goes through `joinApiRoot`** - DataClient request URLs (`data-client-core.ts`), browser environment-token fetch (`data-client-auth.ts`), auto-init config fetch (`data-client-auto-init.ts`), and login/logout redirects (`data-client-redirect.ts`) now build URLs with `joinApiRoot`. `internal-http-client.ts` and `client-token-manager.ts` normalize the axios `baseURL` via `normalizeRootUrl`. There is now exactly one URL-join code path for the SDK.
+- **Full-URL convention for `controllerUrl` / `controllerPublicUrl` / `controllerPrivateUrl` and `DataClientConfigResponse.baseUrl`** - These fields are documented as full URLs that may include a virtual-directory path (e.g. `https://domain.com/miso`). No separate `basePath` field exists on `DataClientConfigResponse`; virtual-directory mounts live in the URL itself.
+
+### Docs
+
+- **URL strategy guidance** - `docs/configuration.md` adds a "Full URLs and virtual directories" section covering full-URL convention, the controller/dataplane/custom-app reference table, the "two roots, one joiner" rule, and the double-prefix trap. `docs/dataclient.md` clarifies that `baseUrl` may include a virtual directory and expands the controller-vs-dataplane section. `docs/troubleshooting.md` adds a "Duplicated path segments in URLs" entry. `docs/README.md` indexes the new URL-strategy section.
+
+### Technical
+
+- **Tests** - Added 48 unit tests in `tests/unit/url-join.test.ts` covering slashes, query/hash strip, port preservation, virtual-directory roots, double-prefix detection, and parametrized multi-app matrix. Added 16 integration tests in `tests/unit/url-join-integration.test.ts` proving `joinApiRoot` flows end-to-end through DataClient requests, environment-token fetch, auto-init, and login redirect for `/`, `/miso`, `/data`, and `/myapp` mounts.
+- **Validation gates** - 1991 tests pass; `pnpm run lint` (zero warnings), `pnpm run build`, and `pnpm run tests:typecheck` all clean.
+
 ## [4.12.0] - 2026-05-05
 
 ### Added

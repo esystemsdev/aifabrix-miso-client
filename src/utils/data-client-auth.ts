@@ -26,6 +26,7 @@ import {
   clearStoredSessionTokens,
   TokenStorageMap,
 } from "./user-token-refresh";
+import { joinApiRoot } from "./url-join";
 
 // Re-export OAuth callback from dedicated module
 export { handleOAuthCallback } from "./data-client-oauth";
@@ -395,7 +396,7 @@ function buildClientTokenFetchUrl(config: DataClientConfig): {
     config.misoConfig?.clientTokenUri || "/api/v1/auth/client-token";
   const fullUrl = /^https?:\/\//i.test(clientTokenUri)
     ? clientTokenUri
-    : `${config.baseUrl}${clientTokenUri}`;
+    : joinApiRoot(config.baseUrl, clientTokenUri);
   return { clientTokenUri, fullUrl };
 }
 

@@ -133,3 +133,37 @@ For different browser vs server URLs (e.g. public HTTPS for browser, private URL
 - `controllerPrivateUrl` – used on server (e.g. Node/Express)
 
 Set via env or config. The SDK picks the right one by environment. See the full configuration reference in the repository for Keycloak, audit, and advanced options.
+
+## Full URLs and virtual directories
+
+All controller URL fields are **full URLs**. They may include a virtual-directory path:
+
+```bash
+MISO_CONTROLLER_URL=https://domain.com/miso
+```
+
+The SDK joins API paths to the configured root with a single helper, so the same code works for any mount: `/`, `/miso`, `/data`, `/myapp`, `/anything`. Choose the path you deploy under and put it in the URL once.
+
+| App                | Example public root        |
+| ------------------ | -------------------------- |
+| Controller         | `https://domain.com/miso`  |
+| Dataplane / API    | `https://domain.com/data`  |
+| Custom application | `https://domain.com/myapp` |
+| Root mount         | `https://domain.com`       |
+
+**Avoid double-prefix.** If `controllerPublicUrl` already ends with `/miso`, do **not** add a separate `basePath`-style prefix elsewhere. Keep the virtual-directory segment in the URL exactly once. Symptoms of a double-prefix bug are URLs like `…/miso/miso/api/v1/…`.
+
+**Two roots, one joiner.** When you call your own backend (dataplane or a custom app) **and** the controller, configure two **independent** full URLs — one for each — and let the SDK join paths to each root separately. There is one join helper for everything; do not introduce a second URL-build path.
+
+**Vite and React Router are host concerns.** miso-client never reads Vite config. In your host app, configure Vite `base` for static assets and React Router `basename` for in-app routes; configure the SDK with the **full backend URL** independently. The three settings can move together (same virtual directory) but they live in three different places.
+
+For advanced cases where you need to compose URLs yourself (e.g. building an audit log link), the SDK exports the same helper it uses internally:
+
+```typescript
+import { joinApiRoot, normalizeRootUrl } from "@aifabrix/miso-client";
+
+joinApiRoot("https://domain.com/miso", "/api/v1/health");
+// "https://domain.com/miso/api/v1/health"
+```
+
+`joinApiRoot(root, path)` requires `path` to start with `/`. `normalizeRootUrl(root)` validates and trims trailing slashes; it accepts http/https only.

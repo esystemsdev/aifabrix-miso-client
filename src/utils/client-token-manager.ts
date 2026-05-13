@@ -10,6 +10,7 @@ import {
   ErrorResponse,
 } from "../types/config.types";
 import { resolveControllerUrl } from "./controller-url-resolver";
+import { normalizeRootUrl } from "./url-join";
 import { isAxiosError } from "./http-error-handler";
 import { MisoClientError } from "./errors";
 
@@ -133,7 +134,7 @@ async function executeTokenRequest(config: MisoClientConfig): Promise<{
   const timeoutId = setTimeout(() => controller.abort(), requestTimeout);
   if (typeof timeoutId.unref === "function") timeoutId.unref();
 
-  const controllerUrl = resolveControllerUrl(config);
+  const controllerUrl = normalizeRootUrl(resolveControllerUrl(config));
   const isHttps = controllerUrl.startsWith("https://");
   const httpAgent = await createHttpAgent(isHttps, requestTimeout);
 

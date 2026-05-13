@@ -18,6 +18,7 @@ import {
   ClientTokenResponse,
   hasConfig,
 } from "../express/client-token-endpoint";
+import { joinApiRoot } from "./url-join";
 
 /**
  * Options for autoInitializeDataClient
@@ -129,7 +130,7 @@ function cacheConfig(
 function buildConfigUrl(baseUrl: string, clientTokenUri: string): string {
   return /^https?:\/\//i.test(clientTokenUri)
     ? clientTokenUri
-    : `${baseUrl}${clientTokenUri}`;
+    : joinApiRoot(baseUrl, clientTokenUri);
 }
 
 function createTimeoutController(timeout: number): {
