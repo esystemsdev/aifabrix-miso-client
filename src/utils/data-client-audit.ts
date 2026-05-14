@@ -3,7 +3,7 @@
  * Handles ISO 27001 compliant audit logging for HTTP requests
  */
 
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 import { AuditConfig } from "../types/data-client.types";
 import { LoggerContextStorage } from "../services/logger/logger-context-storage";
 import { DataMasker } from "./data-masker";

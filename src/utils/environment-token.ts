@@ -4,7 +4,7 @@
  */
 
 import { Request } from "express";
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 import { validateOrigin } from "./origin-validator";
 import { DataMasker } from "./data-masker";
 import { resolveControllerUrl } from "./controller-url-resolver";

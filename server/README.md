@@ -50,7 +50,7 @@ cd ..
 aifabrix resolve miso-test
 ```
 
-This will create a `.env` file in the project root (or path specified in `builder/miso-test/variables.yaml` → `build.envOutputPath`).
+This will create a `.env` file in the project root (or path specified in `builder/miso-test/application.yaml` → `build.envOutputPath`).
 
 **Note:** The server automatically loads the `.env` file from the root directory. When running from the `server/` directory, it will look for `.env` in the parent directory (root) first, then fall back to `server/.env` if not found. This matches the builder's default output path.
 
@@ -72,10 +72,10 @@ If you haven't registered the application yet:
 
 ```bash
 # Login to controller
-aifabrix login --method device --environment dev --controller http://localhost:3000 --offline
+aifabrix login
 
 # Register your application (gets you credentials automatically)
-aifabrix app register miso-test --environment dev
+aifabrix app register miso-test
 
 # Then generate .env file
 aifabrix resolve miso-test
@@ -87,6 +87,7 @@ See `builder/miso-test/README.md` for complete setup instructions.
 
 ```bash
 # Development mode (with hot reload)
+cd server
 pnpm run dev
 
 # Production mode

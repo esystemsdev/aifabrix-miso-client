@@ -3,7 +3,7 @@
  * Handles authentication, token management, and login/logout flows
  */
 
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 import { DataClientConfig, MisoClientConfig } from "../types/data-client.types";
 import {
   isBrowser,

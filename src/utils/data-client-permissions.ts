@@ -4,7 +4,7 @@
  */
 
 import { BrowserPermissionService } from "../services/browser-permission.service";
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 
 /**
  * Get user permissions (uses token from localStorage if not provided)

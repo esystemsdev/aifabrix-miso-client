@@ -20,6 +20,41 @@ import react from '@vitejs/plugin-react-swc';
 import path from 'path';
 import fs from 'fs';
 
+const MISO_CLIENT_DIST_UTILS = path.resolve(__dirname, '../../dist/utils');
+
+/**
+ * Resolves flat relative imports under compiled SDK utils (./foo, ./foo.js)
+ * after @rollup/plugin-commonjs rewrites ids with ?commonjs-external.
+ * Only returns a path when dist/utils/foo.js exists and the importer context
+ * is the miso-client bundle (avoids hijacking other packages' ./foo imports).
+ */
+function tryResolveMisoClientDistUtilsFile(
+  cleanId: string,
+  importer: string | undefined
+): string | null {
+  const single = /^\.\/([^/]+)$/.exec(cleanId);
+  if (!single) {
+    return null;
+  }
+  const base = single[1].replace(/\.js$/, '');
+  const candidateJs = path.join(MISO_CLIENT_DIST_UTILS, `${base}.js`);
+  if (!fs.existsSync(candidateJs)) {
+    return null;
+  }
+  const cleanImporter = importer ? importer.split('?')[0] : '';
+  const fromPublishedUtils =
+    cleanImporter.includes(`${path.sep}dist${path.sep}utils${path.sep}`) ||
+    cleanImporter.includes('/dist/utils/') ||
+    cleanImporter.includes('@aifabrix/miso-client') ||
+    cleanImporter.includes('aifabrix-miso-client/dist');
+  const commonjsSelf =
+    Boolean(importer && importer.includes('commonjs-external')) || cleanImporter === cleanId;
+  if (fromPublishedUtils || commonjsSelf) {
+    return candidateJs;
+  }
+  return null;
+}
+
 /**
  * Plugin to intercept Node.js built-in module imports and SDK internal imports
  *
@@ -96,6 +131,12 @@ function nodePolyfillsPlugin(): Plugin {
       if (cleanId === 'dotenv' || cleanId === 'dotenv/config' || cleanId.startsWith('dotenv/')) {
         console.log(`[node-polyfills] Resolving ${id} -> ${dotenvStub}`);
         return dotenvStub;
+      }
+
+      const misoUtilsHit = tryResolveMisoClientDistUtilsFile(cleanId, importer);
+      if (misoUtilsHit) {
+        console.log(`[node-polyfills] Resolving ${id} (miso dist/utils) -> ${misoUtilsHit}`);
+        return misoUtilsHit;
       }
 
       // Handle relative imports from services/logger directory (e.g., ./unified-logger.service)
@@ -485,6 +526,12 @@ export default defineConfig({
           resolveId(id, importer) {
             // Remove query parameters (like ?commonjs-external) from id
             const cleanId = id.split('?')[0];
+
+            const misoUtilsHit = tryResolveMisoClientDistUtilsFile(cleanId, importer);
+            if (misoUtilsHit) {
+              console.log(`[rollup-plugin] resolveId: ${id} (miso dist/utils) -> ${misoUtilsHit}`);
+              return misoUtilsHit;
+            }
 
             // Handle @ioredis packages
             if (cleanId.startsWith('@ioredis/')) {

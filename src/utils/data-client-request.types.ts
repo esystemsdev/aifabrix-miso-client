@@ -4,7 +4,7 @@ import {
   InterceptorConfig,
   CacheEntry,
 } from "../types/data-client.types";
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 import { HasAnyTokenFn, GetTokenFn } from "./data-client-audit";
 
 export type RefreshUserTokenFn = () => Promise<{

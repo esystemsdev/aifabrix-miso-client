@@ -6,7 +6,7 @@
  */
 
 import { Request, Response, RequestHandler } from "express";
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 import { getEnvironmentToken } from "../utils/environment-token";
 import { resolveControllerUrl } from "../utils/controller-url-resolver";
 import { asyncHandler } from "./async-handler";

@@ -3,7 +3,7 @@
  * Handles MisoClient and service initialization
  */
 
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 import { DataClientConfig } from "../types/data-client.types";
 import { MisoClientConfig } from "../types/config.types";
 import { BrowserPermissionService } from "../services/browser-permission.service";

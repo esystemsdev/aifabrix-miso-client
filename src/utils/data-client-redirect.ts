@@ -3,7 +3,7 @@
  * Handles redirect to login/logout flows
  */
 
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 import { DataClientConfig } from "../types/data-client.types";
 import { getControllerUrl } from "./data-client-auth";
 import { isBrowser } from "./data-client-utils";

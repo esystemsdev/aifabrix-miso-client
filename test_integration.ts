@@ -7,6 +7,7 @@
 
 import "./run-load-env";
 import { MisoClient, loadConfig } from "./src/index";
+import { MisoClientError } from "./src/utils/errors";
 
 // Color output utilities (with chalk fallback to ANSI)
 let colors: {
@@ -142,6 +143,30 @@ class TestRunner {
     }
 
     process.exit(failed > 0 ? 1 : 0);
+  }
+}
+
+/**
+ * Controller returns 401 when client encryptionKey !== server ENCRYPTION_KEY (byte match).
+ * Rethrow with an explicit message so failures are actionable (tests must fail, not hide drift).
+ */
+async function encryptionIntegrationCall<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    if (error instanceof MisoClientError && error.statusCode === 401) {
+      const invalidKey = error.errorResponse?.errors?.some(
+        (msg) =>
+          typeof msg === "string" &&
+          msg.toLowerCase().includes("invalid encryption key"),
+      );
+      if (invalidKey) {
+        throw new Error(
+          "ENCRYPTION_KEY mismatch: this project's ENCRYPTION_KEY must be identical (UTF-8) to miso-controller's ENCRYPTION_KEY. Copy the controller value into .env here, then rerun.",
+        );
+      }
+    }
+    throw error;
   }
 }
 
@@ -775,9 +800,8 @@ async function runIntegrationTests(): Promise<void> {
           "SKIP: EncryptionService is not available (ENCRYPTION_KEY not set)",
         );
       }
-      const result = await client.encryption.encrypt(
-        "test plaintext",
-        testParamName,
+      const result = await encryptionIntegrationCall(() =>
+        client.encryption.encrypt("test plaintext", testParamName),
       );
       if (!result || typeof result.value !== "string") {
         throw new Error("encrypt should return EncryptResult with value");
@@ -797,13 +821,11 @@ async function runIntegrationTests(): Promise<void> {
           "SKIP: EncryptionService is not available (ENCRYPTION_KEY not set)",
         );
       }
-      const encResult = await client.encryption.encrypt(
-        "test plaintext",
-        testParamName,
+      const encResult = await encryptionIntegrationCall(() =>
+        client.encryption.encrypt("test plaintext", testParamName),
       );
-      const decrypted = await client.encryption.decrypt(
-        encResult.value,
-        testParamName,
+      const decrypted = await encryptionIntegrationCall(() =>
+        client.encryption.decrypt(encResult.value, testParamName),
       );
       if (decrypted !== "test plaintext") {
         throw new Error("decrypt should return original plaintext");
@@ -821,13 +843,11 @@ async function runIntegrationTests(): Promise<void> {
         );
       }
       const original = "This is a test message with special chars: !@#$%^&*()";
-      const encResult = await client.encryption.encrypt(
-        original,
-        testParamName,
+      const encResult = await encryptionIntegrationCall(() =>
+        client.encryption.encrypt(original, testParamName),
       );
-      const decrypted = await client.encryption.decrypt(
-        encResult.value,
-        testParamName,
+      const decrypted = await encryptionIntegrationCall(() =>
+        client.encryption.decrypt(encResult.value, testParamName),
       );
       if (decrypted !== original) {
         throw new Error("Roundtrip encryption/decryption failed");

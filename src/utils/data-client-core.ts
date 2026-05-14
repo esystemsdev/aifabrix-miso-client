@@ -1,4 +1,4 @@
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 import {
   DataClientConfig,
   ApiRequestOptions,

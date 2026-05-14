@@ -63,7 +63,7 @@ export default function App() {
 
 // Auth status component for sidebar
 function AuthSection() {
-  const { dataClient, isLoading } = useDataClient();
+  const { dataClient, isLoading, error } = useDataClient();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -156,14 +156,24 @@ function AuthSection() {
 
   if (isLoading) {
     return (
-      <div className="p-4 border-t border-sidebar-border">
-        <div className="text-xs text-muted-foreground">Loading...</div>
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        <div className="text-xs text-muted-foreground">Initializing DataClient…</div>
+        <div className="text-[10px] text-muted-foreground leading-snug">
+          Fetching config from <code className="px-0.5 bg-muted rounded">/api/v1/auth/client-token</code>
+          (can take up to ~30s per try).
+        </div>
       </div>
     );
   }
 
   return (
     <div className="p-4 border-t border-sidebar-border space-y-3">
+      {error && !dataClient ? (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-2 text-[11px] text-destructive">
+          <div className="font-medium">Init failed</div>
+          <div className="mt-1 break-words text-destructive/90">{error.message}</div>
+        </div>
+      ) : null}
       {/* Auth Status */}
       <div className="flex items-center gap-2 text-xs">
         <User className="w-3 h-3" />

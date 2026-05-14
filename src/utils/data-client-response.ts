@@ -17,7 +17,7 @@ import {
   HasAnyTokenFn,
   GetTokenFn,
 } from "./data-client-audit";
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 import { extractErrorInfo } from "./error-extractor";
 import { logErrorWithContext } from "./console-logger";
 import { extractHeaders } from "./data-client-request";

@@ -4,7 +4,7 @@
  */
 
 import { BrowserRoleService } from "../services/browser-role.service";
-import { MisoClient } from "../index";
+import { MisoClient } from "../miso-client";
 
 /**
  * Get user roles (uses token from localStorage if not provided)
