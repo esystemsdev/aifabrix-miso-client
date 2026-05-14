@@ -165,8 +165,9 @@ async function fetchTokenWithTimeout(
   req: Request,
   misoClient: MisoClient,
 ): Promise<string> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    setTimeout(
+    timeoutId = setTimeout(
       () =>
         reject(
           new Error(
@@ -176,7 +177,16 @@ async function fetchTokenWithTimeout(
       5000,
     );
   });
-  return Promise.race([getEnvironmentToken(misoClient, req), timeoutPromise]);
+  try {
+    return await Promise.race([
+      getEnvironmentToken(misoClient, req),
+      timeoutPromise,
+    ]);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 /** Handle token fetch error and send appropriate response */

@@ -3,7 +3,7 @@
  */
 
 import { DataClient } from "../../src/utils/data-client";
-import { MisoClient } from "../../src/index";
+import { MisoClient } from "../../src/miso-client";
 import {
   DataClientConfig,
   NetworkError,
@@ -14,7 +14,7 @@ import { DataMasker } from "../../src/utils/data-masker";
 import jwt from "jsonwebtoken";
 
 // Mock MisoClient - create a factory function that returns fresh mocks for each instance
-jest.mock("../../src/index", () => {
+jest.mock("../../src/miso-client", () => {
   const createMockMisoClientInstance = () => ({
     log: {
       audit: jest.fn().mockResolvedValue(undefined),
