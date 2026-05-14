@@ -45,6 +45,71 @@ export function validateUrl(url: string): boolean {
   }
 }
 
+function readBrowserLocationOrigin(): string | null {
+  try {
+    const win = (globalThis as { window?: { location?: { origin?: string } } })
+      .window;
+    const origin = win?.location?.origin;
+    if (typeof origin === "string" && origin.trim() !== "") {
+      return origin.trim();
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Normalize a controller root string to an absolute http(s) URL.
+ *
+ * - **Full URL:** unchanged when it passes {@link validateUrl}.
+ * - **Browser, path-only:** a string starting with `/` (but not `//`) is
+ *   resolved against `window.location.origin` (same-origin controller UI).
+ * - **Server:** path-only values are rejected; use a full internal URL.
+ *
+ * @param raw - `controllerPublicUrl`, `controllerPrivateUrl`, or `controllerUrl` value
+ * @param isBrowserEnv - Result of {@link isBrowser}
+ */
+export function coerceControllerUrlToAbsolute(
+  raw: string,
+  isBrowserEnv: boolean,
+): string {
+  const resolvedUrl = raw.trim();
+  if (resolvedUrl === "") {
+    throw new Error("Controller URL must be a non-empty string.");
+  }
+  if (validateUrl(resolvedUrl)) {
+    return resolvedUrl;
+  }
+  if (
+    isBrowserEnv &&
+    resolvedUrl.startsWith("/") &&
+    !resolvedUrl.startsWith("//")
+  ) {
+    const origin = readBrowserLocationOrigin();
+    if (!origin) {
+      throw new Error(
+        'Path-only controller URL (e.g. "/miso") requires window.location.origin. ' +
+          "Set a full https:// URL, or ensure the page exposes a valid location.",
+      );
+    }
+    try {
+      return new URL(resolvedUrl, origin).href;
+    } catch {
+      throw new Error(
+        `Invalid path-only controller URL: "${raw}". Could not resolve against origin "${origin}".`,
+      );
+    }
+  }
+  throw new Error(
+    `Invalid controller URL format: "${raw}". Use a full http(s) URL${
+      isBrowserEnv
+        ? ', or in the browser a path starting with "/" (same origin as the app, not protocol-relative "//")'
+        : ""
+    }.`,
+  );
+}
+
 /**
  * Resolve controller URL based on environment and configuration
  *
@@ -56,6 +121,10 @@ export function validateUrl(url: string): boolean {
  * @param config - MisoClientConfig object
  * @returns Resolved controller URL string
  * @throws Error if no valid URL is available
+ *
+ * In the **browser**, `controllerPublicUrl` / `controllerUrl` may be a **path-only**
+ * same-origin root (e.g. `"/miso"`), resolved with `window.location.origin`.
+ * On the **server**, values must be full `http(s)` URLs.
  */
 export function resolveControllerUrl(config: MisoClientConfig): string {
   const isBrowserEnv = isBrowser();
@@ -84,12 +153,7 @@ export function resolveControllerUrl(config: MisoClientConfig): string {
     );
   }
 
-  // Validate URL format
-  if (!validateUrl(resolvedUrl)) {
-    throw new Error(
-      `Invalid controller URL format: "${resolvedUrl}". URL must be a valid HTTP or HTTPS URL.`,
-    );
-  }
+  resolvedUrl = coerceControllerUrlToAbsolute(resolvedUrl, isBrowserEnv);
 
   resolvedUrl = mergeRootUrlWithBasePath(
     resolvedUrl,

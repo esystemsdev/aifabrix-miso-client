@@ -27,6 +27,7 @@ import {
   TokenStorageMap,
 } from "./user-token-refresh";
 import { joinApiRoot, mergeRootUrlWithBasePath } from "./url-join";
+import { coerceControllerUrlToAbsolute } from "./controller-url-resolver";
 
 // Re-export OAuth callback from dedicated module
 export { handleOAuthCallback } from "./data-client-oauth";
@@ -163,7 +164,8 @@ export function getControllerUrl(
   const raw =
     misoConfig.controllerPublicUrl || misoConfig.controllerUrl || null;
   if (!raw) return null;
-  return mergeRootUrlWithBasePath(raw, misoConfig.controllerBasePath);
+  const absolute = coerceControllerUrlToAbsolute(raw, isBrowser());
+  return mergeRootUrlWithBasePath(absolute, misoConfig.controllerBasePath);
 }
 
 function debugClientToken(isDebug: boolean, message: string): void {

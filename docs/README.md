@@ -18,12 +18,12 @@ What to read when.
 
 ## Support
 
-| Topic               | Doc                                                                    | When to read                                                                                                                          |
-| ------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **Configuration**   | [configuration.md](configuration.md)                                   | Required .env and optional settings                                                                                                   |
-| **URL strategy**    | [configuration.md#full-urls-and-virtual-directories](configuration.md) | Full roots, optional `controllerBasePath` / DataClient `basePath`, `joinApiRoot` + `mergeRootUrlWithBasePath`; avoiding double-prefix |
-| **DataClient**      | [dataclient.md](dataclient.md)                                         | Browser client: zero-config (backend route + autoInitializeDataClient), main methods                                                  |
-| **Troubleshooting** | [troubleshooting.md](troubleshooting.md)                               | Connection, auth, Redis, CORS                                                                                                         |
+| Topic               | Doc                                                                    | When to read                                                                                                                                                                                                     |
+| ------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Configuration**   | [configuration.md](configuration.md)                                   | Required .env and optional settings                                                                                                                                                                              |
+| **URL strategy**    | [configuration.md#full-urls-and-virtual-directories](configuration.md) | Full roots, browser path-only `controllerPublicUrl`, optional `controllerBasePath` / DataClient `basePath`, `joinApiRoot` + `mergeRootUrlWithBasePath` + `coerceControllerUrlToAbsolute`; avoiding double-prefix |
+| **DataClient**      | [dataclient.md](dataclient.md)                                         | Browser client: zero-config (backend route + autoInitializeDataClient), main methods                                                                                                                             |
+| **Troubleshooting** | [troubleshooting.md](troubleshooting.md)                               | Connection, auth, Redis, CORS                                                                                                                                                                                    |
 
 ## Examples
 

@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.13.0] - 2026-05-13
+## [4.13.1] - 2026-05-14
 
 ### Added
 
@@ -13,20 +13,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`mergeRootUrlWithBasePath(root, basePath?)`** - Optional compatibility merge for an origin-only root plus a virtual-directory path; avoids applying the same path twice when the root already contains it. Exported from `@aifabrix/miso-client` with `joinApiRoot` and `normalizeRootUrl`.
 - **Optional `controllerBasePath` on `MisoClientConfig`** - Applied when resolving the controller URL (browser/server) so split config (`https://domain.com` + `/miso`) matches full-URL behavior without double-prefix.
 - **Optional `basePath` on `DataClientConfig`** - Merged once in `createDefaultConfig` into `baseUrl` with the same rules as `controllerBasePath`.
+- **`coerceControllerUrlToAbsolute(raw, isBrowser)`** - Browser: path-only controller roots (e.g. `"/miso"`) resolve against `window.location.origin`. Server: `raw` must be a full `http(s)` URL. Exported from `@aifabrix/miso-client`; used by `resolveControllerUrl` and `getControllerUrl`.
 
 ### Changed
 
 - **All backend HTTP URL building goes through `joinApiRoot`** - DataClient request URLs (`data-client-core.ts`), browser environment-token fetch (`data-client-auth.ts`), auto-init config fetch (`data-client-auto-init.ts`), and login/logout redirects (`data-client-redirect.ts`) now build URLs with `joinApiRoot`. `internal-http-client.ts` and `client-token-manager.ts` normalize the axios `baseURL` via `normalizeRootUrl`. There is now exactly one URL-join code path for the SDK.
-- **`resolveControllerUrl` / `getControllerUrl`** - Apply `mergeRootUrlWithBasePath` with `controllerBasePath` after choosing public/private/fallback URL (before localhost normalization in the resolver).
+- **`resolveControllerUrl` / `getControllerUrl`** - Apply `coerceControllerUrlToAbsolute` for browser path-only roots, then `mergeRootUrlWithBasePath` with `controllerBasePath`, then localhost normalization in the resolver.
 - **Full-URL convention for `controllerUrl` / `controllerPublicUrl` / `controllerPrivateUrl` and `DataClientConfigResponse.baseUrl`** - These fields are documented as full URLs that may include a virtual-directory path (e.g. `https://domain.com/miso`). The **server** `DataClientConfigResponse` payload still has no `basePath` field; optional split-URL fields apply to **client** `MisoClientConfig` / `DataClientConfig` only.
+- **Controller RBAC HTTP response validation** - `http-response-validator.ts` adds explicit shape checks for roles and permissions payloads and consolidates bypass handling (used by `InternalHttpClient`).
+
+### Fixed
+
+- **Environment-token fetch timeout** - `fetchTokenWithTimeout` in `client-token-endpoint.ts` clears the timer when the underlying request completes or fails, so a resolved token fetch cannot leave a pending timeout firing later.
 
 ### Docs
 
-- **URL strategy guidance** - `docs/configuration.md` "Full URLs and virtual directories" covers preferred full roots, optional `controllerBasePath`, exported `mergeRootUrlWithBasePath`, and server vs client config. `docs/dataclient.md` documents optional `basePath` and clarifies double-prefix avoidance. `docs/troubleshooting.md` distinguishes host duplication vs SDK compatibility fields. `docs/README.md` URL strategy row updated.
+- **URL strategy guidance** - `docs/configuration.md` covers same-origin path-only `controllerPublicUrl`, optional `controllerBasePath`, exported helpers, and server vs client config. `docs/dataclient.md` documents optional `basePath`. `docs/troubleshooting.md` and `docs/README.md` updated as before.
 
 ### Technical
 
-- **Tests** - `tests/unit/url-join.test.ts` covers `joinApiRoot`, `normalizeRootUrl`, `isDoublePrefix`, `mergeRootUrlWithBasePath`, and `normalizeOptionalBasePath`; `tests/unit/url-join-integration.test.ts` covers end-to-end `joinApiRoot` flows for multiple mounts.
+- **Tests** - `tests/unit/url-join.test.ts` and `tests/unit/controller-url-resolver.test.ts` cover URL helpers and path-only browser resolution; `tests/unit/url-join-integration.test.ts` covers end-to-end `joinApiRoot` flows for multiple mounts; `tests/unit/utils/http-response-validator.test.ts` covers RBAC response validation.
+- **Internal `MisoClient` imports** - Several SDK modules import `MisoClient` from `miso-client` for a clearer public entry boundary; unit tests updated to match.
+- **Integration harness** - `test_integration.ts` surfaces encryption key mismatch errors with clearer context during manual integration runs.
 - **Validation gates** - `pnpm run lint` (zero warnings), `pnpm run build`, `pnpm run tests:typecheck`, and `pnpm run test` all clean.
 
 ## [4.12.0] - 2026-05-05

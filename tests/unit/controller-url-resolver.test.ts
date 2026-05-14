@@ -6,6 +6,7 @@ import {
   resolveControllerUrl,
   resolveKeycloakUrl,
   isBrowser,
+  coerceControllerUrlToAbsolute,
 } from "../../src/utils/controller-url-resolver";
 import { MisoClientConfig } from "../../src/types/config.types";
 import { KeycloakConfig } from "../../src/types/token-validation.types";
@@ -39,6 +40,29 @@ describe("Controller URL Resolver", () => {
     if (originalFetch !== undefined) {
       (globalThis as { fetch?: unknown }).fetch = originalFetch;
     }
+  });
+
+  describe("coerceControllerUrlToAbsolute", () => {
+    it("returns full http(s) URL unchanged in server mode", () => {
+      expect(
+        coerceControllerUrlToAbsolute("https://api.example.com/miso", false),
+      ).toBe("https://api.example.com/miso");
+    });
+
+    it("rejects path-only when not browser mode", () => {
+      expect(() => coerceControllerUrlToAbsolute("/miso", false)).toThrow(
+        /Invalid controller URL format/,
+      );
+    });
+
+    it("resolves path-only in browser mode with origin", () => {
+      (globalThis as { window?: unknown }).window = {
+        location: { origin: "https://origin.test" },
+      };
+      expect(coerceControllerUrlToAbsolute("/vd", true)).toBe(
+        "https://origin.test/vd",
+      );
+    });
   });
 
   describe("isBrowser", () => {
@@ -115,6 +139,72 @@ describe("Controller URL Resolver", () => {
         const url = resolveControllerUrl(config);
         expect(url).toBe("https://public.example.com");
       });
+
+      it("should resolve path-only controllerPublicUrl against window.location.origin", () => {
+        (globalThis as { window?: unknown }).window = {
+          location: { origin: "https://app.example.com" },
+        };
+        (globalThis as { localStorage?: unknown }).localStorage = {};
+        (globalThis as { fetch?: unknown }).fetch = () => {};
+
+        const config: MisoClientConfig = {
+          controllerPublicUrl: "/miso",
+          clientId: "test-client",
+        };
+
+        expect(resolveControllerUrl(config)).toBe(
+          "https://app.example.com/miso",
+        );
+      });
+
+      it("should resolve path-only controllerUrl fallback in browser", () => {
+        (globalThis as { window?: unknown }).window = {
+          location: { origin: "https://spa.example.com:4000" },
+        };
+        (globalThis as { localStorage?: unknown }).localStorage = {};
+        (globalThis as { fetch?: unknown }).fetch = () => {};
+
+        const config: MisoClientConfig = {
+          controllerUrl: "/ctrl",
+          clientId: "test-client",
+        };
+
+        expect(resolveControllerUrl(config)).toBe(
+          "https://spa.example.com:4000/ctrl",
+        );
+      });
+
+      it("should reject protocol-relative controller URL in browser", () => {
+        (globalThis as { window?: unknown }).window = {
+          location: { origin: "https://app.example.com" },
+        };
+        (globalThis as { localStorage?: unknown }).localStorage = {};
+        (globalThis as { fetch?: unknown }).fetch = () => {};
+
+        const config: MisoClientConfig = {
+          controllerPublicUrl: "//evil.example.net/miso",
+          clientId: "test-client",
+        };
+
+        expect(() => resolveControllerUrl(config)).toThrow(
+          /Invalid controller URL format/,
+        );
+      });
+
+      it("should throw when path-only URL but window.location.origin missing", () => {
+        (globalThis as { window?: unknown }).window = {};
+        (globalThis as { localStorage?: unknown }).localStorage = {};
+        (globalThis as { fetch?: unknown }).fetch = () => {};
+
+        const config: MisoClientConfig = {
+          controllerPublicUrl: "/miso",
+          clientId: "test-client",
+        };
+
+        expect(() => resolveControllerUrl(config)).toThrow(
+          /Path-only controller URL .* requires window.location.origin/,
+        );
+      });
     });
 
     describe("server environment", () => {
@@ -158,6 +248,18 @@ describe("Controller URL Resolver", () => {
 
         const url = resolveControllerUrl(config);
         expect(url).toBe("http://private.example.com:3010");
+      });
+
+      it("should reject path-only controller URL on server", () => {
+        const config: MisoClientConfig = {
+          controllerPrivateUrl: "/miso",
+          controllerUrl: "http://fallback.example.com",
+          clientId: "test-client",
+        };
+
+        expect(() => resolveControllerUrl(config)).toThrow(
+          /Invalid controller URL format/,
+        );
       });
     });
 
@@ -214,7 +316,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveControllerUrl(config)).toThrow(
-          'Invalid controller URL format: "not-a-url". URL must be a valid HTTP or HTTPS URL.',
+          /Invalid controller URL format: "not-a-url"/,
         );
       });
 
@@ -225,7 +327,7 @@ describe("Controller URL Resolver", () => {
         };
 
         expect(() => resolveControllerUrl(config)).toThrow(
-          'Invalid controller URL format: "ftp://example.com". URL must be a valid HTTP or HTTPS URL.',
+          /Invalid controller URL format: "ftp:\/\/example\.com"/,
         );
       });
 

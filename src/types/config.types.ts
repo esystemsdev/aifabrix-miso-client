@@ -73,18 +73,20 @@ export interface MisoClientConfig {
   //
   // controllerUrl is optional but recommended for backward compatibility.
   // If not provided, controllerPublicUrl (browser) or controllerPrivateUrl
-  // (server) must be provided.
+  // (server) must be provided. In the **browser**, may be a path-only root
+  // (e.g. `"/miso"`) when same-origin; server-side must be a full URL.
   controllerUrl?: string; // Optional: Fallback URL for both environments
   clientSecret?: string; // Optional if using clientToken pattern
 
   // Optional: Public URL for browser/Vite environments (accessible from
-  // internet). Full URL, may include a virtual-directory path. Falls back to
-  // controllerUrl when not provided.
+  // internet). Full URL, may include a virtual-directory path. In the **browser**
+  // only, may instead be a **path-only** same-origin root (e.g. `"/miso"`), resolved
+  // with `window.location.origin`. Falls back to controllerUrl when not provided.
   controllerPublicUrl?: string;
 
   // Optional: Private URL for server environments (internal network access).
-  // Full URL, may include a virtual-directory path. Falls back to
-  // controllerUrl when not provided.
+  // Must be a **full** http(s) URL (path-only roots are not supported server-side).
+  // May include a virtual-directory path. Falls back to controllerUrl when not provided.
   controllerPrivateUrl?: string;
 
   /**

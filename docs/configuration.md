@@ -154,6 +154,8 @@ The SDK joins API paths to the configured root with a single helper, so the same
 
 **Preferred vs split URL (compatibility).** The default is a **single full URL** per root (path already in the string), as in the table above. If your environment only provides an **origin** and a separate virtual-directory segment, you can set optional **`controllerBasePath`** on `MisoClientConfig` (e.g. `controllerPublicUrl: "https://domain.com"` + `controllerBasePath: "/miso"`). The SDK merges with `mergeRootUrlWithBasePath` so the effective controller root is `https://domain.com/miso` and the same segment is **not** applied twice when the URL already contains that path.
 
+**Same-origin controller (browser only).** When the controller UI and API share the page origin, **`controllerPublicUrl`** (or browser **`controllerUrl`**) may be a **path-only** root such as `"/miso"`. The SDK resolves it with `window.location.origin` (`coerceControllerUrlToAbsolute`). **Server-side** `controllerPrivateUrl` / `controllerUrl` must remain **full** `http(s)` URLs; path-only is not supported in Node.
+
 **Avoid double-prefix.** Symptoms of a misconfiguration are URLs like `…/miso/miso/api/v1/…`. Do not also add the same segment in a **second** place (e.g. host-only `basename`/`base` applied again to API URLs, or a custom `clientTokenUri` that repeats `/miso`). If you use **`controllerBasePath`**, keep `controllerPublicUrl` / `controllerUrl` / `controllerPrivateUrl` as the **origin-only** form when you intend the base path to supply the mount; if those fields already include `/miso`, leave **`controllerBasePath`** unset or ensure it matches so the merge is a no-op.
 
 **Two roots, one joiner.** When you call your own backend (dataplane or a custom app) **and** the controller, configure two **independent** full URLs — one for each — and let the SDK join paths to each root separately. There is one join helper for everything; do not introduce a second URL-build path.
@@ -176,6 +178,6 @@ mergeRootUrlWithBasePath("https://domain.com", "/miso");
 // "https://domain.com/miso"
 ```
 
-`joinApiRoot(root, path)` requires `path` to start with `/`. `normalizeRootUrl(root)` validates and trims trailing slashes; it accepts http/https only. `mergeRootUrlWithBasePath(root, basePath)` merges an optional virtual-directory `basePath` when `root` is origin-only, and avoids duplicating the segment when `root` already contains it.
+`joinApiRoot(root, path)` requires `path` to start with `/`. `normalizeRootUrl(root)` validates and trims trailing slashes; it accepts http/https only. `mergeRootUrlWithBasePath(root, basePath)` merges an optional virtual-directory `basePath` when `root` is origin-only, and avoids duplicating the segment when `root` already contains it. **`coerceControllerUrlToAbsolute(raw, isBrowser)`** is also exported: in the browser, a path-only `raw` such as `"/miso"` is resolved against `window.location.origin` (same-origin controller); on the server, `raw` must already be a full `http(s)` URL.
 
 **Server client-token JSON:** the `DataClientConfigResponse` from your backend still has **no** `basePath` field — `baseUrl` / controller URLs in that payload should be full URLs when possible. Browser-side **`DataClientConfig.basePath`** (see [dataclient.md](dataclient.md)) is an optional client-only compatibility field merged once at init.

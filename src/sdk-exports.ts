@@ -36,6 +36,7 @@ export {
   resolveKeycloakUrl,
   isBrowser,
   validateUrl,
+  coerceControllerUrlToAbsolute,
 } from "./utils/controller-url-resolver";
 export {
   joinApiRoot,
