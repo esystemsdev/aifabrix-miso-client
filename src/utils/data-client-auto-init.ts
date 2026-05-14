@@ -329,11 +329,27 @@ function resolveBaseUrl(opts: { baseUrl?: string }): string {
   return baseUrl;
 }
 
+function pickNonEmptyBaseUrl(
+  config: DataClientConfigResponse,
+  fallbackBaseUrl: string,
+): string {
+  const fromServer =
+    typeof config.baseUrl === "string" ? config.baseUrl.trim() : "";
+  const merged = fromServer || fallbackBaseUrl.trim();
+  if (!merged) {
+    throw new Error(
+      "DataClient init failed: server config baseUrl is empty and baseUrl fallback is empty.",
+    );
+  }
+  return merged;
+}
+
 function buildDataClientConfig(
   config: DataClientConfigResponse,
+  fallbackBaseUrl: string,
 ): DataClientConfig {
   return {
-    baseUrl: config.baseUrl,
+    baseUrl: pickNonEmptyBaseUrl(config, fallbackBaseUrl),
     misoConfig: {
       clientId: config.clientId,
       controllerUrl: config.controllerUrl,
@@ -392,7 +408,7 @@ export async function autoInitializeDataClient(
       if (opts.cacheConfig) cacheConfig(config, 1800);
     }
 
-    return new DataClient(buildDataClientConfig(config));
+    return new DataClient(buildDataClientConfig(config, baseUrl));
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error));
     opts.onError?.(err);

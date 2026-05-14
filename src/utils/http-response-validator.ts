@@ -64,7 +64,8 @@ function isAuthRolesOrPermissionsEnvelope(data: unknown): boolean {
 /** Endpoints whose JSON shape intentionally diverges from SuccessResponse / PaginatedResponse. */
 function shouldBypassStructureValidation(url: string, data: unknown): boolean {
   if (
-    (url.includes("/api/v1/auth/validate") || url.includes("/api/auth/validate")) &&
+    (url.includes("/api/v1/auth/validate") ||
+      url.includes("/api/auth/validate")) &&
     data &&
     typeof data === "object" &&
     "data" in (data as Record<string, unknown>)

@@ -159,7 +159,8 @@ function AuthSection() {
       <div className="p-4 border-t border-sidebar-border space-y-2">
         <div className="text-xs text-muted-foreground">Initializing DataClient…</div>
         <div className="text-[10px] text-muted-foreground leading-snug">
-          Fetching config from <code className="px-0.5 bg-muted rounded">/api/v1/auth/client-token</code>
+          Fetching config from{' '}
+          <code className="px-0.5 bg-muted rounded">/api/v1/auth/client-token</code>
           (can take up to ~30s per try).
         </div>
       </div>

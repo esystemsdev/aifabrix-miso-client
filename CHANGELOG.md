@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.13.2] - 2026-05-14
+
+### Fixed
+
+- **`autoInitializeDataClient` with empty server `baseUrl`** - When the client-token payload returns an empty or whitespace-only `DataClientConfigResponse.baseUrl`, the SDK now merges the resolved init `baseUrl` (caller option or browser `window.location.origin`) before building `DataClient`, so `normalizeRootUrl` is not invoked with an empty root and initialization no longer fails for that response shape.
+
+### Technical
+
+- **Tests** - `tests/unit/data-client-auto-init.test.ts` asserts fallback behavior when the server config omits a usable `baseUrl`.
+
 ## [4.13.1] - 2026-05-14
 
 ### Added

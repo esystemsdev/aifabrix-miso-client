@@ -124,6 +124,36 @@ describe("data-client-auto-init", () => {
       expect(result).toBe(mockDataClientInstance);
     });
 
+    it("should use resolved baseUrl when server config baseUrl is empty", async () => {
+      const mockConfig = {
+        baseUrl: "",
+        controllerUrl: "https://controller.aifabrix.ai",
+        clientId: "ctrl-dev-test-app",
+        clientTokenUri: "/api/v1/auth/client-token",
+      };
+
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          token: "test-token",
+          expiresIn: 1800,
+          config: mockConfig,
+        }),
+      });
+
+      await autoInitializeDataClient();
+
+      expect(MockDataClient).toHaveBeenCalledWith({
+        baseUrl: "https://example.com",
+        misoConfig: {
+          clientId: mockConfig.clientId,
+          controllerUrl: mockConfig.controllerUrl,
+          controllerPublicUrl: undefined,
+          clientTokenUri: mockConfig.clientTokenUri,
+        },
+      });
+    });
+
     it("should use cached config if available and not expired", async () => {
       const mockConfig = {
         baseUrl: "https://example.com",
