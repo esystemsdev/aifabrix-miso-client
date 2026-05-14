@@ -1,17 +1,32 @@
 ---
 name: ""
-overview: ""
+overview: "Plan 57 shipped in miso-client 4.13.1 — joinApiRoot URL strategy, optional split roots (controllerBasePath, DataClient basePath), browser path-only controller roots (coerceControllerUrlToAbsolute), tests, docs."
 todos:
   - id: plan57-url-strategy
-    content: "Plan 57 — URL strategy (joinApiRoot, merge, controllerBasePath, tests, docs)"
+    content: "Plan 57 — URL strategy (joinApiRoot, merge, controllerBasePath, coerce path-only, tests, docs) — DONE"
     status: completed
 isProject: false
 ---
 
 # Plan 57 — miso-client: URL strategy (prerequisite)
 
-**Repo:** `aifabrix-miso-client` (`@aifabrix/miso-client`)  
+**Repo:** `aifabrix-miso-client` (`@aifabrix/miso-client`) **— shipped `4.13.1`**  
 **With:** `aifabrix-miso` plan 182 — controller returns **full** URLs + **`loginUrl` / `logoutUrl`**.
+
+---
+
+## Implementation snapshot (what we actually shipped)
+
+| Area | What exists in the repo |
+| --- | --- |
+| **Single joiner** | `joinApiRoot(root, path)` in `src/utils/url-join.ts` for all backend API path joins. |
+| **Root normalization** | `normalizeRootUrl` on axios `baseURL` in `internal-http-client.ts`, `client-token-manager.ts`. |
+| **Split origin + path** | `mergeRootUrlWithBasePath` + `normalizeOptionalBasePath` in `url-join.ts`; optional **`controllerBasePath`** on `MisoClientConfig`; optional **`basePath`** on `DataClientConfig` merged once in `createDefaultConfig` (`data-client-init.ts`). |
+| **Same-origin controller (browser)** | **`coerceControllerUrlToAbsolute(raw, isBrowser)`** in `controller-url-resolver.ts`: path-only values starting with `/` (not `//`) resolve with `window.location.origin`. **`resolveControllerUrl`** and **`getControllerUrl`** run **coerce → mergeRootUrlWithBasePath → localhost rewrite** (resolver only). Server-side controller URLs remain **full** `http(s)` only. |
+| **Consumers** | `data-client-core.ts` (requests), `data-client-auth.ts`, `data-client-auto-init.ts`, `data-client-redirect.ts` (login/logout). `data-client-request.ts` does not call `joinApiRoot` directly; it receives the full URL built in core. |
+| **Exports** | `sdk-exports.ts`: `joinApiRoot`, `normalizeRootUrl`, `mergeRootUrlWithBasePath`, `coerceControllerUrlToAbsolute`, `resolveControllerUrl`, `validateUrl`, `isBrowser`, … |
+| **Tests** | `tests/unit/url-join.test.ts`, `tests/unit/url-join-integration.test.ts`, `tests/unit/controller-url-resolver.test.ts` (path-only + coerce cases). |
+| **Docs / changelog** | `docs/configuration.md`, `dataclient.md`, `troubleshooting.md`, `README.md`; `CHANGELOG.md` **\[4.13.1\]**. |
 
 ---
 
@@ -118,7 +133,7 @@ Every product (miso-controller UI, dataplane, custom SPA) can be mounted at **an
 | ------- | ----------------- |
 | **Static assets** | Vite `base` (e.g. `/miso/`, `/data/`, `/`) |
 | **In-app routes** | React Router `basename` (aligned with that app’s deploy) |
-| **Public API root** | **Full URL** passed into miso-client |
+| **Public API root** | **Full URL** passed into miso-client, **or** (browser controller only) a **path-only** root such as `"/miso"` resolved via **`coerceControllerUrlToAbsolute`** + `window.location.origin` |
 
 **Examples (deploy-specific — not SDK constants):**
 
@@ -145,7 +160,7 @@ A custom app uses `apiRoot: "https://domain.com/myapp"` the same way. Root `http
 
 **DO NOT** in miso-client: hardcode `/miso`, `/data`, `/myapp`, or any product path; special-case controller vs dataplane inside **`joinApiRoot`**; branch on application **name** for URL building.
 
-**DO:** only **`joinApiRoot(root, path)`** with host-supplied **`root`** (full URL, any path). Same code for `/`, `/miso`, `/data`, `/anything`.
+**DO:** only **`joinApiRoot(root, path)`** with host-supplied **`root`** that is **absolute** after config resolution (full `http(s)` URL, or browser path-only controller root expanded by **`coerceControllerUrlToAbsolute`**). Same code for `/`, `/miso`, `/data`, `/anything`.
 
 ---
 
@@ -177,24 +192,25 @@ All apps use the **same** `joinApiRoot` implementation.
 
 ---
 
-## Code changes (miso-client)
+## Code changes (miso-client) — as implemented
 
-1. Add **`joinApiRoot`** (+ **`normalizeRootUrl`** if needed) in one module; **unit tests** (slashes, full roots with path, double-prefix guard).
-2. Refactor to **`joinApiRoot` only:** `data-client.ts`, `data-client-auth.ts`, `data-client-auto-init.ts`, `internal-http-client.ts`, `client-token-manager.ts`, `data-client-request.ts`.
-3. **`data-client-redirect.ts`:** use absolute **`loginUrl` / `logoutUrl`**; resolve legacy path-only values with **`joinApiRoot(controllerPublicUrl, path)`** — never **`new URL('/…', base)`** for API-shaped URLs (see **§2** anti-pattern).
-4. **In-app SPA redirects** (non-API): smallest possible helper (e.g. `joinSpaPath`) **or** host-only — must **not** become a second API joiner; prefer full URLs from server where possible.
-5. **Types / `DataClientConfigResponse`:** document full **`controllerPublicUrl` / `controllerPrivateUrl`**; optional **`basePath`** as compatibility (root without path + `basePath`); document normalization rules per **§7** (no double-prefix).
-6. **`sdk-exports`:** export **`joinApiRoot`** (and **`normalizeRootUrl`** if public). No Keycloak helpers.
-7. **README + CHANGELOG:** decisions §1–§9, tables, reference config, **generic multi-app** (`/` … `/anything`), semver.
-8. **Audit / CI guard:** no string literals such as `/miso`, `/data`, `/myapp` as SDK defaults in URL-join or routing logic (product paths come **only** from configuration).
+1. **`src/utils/url-join.ts`** — `joinApiRoot`, `normalizeRootUrl`, `isDoublePrefix`, `mergeRootUrlWithBasePath`, `normalizeOptionalBasePath`; unit tests in `tests/unit/url-join.test.ts`; integration tests in `tests/unit/url-join-integration.test.ts`.
+2. **Refactor to `joinApiRoot`:** `data-client-core.ts`, `data-client-auth.ts`, `data-client-auto-init.ts`, `data-client-redirect.ts`, `internal-http-client.ts`, `client-token-manager.ts`. (`data-client.ts` is the façade module; request execution stays in `data-client-request.ts` using URLs already joined in core.)
+3. **`data-client-redirect.ts`** — absolute `loginUrl` / `logoutUrl` when full URLs; path-only legacy values joined with **`joinApiRoot`** against the resolved controller root (not `new URL('/…', base)` for API paths).
+4. **SPA / non-API redirects** — no second API joiner in the SDK; host-owned or minimal helpers only.
+5. **Types / JSDoc** — `MisoClientConfig` (`controllerBasePath`, path-only browser controller URL docs); `DataClientConfig.basePath`; `DataClientConfigResponse` / client-token endpoint: full URL fields; server JSON still has **no** `basePath` field.
+6. **`src/utils/controller-url-resolver.ts`** — `coerceControllerUrlToAbsolute`; `resolveControllerUrl`: coerce → `mergeRootUrlWithBasePath` → localhost normalization.
+7. **`sdk-exports.ts`** — exports `joinApiRoot`, `normalizeRootUrl`, `mergeRootUrlWithBasePath`, `coerceControllerUrlToAbsolute` (and existing resolver exports).
+8. **Docs + `CHANGELOG.md`** — URL strategy, double-prefix, optional split + path-only browser controller; release **4.13.1**.
+9. **Guardrail** — no hardcoded `/miso` / `/data` / `/myapp` defaults in URL-join logic; paths come from config / caller only.
 
-**Controller (other repo):** client-token / IDE config emits **full** roots + absolute **`loginUrl` / `logoutUrl`**.
+**Controller (other repo):** client-token / IDE config should still emit **full** roots + absolute **`loginUrl` / `logoutUrl`** where possible; the SDK additionally tolerates **browser** path-only controller roots for same-origin apps.
 
 ---
 
 ## Acceptance
 
-- Every SDK-built HTTP URL is `joinApiRoot(root, path)` with a **full** `root` in default setups; when origin + optional `basePath` is used, the effective root is normalized with **no double-prefix** (§1, §7).
+- Every SDK-built HTTP URL is `joinApiRoot(root, path)` with an **absolute** `root` after resolution: full `http(s)` URL, **or** (browser controller config) path-only + `coerceControllerUrlToAbsolute`. Optional **`controllerBasePath`** / DataClient **`basePath`** merge without double-prefix (§1, §7).
 - No hardcoded virtual-directory segments in SDK; any mount (`/`, `/miso`, `/data`, `/anything`) uses the same `joinApiRoot`.
 - No Keycloak URL logic in miso-client; login/logout from config only.
 - No Front Door / proxy vendor logic.
@@ -213,13 +229,14 @@ Keycloak admin, Express mount details (plan 182), proxy rule authoring.
 Evidence-backed completion for **Code changes (miso-client)** and acceptance:
 
 - [x] **1.** `src/utils/url-join.ts` — `joinApiRoot`, `normalizeRootUrl`, `isDoublePrefix`, `mergeRootUrlWithBasePath`, `normalizeOptionalBasePath`; `tests/unit/url-join.test.ts`, `tests/unit/url-join-integration.test.ts`.
-- [x] **2.** `joinApiRoot` / `normalizeRootUrl` wired through `data-client-core.ts`, `data-client-auth.ts`, `data-client-auto-init.ts`, `internal-http-client.ts`, `client-token-manager.ts`; HTTP URLs built in `data-client-core` (request path uses `joinApiRoot`; `data-client-request.ts` consumes full URL from core).
-- [x] **3.** `data-client-redirect.ts` — absolute vs path-only login/logout via `joinApiRoot` where applicable.
+- [x] **2.** `joinApiRoot` / `normalizeRootUrl` wired through `data-client-core.ts`, `data-client-auth.ts`, `data-client-auto-init.ts`, `internal-http-client.ts`, `client-token-manager.ts`; `data-client-request.ts` uses URLs produced in core (no duplicate joiner).
+- [x] **3.** `data-client-redirect.ts` — login/logout URL construction via `joinApiRoot` where path-only legacy values are resolved against the controller root.
 - [x] **4.** No second API joiner in SDK; SPA redirect guidance unchanged (host / minimal helper).
-- [x] **5.** Types / JSDoc — `config.types.ts` (`controllerBasePath`), `data-client.types.ts` (`basePath`), `express/client-token-endpoint.ts` (`DataClientConfigResponse` full URLs; server payload still no `basePath` field).
-- [x] **6.** `sdk-exports.ts` — exports `joinApiRoot`, `normalizeRootUrl`, `mergeRootUrlWithBasePath`.
-- [x] **7.** `docs/configuration.md`, `docs/dataclient.md`, `docs/troubleshooting.md`, `docs/README.md`, `CHANGELOG.md`.
-- [x] **8.** No hardcoded `/miso`/`/data`/`/myapp` defaults in `url-join` (paths from config/constants only).
+- [x] **5.** Types / JSDoc — `config.types.ts` (`controllerBasePath`, browser path-only controller docs); `data-client.types.ts` (`basePath`); `express/client-token-endpoint.ts` (`DataClientConfigResponse` full URLs; server payload still no `basePath` field).
+- [x] **6.** `src/utils/controller-url-resolver.ts` — `coerceControllerUrlToAbsolute`, `resolveControllerUrl` (coerce → merge → localhost); `getControllerUrl` in `data-client-auth.ts` aligned.
+- [x] **7.** `sdk-exports.ts` — exports `joinApiRoot`, `normalizeRootUrl`, `mergeRootUrlWithBasePath`, `coerceControllerUrlToAbsolute`, resolver utilities.
+- [x] **8.** `docs/configuration.md`, `docs/dataclient.md`, `docs/troubleshooting.md`, `docs/README.md`, `CHANGELOG.md` (**4.13.1**).
+- [x] **9.** No hardcoded `/miso`/`/data`/`/myapp` defaults in `url-join` (paths from config/constants only).
 
 ---
 
@@ -230,12 +247,12 @@ Evidence-backed completion for **Code changes (miso-client)** and acceptance:
 
 ### Executive Summary
 
-All plan **Code changes** items are implemented in `aifabrix-miso-client` with matching tests and documentation. Quality gates ran in the mandated order; all passed. Optional split-URL support (`controllerBasePath`, `mergeRootUrlWithBasePath`, DataClient `basePath`) is present beyond the original numbered list and is reflected in types, resolver, init, and docs.
+All plan **Code changes** items are implemented in `aifabrix-miso-client` **4.13.1** with matching tests and documentation. Optional split roots (`controllerBasePath`, DataClient `basePath`), **`mergeRootUrlWithBasePath`**, and **browser path-only controller roots** via **`coerceControllerUrlToAbsolute`** are in production code and reflected below.
 
 ### Task Completion
 
-- Total: 8 (numbered code changes)
-- Completed: 8
+- Total: 9 (numbered code changes as implemented)
+- Completed: 9
 - Incomplete: 0
 
 ### Task State Synchronization
@@ -248,14 +265,16 @@ All plan **Code changes** items are implemented in `aifabrix-miso-client` with m
 
 - ✅ `src/utils/url-join.ts` exists with `joinApiRoot`, `normalizeRootUrl`, `mergeRootUrlWithBasePath`, `normalizeOptionalBasePath`, `isDoublePrefix`.
 - ✅ Consumers: `data-client-core.ts`, `data-client-auth.ts`, `data-client-auto-init.ts`, `data-client-redirect.ts`, `internal-http-client.ts`, `client-token-manager.ts` use URL helpers as designed.
-- ✅ `src/utils/controller-url-resolver.ts` applies `mergeRootUrlWithBasePath` after URL resolution.
+- ✅ `src/utils/controller-url-resolver.ts` — `coerceControllerUrlToAbsolute`, `resolveControllerUrl` (**coerce → mergeRootUrlWithBasePath → localhost**).
 - ✅ `src/utils/data-client-init.ts` merges `basePath` into `baseUrl` in `createDefaultConfig`.
-- ✅ `src/sdk-exports.ts` exports URL helpers.
-- ✅ Docs and `CHANGELOG.md` updated for URL strategy and optional split config.
+- ✅ `src/utils/data-client-auth.ts` — `getControllerUrl` uses coerce + merge (aligned with resolver).
+- ✅ `src/sdk-exports.ts` exports URL helpers including **`coerceControllerUrlToAbsolute`**.
+- ✅ Docs and `CHANGELOG.md` (release **4.13.1**) updated for URL strategy, split roots, and path-only browser controller.
 
 ### Automated Tests Validation
 
 - ✅ `tests/unit/url-join.test.ts` and `tests/unit/url-join-integration.test.ts` cover join, normalize, merge, and integration flows.
+- ✅ `tests/unit/controller-url-resolver.test.ts` covers `coerceControllerUrlToAbsolute`, path-only browser `resolveControllerUrl`, and server rejection of path-only roots.
 - ✅ Full Jest suite passes (see Quality Gates).
 
 ### Quality Gates
@@ -279,7 +298,7 @@ All plan **Code changes** items are implemented in `aifabrix-miso-client` with m
 
 ### Issues and Recommendations
 
-- None blocking. Plan text still references `data-client.ts` as a refactor target; implementation uses `data-client-core.ts` and related modules — behavior matches intent.
+- None blocking. Normative sections and checklist above match the **4.13.1** tree (`data-client-core.ts` as the primary DataClient implementation module alongside `data-client.ts` exports).
 
 ### Final Checklist
 
@@ -290,4 +309,4 @@ All plan **Code changes** items are implemented in `aifabrix-miso-client` with m
 
 ---
 
-*Simplified plan: full URLs, optional `basePath` compatibility (§1), safe virtual-directory normalization (§7), one `joinApiRoot`, per-app Vite/Router/API root (§9), miso-client owns API URLs, controller owns auth entry URLs.*
+*Shipped in **4.13.1**: full URLs, optional split `controllerBasePath` / DataClient `basePath`, browser path-only controller roots via `coerceControllerUrlToAbsolute`, safe virtual-directory normalization (§7), one `joinApiRoot`, per-app Vite/Router/API root (§9), miso-client owns API URLs, controller owns auth entry URLs.*
