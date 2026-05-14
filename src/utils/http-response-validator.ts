@@ -42,6 +42,41 @@ function isMinimalLogsResponse(data: unknown): boolean {
   return false;
 }
 
+/** Controller RBAC GET responses: `{ data: { roles | permissions, ... } }` without top-level success. */
+function isAuthRolesOrPermissionsUrl(url: string): boolean {
+  return (
+    url.includes("/api/v1/auth/roles") ||
+    url.includes("/api/auth/roles") ||
+    url.includes("/api/v1/auth/permissions") ||
+    url.includes("/api/auth/permissions")
+  );
+}
+
+function isAuthRolesOrPermissionsEnvelope(data: unknown): boolean {
+  if (!data || typeof data !== "object") return false;
+  const root = data as Record<string, unknown>;
+  const inner = root.data;
+  if (!inner || typeof inner !== "object") return false;
+  const payload = inner as Record<string, unknown>;
+  return Array.isArray(payload.roles) || Array.isArray(payload.permissions);
+}
+
+/** Endpoints whose JSON shape intentionally diverges from SuccessResponse / PaginatedResponse. */
+function shouldBypassStructureValidation(url: string, data: unknown): boolean {
+  if (
+    (url.includes("/api/v1/auth/validate") || url.includes("/api/auth/validate")) &&
+    data &&
+    typeof data === "object" &&
+    "data" in (data as Record<string, unknown>)
+  ) {
+    return true;
+  }
+  if (isLogsEndpoint(url) && isMinimalLogsResponse(data)) return true;
+  return (
+    isAuthRolesOrPermissionsUrl(url) && isAuthRolesOrPermissionsEnvelope(data)
+  );
+}
+
 /**
  * Validate response structure if validation is enabled
  * Logs warnings for validation failures but doesn't throw (non-breaking behavior)
@@ -58,21 +93,7 @@ export function validateHttpResponse(
   // Skip validation if explicitly disabled
   if (config.validateResponses === false) return true;
 
-  // Skip validation for validate token endpoint - it may return different formats
-  if (
-    url.includes("/api/v1/auth/validate") ||
-    url.includes("/api/auth/validate")
-  ) {
-    if (
-      data &&
-      typeof data === "object" &&
-      "data" in (data as Record<string, unknown>)
-    ) {
-      return true;
-    }
-  }
-
-  if (isLogsEndpoint(url) && isMinimalLogsResponse(data)) {
+  if (shouldBypassStructureValidation(url, data)) {
     return true;
   }
 

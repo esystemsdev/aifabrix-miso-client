@@ -48,4 +48,36 @@ describe("http-response-validator", () => {
     );
     expect(result).toBe(false);
   });
+
+  it("should accept controller RBAC roles envelope for auth/roles URL", () => {
+    const result = validateHttpResponse(
+      {
+        data: {
+          userId: "u1",
+          roles: ["aifabrix-developer"],
+          environment: "dev",
+          application: "default",
+        },
+      },
+      "https://controller.example/api/v1/auth/roles",
+      baseConfig,
+    );
+    expect(result).toBe(true);
+  });
+
+  it("should accept controller RBAC permissions envelope for auth/permissions URL", () => {
+    const result = validateHttpResponse(
+      {
+        data: {
+          userId: "u1",
+          permissions: ["applications:read"],
+          environment: "dev",
+          application: "default",
+        },
+      },
+      "/api/v1/auth/permissions",
+      baseConfig,
+    );
+    expect(result).toBe(true);
+  });
 });

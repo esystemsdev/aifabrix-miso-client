@@ -77,8 +77,12 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
    * @returns Promise that resolves when initialization completes (success or final failure)
    */
   const initialize = async (attempt: number = 0): Promise<void> => {
-    setIsLoading(true);
-    setError(null);
+    // Only the outermost attempt toggles global loading; nested retries await
+    // inside this call so `finally` must not run until all retries finish.
+    if (attempt === 0) {
+      setIsLoading(true);
+      setError(null);
+    }
 
     try {
       const client = await autoInitializeDataClient({
@@ -106,15 +110,18 @@ export function DataClientProvider({ children, initOptions }: DataClientProvider
         // Wait before retrying
         await new Promise((resolve) => setTimeout(resolve, delay));
 
-        // Retry initialization
-        return initialize(nextAttempt);
+        // Await nested attempts so this frame's `finally` does not clear loading early
+        await initialize(nextAttempt);
+        return;
       }
 
       // Max retries exceeded - set error and stop loading
       setError(error);
       setDataClient(null);
     } finally {
-      setIsLoading(false);
+      if (attempt === 0) {
+        setIsLoading(false);
+      }
     }
   };
 
