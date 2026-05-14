@@ -26,7 +26,7 @@ import {
   clearStoredSessionTokens,
   TokenStorageMap,
 } from "./user-token-refresh";
-import { joinApiRoot } from "./url-join";
+import { joinApiRoot, mergeRootUrlWithBasePath } from "./url-join";
 
 // Re-export OAuth callback from dedicated module
 export { handleOAuthCallback } from "./data-client-oauth";
@@ -160,7 +160,10 @@ export function getControllerUrl(
   misoConfig: MisoClientConfig | undefined,
 ): string | null {
   if (!misoConfig) return null;
-  return misoConfig.controllerPublicUrl || misoConfig.controllerUrl || null;
+  const raw =
+    misoConfig.controllerPublicUrl || misoConfig.controllerUrl || null;
+  if (!raw) return null;
+  return mergeRootUrlWithBasePath(raw, misoConfig.controllerBasePath);
 }
 
 function debugClientToken(isDebug: boolean, message: string): void {

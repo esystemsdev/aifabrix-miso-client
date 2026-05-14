@@ -19,9 +19,12 @@ Common issues and fixes: connection, auth, Redis, CORS.
 
 Symptoms: requests hit URLs like `…/miso/miso/api/v1/…` or `…/data/data/api/…` and return 404.
 
-Cause: the virtual-directory segment is in `controllerPublicUrl` (or `baseUrl`) **and** also added a second time elsewhere — for example, a separate `basePath` setting in your host app, or a duplicate prefix in a custom `clientTokenUri`.
+Cause: the virtual-directory segment appears **twice** in the final URL. Common cases:
 
-Fix: keep the virtual-directory segment in the configured root **exactly once**. Use one full URL such as `https://domain.com/miso` and let the SDK join API paths to it. Do not configure a separate base-path setting on top. See [configuration.md](configuration.md#full-urls-and-virtual-directories) for the full-URL convention and the table of supported mounts.
+- **Host-side duplication:** `controllerPublicUrl` or `baseUrl` already includes `/miso` (or `/data`), and the same segment is added again (e.g. React Router `basename` + manual string concat for API calls, or a custom `clientTokenUri` that repeats the mount).
+- **Misused SDK compatibility fields:** optional **`controllerBasePath`** / DataClient **`basePath`** are for an **origin-only** root plus a separate path. If the root URL already contains that path, leave `controllerBasePath` / `basePath` unset, or the merge will no-op — but if you **also** duplicate the segment in env or host code, you can still get a double-prefix.
+
+Fix: keep the segment in the effective API root **exactly once**. Prefer one full URL (`https://domain.com/miso`). If you use **`controllerBasePath`** or **`basePath`**, use origin-only controller/dataplane URLs and let the SDK merge once; do not add the same prefix again elsewhere. See [configuration.md](configuration.md#full-urls-and-virtual-directories).
 
 ## Authentication
 

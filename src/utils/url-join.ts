@@ -6,6 +6,8 @@
  *
  * Decisions enforced by this module (see plan 57):
  *   - Prefer full URLs as the `root` (may include path, e.g. "https://domain.com/miso").
+ *   - Optional split config: origin-only root + {@link mergeRootUrlWithBasePath}
+ *     (plan §1, §7) — never double-prefix when root already contains the path.
  *   - The `path` argument MUST start with "/".
  *   - There is exactly ONE join function for backend URLs. Do not introduce
  *     "controller join", "app join", or "auth join" duplicates.
@@ -62,10 +64,86 @@ export function normalizeRootUrl(root: string): string {
 }
 
 /**
+ * Normalize optional application virtual-directory `basePath`.
+ *
+ * @returns `null` when absent, empty, or `/` only (no extra path to apply).
+ */
+export function normalizeOptionalBasePath(
+  basePath?: string | null,
+): string | null {
+  if (basePath === undefined || basePath === null) {
+    return null;
+  }
+  if (typeof basePath !== "string") {
+    return null;
+  }
+  let s = basePath.trim();
+  if (s === "" || s === "/") {
+    return null;
+  }
+  if (!s.startsWith("/")) {
+    s = `/${s}`;
+  }
+  while (s.length > 1 && s.endsWith("/")) {
+    s = s.slice(0, -1);
+  }
+  return s;
+}
+
+/**
+ * Merge a full root URL with an optional virtual-directory `basePath`.
+ *
+ * - **Origin-only root** (path empty or `/`): appends `basePath` (e.g.
+ *   `https://domain.com` + `/miso` → `https://domain.com/miso`).
+ * - **Root already equals `basePath` or starts with `basePath/`**: returns
+ *   `rootUrl` unchanged so callers never get `/miso/miso`.
+ * - **Root has another non-empty path** that does not start with `basePath`:
+ *   returns `rootUrl` unchanged and ignores `basePath` (ambiguous split
+ *   config; fix by using a single full `root` URL).
+ *
+ * Does not strip query/hash from `rootUrl`; use {@link normalizeRootUrl} on
+ * the result when feeding HTTP clients.
+ */
+export function mergeRootUrlWithBasePath(
+  rootUrl: string,
+  basePath?: string | null,
+): string {
+  const bp = normalizeOptionalBasePath(basePath);
+  if (!bp) {
+    return rootUrl;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(rootUrl);
+  } catch {
+    throw new Error(`mergeRootUrlWithBasePath: invalid root URL "${rootUrl}"`);
+  }
+
+  let rp = parsed.pathname || "";
+  if (rp.length > 1 && rp.endsWith("/")) {
+    rp = rp.replace(/\/+$/, "");
+  }
+  if (rp === "/") {
+    rp = "";
+  }
+
+  if (rp === bp || rp.startsWith(`${bp}/`)) {
+    return rootUrl;
+  }
+
+  if (rp === "") {
+    return `${parsed.origin}${bp}`;
+  }
+
+  return rootUrl;
+}
+
+/**
  * Detect a likely double-prefix between root path and the leading segment of
  * `path`. Used for an optional warning, not for silent de-duplication; the
- * caller is responsible for fixing config (e.g. drop `basePath` if `root`
- * already includes it).
+ * caller is responsible for fixing config (e.g. use {@link mergeRootUrlWithBasePath}
+ * or drop redundant `controllerBasePath` when the root URL already includes it).
  *
  * @internal
  */

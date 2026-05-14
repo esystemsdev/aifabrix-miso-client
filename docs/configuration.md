@@ -131,6 +131,7 @@ For different browser vs server URLs (e.g. public HTTPS for browser, private URL
 - `controllerUrl` – fallback used when others are not set
 - `controllerPublicUrl` – used in browser (e.g. Vite/React)
 - `controllerPrivateUrl` – used on server (e.g. Node/Express)
+- `controllerBasePath` – optional; virtual-directory path when the chosen URL above is **origin-only** (see [Full URLs and virtual directories](#full-urls-and-virtual-directories))
 
 Set via env or config. The SDK picks the right one by environment. See the full configuration reference in the repository for Keycloak, audit, and advanced options.
 
@@ -151,19 +152,30 @@ The SDK joins API paths to the configured root with a single helper, so the same
 | Custom application | `https://domain.com/myapp` |
 | Root mount         | `https://domain.com`       |
 
-**Avoid double-prefix.** If `controllerPublicUrl` already ends with `/miso`, do **not** add a separate `basePath`-style prefix elsewhere. Keep the virtual-directory segment in the URL exactly once. Symptoms of a double-prefix bug are URLs like `…/miso/miso/api/v1/…`.
+**Preferred vs split URL (compatibility).** The default is a **single full URL** per root (path already in the string), as in the table above. If your environment only provides an **origin** and a separate virtual-directory segment, you can set optional **`controllerBasePath`** on `MisoClientConfig` (e.g. `controllerPublicUrl: "https://domain.com"` + `controllerBasePath: "/miso"`). The SDK merges with `mergeRootUrlWithBasePath` so the effective controller root is `https://domain.com/miso` and the same segment is **not** applied twice when the URL already contains that path.
+
+**Avoid double-prefix.** Symptoms of a misconfiguration are URLs like `…/miso/miso/api/v1/…`. Do not also add the same segment in a **second** place (e.g. host-only `basename`/`base` applied again to API URLs, or a custom `clientTokenUri` that repeats `/miso`). If you use **`controllerBasePath`**, keep `controllerPublicUrl` / `controllerUrl` / `controllerPrivateUrl` as the **origin-only** form when you intend the base path to supply the mount; if those fields already include `/miso`, leave **`controllerBasePath`** unset or ensure it matches so the merge is a no-op.
 
 **Two roots, one joiner.** When you call your own backend (dataplane or a custom app) **and** the controller, configure two **independent** full URLs — one for each — and let the SDK join paths to each root separately. There is one join helper for everything; do not introduce a second URL-build path.
 
 **Vite and React Router are host concerns.** miso-client never reads Vite config. In your host app, configure Vite `base` for static assets and React Router `basename` for in-app routes; configure the SDK with the **full backend URL** independently. The three settings can move together (same virtual directory) but they live in three different places.
 
-For advanced cases where you need to compose URLs yourself (e.g. building an audit log link), the SDK exports the same helper it uses internally:
+For advanced cases where you need to compose URLs yourself (e.g. building an audit log link), the SDK exports the same helpers it uses internally:
 
 ```typescript
-import { joinApiRoot, normalizeRootUrl } from "@aifabrix/miso-client";
+import {
+  joinApiRoot,
+  mergeRootUrlWithBasePath,
+  normalizeRootUrl,
+} from "@aifabrix/miso-client";
 
 joinApiRoot("https://domain.com/miso", "/api/v1/health");
 // "https://domain.com/miso/api/v1/health"
+
+mergeRootUrlWithBasePath("https://domain.com", "/miso");
+// "https://domain.com/miso"
 ```
 
-`joinApiRoot(root, path)` requires `path` to start with `/`. `normalizeRootUrl(root)` validates and trims trailing slashes; it accepts http/https only.
+`joinApiRoot(root, path)` requires `path` to start with `/`. `normalizeRootUrl(root)` validates and trims trailing slashes; it accepts http/https only. `mergeRootUrlWithBasePath(root, basePath)` merges an optional virtual-directory `basePath` when `root` is origin-only, and avoids duplicating the segment when `root` already contains it.
+
+**Server client-token JSON:** the `DataClientConfigResponse` from your backend still has **no** `basePath` field — `baseUrl` / controller URLs in that payload should be full URLs when possible. Browser-side **`DataClientConfig.basePath`** (see [dataclient.md](dataclient.md)) is an optional client-only compatibility field merged once at init.

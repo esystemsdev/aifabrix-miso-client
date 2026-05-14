@@ -13,6 +13,8 @@ import {
   joinApiRoot,
   normalizeRootUrl,
   isDoublePrefix,
+  mergeRootUrlWithBasePath,
+  normalizeOptionalBasePath,
 } from "../../src/utils/url-join";
 
 describe("url-join", () => {
@@ -182,9 +184,9 @@ describe("url-join", () => {
     });
 
     it("throws on path that does not start with '/'", () => {
-      expect(() =>
-        joinApiRoot("https://example.com", "api/v1/health"),
-      ).toThrow(/path must start with "\/"/);
+      expect(() => joinApiRoot("https://example.com", "api/v1/health")).toThrow(
+        /path must start with "\/"/,
+      );
     });
 
     it("throws on empty path", () => {
@@ -305,11 +307,65 @@ describe("url-join", () => {
       ],
     ];
 
-    it.each(cases)(
-      "joinApiRoot(%s, %s) === %s",
-      (root, path, expected) => {
-        expect(joinApiRoot(root, path)).toBe(expected);
-      },
-    );
+    it.each(cases)("joinApiRoot(%s, %s) === %s", (root, path, expected) => {
+      expect(joinApiRoot(root, path)).toBe(expected);
+    });
+  });
+
+  describe("normalizeOptionalBasePath", () => {
+    it("returns null for undefined, null, empty, slash-only", () => {
+      expect(normalizeOptionalBasePath(undefined)).toBeNull();
+      expect(normalizeOptionalBasePath(null)).toBeNull();
+      expect(normalizeOptionalBasePath("")).toBeNull();
+      expect(normalizeOptionalBasePath("  ")).toBeNull();
+      expect(normalizeOptionalBasePath("/")).toBeNull();
+    });
+
+    it("adds leading slash and trims trailing slashes", () => {
+      expect(normalizeOptionalBasePath("miso")).toBe("/miso");
+      expect(normalizeOptionalBasePath("/miso/")).toBe("/miso");
+      expect(normalizeOptionalBasePath("/data/api/")).toBe("/data/api");
+    });
+  });
+
+  describe("mergeRootUrlWithBasePath", () => {
+    it("appends basePath for origin-only root", () => {
+      expect(mergeRootUrlWithBasePath("https://domain.com", "/miso")).toBe(
+        "https://domain.com/miso",
+      );
+      expect(mergeRootUrlWithBasePath("https://domain.com/", "/miso")).toBe(
+        "https://domain.com/miso",
+      );
+    });
+
+    it("does not double-prefix when root already equals basePath", () => {
+      expect(mergeRootUrlWithBasePath("https://domain.com/miso", "/miso")).toBe(
+        "https://domain.com/miso",
+      );
+    });
+
+    it("does not double-prefix when root path extends basePath", () => {
+      expect(
+        mergeRootUrlWithBasePath("https://domain.com/miso/v2", "/miso"),
+      ).toBe("https://domain.com/miso/v2");
+    });
+
+    it("ignores basePath when root has unrelated path", () => {
+      expect(
+        mergeRootUrlWithBasePath("https://domain.com/other", "/miso"),
+      ).toBe("https://domain.com/other");
+    });
+
+    it("returns root unchanged when basePath is absent", () => {
+      expect(
+        mergeRootUrlWithBasePath("https://domain.com/miso", undefined),
+      ).toBe("https://domain.com/miso");
+    });
+
+    it("throws on invalid root URL", () => {
+      expect(() => mergeRootUrlWithBasePath("not-a-url", "/miso")).toThrow(
+        /invalid root URL/,
+      );
+    });
   });
 });

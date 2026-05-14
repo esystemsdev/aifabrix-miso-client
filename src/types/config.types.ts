@@ -63,8 +63,13 @@ export interface MisoClientConfig {
   //
   // All controller URL fields are **full** URLs. They may include a
   // virtual-directory path (e.g. "https://domain.com/miso"). API paths are
-  // joined to these roots with the single `joinApiRoot` helper; do not pass a
-  // separate "base path" alongside an origin.
+  // joined to these roots with the single `joinApiRoot` helper.
+  //
+  // **Optional `controllerBasePath`:** compatibility when the URL field is an
+  // origin only (e.g. "https://domain.com") and the virtual directory is
+  // supplied separately (e.g. "/miso"). Prefer a single full URL when
+  // possible; {@link mergeRootUrlWithBasePath} merges without double-prefix
+  // when the path is already present (plan §1, §7).
   //
   // controllerUrl is optional but recommended for backward compatibility.
   // If not provided, controllerPublicUrl (browser) or controllerPrivateUrl
@@ -81,6 +86,18 @@ export interface MisoClientConfig {
   // Full URL, may include a virtual-directory path. Falls back to
   // controllerUrl when not provided.
   controllerPrivateUrl?: string;
+
+  /**
+   * Optional virtual-directory path when `controllerUrl` / `controllerPublicUrl`
+   * / `controllerPrivateUrl` is an **origin-only** URL (no pathname). Same
+   * merge rules as DataClient `basePath` (plan §1, §7): ignored when the
+   * resolved URL already contains this path; never applied twice.
+   *
+   * @example
+   * `controllerPublicUrl: "https://domain.com"` + `controllerBasePath: "/miso"`
+   * → effective root `https://domain.com/miso`.
+   */
+  controllerBasePath?: string;
 
   // Optional: Pre-obtained client token (for browser usage - avoids exposing clientSecret)
   clientToken?: string;

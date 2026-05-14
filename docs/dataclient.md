@@ -68,7 +68,7 @@ const dataClient = new DataClient({
 
 Do not set `clientSecret` in browser config; use `clientToken` + `onClientTokenRefresh` only.
 
-**`baseUrl` is a full URL** and may include a virtual-directory path (e.g. `https://domain.com/data` for a dataplane, `https://domain.com/myapp` for a custom app, or `https://domain.com` for a root mount). The SDK joins endpoint paths to whatever root you provide; no separate base-path setting is needed.
+**`baseUrl` is a full URL** and may include a virtual-directory path (e.g. `https://domain.com/data` for a dataplane, `https://domain.com/myapp` for a custom app, or `https://domain.com` for a root mount). **Prefer** putting the mount in `baseUrl` itself. For compatibility when you only have an origin plus a path segment, set optional **`basePath`** (e.g. `baseUrl: "https://domain.com"` + `basePath: "/data"`); the SDK merges once at init via `mergeRootUrlWithBasePath` and does not duplicate the segment if `baseUrl` already contains it. See [configuration.md](configuration.md#full-urls-and-virtual-directories).
 
 ## Main methods
 
@@ -134,7 +134,7 @@ Configure these as two **independent** full URLs. The SDK joins endpoint paths t
 
 If your backend returns both URLs, use them as-is. If the API sometimes returns the same origin as the app (e.g. in dev), resolve or override so validate/getUser/logs hit the real controller, not the dataplane.
 
-Avoid double-prefix: when a root already includes a virtual directory like `/miso`, do **not** add a separate `basePath`-style prefix on top — keep the segment in the URL exactly once. See [configuration.md](configuration.md#full-urls-and-virtual-directories).
+Avoid double-prefix: do not put the same virtual-directory segment in **`baseUrl`** and again in **`basePath`**, and do not combine SDK `basePath` with an unrelated duplicate prefix from the host app. Prefer one full `baseUrl`; use optional `basePath` only for origin + path split. See [configuration.md](configuration.md#full-urls-and-virtual-directories).
 
 **5. Interceptors**  
 Use `dataClient.setInterceptors({ onRequest: async (url, options) => { ... } })` to add e.g. `X-Request-ID`, `Authorization: Bearer <token>` (from your tokenKeys), and `X-Client-Token` when available.

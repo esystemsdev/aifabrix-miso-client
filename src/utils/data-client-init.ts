@@ -16,6 +16,7 @@ import { LoggerService } from "../services/logger";
 import { RedisService } from "../services/redis.service";
 import { isBrowser, getLocalStorage } from "./data-client-utils";
 import { writeWarn } from "./console-logger";
+import { mergeRootUrlWithBasePath, normalizeRootUrl } from "./url-join";
 
 /**
  * Result of DataClient initialization
@@ -148,6 +149,10 @@ export function warnIfClientSecretInBrowser(config: DataClientConfig): void {
 export function createDefaultConfig(
   config: DataClientConfig,
 ): DataClientConfig {
+  const { basePath, baseUrl, ...rest } = config;
+  const mergedBaseUrl = normalizeRootUrl(
+    mergeRootUrlWithBasePath(baseUrl, basePath),
+  );
   return {
     tokenKeys: ["miso_token", "token", "accessToken", "authToken"],
     loginUrl: "/login",
@@ -172,6 +177,7 @@ export function createDefaultConfig(
       maxMaskingSize: 50000,
       skipEndpoints: [],
     },
-    ...config,
+    ...rest,
+    baseUrl: mergedBaseUrl,
   };
 }

@@ -106,9 +106,18 @@ export interface UserSessionTokenResult {
  */
 export interface DataClientConfig {
   /**
-   * Base URL for API requests
+   * Base URL for API requests (full URL; may include a virtual-directory path).
    */
   baseUrl: string;
+
+  /**
+   * Optional virtual-directory path when `baseUrl` is origin-only (no pathname),
+   * e.g. `baseUrl: "https://domain.com"` + `basePath: "/data"` → effective
+   * `https://domain.com/data`. Ignored when `baseUrl` already contains this
+   * path (no double-prefix; plan §1, §7). Prefer a single full `baseUrl` when
+   * the host can supply it.
+   */
+  basePath?: string;
 
   /**
    * MisoClient configuration (required for authentication and audit logging)

@@ -6,6 +6,7 @@
 
 import { MisoClientConfig } from "../types/config.types";
 import { KeycloakConfig } from "../types/token-validation.types";
+import { mergeRootUrlWithBasePath } from "./url-join";
 
 /**
  * Check if running in browser environment
@@ -89,6 +90,11 @@ export function resolveControllerUrl(config: MisoClientConfig): string {
       `Invalid controller URL format: "${resolvedUrl}". URL must be a valid HTTP or HTTPS URL.`,
     );
   }
+
+  resolvedUrl = mergeRootUrlWithBasePath(
+    resolvedUrl,
+    config.controllerBasePath,
+  );
 
   // Resolve localhost to 127.0.0.1 to force IPv4 and avoid IPv6 connection issues
   // This prevents axios from hanging on IPv6 (::1) connections
