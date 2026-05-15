@@ -218,6 +218,11 @@ const dataClientWithRefresh = new DataClient({
 });
 ```
 
+Final browser token contract:
+
+- canonical access-token key is `miso_token`
+- legacy keys `token` / `accessToken` / `authToken` are unsupported after cutover
+
 → [DataClient](docs/dataclient.md) · [Backend client token](docs/backend-client-token.md)
 
 ---

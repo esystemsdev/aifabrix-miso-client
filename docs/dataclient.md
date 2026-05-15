@@ -93,9 +93,13 @@ const hasRole = await dataClient.hasRole("admin");
 
 DataClient sends the user token (e.g. from URL hash or your auth state) when calling these methods. Configure how the token is provided per your app (e.g. OAuth callback, storage).
 
-### Custom token key (e.g. `miso_token`)
+### Token key contract (`miso_token`)
 
-By default DataClient looks for the user token in localStorage under `token`, `accessToken`, or `authToken`. To use your own key (e.g. `miso_token`), set **`tokenKeys`**:
+By default DataClient reads and writes the browser access token under `miso_token`.
+
+`token`, `accessToken`, and `authToken` are legacy migration keys and are unsupported in the final cutover contract.
+
+If your app uses a different key, set **`tokenKeys`** explicitly:
 
 ```typescript
 const dataClient = new DataClient({
@@ -103,11 +107,11 @@ const dataClient = new DataClient({
   misoConfig: {
     /* ... */
   },
-  tokenKeys: ["miso_token"], // localStorage key(s) to read token from; first found is used
+  tokenKeys: ["my_custom_token"], // explicit app-owned key(s)
 });
 ```
 
-OAuth callback and redirect flows will store the token in these keys.
+OAuth callback and restore/refresh persistence will store the token in canonical/final keys, and optional custom keys from `tokenKeys`.
 
 ## When you need more than zero-config
 
@@ -218,5 +222,5 @@ const dc = new DataClient({
 
 Notes:
 
-- Keep refresh/session secrets in HttpOnly cookies; localStorage is compatibility-only for access token values.
+- Keep refresh/session secrets in HttpOnly cookies; localStorage access-token usage should follow the final `miso_token` contract.
 - Public API outputs remain camelCase.

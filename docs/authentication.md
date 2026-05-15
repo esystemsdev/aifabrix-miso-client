@@ -90,7 +90,7 @@ For browser clients, prefer cookie-backed session restore before explicit refres
 - Keep `onTokenRefresh` as fallback for refresh endpoint integration.
 - Use `clearCachedBrowserAuthState` callback (or built-in default cleanup) when restore/refresh fails.
 
-This keeps refresh/session secrets outside browser-accessible storage while preserving compatibility for access-token key mappings.
+This keeps refresh/session secrets outside browser-accessible storage while keeping browser access-token handling on the final `miso_token` contract.
 
 ## Summary
 

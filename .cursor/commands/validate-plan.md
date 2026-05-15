@@ -10,8 +10,9 @@ This command ensures that the plan is execution-ready:
 2. Applicable sections of `.cursor/rules/project-rules.mdc` are linked
 3. DoD includes explicit, ordered validation commands
 4. Frontmatter `todos` matches real plan phases
-5. Code plans include expected automated tests and documentation updates
-6. Validation report is appended/replaced in the same plan file
+5. Frontmatter `todos` fully cover plan body phases so no implementation step is missed
+6. Code plans include expected automated tests and documentation updates
+7. Validation report is appended/replaced in the same plan file
 
 ## Usage
 
@@ -95,6 +96,7 @@ Rules:
 - allowed statuses: `pending|in_progress|completed|cancelled`
 - unique ids
 - one major todo per phase, no duplicates
+- every major phase in plan body must map to at least one frontmatter todo (and each todo must map back to a concrete phase)
 
 Minimum coverage:
 
@@ -180,7 +182,7 @@ Template:
 Status rules:
 
 - `✅ VALIDATED`: all mandatory sections and gates present, todos synced
-- `⚠️ NEEDS UPDATES`: minor missing items, non-critical gaps
+- `⚠️ NEEDS UPDATES`: minor missing items, non-critical gaps (including partial todo/body mismatch)
 - `❌ INCOMPLETE`: missing gates/todos/rule references or invalid structure
 
 ## Notes

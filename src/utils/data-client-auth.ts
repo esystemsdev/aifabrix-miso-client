@@ -17,60 +17,38 @@ import { shouldSkipAudit } from "./data-client-audit";
 import { extractErrorInfo } from "./error-extractor";
 import { logErrorWithContext, writeErr, writeWarn } from "./console-logger";
 import { LoggerContextStorage } from "../services/logger/logger-context-storage";
-import {
-  ACCESS_TOKEN_EXPIRES_AT_KEYS,
-  ACCESS_TOKEN_KEYS,
-  REFRESH_TOKEN_KEYS,
-  storeAccessToken,
-  storeRefreshToken,
-  clearStoredSessionTokens,
-  TokenStorageMap,
-} from "./user-token-refresh";
 import { joinApiRoot, mergeRootUrlWithBasePath } from "./url-join";
 import { coerceControllerUrlToAbsolute } from "./controller-url-resolver";
 
 // Re-export OAuth callback from dedicated module
 export { handleOAuthCallback } from "./data-client-oauth";
 
+const CANONICAL_ACCESS_TOKEN_KEY = "miso_token";
+const CANONICAL_REFRESH_TOKEN_KEY = "miso:user-refresh-token";
+const CANONICAL_EXPIRES_AT_KEY = "miso_token_expires_at";
+const UNSUPPORTED_LEGACY_KEYS = new Set(["token", "accessToken", "authToken"]);
+
+function resolveTokenKeys(tokenKeys?: string[]): string[] {
+  if (!tokenKeys || tokenKeys.length === 0) {
+    return [CANONICAL_ACCESS_TOKEN_KEY];
+  }
+  const filtered = tokenKeys.filter(
+    (key) => key && !UNSUPPORTED_LEGACY_KEYS.has(key),
+  );
+  return filtered.length > 0 ? filtered : [CANONICAL_ACCESS_TOKEN_KEY];
+}
+
 /**
  * Get authentication token from localStorage
  */
 export function getToken(tokenKeys?: string[]): string | null {
   if (!isBrowser()) return null;
-  const keys = tokenKeys || [...ACCESS_TOKEN_KEYS];
+  const keys = resolveTokenKeys(tokenKeys);
   for (const key of keys) {
     const token = getLocalStorage(key);
     if (token) return token;
   }
   return null;
-}
-
-function localStorageMap(): TokenStorageMap {
-  const map: TokenStorageMap = {};
-  for (const key of [
-    ...ACCESS_TOKEN_KEYS,
-    ...REFRESH_TOKEN_KEYS,
-    ...ACCESS_TOKEN_EXPIRES_AT_KEYS,
-  ]) {
-    const value = getLocalStorage(key);
-    if (value) map[key] = value;
-  }
-  return map;
-}
-
-function applyStorageMap(storage: TokenStorageMap): void {
-  for (const key of [
-    ...ACCESS_TOKEN_KEYS,
-    ...REFRESH_TOKEN_KEYS,
-    ...ACCESS_TOKEN_EXPIRES_AT_KEYS,
-  ]) {
-    const value = storage[key];
-    if (typeof value === "string" && value.trim() !== "") {
-      setLocalStorage(key, value);
-    } else {
-      removeLocalStorage(key);
-    }
-  }
 }
 
 export function storeBrowserSessionTokens(params: {
@@ -80,14 +58,17 @@ export function storeBrowserSessionTokens(params: {
   expiresAt?: string;
 }): void {
   if (!isBrowser()) return;
-  const storage = localStorageMap();
-  storeAccessToken(storage, params.accessToken, params.expiresAt);
-  if (params.refreshToken) {
-    storeRefreshToken(storage, params.refreshToken);
+  setLocalStorage(CANONICAL_ACCESS_TOKEN_KEY, params.accessToken);
+  if (params.expiresAt) {
+    setLocalStorage(CANONICAL_EXPIRES_AT_KEY, params.expiresAt);
+  } else {
+    removeLocalStorage(CANONICAL_EXPIRES_AT_KEY);
   }
-  applyStorageMap(storage);
+  if (params.refreshToken) {
+    setLocalStorage(CANONICAL_REFRESH_TOKEN_KEY, params.refreshToken);
+  }
 
-  const tokenKeys = params.tokenKeys || [...ACCESS_TOKEN_KEYS];
+  const tokenKeys = resolveTokenKeys(params.tokenKeys);
   for (const key of tokenKeys) {
     setLocalStorage(key, params.accessToken);
   }
@@ -95,11 +76,11 @@ export function storeBrowserSessionTokens(params: {
 
 export function clearCachedBrowserAuthState(tokenKeys?: string[]): void {
   if (!isBrowser()) return;
-  const storage = localStorageMap();
-  clearStoredSessionTokens(storage);
-  applyStorageMap(storage);
+  removeLocalStorage(CANONICAL_ACCESS_TOKEN_KEY);
+  removeLocalStorage(CANONICAL_REFRESH_TOKEN_KEY);
+  removeLocalStorage(CANONICAL_EXPIRES_AT_KEY);
 
-  const keys = tokenKeys || [...ACCESS_TOKEN_KEYS];
+  const keys = resolveTokenKeys(tokenKeys);
   for (const key of keys) {
     removeLocalStorage(key);
   }

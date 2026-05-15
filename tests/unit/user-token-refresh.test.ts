@@ -6,13 +6,6 @@ import {
   getUserTokenRefreshDueAt,
   isUserTokenRefreshDue,
   isUserTokenExpired,
-  storeAccessToken,
-  storeRefreshToken,
-  clearStoredAccessToken,
-  clearStoredRefreshToken,
-  clearStoredSessionTokens,
-  getStoredRefreshToken,
-  getUserTokenExpiresAt,
   UserTokenRefreshManager,
 } from "../../src/utils/user-token-refresh";
 
@@ -122,54 +115,24 @@ describe("user-token-refresh utilities", () => {
     });
   });
 
-  describe("storage lifecycle", () => {
-    it("stores/reads refresh token with compatibility keys", () => {
-      const storage: Record<string, unknown> = {};
-      storeRefreshToken(storage, "r1");
-      expect(getStoredRefreshToken(storage)).toBe("r1");
-      expect(storage["refreshToken"]).toBe("r1");
-      expect(storage["miso:user-refresh-token"]).toBe("r1");
-    });
+  describe("UserTokenRefreshManager", () => {
+    it("stores and clears canonical tokens", () => {
+      const manager = new UserTokenRefreshManager();
+      manager.storeAccessToken("u1", "access", "2026-05-05T10:10:00Z");
+      manager.storeRefreshToken("u1", "refresh");
 
-    it("preserves expiry metadata when token is unchanged", () => {
-      const storage: Record<string, unknown> = {};
-      storeAccessToken(storage, "a1", "2026-05-05T10:10:00Z");
-      storeAccessToken(storage, "a1");
-      expect(getUserTokenExpiresAt(storage)?.toISOString()).toBe(
+      expect(manager.getAccessToken("u1")).toBe("access");
+      expect(manager.getRefreshToken("u1")).toBe("refresh");
+      expect(manager.getExpiresAt("u1")?.toISOString()).toBe(
         "2026-05-05T10:10:00.000Z",
       );
+
+      manager.clearUserTokens("u1");
+      expect(manager.getAccessToken("u1")).toBeNull();
+      expect(manager.getRefreshToken("u1")).toBeNull();
+      expect(manager.getExpiresAt("u1")).toBeNull();
     });
 
-    it("clears expiry metadata when token changes without expiry", () => {
-      const storage: Record<string, unknown> = {};
-      storeAccessToken(storage, "a1", "2026-05-05T10:10:00Z");
-      storeAccessToken(storage, "a2");
-      expect(getUserTokenExpiresAt(storage)).toBeNull();
-    });
-
-    it("clears stored values", () => {
-      const storage: Record<string, unknown> = {};
-      storeAccessToken(storage, "a1", "2026-05-05T10:10:00Z");
-      storeRefreshToken(storage, "r1");
-
-      clearStoredAccessToken(storage);
-      expect(storage["token"]).toBeUndefined();
-      expect(storage["miso_token_expires_at"]).toBeUndefined();
-
-      storeAccessToken(storage, "a2");
-      storeRefreshToken(storage, "r2");
-      clearStoredRefreshToken(storage);
-      expect(storage["refreshToken"]).toBeUndefined();
-
-      storeAccessToken(storage, "a3");
-      storeRefreshToken(storage, "r3");
-      clearStoredSessionTokens(storage);
-      expect(storage["token"]).toBeUndefined();
-      expect(storage["refreshToken"]).toBeUndefined();
-    });
-  });
-
-  describe("UserTokenRefreshManager", () => {
     it("refreshes token when due", async () => {
       const manager = new UserTokenRefreshManager();
       mockedJwt.decode.mockReturnValue({
@@ -212,6 +175,21 @@ describe("user-token-refresh utilities", () => {
       );
       expect(result).toBeNull();
       expect(callback).not.toHaveBeenCalled();
+    });
+
+    it("returns null when callback throws", async () => {
+      const manager = new UserTokenRefreshManager();
+      manager.storeAccessToken("u1", "stable", "2026-05-05T10:00:00.000Z");
+      manager.registerRefreshCallback(
+        "u1",
+        jest.fn().mockRejectedValue(new Error("boom")),
+      );
+      const result = await manager.refreshIfDue(
+        "u1",
+        60,
+        new Date("2026-05-05T10:00:30.000Z"),
+      );
+      expect(result).toBeNull();
     });
   });
 });

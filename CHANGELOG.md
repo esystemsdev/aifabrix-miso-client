@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Final browser token contract (hard cutover)** - DataClient browser auth now uses canonical `miso_token` handling in the default path. Legacy migration keys (`token`, `accessToken`, `authToken`) and compatibility alias behavior are unsupported in final cutover semantics.
+- **OAuth callback token alias policy** - OAuth hash callback supports `token` and `access_token`; legacy `accessToken` alias is removed from final cutover flow.
+- **DataClient defaults** - Default `tokenKeys` now resolve to canonical final behavior (`miso_token`).
+
+### Removed
+
+- **Legacy/helper token compatibility API exports** - Compatibility-oriented token storage helper exports were removed from SDK public exports (`src/sdk-exports.ts`) as part of hard cutover cleanup.
+
+### Technical
+
+- **Auth recovery regression tests** - Added focused request-layer unit tests for restore-first `401` recovery ordering, refresh fallback behavior, and strict no-refresh behavior on `403`.
+
 ## [4.13.2] - 2026-05-14
 
 ### Fixed

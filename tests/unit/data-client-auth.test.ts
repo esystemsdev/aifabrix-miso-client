@@ -104,7 +104,7 @@ describe("handleOAuthCallback", () => {
     };
     return {
       baseUrl: "https://example.com",
-      tokenKeys: ["token", "accessToken", "authToken"],
+      tokenKeys: ["miso_token"],
       ...overrides,
       // Ensure misoConfig is always set (required field)
       misoConfig: overrides?.misoConfig || defaultMisoConfig,
@@ -119,9 +119,10 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
-      expect(mockLocalStorage["accessToken"]).toBe(token);
-      expect(mockLocalStorage["authToken"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
+      expect(mockLocalStorage["token"]).toBeUndefined();
+      expect(mockLocalStorage["accessToken"]).toBeUndefined();
+      expect(mockLocalStorage["authToken"]).toBeUndefined();
     });
 
     it("should extract token from #access_token=... format", () => {
@@ -131,17 +132,17 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
     });
 
-    it("should extract token from #accessToken=... format", () => {
+    it("should reject #accessToken=... legacy alias format", () => {
       const token = createValidJWT();
       mockWindow.location.hash = `#accessToken=${token}`;
 
       const result = handleOAuthCallback(createConfig());
 
-      expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
+      expect(result).toBeNull();
+      expect(mockLocalStorage["miso_token"]).toBeUndefined();
     });
 
     it("should prefer token over access_token", () => {
@@ -160,7 +161,7 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBeNull();
-      expect(mockLocalStorage["token"]).toBeUndefined();
+      expect(mockLocalStorage["miso_token"]).toBeUndefined();
     });
 
     it("should return null when hash is empty", () => {
@@ -198,7 +199,7 @@ describe("handleOAuthCallback", () => {
 
       // Non-JWT tokens are now accepted if they meet length requirements
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
     });
 
     it("should accept token with 4 parts (non-JWT format)", () => {
@@ -209,7 +210,7 @@ describe("handleOAuthCallback", () => {
 
       // Non-JWT tokens are now accepted if they meet length requirements
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
     });
 
     it("should accept token with empty parts if length is sufficient", () => {
@@ -220,7 +221,7 @@ describe("handleOAuthCallback", () => {
 
       // Tokens with empty parts are accepted if they meet length requirements
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
     });
 
     it("should reject token that is too short (< 5 characters)", () => {
@@ -230,7 +231,7 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBeNull();
-      expect(mockLocalStorage["token"]).toBeUndefined();
+      expect(mockLocalStorage["miso_token"]).toBeUndefined();
       expect(mockWriteErr).toHaveBeenCalledWith(
         expect.stringContaining(
           "[handleOAuthCallback] Invalid token format - token rejected",
@@ -338,9 +339,9 @@ describe("handleOAuthCallback", () => {
 
       handleOAuthCallback(config);
 
-      expect(mockLocalStorage["token"]).toBe(token);
-      expect(mockLocalStorage["accessToken"]).toBe(token);
-      expect(mockLocalStorage["authToken"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
+      expect(mockLocalStorage["accessToken"]).toBeUndefined();
+      expect(mockLocalStorage["authToken"]).toBeUndefined();
     });
 
     it("should handle localStorage.setItem errors gracefully", () => {
@@ -352,7 +353,7 @@ describe("handleOAuthCallback", () => {
       jest
         .spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage")
         .mockImplementation(((key: string, value: string) => {
-          if (key === "accessToken") {
+          if (key === "miso_token") {
             throw new Error("Storage quota exceeded");
           }
           mockLocalStorage[key] = value;
@@ -361,11 +362,11 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBeUndefined();
       expect(mockLocalStorage["accessToken"]).toBeUndefined();
       expect(mockWriteWarn).toHaveBeenCalledWith(
         expect.stringContaining(
-          "[handleOAuthCallback] Failed to store token in key accessToken:",
+          "[handleOAuthCallback] Failed to store token in key miso_token:",
         ),
       );
 
@@ -385,7 +386,7 @@ describe("handleOAuthCallback", () => {
 
       // Function returns null early without logging (isBrowser check at function start)
       expect(result).toBeNull();
-      expect(mockLocalStorage["token"]).toBeUndefined();
+      expect(mockLocalStorage["miso_token"]).toBeUndefined();
 
       // Restore original implementation
       jest.restoreAllMocks();
@@ -414,7 +415,7 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBeNull();
-      expect(mockLocalStorage["token"]).toBeUndefined();
+      expect(mockLocalStorage["miso_token"]).toBeUndefined();
       expect(mockWriteErr).toHaveBeenCalledWith(
         "[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production",
       );
@@ -431,7 +432,7 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
       expect(mockWriteErr).not.toHaveBeenCalledWith(
         "[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production",
       );
@@ -447,7 +448,7 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
       expect(mockWriteErr).not.toHaveBeenCalledWith(
         "[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production",
       );
@@ -463,7 +464,7 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
       expect(mockWriteErr).not.toHaveBeenCalledWith(
         "[handleOAuthCallback] SECURITY WARNING: Token received over HTTP in production",
       );
@@ -540,8 +541,8 @@ describe("handleOAuthCallback", () => {
         .spyOn(require("../../src/utils/data-client-utils"), "setLocalStorage")
         .mockImplementation(((key: string, value: string) => {
           callCount++;
-          if (callCount === 2) {
-            // Throw error on second call (accessToken)
+          if (callCount === 1 && key === "miso_token") {
+            // Throw error on canonical token key
             throw new Error("Storage error");
           }
           mockLocalStorage[key] = value;
@@ -553,7 +554,7 @@ describe("handleOAuthCallback", () => {
       expect(result).toBe(token);
       expect(mockWriteWarn).toHaveBeenCalledWith(
         expect.stringContaining(
-          "[handleOAuthCallback] Failed to store token in key accessToken:",
+          "[handleOAuthCallback] Failed to store token in key miso_token:",
         ),
       );
       // Verify error message doesn't contain token
@@ -679,9 +680,9 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
-      expect(mockLocalStorage["accessToken"]).toBe(token);
-      expect(mockLocalStorage["authToken"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
+      expect(mockLocalStorage["accessToken"]).toBeUndefined();
+      expect(mockLocalStorage["authToken"]).toBeUndefined();
       expect(mockWindow.history.replaceState).toHaveBeenCalledWith(
         null,
         "",
@@ -696,7 +697,7 @@ describe("handleOAuthCallback", () => {
       const result = handleOAuthCallback(createConfig());
 
       expect(result).toBe(token);
-      expect(mockLocalStorage["token"]).toBe(token);
+      expect(mockLocalStorage["miso_token"]).toBe(token);
     });
   });
 });
@@ -734,7 +735,7 @@ describe("browser auth state helpers", () => {
     delete (globalThis as any).fetch;
   });
 
-  it("stores and clears browser auth state with compatibility keys", () => {
+  it("stores and clears browser auth state with canonical keys", () => {
     storeBrowserSessionTokens({
       accessToken: "access",
       refreshToken: "refresh",
@@ -742,14 +743,26 @@ describe("browser auth state helpers", () => {
     });
 
     expect(mockLocalStorage["miso_token"]).toBe("access");
-    expect(mockLocalStorage["refreshToken"]).toBe("refresh");
+    expect(mockLocalStorage["miso:user-refresh-token"]).toBe("refresh");
     expect(mockLocalStorage["miso_token_expires_at"]).toBe(
       "2026-05-05T12:00:00.000Z",
     );
 
     clearCachedBrowserAuthState();
     expect(mockLocalStorage["miso_token"]).toBeUndefined();
-    expect(mockLocalStorage["refreshToken"]).toBeUndefined();
+    expect(mockLocalStorage["miso:user-refresh-token"]).toBeUndefined();
     expect(mockLocalStorage["miso_token_expires_at"]).toBeUndefined();
+  });
+
+  it("ignores unsupported legacy token keys in custom tokenKeys", () => {
+    storeBrowserSessionTokens({
+      tokenKeys: ["token", "accessToken", "authToken"],
+      accessToken: "access",
+    });
+
+    expect(mockLocalStorage["miso_token"]).toBe("access");
+    expect(mockLocalStorage["token"]).toBeUndefined();
+    expect(mockLocalStorage["accessToken"]).toBeUndefined();
+    expect(mockLocalStorage["authToken"]).toBeUndefined();
   });
 });

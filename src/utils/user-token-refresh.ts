@@ -1,27 +1,12 @@
 import jwt from "jsonwebtoken";
 
-export const ACCESS_TOKEN_KEYS = [
-  "miso_token",
-  "token",
-  "accessToken",
-  "authToken",
-] as const;
-
-export const REFRESH_TOKEN_KEYS = [
-  "miso:user-refresh-token",
-  "refreshToken",
-] as const;
-
-export const ACCESS_TOKEN_EXPIRES_AT_KEYS = [
-  "miso_token_expires_at",
-  "tokenExpiresAt",
-  "accessTokenExpiresAt",
-  "expiresAt",
-] as const;
-
-export interface TokenStorageMap {
+interface TokenStorageMap {
   [key: string]: unknown;
 }
+
+const ACCESS_TOKEN_KEY = "miso_token";
+const REFRESH_TOKEN_KEY = "miso:user-refresh-token";
+const ACCESS_TOKEN_EXPIRES_AT_KEY = "miso_token_expires_at";
 
 export interface RefreshCallbackResult {
   token: string;
@@ -55,31 +40,10 @@ function removeValue(storage: TokenStorageMap, key: string): void {
   delete storage[key];
 }
 
-function firstString(
-  storage: TokenStorageMap,
-  keys: readonly string[],
-): string | null {
-  for (const key of keys) {
-    const raw = readValue(storage, key);
-    if (typeof raw === "string" && raw.trim() !== "") return raw;
-  }
+function firstString(storage: TokenStorageMap, key: string): string | null {
+  const raw = readValue(storage, key);
+  if (typeof raw === "string" && raw.trim() !== "") return raw;
   return null;
-}
-
-function setAll(
-  storage: TokenStorageMap,
-  keys: readonly string[],
-  value: string,
-): void {
-  for (const key of keys) {
-    writeValue(storage, key, value);
-  }
-}
-
-function clearAll(storage: TokenStorageMap, keys: readonly string[]): void {
-  for (const key of keys) {
-    removeValue(storage, key);
-  }
 }
 
 function decodeTokenClaims(token: string): Record<string, unknown> | null {
@@ -188,69 +152,75 @@ export function isUserTokenExpired(
   return expiresAtDate.getTime() <= now.getTime();
 }
 
-export function storeAccessToken(
+function storeAccessTokenInternal(
   storage: TokenStorageMap,
   token: string,
   expiresAt?: unknown,
 ): TokenStorageMap {
-  const previous = firstString(storage, ACCESS_TOKEN_KEYS);
+  const previous = firstString(storage, ACCESS_TOKEN_KEY);
   const nextExpiresAt = normalizeExpiresAt(expiresAt);
 
-  setAll(storage, ACCESS_TOKEN_KEYS, token);
+  writeValue(storage, ACCESS_TOKEN_KEY, token);
   if (nextExpiresAt) {
-    setAll(storage, ACCESS_TOKEN_EXPIRES_AT_KEYS, nextExpiresAt.toISOString());
+    writeValue(
+      storage,
+      ACCESS_TOKEN_EXPIRES_AT_KEY,
+      nextExpiresAt.toISOString(),
+    );
     return storage;
   }
 
   if (previous && previous !== token) {
-    clearAll(storage, ACCESS_TOKEN_EXPIRES_AT_KEYS);
+    removeValue(storage, ACCESS_TOKEN_EXPIRES_AT_KEY);
   }
   return storage;
 }
 
-export function storeRefreshToken(
+function storeRefreshTokenInternal(
   storage: TokenStorageMap,
   token: string,
 ): TokenStorageMap {
-  setAll(storage, REFRESH_TOKEN_KEYS, token);
+  writeValue(storage, REFRESH_TOKEN_KEY, token);
   return storage;
 }
 
-export function clearStoredAccessToken(
+function clearStoredAccessTokenInternal(
   storage: TokenStorageMap,
 ): TokenStorageMap {
-  clearAll(storage, ACCESS_TOKEN_KEYS);
-  clearAll(storage, ACCESS_TOKEN_EXPIRES_AT_KEYS);
+  removeValue(storage, ACCESS_TOKEN_KEY);
+  removeValue(storage, ACCESS_TOKEN_EXPIRES_AT_KEY);
   return storage;
 }
 
-export function clearStoredRefreshToken(
+function clearStoredRefreshTokenInternal(
   storage: TokenStorageMap,
 ): TokenStorageMap {
-  clearAll(storage, REFRESH_TOKEN_KEYS);
+  removeValue(storage, REFRESH_TOKEN_KEY);
   return storage;
 }
 
-export function clearStoredSessionTokens(
+function clearStoredSessionTokensInternal(
   storage: TokenStorageMap,
 ): TokenStorageMap {
-  clearStoredAccessToken(storage);
-  clearStoredRefreshToken(storage);
+  clearStoredAccessTokenInternal(storage);
+  clearStoredRefreshTokenInternal(storage);
   return storage;
 }
 
-export function getStoredRefreshToken(storage: TokenStorageMap): string | null {
-  return firstString(storage, REFRESH_TOKEN_KEYS);
+function getStoredRefreshTokenInternal(
+  storage: TokenStorageMap,
+): string | null {
+  return firstString(storage, REFRESH_TOKEN_KEY);
 }
 
-export function getUserTokenExpiresAt(storage: TokenStorageMap): Date | null {
-  const fromMetadata = firstString(storage, ACCESS_TOKEN_EXPIRES_AT_KEYS);
+function getUserTokenExpiresAt(storage: TokenStorageMap): Date | null {
+  const fromMetadata = firstString(storage, ACCESS_TOKEN_EXPIRES_AT_KEY);
   if (fromMetadata) {
     const parsed = normalizeExpiresAt(fromMetadata);
     if (parsed) return parsed;
   }
 
-  const token = firstString(storage, ACCESS_TOKEN_KEYS);
+  const token = firstString(storage, ACCESS_TOKEN_KEY);
   if (!token) return null;
   return getJwtExpiresAt(token);
 }
@@ -284,23 +254,23 @@ export class UserTokenRefreshManager {
   }
 
   storeAccessToken(userId: string, token: string, expiresAt?: unknown): void {
-    storeAccessToken(this.getStore(userId), token, expiresAt);
+    storeAccessTokenInternal(this.getStore(userId), token, expiresAt);
   }
 
   storeRefreshToken(userId: string, token: string): void {
-    storeRefreshToken(this.getStore(userId), token);
+    storeRefreshTokenInternal(this.getStore(userId), token);
   }
 
   clearUserTokens(userId: string): void {
-    clearStoredSessionTokens(this.getStore(userId));
+    clearStoredSessionTokensInternal(this.getStore(userId));
   }
 
   getAccessToken(userId: string): string | null {
-    return firstString(this.getStore(userId), ACCESS_TOKEN_KEYS);
+    return firstString(this.getStore(userId), ACCESS_TOKEN_KEY);
   }
 
   getRefreshToken(userId: string): string | null {
-    return getStoredRefreshToken(this.getStore(userId));
+    return getStoredRefreshTokenInternal(this.getStore(userId));
   }
 
   getExpiresAt(userId: string): Date | null {
@@ -316,7 +286,7 @@ export class UserTokenRefreshManager {
     if (!callback) return null;
 
     const store = this.getStore(userId);
-    const token = firstString(store, ACCESS_TOKEN_KEYS);
+    const token = firstString(store, ACCESS_TOKEN_KEY);
     if (!token) return null;
 
     const claims = decodeTokenClaims(token);
@@ -332,9 +302,9 @@ export class UserTokenRefreshManager {
     try {
       const refreshed = await callback();
       if (refreshed?.token) {
-        storeAccessToken(store, refreshed.token, refreshed.expiresAt);
+        storeAccessTokenInternal(store, refreshed.token, refreshed.expiresAt);
         if (refreshed.refreshToken) {
-          storeRefreshToken(store, refreshed.refreshToken);
+          storeRefreshTokenInternal(store, refreshed.refreshToken);
         }
       }
       return refreshed;

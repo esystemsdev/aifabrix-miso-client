@@ -7,7 +7,9 @@ import { DataClientConfig } from "../types/data-client.types";
 import { isBrowser, setLocalStorage } from "./data-client-utils";
 import { extractErrorInfo } from "./error-extractor";
 import { logErrorWithContext, writeWarn, writeErr } from "./console-logger";
-import { ACCESS_TOKEN_KEYS } from "./user-token-refresh";
+
+const DEFAULT_OAUTH_TOKEN_KEYS = ["miso_token"];
+const UNSUPPORTED_LEGACY_KEYS = new Set(["token", "accessToken", "authToken"]);
 
 /**
  * Clean up hash fragment from URL (security measure)
@@ -67,11 +69,7 @@ function parseHashParams(hash: string): URLSearchParams | null {
 }
 
 function getTokenFromParams(params: URLSearchParams): string | null {
-  return (
-    params.get("token") ||
-    params.get("access_token") ||
-    params.get("accessToken")
-  );
+  return params.get("token") || params.get("access_token");
 }
 
 function rejectInvalidToken(token: string): void {
@@ -192,7 +190,14 @@ export function handleOAuthCallback(config: DataClientConfig): string | null {
   }
 
   cleanupHash();
-  const tokenKeys = config.tokenKeys || [...ACCESS_TOKEN_KEYS];
+  const filteredTokenKeys =
+    config.tokenKeys && config.tokenKeys.length > 0
+      ? config.tokenKeys.filter((key) => !UNSUPPORTED_LEGACY_KEYS.has(key))
+      : [];
+  const tokenKeys =
+    filteredTokenKeys.length > 0
+      ? filteredTokenKeys
+      : [...DEFAULT_OAUTH_TOKEN_KEYS];
 
   try {
     storeTokenSecurely(tokenKeys, token);

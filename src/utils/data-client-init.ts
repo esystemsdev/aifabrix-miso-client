@@ -154,7 +154,7 @@ export function createDefaultConfig(
     mergeRootUrlWithBasePath(baseUrl, basePath),
   );
   return {
-    tokenKeys: ["miso_token", "token", "accessToken", "authToken"],
+    tokenKeys: ["miso_token"],
     loginUrl: "/login",
     preferCookieSessionRestore: true,
     timeout: 30000,
