@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.14.0] - 2026-05-19
+
 ### Changed
 
 - **Final browser token contract (hard cutover)** - DataClient browser auth now uses canonical `miso_token` handling in the default path. Legacy migration keys (`token`, `accessToken`, `authToken`) and compatibility alias behavior are unsupported in final cutover semantics.
