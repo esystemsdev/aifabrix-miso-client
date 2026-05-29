@@ -381,6 +381,33 @@ describe("AuthTokenApi", () => {
       expect(result).toEqual(mockResponse);
     });
 
+    it("should keep browser refresh on /api/v1/auth/refresh even when refreshToken is provided", async () => {
+      const params: RefreshTokenRequest = {
+        refreshToken: "browser-refresh-token-guard",
+      };
+      const mockResponse: RefreshTokenResponse = {
+        success: true,
+        data: {
+          accessToken: "browser-access-token-guard",
+          refreshToken: "browser-refresh-token-rotated",
+          expiresIn: 3600,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await authTokenApi.refreshToken(params);
+
+      expect(result).toEqual(mockResponse);
+      expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
+      const [method, endpoint, body] = mockHttpClient.request.mock.calls[0];
+      expect(method).toBe("POST");
+      expect(endpoint).toBe("/api/v1/auth/refresh");
+      expect(endpoint).not.toBe("/api/v1/auth/login/device/refresh");
+      expect(body).toEqual({ refreshToken: "browser-refresh-token-guard" });
+    });
+
     it("should handle errors", async () => {
       const params: RefreshTokenRequest = {
         refreshToken: "invalid-refresh-token",

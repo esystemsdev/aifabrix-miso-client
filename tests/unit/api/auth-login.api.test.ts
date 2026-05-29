@@ -364,6 +364,33 @@ describe("AuthLoginApi", () => {
         expect.stringContaining("Token refresh failed"),
       );
     });
+
+    it("should preserve device refresh endpoint and body contract", async () => {
+      const params: DeviceCodeRefreshRequest = {
+        refreshToken: "device-refresh-token-guard",
+      };
+      const mockResponse: DeviceCodeTokenResponse = {
+        success: true,
+        data: {
+          accessToken: "device-access-token-guard",
+          refreshToken: "device-refresh-token-rotated",
+          expiresIn: 3600,
+        },
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await authLoginApi.refreshDeviceCodeToken(params);
+
+      expect(result).toEqual(mockResponse);
+      expect(mockHttpClient.request).toHaveBeenCalledTimes(1);
+      const [method, endpoint, body] = mockHttpClient.request.mock.calls[0];
+      expect(method).toBe("POST");
+      expect(endpoint).toBe("/api/v1/auth/login/device/refresh");
+      expect(body).toEqual({ refreshToken: "device-refresh-token-guard" });
+      expect(endpoint).not.toBe("/api/v1/auth/refresh");
+    });
   });
 
   describe("getLoginDiagnostics", () => {

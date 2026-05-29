@@ -25,10 +25,10 @@ todos:
     status: completed
   - id: preserve-device-refresh-contract
     content: Preserve /api/v1/auth/login/device/refresh request-body refreshToken contract and add guardrails against browser-flow coupling.
-    status: pending
+    status: completed
   - id: add-update-tests
     content: Implement all automated tests listed in `## Expected Automated Tests` and verify they pass before final validation gates.
-    status: pending
+    status: completed
   - id: update-docs
     content: Update README/docs/changelog for final browser auth contract and migration impact.
     status: completed
@@ -55,13 +55,13 @@ Implement the `miso-client` scope from [192 unified token providers](/workspace/
 - Cookie-first browser refresh contract update for `/api/v1/auth/refresh` (no required frontend `refreshToken` JSON body).
 - Activity-driven refresh listener implementation (`mousemove` / `click` / `keydown`) with 60-second cadence and no polling loop.
 - Runtime-memory-first browser token lifecycle alignment and deterministic stale-auth cleanup behavior.
+- Explicit browser/device boundary guard tests for refresh endpoints and payload contracts.
 - Docs/changelog updates for browser contract and listener behavior.
 - Silent validation gates passed in required order.
 
 ### Remaining to close plan
-- Add explicit device-flow non-regression guard assertion for `/api/v1/auth/login/device/refresh` request-body `refreshToken` contract in the targeted test scope.
 - Complete manual SDK smoke checklist.
-- Close DoD after the two items above are complete.
+- Close DoD after manual verification is completed.
 
 ## Source Scope (From Plan 192)
 - Activity-driven silent refresh listener (mouse/click/keyboard), 60-second cadence, no polling loop.
@@ -200,6 +200,7 @@ Key requirements enforced by this plan:
   - `tests/unit/data-client.test.ts`
   - `tests/unit/auth.service.test.ts`
   - `tests/unit/api/auth-token.api.test.ts`
+  - `tests/unit/api/auth-login.api.test.ts`
 - Docs/changelog:
   - `README.md`
   - `docs/dataclient.md`
@@ -294,6 +295,7 @@ Silent failure handling:
 
 Targeted follow-up tests run for changed auth scope:
 - ✅ `pnpm run test -- tests/unit/data-client.test.ts tests/unit/auth.service.test.ts tests/unit/api/auth-token.api.test.ts`
+- ✅ `pnpm run test -- tests/unit/api/auth-login.api.test.ts tests/unit/api/auth-token.api.test.ts`
 
 ## Plan Validation Report
 

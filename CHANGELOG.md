@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.15.0] - 2026-05-29
+
 ### Changed
 
 - **Cookie-first browser refresh contract** - `/api/v1/auth/refresh` now supports browser cookie-first refresh calls without requiring a frontend `refreshToken` JSON payload, while preserving device refresh behavior on `/api/v1/auth/login/device/refresh`.
@@ -16,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical
 
 - **Tests** - Added/updated unit coverage for optional `/auth/refresh` request body behavior, activity-driven listener cadence, and listener cleanup on browser unload.
+- **Boundary guard tests** - Added explicit non-regression assertions for browser/device refresh separation: browser refresh endpoint stays `/api/v1/auth/refresh`, device refresh endpoint stays `/api/v1/auth/login/device/refresh` with request-body `refreshToken`.
 
 ## [4.14.0] - 2026-05-19
 
