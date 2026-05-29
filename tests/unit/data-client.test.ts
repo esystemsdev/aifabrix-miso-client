@@ -110,6 +110,8 @@ const mockWindow = {
     hash: "",
     protocol: "https:",
   },
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
 };
 const mockFetch = jest.fn();
 
@@ -3055,6 +3057,85 @@ describe("DataClient", () => {
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
       expect(mockLocalStorage["customToken"]).toBe(longToken);
+    });
+
+    it("registers activity-driven listener and enforces 60-second cadence", async () => {
+      const nowSpy = jest.spyOn(Date, "now");
+      let nowMs = 1_000_000;
+      nowSpy.mockImplementation(() => nowMs);
+
+      mockLocalStorage["miso_token"] = "access-token-in-memory";
+      mockLocalStorage["miso_token_expires_at"] = new Date(
+        nowMs - 1000,
+      ).toISOString();
+
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "activity-refreshed-token",
+        expiresIn: 3600,
+      });
+
+      new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      const mouseMoveListener = (
+        mockWindow.addEventListener as jest.Mock
+      ).mock.calls.find((call) => call[0] === "mousemove")?.[1] as
+        | ((event: Event) => void)
+        | undefined;
+      expect(mouseMoveListener).toBeDefined();
+
+      mouseMoveListener?.(new Event("mousemove"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect(mockLocalStorage["miso_token"]).toBe("activity-refreshed-token");
+
+      nowMs += 59_000;
+      mouseMoveListener?.(new Event("mousemove"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+
+      nowMs += 1_000;
+      mouseMoveListener?.(new Event("mousemove"));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(onTokenRefresh).toHaveBeenCalledTimes(2);
+
+      nowSpy.mockRestore();
+    });
+
+    it("removes activity listeners on beforeunload cleanup", () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "activity-token",
+        expiresIn: 3600,
+      });
+
+      new DataClient({
+        ...config,
+        onTokenRefresh,
+      });
+
+      const beforeUnloadListener = (
+        mockWindow.addEventListener as jest.Mock
+      ).mock.calls.find((call) => call[0] === "beforeunload")?.[1] as
+        | (() => void)
+        | undefined;
+      expect(beforeUnloadListener).toBeDefined();
+
+      beforeUnloadListener?.();
+
+      expect(mockWindow.removeEventListener).toHaveBeenCalledWith(
+        "mousemove",
+        expect.any(Function),
+      );
+      expect(mockWindow.removeEventListener).toHaveBeenCalledWith(
+        "click",
+        expect.any(Function),
+      );
+      expect(mockWindow.removeEventListener).toHaveBeenCalledWith(
+        "keydown",
+        expect.any(Function),
+      );
     });
 
     it("should not refresh on 403 Forbidden (only 401)", async () => {

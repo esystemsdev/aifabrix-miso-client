@@ -319,7 +319,7 @@ export interface LogoutResponse {
 export interface RefreshTokenResponse {
   success: boolean;
   accessToken: string;
-  refreshToken: string;
+  refreshToken?: string;
   expiresIn: number;
   expiresAt?: string; // ISO date string
   timestamp?: string;

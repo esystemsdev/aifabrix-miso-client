@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Cookie-first browser refresh contract** - `/api/v1/auth/refresh` now supports browser cookie-first refresh calls without requiring a frontend `refreshToken` JSON payload, while preserving device refresh behavior on `/api/v1/auth/login/device/refresh`.
+- **DataClient runtime-memory-first browser auth lifecycle** - Browser access token reads now prefer runtime memory state with deterministic stale-auth cleanup, while maintaining canonical `miso_token` persistence compatibility.
+- **Activity-driven refresh listener** - Added browser user-activity-driven refresh checks (`mousemove`, `click`, `keydown`) with a 60-second cadence and no background polling loop.
+
+### Technical
+
+- **Tests** - Added/updated unit coverage for optional `/auth/refresh` request body behavior, activity-driven listener cadence, and listener cleanup on browser unload.
+
 ## [4.14.0] - 2026-05-19
 
 ### Changed

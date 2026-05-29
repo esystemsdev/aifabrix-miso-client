@@ -276,18 +276,22 @@ export class AuthTokenApi {
     authStrategy?: AuthStrategy,
   ): Promise<RefreshTokenResponse> {
     try {
+      const requestBody =
+        params.refreshToken && params.refreshToken.trim() !== ""
+          ? { refreshToken: params.refreshToken }
+          : undefined;
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<RefreshTokenResponse>(
           "POST",
           AuthTokenApi.REFRESH_ENDPOINT,
           authStrategy,
-          params,
+          requestBody,
         );
       }
       return await this.httpClient.request<RefreshTokenResponse>(
         "POST",
         AuthTokenApi.REFRESH_ENDPOINT,
-        params,
+        requestBody,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {

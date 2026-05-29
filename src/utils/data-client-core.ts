@@ -10,7 +10,7 @@ import {
 } from "../types/data-client.types";
 import { DataMasker } from "./data-masker";
 import { ClientTokenInfo } from "./token-utils";
-import { isBrowser } from "./data-client-utils";
+import { isBrowser, getLocalStorage } from "./data-client-utils";
 import {
   getCachedEntry,
   isCacheEnabled,
@@ -42,6 +42,10 @@ import { BrowserPermissionService } from "../services/browser-permission.service
 import { BrowserRoleService } from "../services/browser-role.service";
 import { UserTokenRefreshManager } from "./user-token-refresh";
 import { joinApiRoot } from "./url-join";
+import {
+  hydrateBrowserRuntimeTokenState,
+  setupActivityDrivenRefreshListener,
+} from "./data-client-activity-refresh";
 
 export class DataClientCore {
   protected config: DataClientConfig;
@@ -63,6 +67,8 @@ export class DataClientCore {
   protected permissionService: BrowserPermissionService | null = null;
   protected roleService: BrowserRoleService | null = null;
   protected userTokenRefreshManager = new UserTokenRefreshManager();
+  protected readonly activityRefreshIntervalMs = 60000;
+  protected activityRefreshTeardown: (() => void) | null = null;
 
   constructor(config: DataClientConfig) {
     this.config = createDefaultConfig(config);
@@ -88,11 +94,45 @@ export class DataClientCore {
 
     if (isBrowser()) {
       this.handleOAuthCallback();
+      hydrateBrowserRuntimeTokenState(
+        this.config.tokenKeys,
+        this.userTokenRefreshManager,
+      );
+      this.activityRefreshTeardown = setupActivityDrivenRefreshListener({
+        onTokenRefresh: this.config.onTokenRefresh,
+        refreshManager: this.userTokenRefreshManager,
+        persistBrowserSession: (result) => this.persistBrowserSession(result),
+        intervalMs: this.activityRefreshIntervalMs,
+      });
     }
   }
 
   protected getToken(): string | null {
-    return getToken(this.config.tokenKeys);
+    const persistedToken = getToken(this.config.tokenKeys);
+    const runtimeToken = this.userTokenRefreshManager.getAccessToken("browser");
+    if (runtimeToken) {
+      if (!persistedToken) {
+        this.userTokenRefreshManager.clearUserTokens("browser");
+        return null;
+      }
+      return runtimeToken;
+    }
+
+    if (!persistedToken) return null;
+
+    this.userTokenRefreshManager.storeAccessToken(
+      "browser",
+      persistedToken,
+      getLocalStorage("miso_token_expires_at") || undefined,
+    );
+    const persistedRefreshToken = getLocalStorage("miso:user-refresh-token");
+    if (persistedRefreshToken) {
+      this.userTokenRefreshManager.storeRefreshToken(
+        "browser",
+        persistedRefreshToken,
+      );
+    }
+    return persistedToken;
   }
 
   protected hasClientToken(): boolean {

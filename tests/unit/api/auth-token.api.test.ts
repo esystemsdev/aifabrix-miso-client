@@ -357,6 +357,30 @@ describe("AuthTokenApi", () => {
       expect(result).toEqual(mockResponse);
     });
 
+    it("should call /auth/refresh without JSON body when refreshToken is omitted", async () => {
+      const params: RefreshTokenRequest = {};
+      const mockResponse: RefreshTokenResponse = {
+        success: true,
+        data: {
+          accessToken: "cookie-session-access-token",
+          expiresIn: 3600,
+        },
+        message: "Token refreshed successfully",
+        timestamp: new Date().toISOString(),
+      };
+
+      mockHttpClient.request.mockResolvedValue(mockResponse);
+
+      const result = await authTokenApi.refreshToken(params);
+
+      expect(mockHttpClient.request).toHaveBeenCalledWith(
+        "POST",
+        "/api/v1/auth/refresh",
+        undefined,
+      );
+      expect(result).toEqual(mockResponse);
+    });
+
     it("should handle errors", async () => {
       const params: RefreshTokenRequest = {
         refreshToken: "invalid-refresh-token",

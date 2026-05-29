@@ -222,6 +222,8 @@ Final browser token contract:
 
 - canonical access-token key is `miso_token`
 - legacy keys `token` / `accessToken` / `authToken` are unsupported after cutover
+- browser refresh/session flow supports cookie-first `/api/v1/auth/session` and `/api/v1/auth/refresh` (no required frontend `refreshToken` JSON payload)
+- refresh checks are activity-driven (`mousemove`, `click`, `keydown`) with 60-second cadence and no polling loop
 
 → [DataClient](docs/dataclient.md) · [Backend client token](docs/backend-client-token.md)
 

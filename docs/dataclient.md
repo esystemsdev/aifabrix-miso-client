@@ -183,6 +183,7 @@ For enterprise SSO flows, DataClient now supports a cookie-first recovery sequen
 2. If restore does not return a token, call `onTokenRefresh`.
 3. Retry the original request once with refreshed/restored token.
 4. If both fail, clear cached browser auth state and continue with login redirect flow.
+5. Refresh checks are activity-driven (`mousemove`, `click`, `keydown`) with a 60-second cadence and no background polling loop.
 
 Recommended config:
 
@@ -207,12 +208,12 @@ const dc = new DataClient({
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
     });
     if (!response.ok) return null;
     const data = await response.json();
     return {
       token: data.accessToken,
+      // refreshToken is optional in cookie-first browser flow
       refreshToken: data.refreshToken,
       expiresAt: data.expiresAt,
     };
@@ -223,4 +224,5 @@ const dc = new DataClient({
 Notes:
 
 - Keep refresh/session secrets in HttpOnly cookies; localStorage access-token usage should follow the final `miso_token` contract.
+- Browser auth requests use runtime-memory-first token reads and deterministic stale-auth cleanup.
 - Public API outputs remain camelCase.

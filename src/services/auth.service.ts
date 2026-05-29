@@ -402,7 +402,7 @@ export class AuthService {
    * @returns New access/refresh token payload when successful; otherwise null.
    */
   async refreshToken(
-    refreshToken: string,
+    refreshToken?: string,
     authStrategy?: AuthStrategy,
   ): Promise<RefreshTokenResponse | null> {
     const correlationId = generateCorrelationId(
@@ -415,7 +415,7 @@ export class AuthService {
       const authStrategyToUse =
         authStrategy || this.httpClient.config.authStrategy;
       const response = await this.apiClient.auth.refreshToken(
-        { refreshToken },
+        refreshToken ? { refreshToken } : {},
         authStrategyToUse,
       );
 

@@ -2058,6 +2058,32 @@ describe("AuthService", () => {
       );
     });
 
+    it("should call refresh endpoint without refreshToken payload when omitted", async () => {
+      mockApiClient.auth.refreshToken.mockResolvedValue({
+        success: true,
+        data: {
+          accessToken: mockRefreshResponse.accessToken,
+          expiresIn: mockRefreshResponse.expiresIn,
+        },
+        timestamp: mockRefreshResponse.timestamp,
+      });
+
+      const result = await authService.refreshToken();
+
+      expect(result).toEqual({
+        success: true,
+        accessToken: mockRefreshResponse.accessToken,
+        refreshToken: undefined,
+        expiresIn: mockRefreshResponse.expiresIn,
+        expiresAt: mockRefreshResponse.timestamp,
+        timestamp: mockRefreshResponse.timestamp,
+      });
+      expect(mockApiClient.auth.refreshToken).toHaveBeenCalledWith(
+        {},
+        undefined,
+      );
+    });
+
     it("should successfully refresh token using authenticatedRequest when authStrategy provided", async () => {
       const authStrategy = {
         methods: ["bearer", "client-token"] as AuthMethod[],
@@ -2290,7 +2316,7 @@ describe("AuthService", () => {
 
       expect(result).toBeNull();
       expect(mockApiClient.auth.refreshToken).toHaveBeenCalledWith(
-        { refreshToken: "" },
+        {},
         undefined,
       );
 

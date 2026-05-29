@@ -129,7 +129,7 @@ export interface LogoutResponse {
  * Refresh token request (body)
  */
 export interface RefreshTokenRequest {
-  refreshToken: string;
+  refreshToken?: string;
 }
 
 /**

@@ -71,13 +71,19 @@ await client.logout({ token });
 
 ## Token refresh
 
-Exchange a refresh token for a new access token:
+Exchange a refresh token for a new access token (or use cookie-first refresh without payload):
 
 ```typescript
 const response = await client.refreshToken(refreshToken);
 if (response) {
   console.log(response.accessToken, response.expiresIn);
 }
+```
+
+Cookie-first browser flow can call the same endpoint with no `refreshToken` body:
+
+```typescript
+const response = await client.refreshToken();
 ```
 
 Returns `null` on error.

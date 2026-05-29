@@ -172,7 +172,7 @@ export class MisoClient {
   }
 
   async refreshToken(
-    refreshToken: string,
+    refreshToken?: string,
     authStrategy?: AuthStrategy,
   ): Promise<import("./types/config.types").RefreshTokenResponse | null> {
     return this.auth.refreshToken(refreshToken, authStrategy);
