@@ -267,31 +267,28 @@ export class AuthTokenApi {
 
   /**
    * Refresh user access token
-   * @param params - Refresh token request parameters
+   * Browser flow is cookie-first: refresh token is not sent in JSON body.
+   * @param _params - Kept for backward compatibility; ignored.
    * @param authStrategy - Optional authentication strategy override
    * @returns Refresh token response with new accessToken
    */
   async refreshToken(
-    params: RefreshTokenRequest,
+    _params: RefreshTokenRequest,
     authStrategy?: AuthStrategy,
   ): Promise<RefreshTokenResponse> {
     try {
-      const requestBody =
-        params.refreshToken && params.refreshToken.trim() !== ""
-          ? { refreshToken: params.refreshToken }
-          : undefined;
       if (authStrategy) {
         return await this.httpClient.requestWithAuthStrategy<RefreshTokenResponse>(
           "POST",
           AuthTokenApi.REFRESH_ENDPOINT,
           authStrategy,
-          requestBody,
+          undefined,
         );
       }
       return await this.httpClient.request<RefreshTokenResponse>(
         "POST",
         AuthTokenApi.REFRESH_ENDPOINT,
-        requestBody,
+        undefined,
       );
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {

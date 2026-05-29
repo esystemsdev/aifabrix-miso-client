@@ -33,10 +33,6 @@ export function hydrateBrowserRuntimeTokenState(
       getLocalStorage("miso_token_expires_at") || undefined,
     );
   }
-  const refreshToken = getLocalStorage("miso:user-refresh-token");
-  if (refreshToken) {
-    refreshManager.storeRefreshToken("browser", refreshToken);
-  }
 }
 
 function resolveBrowserWindow(): BrowserLikeWindow | null {
@@ -77,7 +73,6 @@ export function setupActivityDrivenRefreshListener(
         token: refreshed.token,
         expiresIn: refreshed.expiresIn,
         expiresAt: refreshed.expiresAt,
-        refreshToken: refreshed.refreshToken,
       });
     }
   };

@@ -54,7 +54,6 @@ export function getToken(tokenKeys?: string[]): string | null {
 export function storeBrowserSessionTokens(params: {
   tokenKeys?: string[];
   accessToken: string;
-  refreshToken?: string;
   expiresAt?: string;
 }): void {
   if (!isBrowser()) return;
@@ -64,10 +63,6 @@ export function storeBrowserSessionTokens(params: {
   } else {
     removeLocalStorage(CANONICAL_EXPIRES_AT_KEY);
   }
-  if (params.refreshToken) {
-    setLocalStorage(CANONICAL_REFRESH_TOKEN_KEY, params.refreshToken);
-  }
-
   const tokenKeys = resolveTokenKeys(params.tokenKeys);
   for (const key of tokenKeys) {
     setLocalStorage(key, params.accessToken);

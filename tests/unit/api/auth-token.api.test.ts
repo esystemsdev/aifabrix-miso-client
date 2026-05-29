@@ -321,7 +321,7 @@ describe("AuthTokenApi", () => {
       expect(mockHttpClient.request).toHaveBeenCalledWith(
         "POST",
         "/api/v1/auth/refresh",
-        params,
+        undefined,
       );
       expect(result).toEqual(mockResponse);
     });
@@ -352,7 +352,7 @@ describe("AuthTokenApi", () => {
         "POST",
         "/api/v1/auth/refresh",
         authStrategy,
-        params,
+        undefined,
       );
       expect(result).toEqual(mockResponse);
     });
@@ -381,7 +381,7 @@ describe("AuthTokenApi", () => {
       expect(result).toEqual(mockResponse);
     });
 
-    it("should keep browser refresh on /api/v1/auth/refresh even when refreshToken is provided", async () => {
+    it("should ignore refreshToken payload and keep cookie-first browser refresh", async () => {
       const params: RefreshTokenRequest = {
         refreshToken: "browser-refresh-token-guard",
       };
@@ -405,7 +405,7 @@ describe("AuthTokenApi", () => {
       expect(method).toBe("POST");
       expect(endpoint).toBe("/api/v1/auth/refresh");
       expect(endpoint).not.toBe("/api/v1/auth/login/device/refresh");
-      expect(body).toEqual({ refreshToken: "browser-refresh-token-guard" });
+      expect(body).toBeUndefined();
     });
 
     it("should handle errors", async () => {

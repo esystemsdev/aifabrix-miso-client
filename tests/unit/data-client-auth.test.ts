@@ -738,12 +738,11 @@ describe("browser auth state helpers", () => {
   it("stores and clears browser auth state with canonical keys", () => {
     storeBrowserSessionTokens({
       accessToken: "access",
-      refreshToken: "refresh",
       expiresAt: "2026-05-05T12:00:00.000Z",
     });
 
     expect(mockLocalStorage["miso_token"]).toBe("access");
-    expect(mockLocalStorage["miso:user-refresh-token"]).toBe("refresh");
+    expect(mockLocalStorage["miso:user-refresh-token"]).toBeUndefined();
     expect(mockLocalStorage["miso_token_expires_at"]).toBe(
       "2026-05-05T12:00:00.000Z",
     );

@@ -396,10 +396,10 @@ export class AuthService {
   }
 
   /**
-   * Refresh user access token using refresh token
-   * @param refreshToken - Refresh token to exchange for new tokens
+   * Refresh user access token for browser cookie-first/session flows.
+   * @param refreshToken - Optional backward-compatible payload value; may be ignored by API layer.
    * Never throws from service layer. Returns null on failure.
-   * @returns New access/refresh token payload when successful; otherwise null.
+   * @returns New token payload when successful; otherwise null.
    */
   async refreshToken(
     refreshToken?: string,
@@ -425,7 +425,7 @@ export class AuthService {
           success: response.success,
           accessToken: response.data.accessToken,
           refreshToken: response.data.refreshToken || refreshToken,
-          expiresIn: response.data.expiresIn,
+          expiresIn: response.data.expiresIn ?? 0,
           expiresAt: response.timestamp,
           timestamp: response.timestamp,
         };

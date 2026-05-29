@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.15.1] - 2026-05-29
+
+### Changed
+
+- **Cookie-first browser refresh payload handling** - Browser refresh through `/api/v1/auth/refresh` now consistently ignores optional `refreshToken` input and sends no JSON body for the request.
+- **Browser session token persistence semantics** - Browser auth utilities and activity-driven refresh flow now persist only access-token session state for cookie-first behavior, while keeping device refresh contract separation unchanged.
+- **Contract clarity for browser session settings** - DataClient token-key defaults and auth-service refresh documentation were aligned with final `miso_token`-first contract semantics.
+
+### Fixed
+
+- **Refresh response normalization in service layer** - Auth service refresh mapping now normalizes `expiresIn` with a stable numeric fallback to prevent type inconsistencies in partial response shapes.
+
+### Technical
+
+- **Regression and contract tests** - Updated unit tests to enforce no-body browser refresh calls, no browser localStorage refresh-token persistence, and normalized refresh service mapping behavior.
+
 ## [4.15.0] - 2026-05-29
 
 ### Changed

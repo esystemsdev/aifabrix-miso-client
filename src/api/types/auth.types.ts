@@ -126,18 +126,23 @@ export interface LogoutResponse {
 }
 
 /**
- * Refresh token request (body)
+ * Browser session refresh request.
+ * refreshToken is accepted for backward compatibility but ignored by SDK.
  */
 export interface RefreshTokenRequest {
   refreshToken?: string;
 }
 
 /**
- * Refresh token response
+ * Browser session refresh response.
  */
 export interface RefreshTokenResponse {
   success: boolean;
-  data: DeviceCodeTokenResponse["data"];
+  data: {
+    accessToken: string;
+    expiresIn?: number;
+    refreshToken?: string;
+  };
   message?: string;
   timestamp: string;
 }

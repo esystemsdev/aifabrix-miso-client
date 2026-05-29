@@ -2342,7 +2342,7 @@ describe("AuthService", () => {
         success: true,
         accessToken: undefined,
         refreshToken: malformedResponse.refreshToken || mockRefreshToken,
-        expiresIn: undefined,
+        expiresIn: 0,
         expiresAt: expect.any(String),
         timestamp: expect.any(String),
       });
@@ -2366,7 +2366,7 @@ describe("AuthService", () => {
         success: true,
         accessToken: partialResponse.accessToken,
         refreshToken: mockRefreshToken, // Falls back to input refreshToken
-        expiresIn: undefined,
+        expiresIn: 0,
         expiresAt: expect.any(String),
         timestamp: expect.any(String),
       });

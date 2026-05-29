@@ -98,7 +98,6 @@ export interface UserSessionTokenResult {
   token: string;
   expiresIn?: number;
   expiresAt?: string;
-  refreshToken?: string;
 }
 
 /**
@@ -125,7 +124,8 @@ export interface DataClientConfig {
   misoConfig: MisoClientConfig;
 
   /**
-   * Token storage keys in localStorage (default: ['token', 'accessToken', 'authToken'])
+   * Token storage keys in localStorage (default: ['miso_token']).
+   * Legacy keys like 'token'/'accessToken'/'authToken' are not part of final defaults.
    */
   tokenKeys?: string[];
 

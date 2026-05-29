@@ -5,6 +5,7 @@ interface TokenStorageMap {
 }
 
 const ACCESS_TOKEN_KEY = "miso_token";
+// Legacy compatibility: browser cookie-first baseline no longer requires storing refresh token locally.
 const REFRESH_TOKEN_KEY = "miso:user-refresh-token";
 const ACCESS_TOKEN_EXPIRES_AT_KEY = "miso_token_expires_at";
 
@@ -12,6 +13,7 @@ export interface RefreshCallbackResult {
   token: string;
   expiresIn?: number;
   expiresAt?: string;
+  // Optional for compatibility with environments that still rotate refresh tokens.
   refreshToken?: string;
 }
 

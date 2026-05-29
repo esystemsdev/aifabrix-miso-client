@@ -125,13 +125,6 @@ export class DataClientCore {
       persistedToken,
       getLocalStorage("miso_token_expires_at") || undefined,
     );
-    const persistedRefreshToken = getLocalStorage("miso:user-refresh-token");
-    if (persistedRefreshToken) {
-      this.userTokenRefreshManager.storeRefreshToken(
-        "browser",
-        persistedRefreshToken,
-      );
-    }
     return persistedToken;
   }
 
@@ -430,7 +423,6 @@ export class DataClientCore {
     storeBrowserSessionTokens({
       tokenKeys: this.config.tokenKeys,
       accessToken: result.token,
-      refreshToken: result.refreshToken,
       expiresAt: result.expiresAt,
     });
     this.userTokenRefreshManager.storeAccessToken(
@@ -438,12 +430,6 @@ export class DataClientCore {
       result.token,
       result.expiresAt,
     );
-    if (result.refreshToken) {
-      this.userTokenRefreshManager.storeRefreshToken(
-        "browser",
-        result.refreshToken,
-      );
-    }
   }
 
   protected handleAuthError(): void {
