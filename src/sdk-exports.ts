@@ -115,7 +115,6 @@ export type {
   DataClientConfigResponse,
 } from "./express";
 export type { ErrorResponse as ExpressErrorResponse } from "./express/error-response";
-export { DataClient, dataClient } from "./utils/data-client";
 export type {
   DataClientConfig,
   UserSessionTokenResult,
