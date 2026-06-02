@@ -185,44 +185,44 @@ For enterprise SSO flows, DataClient now supports a cookie-first recovery sequen
 4. If both fail, clear cached browser auth state and continue with login redirect flow.
 5. Refresh checks are activity-driven (`mousemove`, `click`, `keydown`) with a 60-second cadence and no background polling loop.
 
-Recommended config:
+Recommended config (SDK helpers — 4.16+):
 
 ```typescript
+import {
+  createCookieSessionCallbacks,
+  resolveBrowserApiBaseUrl,
+} from "@aifabrix/miso-client";
+
+const getBaseUrl = () =>
+  resolveBrowserApiBaseUrl({
+    configuredApiBaseUrl: import.meta.env.VITE_API_BASE_URL,
+    pageOrigin: window.location.origin,
+  });
+
+const cookieCallbacks = createCookieSessionCallbacks({
+  getBaseUrl,
+  onAccessToken: async (result) => {
+    /* persist result.accessToken (e.g. in-memory + optional miso_token) */
+  },
+});
+
 const dc = new DataClient({
-  baseUrl: "/api",
+  baseUrl: getBaseUrl() || "/api",
+  preferCookieSessionRestore: true,
+  onSessionRestore: cookieCallbacks.onSessionRestore,
+  onTokenRefresh: cookieCallbacks.onTokenRefresh,
   misoConfig: {
     controllerUrl: "https://controller.example.com",
     clientId: "my-client",
   },
-  preferCookieSessionRestore: true,
-  onSessionRestore: async () => {
-    const response = await fetch("/api/v1/auth/session", {
-      credentials: "include",
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return { token: data.token, expiresAt: data.expiresAt };
-  },
-  onTokenRefresh: async () => {
-    const response = await fetch("/api/v1/auth/refresh", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-    });
-    if (!response.ok) return null;
-    const data = await response.json();
-    return {
-      token: data.accessToken,
-      // refreshToken is optional in cookie-first browser flow
-      refreshToken: data.refreshToken,
-      expiresAt: data.expiresAt,
-    };
-  },
 });
 ```
+
+For silent recovery outside DataClient (e.g. custom retry), use `recoverBrowserSessionWithStaleCleanup` or `recoverBrowserSessionOrThrow` from the same package. See [authentication.md](authentication.md#browser-ui-helpers-416).
 
 Notes:
 
 - Keep refresh/session secrets in HttpOnly cookies; localStorage access-token usage should follow the final `miso_token` contract.
 - Browser auth requests use runtime-memory-first token reads and deterministic stale-auth cleanup.
+- In split-port dev, resolve API `baseUrl` with `resolveBrowserApiBaseUrl` so cookies and proxy paths stay on the UI origin.
 - Public API outputs remain camelCase.

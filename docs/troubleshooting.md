@@ -46,6 +46,19 @@ Fix: keep the segment in the effective API root **exactly once**. Prefer one ful
 - Call **validateToken** first; if it returns false, **getUser** may not return data.
 - Ensure the token is the same one issued for your app / realm.
 
+### Browser cookie session / redirect loop (split-port dev)
+
+Symptoms: OAuth succeeds but the app loops on login; DevTools shows `Failed to fetch` on auth calls; `miso_refresh_token` cookie exists but access token is missing after reload.
+
+Common causes:
+
+- **Cross-origin auth calls:** UI on port `3610`, controller on `3600` — browser blocks or drops cookies. Use the **UI origin** for API calls (Vite/nginx proxy to controller) via `resolveBrowserApiBaseUrl` (see [authentication.md](authentication.md#browser-ui-helpers-416)).
+- **localhost vs 127.0.0.1:** Cookie host must match the tab hostname. Use `alignLoopbackHostnameWithPage` on controller URLs.
+- **Missing `credentials: 'include'`** on session/refresh/login/callback — HttpOnly refresh cookie is not sent.
+- **Stale local token** after failed restore — call `clearCachedBrowserAuthState` (or app equivalent) then retry; use `recoverBrowserSessionWithStaleCleanup` for the standard retry order.
+
+Wire DataClient with `createCookieSessionCallbacks` and `preferCookieSessionRestore: true` ([dataclient.md](dataclient.md#enterprise-auth-flow)).
+
 ## Redis
 
 ### Redis connection failed

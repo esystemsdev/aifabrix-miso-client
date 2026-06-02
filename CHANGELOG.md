@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.16.0] - 2026-06-03
+
+### Added
+
+- **UI auth consolidation helpers** - `AUTH_CONTROLLER_PATHS`, `resolveBrowserApiBaseUrl`, `alignLoopbackHostnameWithPage`, `recoverBrowserSessionWithStaleCleanup` / `recoverBrowserSessionToUserToken` / `recoverBrowserSessionOrThrow`, `isUnauthorizedApiError`, `isInactiveTokenMessage`, `isStaleBrowserSessionFailure`, and client-token URL helpers (`extractClientTokenFromUrl`, `removeClientTokenFromUrl`) for shared miso-ui and dataplane app-ui browser auth.
+
+### Changed
+
+- **`sdk-exports` surface** - Removed `DataClient` and `dataClient` re-exports from the SDK exports entry; import them from the main package entry (`@aifabrix/miso-client`) instead.
+
+### Technical
+
+- Unit tests for browser session, recovery, URL resolution, loopback alignment, auth error helpers, and client-token URL utilities.
+- Documentation: browser UI auth helpers in `docs/authentication.md`, enterprise cookie session flow in `docs/dataclient.md`, split-port troubleshooting in `docs/troubleshooting.md`.
+
+## [4.15.5] - 2026-06-03
+
+### Added
+
+- **Browser session utilities** - `createBrowserSessionClient`, `createCookieSessionCallbacks`, and `ensureBrowserAccessToken` for cookie-first controller auth (`GET /api/v1/auth/session`, `POST /api/v1/auth/refresh`) with retries, deduplication, and `SessionRestoreResult` typing shared across dataplane and miso-ui.
+
 ## [4.15.4] - 2026-06-03
 
 ### Changed

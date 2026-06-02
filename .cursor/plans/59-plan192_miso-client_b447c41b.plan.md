@@ -49,7 +49,7 @@ isProject: false
 ## Goal
 Implement the `miso-client` scope from [192 unified token providers](/workspace/aifabrix-miso/.cursor/plans/192-unified-token-providers.plan.md) as a standalone SDK execution plan.
 
-## Execution Status (2026-05-29)
+## Execution Status (2026-06-03)
 
 ### Completed in code
 - Cookie-first browser refresh contract update for `/api/v1/auth/refresh` (no required frontend `refreshToken` JSON body).
@@ -57,10 +57,11 @@ Implement the `miso-client` scope from [192 unified token providers](/workspace/
 - Runtime-memory-first browser token lifecycle alignment and deterministic stale-auth cleanup behavior.
 - Explicit browser/device boundary guard tests for refresh endpoints and payload contracts.
 - Docs/changelog updates for browser contract and listener behavior.
-- Silent validation gates passed in required order.
+- Validation gates passed in required silent-first order (2026-06-03 re-run).
+- Targeted auth unit tests: 256 passed across 4 suites.
 
 ### Remaining to close plan
-- Complete manual SDK smoke checklist.
+- Complete manual SDK smoke checklist (requires live controller/browser).
 - Close DoD after manual verification is completed.
 
 ## Source Scope (From Plan 192)
@@ -285,7 +286,8 @@ Silent failure handling:
 - On `*:silent` failure, inspect `.temp/validation/*` logs first.
 - Use non-silent fallback only when silent output/logs are not actionable.
 
-### Validation Execution Result (2026-05-29)
+### Validation Execution Result (2026-06-03)
+
 - ✅ `pnpm run tests:typecheck:silent`
 - ✅ `pnpm run build:silent`
 - ✅ `pnpm run fmt:silent`
@@ -293,9 +295,79 @@ Silent failure handling:
 - ✅ `pnpm run lint:silent`
 - ✅ `pnpm run test:silent`
 
-Targeted follow-up tests run for changed auth scope:
-- ✅ `pnpm run test -- tests/unit/data-client.test.ts tests/unit/auth.service.test.ts tests/unit/api/auth-token.api.test.ts`
-- ✅ `pnpm run test -- tests/unit/api/auth-login.api.test.ts tests/unit/api/auth-token.api.test.ts`
+Targeted auth scope tests:
+- ✅ `pnpm run test -- tests/unit/data-client.test.ts tests/unit/auth.service.test.ts tests/unit/api/auth-token.api.test.ts tests/unit/api/auth-login.api.test.ts` (256 passed)
+
+## Validation Report
+
+**Date**: 2026-06-03 (re-run)
+**Status**: ⚠️ INCOMPLETE
+
+### Executive Summary
+
+Plan 192 miso-client auth cutover is fully implemented with passing automated tests and all quality gates. Plan closure is blocked only by the manual SDK smoke checklist (5 live scenarios under **Manual Verification**).
+
+### Task Completion
+
+- Total: 13
+- Completed: 11
+- Incomplete: 2 (`run-manual-sdk-smoke`, `close-definition-of-done`)
+
+### Task State Synchronization
+
+- ✅ Markdown checkboxes synchronized (manual verification items remain unchecked)
+- ✅ Frontmatter `todos` synchronized
+- ✅ No contradictions remain
+
+### File and Implementation Validation
+
+- ✅ `src/utils/data-client-activity-refresh.ts` — activity listener with 60s cadence, no polling loop
+- ✅ `src/utils/data-client-core.ts` — wires `setupActivityDrivenRefreshListener` at `activityRefreshIntervalMs = 60000`
+- ✅ `src/api/auth-token.api.ts` — cookie-first `POST /api/v1/auth/refresh` with `undefined` body
+- ✅ `src/api/types/auth.types.ts` — browser `refreshToken` optional/ignored; device contract preserved
+- ✅ `src/services/auth.service.ts` — refresh orchestration updated
+- ✅ Device refresh boundary in `auth-login.api.test.ts` — `/api/v1/auth/login/device/refresh` body contract
+- ✅ Docs updated: `README.md`, `docs/dataclient.md`, `docs/authentication.md`, `CHANGELOG.md`
+
+### Automated Tests Validation
+
+- ✅ Unit tests exist for cookie-first browser refresh (no JSON body): `tests/unit/api/auth-token.api.test.ts`
+- ✅ Activity listener cadence/handlers/cleanup: `tests/unit/data-client.test.ts`
+- ✅ Device refresh non-regression: `tests/unit/api/auth-login.api.test.ts`
+- ✅ Auth service refresh/cleanup paths: `tests/unit/auth.service.test.ts`
+- ✅ Targeted auth suites re-run: 256 tests passed
+
+### Quality Gates
+
+- ✅ tests:typecheck
+- ✅ build
+- ✅ fmt
+- ✅ md:lint
+- ✅ lint (0 warnings/errors)
+- ✅ test
+
+### Rules Compliance
+
+- ✅ SDK token/header policy — browser refresh cookie-first; device refresh body contract separate; M2M `x-client-token` tests present
+- ✅ Service/redis/error-handling patterns — auth API uses existing HttpClient/error extraction patterns
+- ✅ RFC 7807 / security / camelCase API — wire fields camelCase; no token leakage in reviewed auth paths
+
+### Logs
+
+- Full logs: `.temp/validation/*` (`00-tests-typecheck` through `06-test`)
+
+### Issues and Recommendations
+
+- **Blocking for closure:** Complete manual SDK smoke checklist (5 scenarios under **Manual Verification**).
+- **Resolved:** Prior `tests:typecheck` failure in `client-token-url.ts` no longer reproduces on current tree (`@aifabrix/miso-client@4.16.0`).
+
+### Final Checklist
+
+- [x] Implementation files and tests validated
+- [x] Quality gates passed in strict order
+- [x] Rules compliance verified for auth scope
+- [ ] Manual SDK smoke completed
+- [ ] All tasks implemented and synchronized (2 todos remain)
 
 ## Plan Validation Report
 

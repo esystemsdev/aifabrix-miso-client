@@ -152,3 +152,52 @@ export type {
   DelegatedProviderLookup,
 } from "./types/token-validation.types";
 export { TokenValidationService } from "./services/token-validation.service";
+export {
+  AUTH_BROWSER_SESSION_PATHS,
+  AUTH_CONTROLLER_PATHS,
+} from "./types/auth-browser.types";
+export type { AuthControllerPath } from "./types/auth-browser.types";
+export {
+  isUnauthorizedApiError,
+  isInactiveTokenMessage,
+  isStaleBrowserSessionFailure,
+} from "./utils/auth-browser-errors";
+export { resolveBrowserApiBaseUrl } from "./utils/browser-api-base-url";
+export type { ResolveBrowserApiBaseUrlOptions } from "./utils/browser-api-base-url";
+export { alignLoopbackHostnameWithPage } from "./utils/loopback-host-alignment";
+export type { AlignLoopbackHostnameOptions } from "./utils/loopback-host-alignment";
+export {
+  recoverBrowserSessionWithStaleCleanup,
+  recoverBrowserSessionToUserToken,
+  recoverBrowserSessionOrThrow,
+  resolveSessionExpiresInSeconds,
+} from "./utils/browser-session-recovery";
+export type { RecoverBrowserSessionOptions } from "./utils/browser-session-recovery";
+export {
+  extractClientTokenFromUrl,
+  removeClientTokenFromUrl,
+} from "./utils/client-token-url";
+export type {
+  ClientTokenUrlSource,
+  ExtractClientTokenFromUrlOptions,
+  RemoveClientTokenFromUrlOptions,
+} from "./utils/client-token-url";
+export {
+  createBrowserSessionClient,
+  createCookieSessionCallbacks,
+  ensureBrowserAccessToken,
+  sessionRestoreToUserToken,
+} from "./utils/browser-session";
+export type {
+  BrowserSessionClient,
+  BrowserSessionClientOptions,
+  BrowserSessionPath,
+  SessionRestoreFailure,
+  SessionRestoreFailureReason,
+  SessionRestoreResult,
+  SessionRestoreSuccess,
+} from "./types/browser-session.types";
+export type {
+  CookieSessionCallbacksOptions,
+  EnsureBrowserAccessTokenOptions,
+} from "./utils/browser-session";

@@ -98,6 +98,71 @@ For browser clients, prefer cookie-backed session restore before explicit refres
 
 This keeps refresh/session secrets outside browser-accessible storage while keeping browser access-token handling on the final `miso_token` contract.
 
+### Browser UI helpers (4.16+)
+
+Shared helpers for React apps (miso-ui, dataplane app-ui) — avoid duplicating `fetch` to controller auth routes:
+
+```typescript
+import {
+  AUTH_CONTROLLER_PATHS,
+  createBrowserSessionClient,
+  createCookieSessionCallbacks,
+  ensureBrowserAccessToken,
+  resolveBrowserApiBaseUrl,
+  alignLoopbackHostnameWithPage,
+  recoverBrowserSessionWithStaleCleanup,
+  isUnauthorizedApiError,
+  isInactiveTokenMessage,
+  extractClientTokenFromUrl,
+  removeClientTokenFromUrl,
+} from "@aifabrix/miso-client";
+
+const getBaseUrl = () =>
+  alignLoopbackHostnameWithPage(
+    resolveBrowserApiBaseUrl({
+      explicitMisoApiBaseUrl: import.meta.env.VITE_MISO_API_BASE_URL,
+      configuredApiBaseUrl: import.meta.env.VITE_API_BASE_URL,
+      pageOrigin: window.location.origin,
+      basePath: import.meta.env.BASE_URL,
+    }),
+  );
+
+const sessionClient = createBrowserSessionClient({ getBaseUrl });
+const { onSessionRestore, onTokenRefresh } = createCookieSessionCallbacks({
+  getBaseUrl,
+  onAccessToken: async (result) => {
+    /* store result.accessToken in app memory / miso_token */
+  },
+});
+
+// After full page load when HttpOnly refresh cookie exists:
+await ensureBrowserAccessToken({
+  getBaseUrl,
+  getAccessToken: () => null,
+  onAccessToken: async (result) => {
+    /* store access token */
+  },
+});
+
+// Silent recovery (refresh → restore → clear stale → retry):
+const recovered = await recoverBrowserSessionWithStaleCleanup({
+  client: sessionClient,
+  clearStaleState: () => {
+    /* clear miso_token + SDK caches */
+  },
+});
+```
+
+| Helper                                              | Use when                                                                         |
+| --------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `resolveBrowserApiBaseUrl`                          | UI and API on different dev ports — use page origin so Vite/nginx proxies `/api` |
+| `alignLoopbackHostnameWithPage`                     | `localhost` vs `127.0.0.1` must match the tab the user signed in with            |
+| `createCookieSessionCallbacks`                      | Wire DataClient `onSessionRestore` / `onTokenRefresh`                            |
+| `recoverBrowserSessionWithStaleCleanup`             | Request-level or manual silent re-auth                                           |
+| `isUnauthorizedApiError` / `isInactiveTokenMessage` | Classify 401 and inactive-token errors                                           |
+
+Paths: `AUTH_CONTROLLER_PATHS` (`session`, `refresh`, `login`, `callback`, `logout`, `clientToken`). See [dataclient.md](dataclient.md#enterprise-auth-flow).
+
 ## Summary
 
 | Need                 | Method                               |

@@ -15,7 +15,8 @@ export interface RequestMetadata {
   baseURL?: string;
 }
 
-export interface AxiosRequestConfigWithMetadata extends InternalAxiosRequestConfig {
+export interface AxiosRequestConfigWithMetadata
+  extends InternalAxiosRequestConfig {
   metadata?: RequestMetadata;
 }
 
