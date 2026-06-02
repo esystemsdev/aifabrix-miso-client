@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.15.2] - 2026-06-03
+
+### Changed
+
+- **Browser localhost preservation in URL resolver** - `resolveControllerUrl` and `resolveKeycloakUrl` now replace `localhost` with `127.0.0.1` only in server environments, preserving `localhost` in browser contexts so cookies, OAuth redirects, and API calls stay aligned with the host the user used to sign in.
+
+### Technical
+
+- **Tests** - Added unit coverage asserting browser environments retain `localhost` while server environments still normalize to `127.0.0.1`.
+
 ## [4.15.1] - 2026-05-29
 
 ### Changed
