@@ -585,6 +585,19 @@ describe("Controller URL Resolver", () => {
     });
 
     describe("localhost conversion", () => {
+      it("should keep localhost in browser (cookie and OAuth host alignment)", () => {
+        (globalThis as { window?: unknown }).window = {};
+        (globalThis as { localStorage?: unknown }).localStorage = {};
+        (globalThis as { fetch?: unknown }).fetch = () => {};
+
+        const config: MisoClientConfig = {
+          controllerPublicUrl: "http://localhost:3610/miso",
+          clientId: "test-client",
+        };
+
+        expect(resolveControllerUrl(config)).toBe("http://localhost:3610/miso");
+      });
+
       beforeEach(() => {
         // Mock server environment
         delete (globalThis as { window?: unknown }).window;
