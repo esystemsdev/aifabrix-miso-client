@@ -78,6 +78,43 @@ describe("browser-session utilities", () => {
     });
   });
 
+  it("refresh request uses cookie credentials with no JSON body", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          data: {
+            accessToken: "access-from-refresh",
+            expiresIn: 180,
+          },
+        }),
+    } as Response);
+
+    const client = createBrowserSessionClient({
+      getBaseUrl: () => "http://localhost:3600",
+      retryDelaysMs: [],
+    });
+
+    const result = await client.refresh();
+
+    expect(result).toEqual({
+      ok: true,
+      accessToken: "access-from-refresh",
+      expiresIn: 180,
+      expiresAt: expect.any(String),
+      user: undefined,
+    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://localhost:3600/api/v1/auth/refresh",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "include",
+      }),
+    );
+    const [, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect((init as RequestInit).body).toBeUndefined();
+  });
+
   it("createCookieSessionCallbacks returns null when session fails", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,

@@ -205,6 +205,7 @@ const cookieCallbacks = createCookieSessionCallbacks({
     /* persist result.accessToken (e.g. in-memory + optional miso_token) */
   },
 });
+// callback result intentionally excludes refreshToken for browser flows
 
 const dc = new DataClient({
   baseUrl: getBaseUrl() || "/api",

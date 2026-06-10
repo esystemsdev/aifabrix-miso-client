@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Browser-session refresh request shape** - `createBrowserSessionClient().refresh()` now sends cookie-auth `POST /api/v1/auth/refresh` requests without a JSON body, matching cookie-first hard-cut semantics.
+- **Browser-session token surface** - `SessionRestoreSuccess` no longer exposes `refreshToken` for browser flow helpers; browser callbacks continue to return access-token metadata only.
+
+### Technical
+
+- **Tests/docs alignment** - Added regression coverage for no-body browser refresh requests and updated browser-auth documentation examples to reflect the current callback and refresh signatures.
+
 ## [4.16.0] - 2026-06-03
 
 ### Added

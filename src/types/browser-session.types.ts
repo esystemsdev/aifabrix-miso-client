@@ -20,7 +20,6 @@ export type SessionRestoreFailureReason =
 export type SessionRestoreSuccess = {
   ok: true;
   accessToken: string;
-  refreshToken?: string;
   expiresAt?: string;
   expiresIn?: number;
   user?: Record<string, unknown>;

@@ -50,11 +50,6 @@ function getSessionToken(payload: JsonRecord): string | null {
   return typeof token === "string" && token ? token : null;
 }
 
-function getSessionRefreshToken(payload: JsonRecord): string | null {
-  const refreshToken = payload.refreshToken;
-  return typeof refreshToken === "string" && refreshToken ? refreshToken : null;
-}
-
 function resolveTokenExpiresAt(
   payload: JsonRecord,
   preferredExpiresAt?: unknown,
@@ -149,10 +144,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function buildRefreshRequestBody(): string {
-  return JSON.stringify({});
-}
-
 function resolveSessionEndpoint(
   options: BrowserSessionClientOptions,
   path: string,
@@ -165,9 +156,6 @@ function buildSessionFetchInit(method: "GET" | "POST"): RequestInit {
   return {
     method,
     credentials: "include",
-    headers:
-      method === "POST" ? { "Content-Type": "application/json" } : undefined,
-    body: method === "POST" ? buildRefreshRequestBody() : undefined,
   };
 }
 
@@ -212,7 +200,6 @@ function parseSessionSuccessPayload(payload: JsonRecord): SessionRestoreResult {
   return {
     ok: true,
     accessToken,
-    refreshToken: getSessionRefreshToken(payload) ?? undefined,
     expiresAt: formatExpiresAtIso(expiresAt),
     expiresIn: parseExpiresIn(payload),
     user: getNestedRecord(payload.user) ?? undefined,

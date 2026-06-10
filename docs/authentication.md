@@ -134,6 +134,7 @@ const { onSessionRestore, onTokenRefresh } = createCookieSessionCallbacks({
     /* store result.accessToken in app memory / miso_token */
   },
 });
+// result includes access-token expiry metadata only (no refreshToken field)
 
 // After full page load when HttpOnly refresh cookie exists:
 await ensureBrowserAccessToken({
@@ -172,6 +173,6 @@ Paths: `AUTH_CONTROLLER_PATHS` (`session`, `refresh`, `login`, `callback`, `logo
 | User info            | `client.getUser(token)`              |
 | Login URL            | `client.login({ redirect, state? })` |
 | Logout               | `client.logout({ token })`           |
-| Refresh token        | `client.refreshToken(refreshToken)`  |
+| Refresh token        | `client.refreshToken(refreshToken?)` |
 
 See [quick-start.md](quick-start.md) for init and [authorization.md](authorization.md) for roles and permissions.
