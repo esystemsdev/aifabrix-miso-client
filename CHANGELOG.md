@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.1] - 2026-06-10
+
+### Fixed
+
+- **Strict browser-session hard-cut parsing** - Removed compatibility fallback behavior in strict browser/session flows: session payload parsing now requires the canonical `data` envelope, and token extraction now requires canonical `accessToken` (no `token`/`authToken` alias fallback).
+- **Strict refresh callback writeback behavior** - `UserTokenRefreshManager.refreshIfDue()` no longer writes callback `refreshToken` values into runtime storage in strict hard-cut flow, preventing compatibility-style refresh-token persistence reintroduction.
+
+### Technical
+
+- **No-fallback regression coverage** - Added targeted unit assertions for strict no-fallback behavior in browser session parsing and refresh-manager callback handling.
+- **Hard-cut revalidation** - Re-ran silent validation gates (`tests:typecheck`, `lint:fix`, `lint`, `test`) and synchronized plan validation artifacts for strict no-fallback closure.
+
 ## [4.17.0] - 2026-06-10
 
 ### Changed
