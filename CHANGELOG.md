@@ -7,10 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.0] - 2026-06-10
+
 ### Changed
 
 - **Browser-session refresh request shape** - `createBrowserSessionClient().refresh()` now sends cookie-auth `POST /api/v1/auth/refresh` requests without a JSON body, matching cookie-first hard-cut semantics.
 - **Browser-session token surface** - `SessionRestoreSuccess` no longer exposes `refreshToken` for browser flow helpers; browser callbacks continue to return access-token metadata only.
+- **Browser auth documentation alignment** - Authentication/DataClient docs now explicitly describe callback result shape and cookie-first refresh semantics without browser refresh-token exposure.
 
 ### Technical
 
