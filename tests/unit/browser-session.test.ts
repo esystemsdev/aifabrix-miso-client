@@ -78,6 +78,56 @@ describe("browser-session utilities", () => {
     });
   });
 
+  it("rejects flat payload shape in strict browser session flow", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          accessToken: "flat-token",
+          expiresIn: 300,
+        }),
+    } as Response);
+
+    const client = createBrowserSessionClient({
+      getBaseUrl: () => "http://localhost:3600",
+      retryDelaysMs: [],
+    });
+
+    const result = await client.restore();
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "invalid",
+      message: "Browser auth response did not include an access token",
+    });
+  });
+
+  it("rejects token alias fields when canonical accessToken is missing", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          data: {
+            token: "legacy-token-field",
+            expiresIn: 300,
+          },
+        }),
+    } as Response);
+
+    const client = createBrowserSessionClient({
+      getBaseUrl: () => "http://localhost:3600",
+      retryDelaysMs: [],
+    });
+
+    const result = await client.restore();
+
+    expect(result).toEqual({
+      ok: false,
+      reason: "invalid",
+      message: "Browser auth response did not include an access token",
+    });
+  });
+
   it("refresh request uses cookie credentials with no JSON body", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

@@ -42,11 +42,11 @@ function getNestedRecord(value: unknown): JsonRecord | null {
 
 function getSessionPayload(raw: unknown): JsonRecord {
   const record = getNestedRecord(raw) ?? {};
-  return getNestedRecord(record.data) ?? record;
+  return getNestedRecord(record.data) ?? {};
 }
 
 function getSessionToken(payload: JsonRecord): string | null {
-  const token = payload.token ?? payload.accessToken ?? payload.authToken;
+  const token = payload.accessToken;
   return typeof token === "string" && token ? token : null;
 }
 

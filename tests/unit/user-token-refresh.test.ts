@@ -191,5 +191,33 @@ describe("user-token-refresh utilities", () => {
       );
       expect(result).toBeNull();
     });
+
+    it("does not persist refresh token from callback in strict hard-cut flow", async () => {
+      const manager = new UserTokenRefreshManager();
+      mockedJwt.decode.mockReturnValue({
+        exp: Math.floor(new Date("2026-05-05T10:01:00.000Z").getTime() / 1000),
+        iat: Math.floor(new Date("2026-05-05T10:00:00.000Z").getTime() / 1000),
+      } as any);
+      manager.storeAccessToken("u1", "old");
+      manager.storeRefreshToken("u1", "seeded-device-refresh-token");
+
+      manager.registerRefreshCallback(
+        "u1",
+        jest.fn().mockResolvedValue({
+          token: "new",
+          expiresAt: "2026-05-05T11:00:00.000Z",
+          refreshToken: "should-not-overwrite",
+        }),
+      );
+
+      await manager.refreshIfDue(
+        "u1",
+        120,
+        new Date("2026-05-05T10:00:30.000Z"),
+      );
+
+      expect(manager.getAccessToken("u1")).toBe("new");
+      expect(manager.getRefreshToken("u1")).toBe("seeded-device-refresh-token");
+    });
   });
 });

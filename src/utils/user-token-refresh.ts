@@ -13,7 +13,7 @@ export interface RefreshCallbackResult {
   token: string;
   expiresIn?: number;
   expiresAt?: string;
-  // Optional for compatibility with environments that still rotate refresh tokens.
+  // Optional for explicit non-browser/device flows only. Strict browser hard-cut paths do not persist it.
   refreshToken?: string;
 }
 
@@ -305,9 +305,6 @@ export class UserTokenRefreshManager {
       const refreshed = await callback();
       if (refreshed?.token) {
         storeAccessTokenInternal(store, refreshed.token, refreshed.expiresAt);
-        if (refreshed.refreshToken) {
-          storeRefreshTokenInternal(store, refreshed.refreshToken);
-        }
       }
       return refreshed;
     } catch {
