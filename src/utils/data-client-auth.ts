@@ -12,7 +12,6 @@ import {
   removeLocalStorage,
 } from "./data-client-utils";
 import { extractClientTokenInfo, ClientTokenInfo } from "./token-utils";
-import jwt from "jsonwebtoken";
 import { shouldSkipAudit } from "./data-client-audit";
 import { extractErrorInfo } from "./error-extractor";
 import { logErrorWithContext, writeErr, writeWarn } from "./console-logger";
@@ -27,6 +26,14 @@ const CANONICAL_ACCESS_TOKEN_KEY = "miso_token";
 const CANONICAL_REFRESH_TOKEN_KEY = "miso:user-refresh-token";
 const CANONICAL_EXPIRES_AT_KEY = "miso_token_expires_at";
 const UNSUPPORTED_LEGACY_KEYS = new Set(["token", "accessToken", "authToken"]);
+const DEFAULT_CLIENT_TOKEN_TTL_SECONDS = 3600;
+
+type RuntimeClientTokenState = {
+  token: string;
+  expiresAtMs: number;
+};
+
+let runtimeClientTokenState: RuntimeClientTokenState | null = null;
 
 function resolveTokenKeys(tokenKeys?: string[]): string[] {
   if (!tokenKeys || tokenKeys.length === 0) {
@@ -74,6 +81,7 @@ export function clearCachedBrowserAuthState(tokenKeys?: string[]): void {
   removeLocalStorage(CANONICAL_ACCESS_TOKEN_KEY);
   removeLocalStorage(CANONICAL_REFRESH_TOKEN_KEY);
   removeLocalStorage(CANONICAL_EXPIRES_AT_KEY);
+  clearRuntimeClientToken();
 
   const keys = resolveTokenKeys(tokenKeys);
   for (const key of keys) {
@@ -81,8 +89,37 @@ export function clearCachedBrowserAuthState(tokenKeys?: string[]): void {
   }
 }
 
+function getRuntimeClientToken(): string | null {
+  if (!runtimeClientTokenState) {
+    return null;
+  }
+
+  if (runtimeClientTokenState.expiresAtMs <= Date.now()) {
+    runtimeClientTokenState = null;
+    return null;
+  }
+
+  return runtimeClientTokenState.token;
+}
+
+function setRuntimeClientToken(token: string, expiresInSeconds?: number): void {
+  const ttlSeconds =
+    typeof expiresInSeconds === "number" && Number.isFinite(expiresInSeconds)
+      ? Math.max(0, expiresInSeconds)
+      : DEFAULT_CLIENT_TOKEN_TTL_SECONDS;
+
+  runtimeClientTokenState = {
+    token,
+    expiresAtMs: Date.now() + ttlSeconds * 1000,
+  };
+}
+
+function clearRuntimeClientToken(): void {
+  runtimeClientTokenState = null;
+}
+
 /**
- * Check if client token is available (from localStorage cache or config)
+ * Check if client token is available (runtime/config only).
  */
 export function hasClientToken(
   misoClient: MisoClient | null,
@@ -94,14 +131,8 @@ export function hasClientToken(
     return false;
   }
 
-  // Browser-side: check localStorage cache
-  const cachedToken = getLocalStorage("miso:client-token");
-  if (cachedToken) {
-    const expiresAtStr = getLocalStorage("miso:client-token-expires-at");
-    if (expiresAtStr) {
-      const expiresAt = parseInt(expiresAtStr, 10);
-      if (expiresAt > Date.now()) return true; // Valid cached token
-    }
+  if (getRuntimeClientToken()) {
+    return true;
   }
 
   // Check config token
@@ -148,29 +179,6 @@ function debugClientToken(isDebug: boolean, message: string): void {
   if (isDebug) writeWarn(message);
 }
 
-function clearCachedClientToken(): void {
-  removeLocalStorage("miso:client-token");
-  removeLocalStorage("miso:client-token-expires-at");
-}
-
-function getValidCachedClientToken(
-  cachedToken: string | null,
-  expiresAtStr: string | null,
-  isDebug: boolean,
-): string | null {
-  if (!cachedToken) return null;
-  if (!isCachedTokenValid(cachedToken, expiresAtStr)) {
-    debugClientToken(
-      isDebug,
-      "[getClientToken] Token expired, removing from cache",
-    );
-    clearCachedClientToken();
-    return null;
-  }
-  debugClientToken(isDebug, "[getClientToken] Returning valid cached token");
-  return cachedToken;
-}
-
 async function fetchClientTokenFromEnvironment(
   isDebug: boolean,
   getEnvironmentTokenFn: () => Promise<string>,
@@ -200,49 +208,8 @@ async function fetchClientTokenFromEnvironment(
 }
 
 /**
- * Decode JWT token to check expiration
- */
-function decodeTokenExpiration(token: string): number | null {
-  try {
-    const decoded = jwt.decode(token) as { exp?: number } | null;
-    return decoded?.exp ? decoded.exp * 1000 : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Check if cached token is valid (not expired)
- */
-function isCachedTokenValid(
-  cachedToken: string | null,
-  expiresAtStr: string | null,
-): boolean {
-  if (!cachedToken) return false;
-
-  const now = Date.now();
-
-  // Check explicit expiration timestamp
-  if (expiresAtStr) {
-    const expiresAt = parseInt(expiresAtStr, 10);
-    if (!isNaN(expiresAt) && expiresAt <= now) {
-      return false; // Expired
-    }
-    return true;
-  }
-
-  // Check JWT expiration
-  const jwtExpiresAt = decodeTokenExpiration(cachedToken);
-  if (jwtExpiresAt && jwtExpiresAt <= now) {
-    return false; // Expired
-  }
-
-  return true; // Valid or can't determine expiration
-}
-
-/**
  * Get client token for requests
- * Checks localStorage cache first, then config, then calls getEnvironmentToken() if needed
+ * Checks runtime cache first, then config, then calls getEnvironmentToken() if needed
  */
 export async function getClientToken(
   misoConfig: MisoClientConfig | undefined,
@@ -252,19 +219,19 @@ export async function getClientToken(
   if (!isBrowser()) return null;
 
   const isDebug = misoConfig?.logLevel === "debug";
-  const cachedToken = getLocalStorage("miso:client-token");
-  const expiresAtStr = getLocalStorage("miso:client-token-expires-at");
+  const cachedToken = getRuntimeClientToken();
   debugClientToken(
     isDebug,
-    `[getClientToken] Cache check: ${JSON.stringify({ hasToken: !!cachedToken, hasExpiresAt: !!expiresAtStr })}`,
+    `[getClientToken] Runtime cache check: ${JSON.stringify({ hasToken: !!cachedToken })}`,
   );
 
-  const validCachedToken = getValidCachedClientToken(
-    cachedToken,
-    expiresAtStr,
-    isDebug,
-  );
-  if (validCachedToken) return validCachedToken;
+  if (cachedToken) {
+    debugClientToken(
+      isDebug,
+      "[getClientToken] Returning runtime cached token",
+    );
+    return cachedToken;
+  }
 
   // Check config for static token
   if (misoConfig?.clientToken) {
@@ -272,26 +239,21 @@ export async function getClientToken(
     return misoConfig.clientToken;
   }
 
-  return fetchClientTokenFromEnvironment(isDebug, _getEnvironmentToken);
+  const environmentToken = await fetchClientTokenFromEnvironment(
+    isDebug,
+    _getEnvironmentToken,
+  );
+  if (environmentToken) {
+    setRuntimeClientToken(environmentToken);
+  }
+  return environmentToken;
 }
 
 // Re-export redirect functions for backward compatibility
 export { redirectToLogin, logout } from "./data-client-redirect";
 
-const CACHE_KEY = "miso:client-token";
-const EXPIRES_AT_KEY = "miso:client-token-expires-at";
-
 function getCachedEnvToken(): string | null {
-  const cachedToken = getLocalStorage(CACHE_KEY);
-  const expiresAtStr = getLocalStorage(EXPIRES_AT_KEY);
-  if (!cachedToken || !expiresAtStr) return null;
-  const expiresAt = parseInt(expiresAtStr, 10);
-  if (expiresAt <= Date.now()) {
-    removeLocalStorage(CACHE_KEY);
-    removeLocalStorage(EXPIRES_AT_KEY);
-    return null;
-  }
-  return cachedToken;
+  return getRuntimeClientToken();
 }
 
 function parseTokenResponse(data: Record<string, unknown>): {
@@ -382,9 +344,7 @@ function buildClientTokenFetchUrl(config: DataClientConfig): {
 }
 
 function storeEnvironmentToken(token: string, expiresIn: number): void {
-  const expiresAt = Date.now() + expiresIn * 1000;
-  setLocalStorage(CACHE_KEY, token);
-  setLocalStorage(EXPIRES_AT_KEY, expiresAt.toString());
+  setRuntimeClientToken(token, expiresIn);
 }
 
 async function requestEnvironmentToken(
@@ -460,7 +420,7 @@ export function getClientTokenInfo(
 ): ClientTokenInfo | null {
   if (!isBrowser()) return null;
 
-  const cachedToken = getLocalStorage("miso:client-token");
+  const cachedToken = getRuntimeClientToken();
   if (cachedToken) return extractClientTokenInfo(cachedToken);
 
   const configToken = misoConfig?.clientToken;

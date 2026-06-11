@@ -4,6 +4,7 @@
 
 import { DataClient } from "../../src/utils/data-client";
 import { MisoClient } from "../../src/miso-client";
+import { clearCachedBrowserAuthState } from "../../src/utils/data-client-auth";
 import {
   DataClientConfig,
   NetworkError,
@@ -150,6 +151,7 @@ describe("DataClient", () => {
     jest.clearAllMocks();
     mockFetch.mockClear(); // Explicitly clear fetch mock
     mockLocalStorage = {};
+    clearCachedBrowserAuthState();
     mockWindow.location.href = "";
     mockWindow.location.hash = ""; // Clear hash to prevent OAuth callback from triggering
     // Update globalThis.window.window to match mockWindow (handleOAuthCallback accesses this)
@@ -165,6 +167,7 @@ describe("DataClient", () => {
         controllerUrl: "https://controller.aifabrix.ai",
         clientId: "ctrl-dev-test-app",
         clientSecret: "test-secret",
+        clientToken: "test-client-token",
       },
     };
 
@@ -322,11 +325,15 @@ describe("DataClient", () => {
     });
 
     it("should correctly bridge getEnvironmentToken and format response", async () => {
-      // Setup: cache a token in localStorage
       const testToken = "test-client-token-123";
-      const expiresAt = Date.now() + 3600000; // 1 hour from now
-      mockLocalStorage["miso:client-token"] = testToken;
-      mockLocalStorage["miso:client-token-expires-at"] = expiresAt.toString();
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          token: testToken,
+          expiresIn: 1800,
+        }),
+      } as unknown as Response);
 
       const browserConfig: DataClientConfig = {
         baseUrl: "https://api.example.com",
@@ -354,15 +361,19 @@ describe("DataClient", () => {
       expect(result).toHaveProperty("expiresIn");
       expect(result.token).toBe(testToken);
       expect(result.expiresIn).toBeGreaterThan(0);
-      expect(result.expiresIn).toBeLessThanOrEqual(3600);
+      expect(result.expiresIn).toBe(3600);
     });
 
     it("should handle token expiration calculation correctly", async () => {
-      // Setup: cache a token with specific expiration
       const testToken = "test-client-token-456";
-      const expiresAt = Date.now() + 1800000; // 30 minutes from now
-      mockLocalStorage["miso:client-token"] = testToken;
-      mockLocalStorage["miso:client-token-expires-at"] = expiresAt.toString();
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          token: testToken,
+          expiresIn: 1800,
+        }),
+      } as unknown as Response);
 
       const browserConfig: DataClientConfig = {
         baseUrl: "https://api.example.com",
@@ -383,22 +394,20 @@ describe("DataClient", () => {
       // Call the callback
       const result = await onClientTokenRefresh!();
 
-      // Verify expiration is calculated correctly (should be around 1800 seconds / 30 minutes)
-      expect(result.expiresIn).toBeGreaterThan(1700); // Allow some time for test execution
-      expect(result.expiresIn).toBeLessThanOrEqual(1800);
+      // Auto-bridged callback now returns fixed fallback TTL (runtime-memory only flow)
+      expect(result.expiresIn).toBe(3600);
     });
 
     it("should handle missing expiration gracefully with default", async () => {
       // Setup: no token in cache, will fetch from server
       const testToken = "test-client-token-789";
-      const expiresIn = 1800; // 30 minutes
 
       // Mock fetch to return token
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           token: testToken,
-          expiresIn: expiresIn,
+          expiresIn: 1800,
         }),
       } as unknown as Response);
 
@@ -421,13 +430,9 @@ describe("DataClient", () => {
       // Call the callback - it will fetch token and set expiration
       const result = await onClientTokenRefresh!();
 
-      // Verify token was fetched and expiration is set
+      // Verify token was fetched and fallback TTL is set
       expect(result.token).toBe(testToken);
-      // Allow 1 second tolerance for timing differences
-      expect(result.expiresIn).toBeGreaterThanOrEqual(expiresIn - 1);
-      expect(result.expiresIn).toBeLessThanOrEqual(expiresIn + 1);
-      // Verify expiration was stored in localStorage
-      expect(mockLocalStorage["miso:client-token-expires-at"]).toBeTruthy();
+      expect(result.expiresIn).toBe(3600);
     });
 
     it("should throw error when getEnvironmentToken fails", async () => {
@@ -1311,18 +1316,15 @@ describe("DataClient", () => {
     });
 
     it("should perform audit logging when client token is available", async () => {
-      // Clear user token but provide client token
+      // Clear user token and provide client token through runtime config.
       mockLocalStorage = {};
-      mockLocalStorage["miso:client-token"] = "test-client-token";
-      mockLocalStorage["miso:client-token-expires-at"] = String(
-        Date.now() + 3600000,
-      ); // 1 hour from now
 
       const client = new DataClient({
         ...config,
         misoConfig: {
           controllerUrl: "https://controller.aifabrix.ai",
           clientId: "test-client",
+          clientToken: "test-client-token",
         },
       });
 
@@ -1979,38 +1981,48 @@ describe("DataClient", () => {
 
     it("should return cached token if valid", async () => {
       const cachedToken = "cached-token-123";
-      const expiresAt = Date.now() + 3600000; // 1 hour from now
-
-      mockLocalStorage["miso:client-token"] = cachedToken;
-      mockLocalStorage["miso:client-token-expires-at"] = expiresAt.toString();
-
-      const token = await dataClient.getEnvironmentToken();
-
-      expect(token).toBe(cachedToken);
-      expect(mockFetch).not.toHaveBeenCalled();
-    });
-
-    it("should fetch token when cache is expired", async () => {
-      const expiredToken = "expired-token";
-      const expiredAt = Date.now() - 1000; // 1 second ago
-
-      mockLocalStorage["miso:client-token"] = expiredToken;
-      mockLocalStorage["miso:client-token-expires-at"] = expiredAt.toString();
-
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 200,
         json: async () => ({
-          token: "new-token-123",
+          token: cachedToken,
           expiresIn: 1800,
         }),
       } as unknown as Response);
 
-      const token = await dataClient.getEnvironmentToken();
+      const firstToken = await dataClient.getEnvironmentToken();
+      const secondToken = await dataClient.getEnvironmentToken();
 
-      expect(token).toBe("new-token-123");
-      expect(mockFetch).toHaveBeenCalled();
-      expect(mockLocalStorage["miso:client-token"]).toBe("new-token-123");
+      expect(firstToken).toBe(cachedToken);
+      expect(secondToken).toBe(cachedToken);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("should fetch token when cache is expired", async () => {
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            token: "expired-token",
+            expiresIn: 0,
+          }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            token: "new-token-123",
+            expiresIn: 1800,
+          }),
+        } as unknown as Response);
+
+      const firstToken = await dataClient.getEnvironmentToken();
+      const secondToken = await dataClient.getEnvironmentToken();
+
+      expect(firstToken).toBe("expired-token");
+      expect(secondToken).toBe("new-token-123");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
     it("should fetch token when cache is missing", async () => {
@@ -2143,14 +2155,8 @@ describe("DataClient", () => {
         }),
       } as unknown as Response);
 
-      await dataClient.getEnvironmentToken();
-
-      const expiresAt = parseInt(
-        mockLocalStorage["miso:client-token-expires-at"],
-        10,
-      );
-      const expectedExpiresAt = Date.now() + 3600 * 1000;
-      expect(expiresAt).toBeCloseTo(expectedExpiresAt, -3); // Within 1 second
+      const token = await dataClient.getEnvironmentToken();
+      expect(token).toBe("token-123");
     });
 
     it("should use default expiresIn when not provided", async () => {
@@ -2162,14 +2168,8 @@ describe("DataClient", () => {
         }),
       } as unknown as Response);
 
-      await dataClient.getEnvironmentToken();
-
-      const expiresAt = parseInt(
-        mockLocalStorage["miso:client-token-expires-at"],
-        10,
-      );
-      const expectedExpiresAt = Date.now() + 3600 * 1000; // Default 1 hour
-      expect(expiresAt).toBeCloseTo(expectedExpiresAt, -3);
+      const token = await dataClient.getEnvironmentToken();
+      expect(token).toBe("token-123");
     });
 
     it("should throw error when response is not ok", async () => {
@@ -2260,31 +2260,36 @@ describe("DataClient", () => {
     });
 
     it("should remove expired token from cache", async () => {
-      const expiredToken = "expired-token";
-      const expiredAt = Date.now() - 1000;
-
-      mockLocalStorage["miso:client-token"] = expiredToken;
-      mockLocalStorage["miso:client-token-expires-at"] = expiredAt.toString();
-
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({
-          token: "new-token-123",
-          expiresIn: 1800,
-        }),
-      } as unknown as Response);
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            token: "expired-token",
+            expiresIn: 0,
+          }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            token: "new-token-123",
+            expiresIn: 1800,
+          }),
+        } as unknown as Response);
 
       await dataClient.getEnvironmentToken();
+      const token = await dataClient.getEnvironmentToken();
 
-      expect(mockLocalStorage["miso:client-token"]).toBe("new-token-123");
-      expect(mockLocalStorage["miso:client-token-expires-at"]).toBeTruthy();
+      expect(token).toBe("new-token-123");
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
   });
 
   describe("getClientTokenInfo", () => {
     beforeEach(() => {
       jest.clearAllMocks();
+      clearCachedBrowserAuthState();
       // Enable useJwtDecode flag so decodeJWT uses jwt.decode() instead of manual base64 decode
       // This allows us to use the jwt.decode mock while still allowing getClientTokenInfo to proceed
       const dataClientUtils = require("../../src/utils/data-client-utils");
@@ -2344,10 +2349,14 @@ describe("DataClient", () => {
         applicationId: "app-123",
         clientId: "client-123",
       });
-
-      mockLocalStorage["miso:client-token"] = token;
-
-      const info = dataClient.getClientTokenInfo();
+      const customClient = new DataClient({
+        ...config,
+        misoConfig: {
+          ...config.misoConfig!,
+          clientToken: token,
+        },
+      });
+      const info = customClient.getClientTokenInfo();
 
       expect(info).toEqual({
         application: "my-app",
@@ -2380,7 +2389,7 @@ describe("DataClient", () => {
       });
     });
 
-    it("should prefer cached token over config token", () => {
+    it("should prefer cached token over config token", async () => {
       const customClient = new DataClient({
         ...config,
         misoConfig: {
@@ -2388,12 +2397,18 @@ describe("DataClient", () => {
           clientToken: "config-token",
         },
       });
-
-      mockLocalStorage["miso:client-token"] = "cached-token";
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          token: "cached-token",
+          expiresIn: 1800,
+        }),
+      } as unknown as Response);
+      await customClient.getEnvironmentToken();
       (jwt.decode as jest.Mock).mockReturnValue({
         application: "cached-app",
       });
-
       const info = customClient.getClientTokenInfo();
 
       expect(info).toEqual({
@@ -2403,15 +2418,28 @@ describe("DataClient", () => {
     });
 
     it("should return null when no token available", () => {
-      const info = dataClient.getClientTokenInfo();
+      const clientWithoutToken = new DataClient({
+        ...config,
+        misoConfig: {
+          ...config.misoConfig!,
+          clientToken: undefined,
+        },
+      });
+      const info = clientWithoutToken.getClientTokenInfo();
       expect(info).toBeNull();
     });
 
     it("should handle decode errors gracefully", () => {
-      mockLocalStorage["miso:client-token"] = "invalid-token";
+      const customClient = new DataClient({
+        ...config,
+        misoConfig: {
+          ...config.misoConfig!,
+          clientToken: "invalid-token",
+        },
+      });
       (jwt.decode as jest.Mock).mockReturnValue(null);
 
-      const info = dataClient.getClientTokenInfo();
+      const info = customClient.getClientTokenInfo();
 
       expect(info).toEqual({});
     });
@@ -2626,8 +2654,8 @@ describe("DataClient", () => {
 
       // Should only call refresh once, not retry again
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
-      // Original + one retry + one for client token fetch during login redirect
-      expect(mockFetch).toHaveBeenCalledTimes(3);
+      // Original request + one retry after refresh.
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
     it("should not store refresh token in localStorage", async () => {

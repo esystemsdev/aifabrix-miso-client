@@ -120,8 +120,8 @@ OAuth callback and restore/refresh persistence will store the token in canonical
 **1. Fetch token and config from your backend**  
 Call your client-token endpoint (e.g. POST `/auth/client-token`) and optionally a config-only endpoint (e.g. GET `/auth/client-config`) for the login page. Response shape: `{ token?, expiresIn, config?: { baseUrl, controllerUrl, clientId, clientTokenUri } }`.
 
-**2. Cache using the SDK’s key shape**  
-Store config and token in localStorage so the SDK and your app share one source. Use the same keys the SDK uses: `miso:dataclient-config` (config + expiresAt), `miso:client-token`, `miso:client-token-expires-at`. That way `getCachedDataClientConfig()` and any SDK logic that reads these keys stay in sync.
+**2. Cache only non-token config**  
+Persist only non-sensitive DataClient config (for example `miso:dataclient-config`). `x-client-token` material is runtime-memory-only in browser flows and must not be persisted in `localStorage`.
 
 **3. Build a full DataClientConfig**
 
@@ -143,7 +143,7 @@ Avoid double-prefix: do not put the same virtual-directory segment in **`baseUrl
 **5. Interceptors**  
 Use `dataClient.setInterceptors({ onRequest: async (url, options) => { ... } })` to add e.g. `X-Request-ID`, `Authorization: Bearer <token>` (from your tokenKeys), and `X-Client-Token` when available.
 
-**Summary:** One init with zero-config is enough when you only need default token keys and no custom audit or interceptors. When you need custom token keys, login/logout URLs, audit options, or request headers, fetch token/config yourself, cache with the SDK key shape, then `new DataClient(fullConfig)` and optionally `setInterceptors`.
+**Summary:** One init with zero-config is enough when you only need default token keys and no custom audit or interceptors. When you need custom token keys, login/logout URLs, audit options, or request headers, fetch token/config yourself, persist only non-token config, keep `x-client-token` in runtime memory, then `new DataClient(fullConfig)` and optionally `setInterceptors`.
 
 ## React example (minimal)
 

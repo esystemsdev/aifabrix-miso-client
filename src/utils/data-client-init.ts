@@ -14,7 +14,7 @@ import { InternalHttpClient } from "./internal-http-client";
 import { ApiClient } from "../api";
 import { LoggerService } from "../services/logger";
 import { RedisService } from "../services/redis.service";
-import { isBrowser, getLocalStorage } from "./data-client-utils";
+import { isBrowser } from "./data-client-utils";
 import { writeWarn } from "./console-logger";
 import { mergeRootUrlWithBasePath, normalizeRootUrl } from "./url-join";
 
@@ -51,16 +51,9 @@ export function createMisoConfigWithRefresh(
             if (!token) {
               throw new Error("Failed to get client token");
             }
-            const expiresAtStr = getLocalStorage(
-              "miso:client-token-expires-at",
-            );
-            const expiresAt = expiresAtStr
-              ? parseInt(expiresAtStr, 10)
-              : Date.now() + 3600000;
-            const expiresIn = Math.floor((expiresAt - Date.now()) / 1000);
             return {
               token,
-              expiresIn: expiresIn > 0 ? expiresIn : 3600,
+              expiresIn: 3600,
             };
           }
         : undefined),

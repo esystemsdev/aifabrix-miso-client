@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Browser client-token hard-stop (59.2)** - Removed browser persistence paths for `miso:client-token` / `miso:client-token-expires-at`; DataClient now keeps controller client-token material runtime-memory-only in browser flows.
+- **Application context token sourcing** - `ApplicationContextService` now resolves client token context from runtime/config sources only, without browser `localStorage` fallback.
+
+### Technical
+
+- **Regression alignment for runtime-memory contract** - Updated DataClient and URL-join integration tests to enforce no browser `localStorage` dependency for client-token retrieval and refresh behavior.
+
 ## [4.17.1] - 2026-06-10
 
 ### Fixed

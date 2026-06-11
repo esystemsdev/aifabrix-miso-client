@@ -36,7 +36,10 @@ jest.mock("../../src/utils/data-masker", () => ({
 
 import { DataClient } from "../../src/utils/data-client";
 import { autoInitializeDataClient } from "../../src/utils/data-client-auto-init";
-import { getEnvironmentToken } from "../../src/utils/data-client-auth";
+import {
+  clearCachedBrowserAuthState,
+  getEnvironmentToken,
+} from "../../src/utils/data-client-auth";
 
 // ---------------------------------------------------------------------------
 // Browser globals shared across describe blocks
@@ -83,6 +86,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockFetch.mockClear();
   mockLocalStorage = {};
+  clearCachedBrowserAuthState();
   mockWindow.location.href = "";
   mockWindow.location.hash = "";
   mockWindow.location.origin = "https://app.example.com";
@@ -297,10 +301,6 @@ describe("redirectToLogin joins controllerUrl + loginUrl via joinApiRoot", () =>
   it.each(cases)(
     "redirects to the right login URL: %s",
     async (_label, controllerUrl, loginPath) => {
-      mockLocalStorage["miso:client-token"] = "ct";
-      mockLocalStorage["miso:client-token-expires-at"] = (
-        Date.now() + 3600000
-      ).toString();
       mockWindow.location.href = "https://app.example.com/page";
 
       const client = new DataClient({
@@ -309,6 +309,7 @@ describe("redirectToLogin joins controllerUrl + loginUrl via joinApiRoot", () =>
         misoConfig: {
           clientId: "test-client",
           controllerUrl,
+          clientToken: "ct",
         },
       });
 
@@ -326,10 +327,6 @@ describe("redirectToLogin joins controllerUrl + loginUrl via joinApiRoot", () =>
 
   it("uses an absolute loginUrl verbatim (bypasses join)", async () => {
     mockWindow.location.href = "https://app.example.com/page";
-    mockLocalStorage["miso:client-token"] = "ct";
-    mockLocalStorage["miso:client-token-expires-at"] = (
-      Date.now() + 3600000
-    ).toString();
 
     const client = new DataClient({
       baseUrl: "https://app.example.com",
@@ -337,6 +334,7 @@ describe("redirectToLogin joins controllerUrl + loginUrl via joinApiRoot", () =>
       misoConfig: {
         clientId: "test-client",
         controllerUrl: "https://controller.example.com/miso",
+        clientToken: "ct",
       },
     });
 

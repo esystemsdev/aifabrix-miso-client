@@ -6,7 +6,6 @@
 
 import { HttpClient } from "../utils/http-client";
 import { extractClientTokenInfo } from "../utils/token-utils";
-import { isBrowser, getLocalStorage } from "../utils/data-client-utils";
 import { extractErrorInfo } from "../utils/error-extractor";
 import { logErrorWithContext } from "../utils/console-logger";
 
@@ -75,24 +74,14 @@ export class ApplicationContextService {
   }
 
   /**
-   * Extract client token from config or browser localStorage.
+   * Extract client token from config/runtime only.
    * @returns Client token string or null if not available
    */
   private getClientToken(): string | null {
     try {
-      // Try to get client token from config first (if provided)
       if (this.httpClient.config.clientToken) {
         return this.httpClient.config.clientToken;
       }
-
-      // Try browser localStorage (for browser environments)
-      if (isBrowser()) {
-        const localStorageToken = getLocalStorage("miso:client-token");
-        if (localStorageToken) {
-          return localStorageToken;
-        }
-      }
-
       return null;
     } catch (error) {
       logErrorWithContext(
