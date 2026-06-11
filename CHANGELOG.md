@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.3] - 2026-06-11
+
 ### Changed
 
 - **Browser user-token hard-stop (59.3)** - Removed active browser runtime dependency on persisted `miso_token` / `miso_token_expires_at`; browser user access-token continuity now stays runtime-memory-only with cookie-first restore/refresh callbacks.
