@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.17.2] - 2026-06-11
+
 ### Changed
 
 - **Browser client-token hard-stop (59.2)** - Removed browser persistence paths for `miso:client-token` / `miso:client-token-expires-at`; DataClient now keeps controller client-token material runtime-memory-only in browser flows.
