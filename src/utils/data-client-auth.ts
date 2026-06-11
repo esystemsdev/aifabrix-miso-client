@@ -5,12 +5,7 @@
 
 import { MisoClient } from "../miso-client";
 import { DataClientConfig, MisoClientConfig } from "../types/data-client.types";
-import {
-  isBrowser,
-  getLocalStorage,
-  setLocalStorage,
-  removeLocalStorage,
-} from "./data-client-utils";
+import { isBrowser, removeLocalStorage } from "./data-client-utils";
 import { extractClientTokenInfo, ClientTokenInfo } from "./token-utils";
 import { shouldSkipAudit } from "./data-client-audit";
 import { extractErrorInfo } from "./error-extractor";
@@ -35,6 +30,13 @@ type RuntimeClientTokenState = {
 
 let runtimeClientTokenState: RuntimeClientTokenState | null = null;
 
+type RuntimeUserTokenState = {
+  token: string;
+  expiresAt?: string;
+};
+
+let runtimeUserTokenState: RuntimeUserTokenState | null = null;
+
 function resolveTokenKeys(tokenKeys?: string[]): string[] {
   if (!tokenKeys || tokenKeys.length === 0) {
     return [CANONICAL_ACCESS_TOKEN_KEY];
@@ -46,16 +48,11 @@ function resolveTokenKeys(tokenKeys?: string[]): string[] {
 }
 
 /**
- * Get authentication token from localStorage
+ * Get browser user token from runtime memory state.
  */
-export function getToken(tokenKeys?: string[]): string | null {
+export function getToken(_tokenKeys?: string[]): string | null {
   if (!isBrowser()) return null;
-  const keys = resolveTokenKeys(tokenKeys);
-  for (const key of keys) {
-    const token = getLocalStorage(key);
-    if (token) return token;
-  }
-  return null;
+  return runtimeUserTokenState?.token || null;
 }
 
 export function storeBrowserSessionTokens(params: {
@@ -64,20 +61,15 @@ export function storeBrowserSessionTokens(params: {
   expiresAt?: string;
 }): void {
   if (!isBrowser()) return;
-  setLocalStorage(CANONICAL_ACCESS_TOKEN_KEY, params.accessToken);
-  if (params.expiresAt) {
-    setLocalStorage(CANONICAL_EXPIRES_AT_KEY, params.expiresAt);
-  } else {
-    removeLocalStorage(CANONICAL_EXPIRES_AT_KEY);
-  }
-  const tokenKeys = resolveTokenKeys(params.tokenKeys);
-  for (const key of tokenKeys) {
-    setLocalStorage(key, params.accessToken);
-  }
+  runtimeUserTokenState = {
+    token: params.accessToken,
+    expiresAt: params.expiresAt,
+  };
 }
 
 export function clearCachedBrowserAuthState(tokenKeys?: string[]): void {
   if (!isBrowser()) return;
+  runtimeUserTokenState = null;
   removeLocalStorage(CANONICAL_ACCESS_TOKEN_KEY);
   removeLocalStorage(CANONICAL_REFRESH_TOKEN_KEY);
   removeLocalStorage(CANONICAL_EXPIRES_AT_KEY);
@@ -367,7 +359,7 @@ async function requestEnvironmentToken(
 
 /**
  * Get environment token (browser-side)
- * Checks localStorage cache first, then calls backend endpoint if needed
+ * Checks runtime cache first, then calls backend endpoint if needed.
  */
 export async function getEnvironmentToken(
   config: DataClientConfig,

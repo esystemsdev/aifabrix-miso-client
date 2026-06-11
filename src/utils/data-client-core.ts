@@ -10,7 +10,7 @@ import {
 } from "../types/data-client.types";
 import { DataMasker } from "./data-masker";
 import { ClientTokenInfo } from "./token-utils";
-import { isBrowser, getLocalStorage } from "./data-client-utils";
+import { isBrowser } from "./data-client-utils";
 import {
   getCachedEntry,
   isCacheEnabled,
@@ -93,7 +93,10 @@ export class DataClientCore {
     this.roleService = services.roleService;
 
     if (isBrowser()) {
-      this.handleOAuthCallback();
+      const callbackToken = this.handleOAuthCallback();
+      if (callbackToken) {
+        this.persistBrowserSession({ token: callbackToken });
+      }
       hydrateBrowserRuntimeTokenState(
         this.config.tokenKeys,
         this.userTokenRefreshManager,
@@ -108,24 +111,12 @@ export class DataClientCore {
   }
 
   protected getToken(): string | null {
-    const persistedToken = getToken(this.config.tokenKeys);
     const runtimeToken = this.userTokenRefreshManager.getAccessToken("browser");
-    if (runtimeToken) {
-      if (!persistedToken) {
-        this.userTokenRefreshManager.clearUserTokens("browser");
-        return null;
-      }
-      return runtimeToken;
-    }
-
-    if (!persistedToken) return null;
-
-    this.userTokenRefreshManager.storeAccessToken(
-      "browser",
-      persistedToken,
-      getLocalStorage("miso_token_expires_at") || undefined,
-    );
-    return persistedToken;
+    if (runtimeToken) return runtimeToken;
+    const authRuntimeToken = getToken(this.config.tokenKeys);
+    if (!authRuntimeToken) return null;
+    this.userTokenRefreshManager.storeAccessToken("browser", authRuntimeToken);
+    return authRuntimeToken;
   }
 
   protected hasClientToken(): boolean {
@@ -167,7 +158,7 @@ export class DataClientCore {
   }
 
   async logout(redirectUrl?: string): Promise<void> {
-    return logout(
+    await logout(
       this.config,
       () => this.getToken(),
       () => this.getClientToken(),
@@ -175,6 +166,7 @@ export class DataClientCore {
       redirectUrl,
       this.misoClient,
     );
+    await this.clearBrowserAuthState();
   }
 
   setInterceptors(config: InterceptorConfig): void {

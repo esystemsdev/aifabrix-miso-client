@@ -116,7 +116,7 @@ function resolveLoginPath(config: DataClientConfig): string {
  * 2. redirectToLogin() redirects to: {controllerPublicUrl}{loginUrl}?redirect={redirectUrl}&x-client-token={token}
  * 3. Controller handles OAuth flow and redirects back after authentication
  * 4. Controller redirects to: {redirectUrl}#token={userToken}
- * 5. DataClient.handleOAuthCallback() extracts token from hash and stores securely
+ * 5. DataClient.handleOAuthCallback() extracts token from hash for runtime session continuity
  *
  * Security:
  * - Token is passed in hash fragment (#token=...) not query parameter

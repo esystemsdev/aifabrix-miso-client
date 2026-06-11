@@ -220,8 +220,8 @@ const dataClientWithRefresh = new DataClient({
 
 Final browser token contract:
 
-- canonical access-token key is `miso_token`
-- legacy keys `token` / `accessToken` / `authToken` are unsupported after cutover
+- browser user access-token state is runtime-memory-only (no JS-readable persistent token storage dependency)
+- `tokenKeys` are cleanup aliases only (for stale-key removal), not runtime browser token sources
 - browser refresh/session flow supports cookie-first `/api/v1/auth/session` and `/api/v1/auth/refresh` (no required frontend `refreshToken` JSON payload)
 - refresh checks are activity-driven (`mousemove`, `click`, `keydown`) with 60-second cadence and no polling loop
 

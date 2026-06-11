@@ -91,15 +91,17 @@ const hasPerm = await dataClient.hasPermission("users:read");
 const hasRole = await dataClient.hasRole("admin");
 ```
 
-DataClient sends the user token (e.g. from URL hash or your auth state) when calling these methods. Configure how the token is provided per your app (e.g. OAuth callback, storage).
+DataClient sends the user token from browser runtime state when calling these methods. Populate runtime state via OAuth callback/session restore/refresh hooks; browser flows must not depend on JS-readable persistent token storage.
 
 ### Token key contract (`miso_token`)
 
-By default DataClient reads and writes the browser access token under `miso_token`.
+DataClient keeps browser user access-token state in runtime memory only.
 
 `token`, `accessToken`, and `authToken` are legacy migration keys and are unsupported in the final cutover contract.
 
-If your app uses a different key, set **`tokenKeys`** explicitly:
+`tokenKeys` are retained only for deterministic cleanup compatibility (for example removing stale historical keys during logout/fail-closed cleanup). They are not an operational browser token source.
+
+If your app needs explicit cleanup aliases, set **`tokenKeys`** explicitly:
 
 ```typescript
 const dataClient = new DataClient({
@@ -107,11 +109,11 @@ const dataClient = new DataClient({
   misoConfig: {
     /* ... */
   },
-  tokenKeys: ["my_custom_token"], // explicit app-owned key(s)
+  tokenKeys: ["my_custom_token"], // optional stale-key cleanup aliases
 });
 ```
 
-OAuth callback and restore/refresh persistence will store the token in canonical/final keys, and optional custom keys from `tokenKeys`.
+OAuth callback and restore/refresh flows return access-token material that the SDK keeps in runtime memory only for browser paths.
 
 ## When you need more than zero-config
 
@@ -141,7 +143,7 @@ If your backend returns both URLs, use them as-is. If the API sometimes returns 
 Avoid double-prefix: do not put the same virtual-directory segment in **`baseUrl`** and again in **`basePath`**, and do not combine SDK `basePath` with an unrelated duplicate prefix from the host app. Prefer one full `baseUrl`; use optional `basePath` only for origin + path split. See [configuration.md](configuration.md#full-urls-and-virtual-directories).
 
 **5. Interceptors**  
-Use `dataClient.setInterceptors({ onRequest: async (url, options) => { ... } })` to add e.g. `X-Request-ID`, `Authorization: Bearer <token>` (from your tokenKeys), and `X-Client-Token` when available.
+Use `dataClient.setInterceptors({ onRequest: async (url, options) => { ... } })` to add e.g. `X-Request-ID`, `Authorization: Bearer <token>` (from runtime auth state), and `X-Client-Token` when available.
 
 **Summary:** One init with zero-config is enough when you only need default token keys and no custom audit or interceptors. When you need custom token keys, login/logout URLs, audit options, or request headers, fetch token/config yourself, persist only non-token config, keep `x-client-token` in runtime memory, then `new DataClient(fullConfig)` and optionally `setInterceptors`.
 
@@ -202,7 +204,7 @@ const getBaseUrl = () =>
 const cookieCallbacks = createCookieSessionCallbacks({
   getBaseUrl,
   onAccessToken: async (result) => {
-    /* persist result.accessToken (e.g. in-memory + optional miso_token) */
+    /* keep result.accessToken in runtime memory only */
   },
 });
 // callback result intentionally excludes refreshToken for browser flows
@@ -223,7 +225,7 @@ For silent recovery outside DataClient (e.g. custom retry), use `recoverBrowserS
 
 Notes:
 
-- Keep refresh/session secrets in HttpOnly cookies; localStorage access-token usage should follow the final `miso_token` contract.
-- Browser auth requests use runtime-memory-first token reads and deterministic stale-auth cleanup.
+- Keep refresh/session secrets in HttpOnly cookies; browser user access-token state must stay runtime-memory-only.
+- Browser auth requests use runtime-memory token reads and deterministic stale-auth cleanup.
 - In split-port dev, resolve API `baseUrl` with `resolveBrowserApiBaseUrl` so cookies and proxy paths stay on the UI origin.
 - Public API outputs remain camelCase.

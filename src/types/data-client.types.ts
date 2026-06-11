@@ -124,8 +124,8 @@ export interface DataClientConfig {
   misoConfig: MisoClientConfig;
 
   /**
-   * Token storage keys in localStorage (default: ['miso_token']).
-   * Legacy keys like 'token'/'accessToken'/'authToken' are not part of final defaults.
+   * Legacy browser token key aliases retained for compatibility cleanup behavior.
+   * Active browser auth runtime no longer depends on localStorage user-token sourcing.
    */
   tokenKeys?: string[];
 

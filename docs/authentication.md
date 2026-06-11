@@ -96,7 +96,7 @@ For browser clients, prefer cookie-backed session restore before explicit refres
 - Keep `onTokenRefresh` as fallback for refresh endpoint integration.
 - Use `clearCachedBrowserAuthState` callback (or built-in default cleanup) when restore/refresh fails.
 
-This keeps refresh/session secrets outside browser-accessible storage while keeping browser access-token handling on the final `miso_token` contract.
+This keeps refresh/session secrets outside browser-accessible storage and keeps browser access-token handling runtime-memory-only.
 
 ### Browser UI helpers (4.16+)
 
@@ -131,7 +131,7 @@ const sessionClient = createBrowserSessionClient({ getBaseUrl });
 const { onSessionRestore, onTokenRefresh } = createCookieSessionCallbacks({
   getBaseUrl,
   onAccessToken: async (result) => {
-    /* store result.accessToken in app memory / miso_token */
+    /* keep result.accessToken in app runtime memory only */
   },
 });
 // result includes access-token expiry metadata only (no refreshToken field)
@@ -149,7 +149,7 @@ await ensureBrowserAccessToken({
 const recovered = await recoverBrowserSessionWithStaleCleanup({
   client: sessionClient,
   clearStaleState: () => {
-    /* clear miso_token + SDK caches */
+    /* clear app runtime token state + SDK caches */
   },
 });
 ```

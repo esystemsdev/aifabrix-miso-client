@@ -4,7 +4,7 @@
  */
 
 import { DataClientConfig } from "../types/data-client.types";
-import { isBrowser, setLocalStorage } from "./data-client-utils";
+import { isBrowser } from "./data-client-utils";
 import { extractErrorInfo } from "./error-extractor";
 import { logErrorWithContext, writeWarn, writeErr } from "./console-logger";
 
@@ -92,18 +92,6 @@ function checkHttpsInProduction(protocol: string, hostname: string): boolean {
   return isLocalhost(hostname);
 }
 
-function storeTokenSecurely(tokenKeys: string[], token: string): void {
-  tokenKeys.forEach((key) => {
-    try {
-      setLocalStorage(key, token);
-    } catch (e) {
-      writeWarn(
-        `[handleOAuthCallback] Failed to store token in key ${key}: ${String(e)}`,
-      );
-    }
-  });
-}
-
 function resolveWindowLocation(): {
   hash: string;
   protocol: string;
@@ -149,11 +137,11 @@ function logStoredOAuthToken(
 ): void {
   if (!isDebug) return;
   writeWarn(
-    `[handleOAuthCallback] OAuth token extracted and stored securely: ${JSON.stringify(
+    `[handleOAuthCallback] OAuth token extracted for runtime session flow: ${JSON.stringify(
       {
         tokenLength: token.length,
         tokenKeys,
-        storedInKeys: tokenKeys.length,
+        persistedInBrowserStorage: false,
       },
     )}`,
   );
@@ -200,7 +188,6 @@ export function handleOAuthCallback(config: DataClientConfig): string | null {
       : [...DEFAULT_OAUTH_TOKEN_KEYS];
 
   try {
-    storeTokenSecurely(tokenKeys, token);
     logStoredOAuthToken(
       config.misoConfig?.logLevel === "debug",
       token,
@@ -213,7 +200,9 @@ export function handleOAuthCallback(config: DataClientConfig): string | null {
       extractErrorInfo(error, { endpoint: location.pathname, method: "GET" }),
       "[DataClient] [AUTH] [OAuthCallback]",
     );
-    writeErr(`[handleOAuthCallback] Failed to store token: ${String(e)}`);
+    writeErr(
+      `[handleOAuthCallback] Failed to process callback token: ${String(e)}`,
+    );
     return null;
   }
 }

@@ -4,7 +4,10 @@
 
 import { DataClient } from "../../src/utils/data-client";
 import { MisoClient } from "../../src/miso-client";
-import { clearCachedBrowserAuthState } from "../../src/utils/data-client-auth";
+import {
+  clearCachedBrowserAuthState,
+  storeBrowserSessionTokens,
+} from "../../src/utils/data-client-auth";
 import {
   DataClientConfig,
   NetworkError,
@@ -146,6 +149,23 @@ beforeAll(() => {
 describe("DataClient", () => {
   let dataClient: DataClient;
   let config: DataClientConfig;
+
+  const seedBrowserUserToken = (
+    client: DataClient,
+    token: string,
+    expiresAt?: string,
+  ): void => {
+    storeBrowserSessionTokens({
+      tokenKeys: (client as any).config?.tokenKeys,
+      accessToken: token,
+      expiresAt,
+    });
+    (client as any).userTokenRefreshManager.storeAccessToken(
+      "browser",
+      token,
+      expiresAt,
+    );
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -461,14 +481,14 @@ describe("DataClient", () => {
   });
 
   describe("Authentication", () => {
-    it("should get token from localStorage", () => {
-      mockLocalStorage["miso_token"] = "test-token-123";
+    it("should get token from browser runtime state", () => {
+      seedBrowserUserToken(dataClient, "test-token-123");
       const token = (dataClient as any).getToken();
       expect(token).toBe("test-token-123");
     });
 
-    it("should try multiple token keys", () => {
-      mockLocalStorage["miso_token"] = "access-token-123";
+    it("should resolve token from runtime state regardless of token key list", () => {
+      seedBrowserUserToken(dataClient, "access-token-123");
       const token = (dataClient as any).getToken();
       expect(token).toBe("access-token-123");
     });
@@ -479,10 +499,10 @@ describe("DataClient", () => {
     });
 
     it("should check if authenticated", () => {
-      mockLocalStorage["miso_token"] = "test-token";
+      seedBrowserUserToken(dataClient, "test-token");
       expect(dataClient.isAuthenticated()).toBe(true);
-
-      delete mockLocalStorage["miso_token"];
+      clearCachedBrowserAuthState();
+      (dataClient as any).userTokenRefreshManager.clearUserTokens("browser");
       expect(dataClient.isAuthenticated()).toBe(false);
     });
 
@@ -603,7 +623,7 @@ describe("DataClient", () => {
     });
 
     it("should logout and redirect to loginUrl", async () => {
-      mockLocalStorage["miso_token"] = "test-token-123";
+      seedBrowserUserToken(dataClient, "test-token-123");
       mockLocalStorage["miso:client-token"] = "test-client-token";
       mockLocalStorage["miso:client-token-expires-at"] = (
         Date.now() + 3600000
@@ -622,11 +642,11 @@ describe("DataClient", () => {
         "x-client-token=test-client-token",
       );
       expect(mockWindow.location.href).toContain("token=test-token-123");
-      expect(mockLocalStorage["miso_token"]).toBeUndefined();
+      expect((dataClient as any).getToken()).toBeNull();
     });
 
     it("should logout with custom redirectUrl", async () => {
-      mockLocalStorage["miso_token"] = "test-token-123";
+      seedBrowserUserToken(dataClient, "test-token-123");
       mockLocalStorage["miso:client-token"] = "test-client-token";
       mockLocalStorage["miso:client-token-expires-at"] = (
         Date.now() + 3600000
@@ -645,7 +665,7 @@ describe("DataClient", () => {
         "x-client-token=test-client-token",
       );
       expect(mockWindow.location.href).toContain("token=test-token-123");
-      expect(mockLocalStorage["miso_token"]).toBeUndefined();
+      expect((dataClient as any).getToken()).toBeNull();
     });
 
     it("should logout with logoutUrl config", async () => {
@@ -862,7 +882,7 @@ describe("DataClient", () => {
     });
 
     it("should add Authorization header when token exists", async () => {
-      mockLocalStorage["miso_token"] = "bearer-token-123";
+      seedBrowserUserToken(dataClient, "bearer-token-123");
       await dataClient.get("/api/users");
       const callArgs = mockFetch.mock.calls[0];
       const headers = callArgs[1].headers as Headers;
@@ -1294,8 +1314,6 @@ describe("DataClient", () => {
     });
 
     it("should perform audit logging when user token is available", async () => {
-      mockLocalStorage["miso_token"] = "test-user-token";
-
       const client = new DataClient({
         ...config,
         misoConfig: {
@@ -1303,6 +1321,7 @@ describe("DataClient", () => {
           clientId: "test-client",
         },
       });
+      seedBrowserUserToken(client, "test-user-token");
 
       await client.get("/api/users");
 
@@ -1340,7 +1359,7 @@ describe("DataClient", () => {
     });
 
     it("should extract userId from token for audit", async () => {
-      mockLocalStorage["miso_token"] = "test-token";
+      seedBrowserUserToken(dataClient, "test-token");
       (jwt.decode as jest.Mock).mockReturnValue({ sub: "user-456" });
       await dataClient.get("/api/users");
 
@@ -1810,6 +1829,7 @@ describe("DataClient", () => {
       });
 
       it("should extract and log userId from JWT token", async () => {
+        seedBrowserUserToken(dataClient, "test-token-for-user-789");
         (jwt.decode as jest.Mock).mockReturnValue({ sub: "user-789" });
 
         await dataClient.get("/api/users");
@@ -2482,15 +2502,15 @@ describe("DataClient", () => {
           json: jest.fn().mockResolvedValue({ data: "success" }),
         } as unknown as Response);
 
-      mockLocalStorage["miso_token"] = "old-token-123";
+      seedBrowserUserToken(customClient, "old-token-123");
 
       const result = await customClient.get("/api/test");
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledTimes(2);
       expect(result).toEqual({ data: "success" });
-      // Verify new token was stored in localStorage
-      expect(mockLocalStorage["miso_token"]).toBe("new-access-token-456");
+      // Verify new token was stored in browser runtime state
+      expect((customClient as any).getToken()).toBe("new-access-token-456");
     });
 
     it("should update token in all configured tokenKeys after refresh", async () => {
@@ -2521,7 +2541,7 @@ describe("DataClient", () => {
 
       await customClient.get("/api/test");
 
-      expect(mockLocalStorage["miso_token"]).toBe("refreshed-token-789");
+      expect((customClient as any).getToken()).toBe("refreshed-token-789");
       expect(mockLocalStorage["accessToken"]).toBeUndefined();
       expect(mockLocalStorage["authToken"]).toBeUndefined();
     });
@@ -2686,8 +2706,8 @@ describe("DataClient", () => {
 
       await customClient.get("/api/test");
 
-      // Verify only access token is stored, not refresh token
-      expect(mockLocalStorage["miso_token"]).toBe("new-access-token-456");
+      // Verify only runtime access token is stored, not refresh token
+      expect((customClient as any).getToken()).toBe("new-access-token-456");
       // Verify no refresh token keys exist
       expect(mockLocalStorage["refreshToken"]).toBeUndefined();
       expect(mockLocalStorage["refresh_token"]).toBeUndefined();
@@ -2721,7 +2741,7 @@ describe("DataClient", () => {
       await customClient.post("/api/test", { data: "test" });
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
-      expect(mockLocalStorage["miso_token"]).toBe("new-token-post-123");
+      expect((customClient as any).getToken()).toBe("new-token-post-123");
     });
 
     it("should handle refresh for PUT requests", async () => {
@@ -2752,7 +2772,7 @@ describe("DataClient", () => {
       await customClient.put("/api/test", { data: "test" });
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
-      expect(mockLocalStorage["miso_token"]).toBe("new-token-put-456");
+      expect((customClient as any).getToken()).toBe("new-token-put-456");
     });
 
     it("should handle refresh for DELETE requests", async () => {
@@ -2785,7 +2805,7 @@ describe("DataClient", () => {
       await customClient.delete("/api/test");
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
-      expect(mockLocalStorage["miso_token"]).toBe("new-token-delete-789");
+      expect((customClient as any).getToken()).toBe("new-token-delete-789");
     });
 
     it("should handle refresh callback returning invalid token format", async () => {
@@ -2815,7 +2835,7 @@ describe("DataClient", () => {
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
       // Empty token should NOT be stored (code checks `if (result.token)`)
-      expect(mockLocalStorage["miso_token"]).toBeUndefined();
+      expect((customClient as any).getToken()).toBeNull();
     });
 
     it("should handle refresh callback with different expiresIn values", async () => {
@@ -2846,7 +2866,7 @@ describe("DataClient", () => {
       await customClient.get("/api/test");
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
-      expect(mockLocalStorage["miso_token"]).toBe("new-token-expires-123");
+      expect((customClient as any).getToken()).toBe("new-token-expires-123");
     });
 
     it("should handle refresh callback timing out", async () => {
@@ -2917,7 +2937,7 @@ describe("DataClient", () => {
       await customClient.get("/api/test");
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
-      expect(mockLocalStorage["miso_token"]).toBe("new-token-no-expires");
+      expect((customClient as any).getToken()).toBe("new-token-no-expires");
     });
 
     it("should handle concurrent requests each triggering refresh", async () => {
@@ -3051,7 +3071,7 @@ describe("DataClient", () => {
       await customClient.get("/api/test");
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
-      expect(mockLocalStorage["customToken"]).toBe(specialToken);
+      expect((customClient as any).getToken()).toBe(specialToken);
     });
 
     it("should handle refresh with very long token", async () => {
@@ -3084,7 +3104,7 @@ describe("DataClient", () => {
       await customClient.get("/api/test");
 
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
-      expect(mockLocalStorage["customToken"]).toBe(longToken);
+      expect((customClient as any).getToken()).toBe(longToken);
     });
 
     it("registers activity-driven listener and enforces 60-second cadence", async () => {
@@ -3092,20 +3112,20 @@ describe("DataClient", () => {
       let nowMs = 1_000_000;
       nowSpy.mockImplementation(() => nowMs);
 
-      mockLocalStorage["miso_token"] = "access-token-in-memory";
-      mockLocalStorage["miso_token_expires_at"] = new Date(
-        nowMs - 1000,
-      ).toISOString();
-
       const onTokenRefresh = jest.fn().mockResolvedValue({
         token: "activity-refreshed-token",
         expiresIn: 3600,
       });
 
-      new DataClient({
+      const activityClient = new DataClient({
         ...config,
         onTokenRefresh,
       });
+      seedBrowserUserToken(
+        activityClient,
+        "access-token-in-memory",
+        new Date(nowMs - 1000).toISOString(),
+      );
 
       const mouseMoveListener = (
         mockWindow.addEventListener as jest.Mock
@@ -3117,7 +3137,9 @@ describe("DataClient", () => {
       mouseMoveListener?.(new Event("mousemove"));
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(onTokenRefresh).toHaveBeenCalledTimes(1);
-      expect(mockLocalStorage["miso_token"]).toBe("activity-refreshed-token");
+      expect((activityClient as any).getToken()).toBe(
+        "activity-refreshed-token",
+      );
 
       nowMs += 59_000;
       mouseMoveListener?.(new Event("mousemove"));

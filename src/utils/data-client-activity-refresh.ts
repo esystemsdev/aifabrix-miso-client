@@ -1,6 +1,6 @@
 import { UserSessionTokenResult } from "../types/data-client.types";
 import { getToken } from "./data-client-auth";
-import { getLocalStorage, isBrowser } from "./data-client-utils";
+import { isBrowser } from "./data-client-utils";
 import { UserTokenRefreshManager } from "./user-token-refresh";
 
 interface BrowserLikeWindow {
@@ -27,11 +27,7 @@ export function hydrateBrowserRuntimeTokenState(
   if (!isBrowser()) return;
   const accessToken = getToken(tokenKeys);
   if (accessToken) {
-    refreshManager.storeAccessToken(
-      "browser",
-      accessToken,
-      getLocalStorage("miso_token_expires_at") || undefined,
-    );
+    refreshManager.storeAccessToken("browser", accessToken);
   }
 }
 

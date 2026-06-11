@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Browser user-token hard-stop (59.3)** - Removed active browser runtime dependency on persisted `miso_token` / `miso_token_expires_at`; browser user access-token continuity now stays runtime-memory-only with cookie-first restore/refresh callbacks.
+- **OAuth callback handling semantics** - OAuth callback extraction remains strict (`token` / `access_token` only) and now returns token material for runtime-session continuity without JS-readable storage writes.
+
+### Technical
+
+- **Runtime hard-stop regression alignment** - Updated DataClient auth/session/logout and activity-refresh tests to enforce runtime-memory-only browser user-token behavior and preserve 59.1/59.2 boundary guardrails.
+
 ## [4.17.2] - 2026-06-11
 
 ### Changed
