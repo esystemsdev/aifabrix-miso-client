@@ -1,6 +1,6 @@
 ---
 name: 60-ui-auth-consolidation-from-apps
-overview: "Extract shared browser auth patterns from miso-ui and dataplane app-ui into @aifabrix/miso-client, then thin both consumers to SDK helpers. Builds on browser-session (4.15.5+) and closes gaps in URL resolution, silent recovery, OAuth helpers, and DataClient factory wiring."
+overview: Extract shared browser auth patterns from miso-ui and dataplane app-ui into @aifabrix/miso-client, then thin both consumers to SDK helpers. Includes post-192.2 hard-cut realignment so browser-session helpers follow HttpOnly miso_access_token + server-only refresh-token semantics.
 todos:
   - id: scope-and-baseline
     content: Inventory duplicated auth code in miso-ui and dataplane app-ui; record baseline file paths and behavior (split-port proxy, cookie session, silent recovery).
@@ -20,6 +20,15 @@ todos:
   - id: sdk-silent-recovery-orchestrator
     content: Add recoverBrowserSessionWithStaleCleanup (refresh → restore → clear stale → retry); use in dataplane runSilentAuthRecovery and optional DataClient default.
     status: completed
+  - id: sdk-activity-driven-session-refresh-reuse
+    content: Standardize reusable activity-driven session refresh in SDK (mousemove/click/keydown with 60s throttle) and document integration contract for browser consumers.
+    status: pending
+  - id: sdk-browser-session-hardcut-realignment
+    content: Realign createBrowserSessionClient/createCookieSessionCallbacks to 192.2 hard-cut contract where browser session endpoints may return authenticated session metadata without accessToken payload while auth continuity is represented by HttpOnly miso_access_token cookie.
+    status: pending
+  - id: sdk-browser-session-hardcut-tests
+    content: Update browser-session and browser-session-recovery unit tests to validate cookie-session success without requiring response data.accessToken and to enforce no browser-readable refresh token assumptions.
+    status: pending
   - id: sdk-unauthorized-helpers
     content: Export isUnauthorizedApiError and isInactiveTokenMessage; replace dataplane auth.ts and miso-ui inline checks.
     status: completed
@@ -33,11 +42,20 @@ todos:
     content: "Optional: createBrowserAuthDataClient factory (preferCookieSessionRestore, cookie callbacks, default audit skipEndpoints)."
     status: cancelled
   - id: consumer-miso-ui-adopt
-    content: "miso-ui: replace local controller-api-base-url, browser-session wrappers, and duplicate helpers with SDK; bump workspace:^4.15.5+."
+    content: "miso-ui: replace local controller-api-base-url, browser-session wrappers, and duplicate helpers with SDK; align to hard-cut compatible SDK version (>=4.17.3 lineage)."
     status: in_progress
+  - id: consumer-miso-ui-activity-refresh-adopt
+    content: Adopt SDK activity-driven session refresh in miso-ui with the same throttle semantics as dataplane (no more than once per 60 seconds) and remove ad-hoc app-level duplication.
+    status: pending
   - id: consumer-dataplane-adopt
     content: "dataplane app-ui: wire createCookieSessionCallbacks + preferCookieSessionRestore; use SDK URL/recovery helpers; remove duplicated session HTTP from auth.ts."
     status: in_progress
+  - id: consumer-remove-hardcut-shims
+    content: Remove or thin local hardcut workaround shims in miso-ui/dataplane that compensate for old SDK token-payload assumptions (miso-ui miso-client-browser-sdk.ts, dataplane auth-browser-session fallback snapshot path) after SDK realignment.
+    status: pending
+  - id: consumer-shim-zero-tolerance-audit
+    content: Verify consumer codebases contain no local auth shim modules duplicating SDK browser-session/auth helpers; capture evidence in handoff checklist before closure.
+    status: pending
   - id: python-parity-notes
     content: Document which browser helpers are TS-only vs shared contract with miso-client-python (session/refresh paths only).
     status: pending
@@ -53,8 +71,11 @@ todos:
   - id: handoff-temp-doc
     content: Add .temp/ui-auth-consolidation-handoff.md with file-by-file adoption checklist for miso-ui and dataplane agents.
     status: pending
+  - id: consumer-migration-instruction-temp-doc
+    content: Create a temporary migration instruction document in .temp for consumer projects adopting the updated SDK browser auth contract and shim-removal workflow.
+    status: pending
   - id: publish-and-close
-    content: Publish @aifabrix/miso-client minor/patch; verify npm consumers resolve ^4.15.5+; close DoD.
+    content: Publish @aifabrix/miso-client minor/patch; verify npm consumers resolve the hard-cut compatible version line (>=4.17.3 lineage); close DoD.
     status: pending
   - id: final-dod-closure
     content: Confirm all DoD criteria met (phases, consumers, gates, docs, security, camelCase exports); mark plan complete or defer optional phases with rationale.
@@ -82,7 +103,11 @@ into **`@aifabrix/miso-client`**, so both UIs keep only **env wiring**, **React/
 | [57-enterprise-auth-unification-ts-sdk (done)](/workspace/aifabrix-miso-client/.cursor/plans/done/57-enterprise-auth-unification-ts-sdk_07fa02a3.plan.md) | Token lifecycle, DataClient hooks, user-token-refresh |
 | [59-plan192 miso-client (active)](/workspace/aifabrix-miso-client/.cursor/plans/59-plan192_miso-client_b447c41b.plan.md) | Cookie-first refresh, activity listener |
 | [384 dataplane enterprise auth](/workspace/aifabrix-dataplane/.cursor/plans/384-enterprise-auth-unification_d5c96fa8.plan.md) | Dataplane reference behavior |
-| [192 unified token providers](/workspace/aifabrix-miso/.cursor/plans/192-unified-token-providers.plan.md) | Cross-product contract |
+| [192 unified token providers](/workspace/aifabrix-miso/.cursor/plans/192-unified-token-providers.plan.md) | Original cross-product contract baseline |
+| [192.1 token cookie hardcut (done)](/workspace/aifabrix-miso/.cursor/plans/done/192.1-token-cookie-hardcut.plan.md) | Hard-cut contract (cookie-centric browser auth boundary) |
+| [192.2 goal alignment (done)](/workspace/aifabrix-miso/.cursor/plans/done/192.2_goal_alignment_85d5f32e.plan.md) | Corrective alignment of contract, tests, docs, and closure evidence |
+| [419.1 dataplane hardcut (done)](/workspace/aifabrix-dataplane/.cursor/plans/-1.done/419.1_dataplane_hardcut_f9ac0e05.plan.md) | Dataplane-side 192.1 alignment and closure evidence |
+| [419.2 dataplane goal alignment (done)](/workspace/aifabrix-dataplane/.cursor/plans/-1.done/419.2_dataplane_goal_alignment_4071b324.plan.md) | Dataplane residual closure for 192.2 invariants |
 
 ## Scope
 
@@ -92,7 +117,7 @@ into **`@aifabrix/miso-client`**, so both UIs keep only **env wiring**, **React/
 - Public exports via [`src/sdk-exports.ts`](/workspace/aifabrix-miso-client/src/sdk-exports.ts).
 - Unit tests in `tests/unit/`.
 - Docs + CHANGELOG migration notes for app teams.
-- **Consumer adoption** tracks for `miso-ui` and `dataplane app-ui` (thin wrappers only).
+- **Consumer adoption** tracks for `miso-ui`, `dataplane app-ui`, and `miso-client-python` (execution is handoff-only in consumer repos via their own plans).
 - Publish `@aifabrix/miso-client` after each deliverable phase.
 
 ### Out of scope
@@ -100,10 +125,29 @@ into **`@aifabrix/miso-client`**, so both UIs keep only **env wiring**, **React/
 - **miso-controller** Express route/handler changes (unless a bug fix is required for contract tests).
 - **React** `AuthContext`, bootstrap phases, RBAC UI, routing (`LoginPage` structure stays in apps).
 - **miso-client-python** implementation (document parity only where paths/fields align).
+- Direct implementation in consumer repositories (`aifabrix-miso`, `aifabrix-dataplane`, `aifabrix-miso-client-python`) from this plan execution; those repos execute via their own local plans.
 - Dataplane-only backend routes (`/api/ide/*`) — apps keep BFF; SDK documents how to pass `clientTokenUri`.
 - Infra, Docker, deployment.
 
-## Current State (2026-06-03)
+## Current State (re-baselined 2026-06-16)
+
+### Cross-plan delta from 192.1 / 192.2 / 419.1 / 419.2
+
+- Browser auth contract has moved beyond early 4.16.0 assumptions; hard-cut + goal-alignment plans establish strict cookie/session boundaries and remove contradictory token-persistence assumptions.
+- `aifabrix-miso` goal-alignment execution references `@aifabrix/miso-client@^4.17.3` for consumer alignment.
+- `aifabrix-dataplane` goal-alignment execution is marked complete and documents residual host-topology behavior explicitly (`dataplane` host vs `miso` host auth routes) instead of masking it in UI logic.
+- This plan remains valid for SDK-auth-consolidation intent, but consumer-adoption checkpoints must be treated as **re-validation checkpoints** against the already-completed 192.2/419.2 outcomes.
+
+### Verified contract reality (codebase)
+
+- Controller browser session cookie is `miso_access_token` (HttpOnly, `Path=/`); refresh token is server-side only in browser-session store mapping.
+- Browser endpoints `GET /api/v1/auth/session` and `POST /api/v1/auth/refresh` are cookie-session driven and must not expose browser-readable refresh token material; session payloads can be valid without `data.accessToken`.
+- Current SDK `src/utils/browser-session.ts` still hard-requires `payload.accessToken` and classifies missing token as invalid response, which is now a contract mismatch against hard-cut behavior.
+- Current SDK unit tests in `tests/unit/browser-session.test.ts` still enforce token-in-payload behavior and must be updated to hard-cut semantics.
+- Consumers currently keep local compensating logic because of this mismatch:
+  - `miso-ui` local shim `packages/miso-ui/src/auth/services/miso-client-browser-sdk.ts`
+  - dataplane fallback snapshot handling in `app-ui/services/api/auth-browser-session.ts`
+- SDK already contains reusable activity-driven refresh primitives (`src/utils/data-client-activity-refresh.ts`) used by browser DataClient runtime; this plan must ensure consistent consumer adoption, including `miso-ui`.
 
 ### Already in SDK (Phase 0 — shipped 4.15.5)
 
@@ -117,7 +161,7 @@ into **`@aifabrix/miso-client`**, so both UIs keep only **env wiring**, **React/
 
 **miso-ui:** thin [`browser-session.ts`](/workspace/aifabrix-miso/packages/miso-ui/src/auth/services/browser-session.ts) + [`data-client.factory.ts`](/workspace/aifabrix-miso/packages/miso-ui/src/auth/services/data-client.factory.ts) uses `cookieSessionCallbacks`.
 
-**dataplane:** [`auth.ts`](/workspace/aifabrix-dataplane/app-ui/services/api/auth.ts) uses `createBrowserSessionClient` for restore/refresh but **does not** wire `preferCookieSessionRestore` / `onSessionRestore` on `DataClient` yet.
+**dataplane:** baseline notes above are superseded by 419.1/419.2 closure evidence; use this plan to verify remaining duplication against current dataplane implementation rather than relying on early 2026-06-03 assumptions.
 
 ### Still duplicated in UIs (target for this plan)
 
@@ -129,7 +173,7 @@ into **`@aifabrix/miso-client`**, so both UIs keep only **env wiring**, **React/
 | 401 / inactive token detection | inline in auth-flow | [`auth.ts`](/workspace/aifabrix-dataplane/app-ui/services/api/auth.ts) `isUnauthorizedError`, `isInactiveTokenErrorMessage` | `isUnauthorizedApiError`, `isInactiveTokenMessage` |
 | Auth path constants | string literals in factory / auth-flow | [`constants/auth.ts`](/workspace/aifabrix-dataplane/app-ui/constants/auth.ts) | `AUTH_CONTROLLER_PATHS` |
 | OAuth login/callback HTTP | [`auth-client.auth-flow.ts`](/workspace/aifabrix-miso/packages/miso-ui/src/auth/services/auth-client.auth-flow.ts) | OAuth via DataClient redirect (different path) | optional `createOAuthBrowserFlow` |
-| Client token in URL | [`client-token.utils.ts`](/workspace/aifabrix-miso/packages/miso-ui/src/auth/utils/client-token.utils.ts) | — | URL utils in SDK |
+| Client token in URL | [`miso-client-browser-sdk.ts`](/workspace/aifabrix-miso/packages/miso-ui/src/auth/services/miso-client-browser-sdk.ts) local wrappers | — | URL utils in SDK |
 | DataClient cookie-first factory | [`data-client.factory.ts`](/workspace/aifabrix-miso/packages/miso-ui/src/auth/services/data-client.factory.ts) | manual `DataClient` config in [`dataplaneClient.ts`](/workspace/aifabrix-dataplane/app-ui/services/api/dataplaneClient.ts) | optional `createBrowserAuthDataClient` |
 | Bootstrap / activity refresh | React contexts | [`authBootstrapLifecycle.ts`](/workspace/aifabrix-dataplane/app-ui/contexts/authBootstrapLifecycle.ts), [`authUserSessionRefresh.ts`](/workspace/aifabrix-dataplane/app-ui/contexts/authUserSessionRefresh.ts) | **stay in apps** (use SDK session client inside) |
 
@@ -158,10 +202,24 @@ into **`@aifabrix/miso-client`**, so both UIs keep only **env wiring**, **React/
 - [x] `browser-session-recovery.ts` + unit tests.
 - [ ] dataplane `runSilentAuthRecovery` still inline (not SDK wrapper).
 
+### Phase 3b — Hard-cut browser-session realignment (NEW)
+
+- [ ] Update SDK browser-session success criteria to accept cookie-session authenticated responses without `data.accessToken`.
+- [ ] Keep response parsing strict for forbidden legacy aliases (`token`, `authToken`, `refreshToken`) while not requiring bearer token material in browser payload.
+- [ ] Preserve DataClient/browser callback contracts without reintroducing localStorage token persistence.
+- [ ] Replace consumer workaround code paths where SDK behavior becomes sufficient (miso-ui/dataplane).
+
+### Phase 3c — Activity-driven refresh reuse (NEW)
+
+- [ ] Ensure SDK activity-driven refresh remains reusable and configurable for browser consumers (event-based trigger with throttle, default 60s).
+- [ ] Add/refresh SDK tests proving activity-triggered refresh does not execute more than once within the configured interval.
+- [ ] Document the browser integration pattern so consumers can enable identical behavior without local implementation forks.
+- [ ] Adopt this SDK mechanism in `miso-ui` to match dataplane behavior.
+
 ### Phase 4 — Client token URL utilities (DONE — SDK 4.16.0)
 
 - [x] `client-token-url.ts` + unit tests.
-- [ ] miso-ui still uses `client-token.utils.ts` locally.
+- [ ] miso-ui still uses local wrapper module `miso-client-browser-sdk.ts` for URL helpers and browser-session compatibility.
 
 ### Phase 5 — OAuth browser flow (DEFERRED)
 
@@ -242,10 +300,60 @@ createBrowserAuthDataClient({
 | Repo | Actions |
 |------|---------|
 | **miso-client** | Phases 1–6, tests, docs, npm publish |
-| **miso-ui** | `workspace:*` or `^4.16.0`; delete superseded local modules; run `tsc`, auth unit tests |
-| **dataplane** | Bump `package.json`; wire `preferCookieSessionRestore`; use recovery helper; run `app-ui` vitest auth suites |
+| **miso-ui** | Handoff-only from this plan: execute in a dedicated `aifabrix-miso` plan created by miso agent |
+| **dataplane** | Handoff-only from this plan: execute in a dedicated `aifabrix-dataplane` plan created by dataplane agent |
+| **miso-client-python** | Handoff-only from this plan: execute in a dedicated `aifabrix-miso-client-python` plan created by python SDK agent |
 
 Handoff: [`.temp/ui-auth-consolidation-handoff.md`](/workspace/aifabrix-miso-client/.temp/ui-auth-consolidation-handoff.md) (create during Phase 7).
+
+## Consumer Project Instructions (informational only)
+
+This section is **instructional only** for agents of consumer repositories.
+Execution must happen in consumer repos under their own local plans, not in this `miso-client` plan.
+
+### Instructions for `aifabrix-miso` agent (miso-ui consumer)
+
+- Create a dedicated plan in `/workspace/aifabrix-miso/.cursor/plans/` for SDK hard-cut adoption (do not execute directly from this plan).
+- Upgrade to hard-cut compatible `@aifabrix/miso-client` line (`>=4.17.3` lineage).
+- Remove local shim module `packages/miso-ui/src/auth/services/miso-client-browser-sdk.ts` after replacing imports with SDK exports.
+- Remove duplicated local exports/constants/helpers that overlap SDK browser auth surface (`createBrowserSessionClient`, `createCookieSessionCallbacks`, URL token helpers, auth path constants).
+- Ensure no auth flow path depends on browser-readable refresh token or mandatory `data.accessToken` from session/refresh payload.
+- Wire SDK activity-driven refresh (mousemove/click/keydown) with 60-second throttle semantics.
+- Run consumer validation (`packages/miso-ui` TypeScript + auth tests) and attach pass evidence in the miso plan.
+
+### Instructions for `aifabrix-dataplane` agent (dataplane consumer)
+
+- Create a dedicated plan in `/workspace/aifabrix-dataplane/.cursor/plans/` for SDK hard-cut adoption (do not execute directly from this plan).
+- Remove fallback snapshot shim path in `app-ui/services/api/auth-browser-session.ts` once SDK browser-session semantics are aligned.
+- Keep only app-specific wiring in dataplane auth modules; route common browser-session/recovery logic through SDK exports.
+- Ensure no local shim remains for SDK cache/token cleanup behavior once canonical SDK behavior is available.
+- Keep activity-driven refresh behavior aligned with SDK 60-second throttle semantics.
+- Run consumer validation (`app-ui` targeted auth tests + required frontend gates) and attach pass evidence in the dataplane plan.
+
+### Instructions for `aifabrix-miso-client-python` agent (python SDK companion)
+
+Create a dedicated plan in `/workspace/aifabrix-miso-client-python/.cursor/plans/` for Python SDK alignment.
+This section is instructional only and must be executed by the python SDK agent in its repository.
+
+First verify these potential mismatches (do not assume; confirm from code/tests/OpenAPI in python repo):
+
+- Verify whether `AuthApi.refresh_session_token()` response model still expects token payload fields (`data.accessToken`, `data.refreshToken`) instead of cookie-session metadata.
+- Verify whether `RefreshTokenResponse` in `miso_client/api/types/auth_types.py` is incorrectly coupled to device-refresh payload shape.
+- Verify whether tests for session refresh still assert token payload fields instead of cookie-session contract fields.
+- Verify whether README/changelog text for Python session refresh matches current hard-cut controller contract.
+
+If verification confirms mismatch, apply in python repo plan:
+
+- Separate browser session refresh response model from device refresh response model (keep explicit API boundary).
+- Keep `refresh_device_code_token(refresh_token)` contract unchanged for `/api/v1/auth/login/device/refresh`.
+- Update `refresh_session_token()` typing/parsing/tests to align with cookie-session endpoint semantics.
+- Update migration/docs/changelog in python repo to reflect canonical browser-session contract and no browser-readable refresh-token assumptions.
+- Run python repo validation gates and attach evidence in the python plan.
+
+### Shim audit rule for both consumer agents
+
+- Search for local modules/functions re-implementing SDK browser auth helpers and remove or reduce to thin app wiring only.
+- Treat any remaining auth shim as an explicit DoD gap unless documented as temporary with owner + removal plan.
 
 ## Keep in Applications (explicit non-moves)
 
@@ -262,6 +370,14 @@ Handoff: [`.temp/ui-auth-consolidation-handoff.md`](/workspace/aifabrix-miso-cli
 
 Controller already implements `GET /api/v1/auth/session` and `POST /api/v1/auth/refresh` (see `packages/miso-controller/tests/integration/routes/auth-core.routes.test.ts`). This plan **does not** change handlers; SDK and UIs align to existing OpenAPI contract.
 
+Post-192.2 note: treat cookie/session hard-cut semantics and no-browser-token-persistence behavior as the current normative baseline when evaluating consumer adoption in this plan.
+
+Hard-cut clarification for this plan:
+
+- Browser auth continuity token is represented by HttpOnly cookie `miso_access_token` (server-managed).
+- Refresh token is server-only and must never be exposed to browser JS (payload, storage, readable cookie).
+- SDK browser helpers must not require `data.accessToken` from `/auth/session` or `/auth/refresh` to classify cookie-session success.
+
 ## Rules and Standards
 
 Applicable sections from [`.cursor/rules/project-rules.mdc`](/workspace/aifabrix-miso-client/.cursor/rules/project-rules.mdc):
@@ -276,7 +392,8 @@ Applicable sections from [`.cursor/rules/project-rules.mdc`](/workspace/aifabrix
 
 Key requirements enforced by this plan:
 
-- Keep controller auth calls on `x-client-token` policy; browser user session uses cookie + bearer in memory only.
+- Keep controller auth calls on `x-client-token` policy for M2M paths; browser user session continuity is cookie-session based with HttpOnly `miso_access_token`.
+- Do not require browser-readable `accessToken` or `refreshToken` in `/auth/session` and `/auth/refresh` response payloads.
 - Preserve device refresh contract (`/api/v1/auth/login/device/refresh` with body `refreshToken`) — no browser coupling.
 - Export only typed, camelCase public surfaces from `sdk-exports.ts`.
 - Complete silent-first validation gates before closure; zero ESLint warnings/errors on touched `src/**/*.ts`.
@@ -287,6 +404,7 @@ Key requirements enforced by this plan:
 - [ ] Confirm published npm version strategy (patch vs minor per phase).
 - [ ] Confirm miso monorepo `pnpm-workspace.yaml` includes `../aifabrix-miso-client` for local `workspace:*` dev.
 - [ ] Re-read plan 192 / 57 browser-device boundary before OAuth phase.
+- [ ] Confirm handoff-only boundaries for consumer repos and prepare instruction sections before requesting consumer-agent execution.
 
 ## Expected Automated Tests
 
@@ -298,8 +416,9 @@ Key requirements enforced by this plan:
 | `loopback-host-alignment` | localhost↔127.0.0.1, non-loopback unchanged |
 | `auth-browser-errors` | 401 shapes, inactive token message, nested `response.status` |
 | `browser-session-recovery` | refresh-first, stale clear, dedupe with client |
+| `data-client-activity-refresh` | activity events trigger refresh with throttle (default 60s), no more than one refresh inside throttle window |
 | `client-token-url` | query + hash extract/remove |
-| `browser-session` (existing) | regression suite stays green |
+| `browser-session` (existing) | hard-cut semantics: cookie-session success without `data.accessToken`; no refresh-token payload assumptions |
 
 ### Consumer smoke (after bump)
 
@@ -308,10 +427,12 @@ Key requirements enforced by this plan:
 
 ## Manual Verification
 
-- [ ] **dev06 split-port:** UI `3610`, controller `3600` — login via UI origin; `miso_refresh_token` on UI host; session/refresh via proxy (`credentials: include`).
-- [ ] Full page reload after OAuth — access token restored from cookie without redirect loop.
+- [ ] **dev06 split-port:** UI `3610`, controller `3600` — login via UI origin; HttpOnly cookie `miso_access_token` is present with expected attributes and session/refresh requests go via proxy with `credentials: include`.
+- [ ] Full page reload after OAuth — cookie-session continuity is restored without requiring browser-readable `accessToken` JSON payload.
 - [ ] Expired access token — activity or 401 triggers POST refresh, not only GET session.
+- [ ] Activity-driven refresh: repeated user activity (mousemove/click/keydown) does not trigger refresh more often than once per 60 seconds.
 - [ ] Dataplane dataplane UI — same cookie session behavior after `preferCookieSessionRestore` wiring.
+- [ ] Verify `GET /api/v1/auth/session` and `POST /api/v1/auth/refresh` responses do not contain browser-readable `refreshToken`; browser auth state remains valid via cookie-session contract.
 - [ ] Device refresh (`/api/v1/auth/login/device/refresh`) unchanged (non-browser).
 
 ## Documentation Updates
@@ -339,6 +460,8 @@ Key requirements enforced by this plan:
 - All automated tests pass; manual verification checklist completed for split-port dev (UI proxy + cookie session).
 - All new public API outputs remain camelCase.
 - Security requirements from project rules met (no token logging, no browser refreshToken JSON on `/auth/refresh`).
+- SDK/browser helpers are aligned to hard-cut response reality (cookie-session success without requiring `data.accessToken` from browser endpoints).
+- SDK activity-driven refresh is reusable and adopted in both consumers with equivalent 60-second throttle behavior.
 - Docs/changelog updated for every public API/contract/behavior change (`CHANGELOG.md`, `docs/authentication.md`, `docs/dataclient.md`, README integration note).
 - Consumer repos green on auth-related tests after version bump.
 - `.temp/ui-auth-consolidation-handoff.md` lists completed file migrations.
@@ -394,6 +517,56 @@ cd /workspace/aifabrix-dataplane/app-ui && npm test -- tests/services/api/auth.t
 
 ## Plan Validation Report
 
+**Date**: 2026-06-16 15:00 UTC  
+**Plan**: `/workspace/aifabrix-miso-client/.cursor/plans/60-ui-auth-consolidation-from-apps.plan.md`  
+**Status**: ✅ VALIDATED
+
+### Plan Purpose
+
+- Consolidate reusable browser-auth behavior into `@aifabrix/miso-client` while preserving hard-cut cookie-session semantics from 192.2.
+- Provide consumer-repo handoff instructions (`miso-ui`, `dataplane`, `miso-client-python`) without executing those repo changes directly in this plan.
+
+### Applicable Rules
+
+- ✅ [Token Management](.cursor/rules/project-rules.mdc#token-management) - browser/session and M2M boundary rules directly drive hard-cut alignment work.
+- ✅ [HTTP Client Pattern](.cursor/rules/project-rules.mdc#http-client-pattern) - required for DataClient/browser session helper extraction.
+- ✅ [API Layer Pattern](.cursor/rules/project-rules.mdc#api-layer-pattern) + [Naming Conventions](.cursor/rules/project-rules.mdc#naming-conventions) - required for stable, camelCase SDK exports.
+- ✅ [Testing Conventions](.cursor/rules/project-rules.mdc#testing-conventions) - required for unit coverage and consumer smoke expectations.
+- ✅ [Security Guidelines](.cursor/rules/project-rules.mdc#security-guidelines) - required for no-token-leakage and browser-safe auth handling.
+- ✅ [When Adding New Features](.cursor/rules/project-rules.mdc#when-adding-new-features) - requires docs/changelog updates for contract-facing changes.
+
+### DoD Gate Readiness
+
+- ✅ Ordered silent-first command gates are explicit and in required order.
+- ✅ Silent-failure handling (`.temp/validation/*` log-first) is explicit.
+- ✅ Zero-warning lint requirement is explicit.
+- ✅ Tests and documentation update requirements are explicit.
+
+### Todo Synchronization
+
+- ✅ Frontmatter `todos` are valid (`id`, `content`, `status`) with unique ids.
+- ✅ Todos cover prerequisites, implementation phases, tests, docs, validation, handoff artifacts, and closure.
+- ✅ Added missing hard-cut follow-up todos (browser-session realignment, shim audit, activity-refresh reuse, consumer migration instruction temp doc).
+
+### Updates Applied
+
+- Marked consumer-repo execution as handoff-only in `Scope` and `Before Development` to avoid ownership ambiguity.
+- Added/maintained explicit informational instruction sections for `miso-ui`, `dataplane`, and `miso-client-python` agents.
+- Hardened plan against stale interpretation by keeping 2026-06-03 blocks under historical non-normative headers.
+
+### Risks / Follow-ups
+
+- SDK hard-cut realignment (Phase 3b) is still pending and blocks full shim removal in consumers.
+- Consumer-repo instruction sections must be converted into local plans by each repo agent before execution.
+- Historical 2026-06-03 snapshots are traceability only; final closure must rely on current re-baselined checks.
+
+## Historical Validation Snapshots (archival, non-normative)
+
+The sections below capture execution state from `2026-06-03` and are kept for traceability only.
+They are **not** the current source of truth for active execution decisions in this plan.
+
+## Historical Plan Validation Report (2026-06-03)
+
 **Date**: 2026-06-03  
 **Plan**: `/workspace/aifabrix-miso-client/.cursor/plans/60-ui-auth-consolidation-from-apps.plan.md`  
 **Status**: ✅ VALIDATED
@@ -444,7 +617,7 @@ cd /workspace/aifabrix-dataplane/app-ui && npm test -- tests/services/api/auth.t
 - Re-run gate commands after each phase and append **Validation Execution Result** subsection under **Validation** when closing the plan.
 - Keep cross-SDK parity notes aligned if `miso-client-python` gains browser helpers later.
 
-## Validation Report
+## Historical Validation Report (2026-06-03)
 
 **Date**: 2026-06-03  
 **Status**: ⚠️ INCOMPLETE
@@ -537,3 +710,9 @@ pnpm run md:lint:silent          → PASS
 pnpm run lint:silent             → PASS
 pnpm run test:silent             → PASS
 ```
+
+### Re-baseline Note (2026-06-16)
+
+- The validation snapshot above is historical (`2026-06-03`) and reflects the state before cross-repo completion of plans 192.1/192.2/419.1/419.2.
+- Before final closure of this plan, re-run consumer verification against the post-hardcut baseline (including currently pinned SDK versions and documented host-topology behavior).
+- Re-baseline includes a new required SDK rework track (`Phase 3b`) to remove outdated browser-session token-payload assumptions and eliminate downstream consumer workaround shims.
