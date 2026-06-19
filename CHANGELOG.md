@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.18.0] - 2026-06-19
+
 ### Changed
 
 - **DataClient explicit activity policy contract** - Added `enableActivitySessionRefresh` and `activitySessionRefreshIntervalMs` to `DataClientConfig` and enforced fail-fast validation when browser session callbacks are configured without both explicit values.
