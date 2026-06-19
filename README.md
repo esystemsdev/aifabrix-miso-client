@@ -196,6 +196,8 @@ const newUser = await dataClient.post("/api/users", { name: "John" });
 // Token refresh callback (automatic refresh on 401 errors)
 const dataClientWithRefresh = new DataClient({
   baseUrl: "https://api.example.com",
+  enableActivitySessionRefresh: false,
+  activitySessionRefreshIntervalMs: 60000,
   misoConfig: {
     /* ... */
   },
@@ -217,6 +219,10 @@ const dataClientWithRefresh = new DataClient({
   },
 });
 ```
+
+When `onTokenRefresh` or `onSessionRestore` is configured, both
+`enableActivitySessionRefresh` and `activitySessionRefreshIntervalMs` are required.
+Initialization fails fast if either value is missing.
 
 Final browser token contract:
 

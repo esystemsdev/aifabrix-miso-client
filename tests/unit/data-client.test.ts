@@ -183,6 +183,8 @@ describe("DataClient", () => {
 
     config = {
       baseUrl: "https://api.example.com",
+      enableActivitySessionRefresh: false,
+      activitySessionRefreshIntervalMs: 60000,
       misoConfig: {
         controllerUrl: "https://controller.aifabrix.ai",
         clientId: "ctrl-dev-test-app",
@@ -244,6 +246,42 @@ describe("DataClient", () => {
 
       const client = new DataClient(customConfig);
       expect(client).toBeInstanceOf(DataClient);
+    });
+
+    it("should fail fast when onTokenRefresh is configured without explicit activity policy", () => {
+      expect(() => {
+        new DataClient({
+          baseUrl: "https://api.example.com",
+          onTokenRefresh: jest.fn().mockResolvedValue({
+            token: "refreshed-token",
+            expiresIn: 3600,
+          }),
+          misoConfig: {
+            controllerUrl: "https://controller.aifabrix.ai",
+            clientId: "ctrl-dev-test-app",
+          },
+        });
+      }).toThrow(
+        "DataClient configuration error: explicit activity policy is required when browser session callbacks are configured. Set enableActivitySessionRefresh and activitySessionRefreshIntervalMs.",
+      );
+    });
+
+    it("should fail fast when onSessionRestore is configured without explicit activity policy", () => {
+      expect(() => {
+        new DataClient({
+          baseUrl: "https://api.example.com",
+          onSessionRestore: jest.fn().mockResolvedValue({
+            token: "restored-token",
+            expiresIn: 3600,
+          }),
+          misoConfig: {
+            controllerUrl: "https://controller.aifabrix.ai",
+            clientId: "ctrl-dev-test-app",
+          },
+        });
+      }).toThrow(
+        "DataClient configuration error: explicit activity policy is required when browser session callbacks are configured. Set enableActivitySessionRefresh and activitySessionRefreshIntervalMs.",
+      );
     });
   });
 
@@ -3107,6 +3145,46 @@ describe("DataClient", () => {
       expect((customClient as any).getToken()).toBe(longToken);
     });
 
+    it("keeps 401 request-driven refresh while activity listener is disabled", async () => {
+      const onTokenRefresh = jest.fn().mockResolvedValue({
+        token: "request-driven-refresh-token",
+        expiresIn: 3600,
+      });
+
+      const customClient = new DataClient({
+        ...config,
+        enableActivitySessionRefresh: false,
+        activitySessionRefreshIntervalMs: 60000,
+        onTokenRefresh,
+      });
+
+      const registeredMouseMoveListener = (
+        mockWindow.addEventListener as jest.Mock
+      ).mock.calls.find((call) => call[0] === "mousemove");
+      expect(registeredMouseMoveListener).toBeUndefined();
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 401,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ error: "Unauthorized" }),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          headers: new Headers({ "content-type": "application/json" }),
+          json: jest.fn().mockResolvedValue({ data: "success" }),
+        } as unknown as Response);
+
+      await customClient.get("/api/test");
+
+      expect(onTokenRefresh).toHaveBeenCalledTimes(1);
+      expect((customClient as any).getToken()).toBe(
+        "request-driven-refresh-token",
+      );
+    });
+
     it("registers activity-driven listener and enforces 60-second cadence", async () => {
       const nowSpy = jest.spyOn(Date, "now");
       let nowMs = 1_000_000;
@@ -3119,6 +3197,8 @@ describe("DataClient", () => {
 
       const activityClient = new DataClient({
         ...config,
+        enableActivitySessionRefresh: true,
+        activitySessionRefreshIntervalMs: 60000,
         onTokenRefresh,
       });
       seedBrowserUserToken(
@@ -3162,6 +3242,8 @@ describe("DataClient", () => {
 
       new DataClient({
         ...config,
+        enableActivitySessionRefresh: true,
+        activitySessionRefreshIntervalMs: 60000,
         onTokenRefresh,
       });
 

@@ -47,6 +47,24 @@ import {
   setupActivityDrivenRefreshListener,
 } from "./data-client-activity-refresh";
 
+const DEFAULT_ACTIVITY_REFRESH_INTERVAL_MS = 60000;
+
+function resolveActivityRefreshInterval(
+  intervalMs: number | undefined,
+): number {
+  if (!Number.isFinite(intervalMs) || (intervalMs ?? 0) <= 0) {
+    return DEFAULT_ACTIVITY_REFRESH_INTERVAL_MS;
+  }
+  return intervalMs as number;
+}
+
+function hasExplicitActivityPolicy(config: DataClientConfig): boolean {
+  return (
+    config.enableActivitySessionRefresh !== undefined &&
+    config.activitySessionRefreshIntervalMs !== undefined
+  );
+}
+
 export class DataClientCore {
   protected config: DataClientConfig;
   protected misoClient: MisoClient | null = null;
@@ -67,11 +85,23 @@ export class DataClientCore {
   protected permissionService: BrowserPermissionService | null = null;
   protected roleService: BrowserRoleService | null = null;
   protected userTokenRefreshManager = new UserTokenRefreshManager();
-  protected readonly activityRefreshIntervalMs = 60000;
+  protected readonly activityRefreshIntervalMs: number;
   protected activityRefreshTeardown: (() => void) | null = null;
 
   constructor(config: DataClientConfig) {
+    const hasBrowserSessionCallbacks =
+      typeof config.onTokenRefresh === "function" ||
+      typeof config.onSessionRestore === "function";
+    if (hasBrowserSessionCallbacks && !hasExplicitActivityPolicy(config)) {
+      throw new Error(
+        "DataClient configuration error: explicit activity policy is required when browser session callbacks are configured. Set enableActivitySessionRefresh and activitySessionRefreshIntervalMs.",
+      );
+    }
+
     this.config = createDefaultConfig(config);
+    this.activityRefreshIntervalMs = resolveActivityRefreshInterval(
+      this.config.activitySessionRefreshIntervalMs,
+    );
     warnIfClientSecretInBrowser(this.config);
 
     const misoConfigWithRefresh = createMisoConfigWithRefresh(this.config, () =>
@@ -91,16 +121,20 @@ export class DataClientCore {
     );
     this.permissionService = services.permissionService;
     this.roleService = services.roleService;
+    this.initializeBrowserRuntime();
+  }
 
-    if (isBrowser()) {
-      const callbackToken = this.handleOAuthCallback();
-      if (callbackToken) {
-        this.persistBrowserSession({ token: callbackToken });
-      }
-      hydrateBrowserRuntimeTokenState(
-        this.config.tokenKeys,
-        this.userTokenRefreshManager,
-      );
+  protected initializeBrowserRuntime(): void {
+    if (!isBrowser()) return;
+    const callbackToken = this.handleOAuthCallback();
+    if (callbackToken) {
+      this.persistBrowserSession({ token: callbackToken });
+    }
+    hydrateBrowserRuntimeTokenState(
+      this.config.tokenKeys,
+      this.userTokenRefreshManager,
+    );
+    if (this.config.enableActivitySessionRefresh) {
       this.activityRefreshTeardown = setupActivityDrivenRefreshListener({
         onTokenRefresh: this.config.onTokenRefresh,
         refreshManager: this.userTokenRefreshManager,

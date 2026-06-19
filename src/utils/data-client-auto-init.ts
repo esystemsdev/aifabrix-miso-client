@@ -350,6 +350,8 @@ function buildDataClientConfig(
 ): DataClientConfig {
   return {
     baseUrl: pickNonEmptyBaseUrl(config, fallbackBaseUrl),
+    enableActivitySessionRefresh: false,
+    activitySessionRefreshIntervalMs: 60000,
     misoConfig: {
       clientId: config.clientId,
       controllerUrl: config.controllerUrl,

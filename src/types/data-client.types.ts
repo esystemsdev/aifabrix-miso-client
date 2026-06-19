@@ -188,6 +188,18 @@ export interface DataClientConfig {
    * Default: true.
    */
   preferCookieSessionRestore?: boolean;
+
+  /**
+   * Enable browser activity-driven session refresh listener wiring.
+   * This value is required when browser session callbacks are configured.
+   */
+  enableActivitySessionRefresh?: boolean;
+
+  /**
+   * Interval (milliseconds) for activity-driven refresh checks.
+   * This value is required when browser session callbacks are configured.
+   */
+  activitySessionRefreshIntervalMs?: number;
 }
 
 /**

@@ -50,6 +50,8 @@ import { DataClient } from "@aifabrix/miso-client";
 
 const dataClient = new DataClient({
   baseUrl: "https://api.example.com",
+  enableActivitySessionRefresh: false,
+  activitySessionRefreshIntervalMs: 60000,
   misoConfig: {
     controllerUrl: "https://controller.aifabrix.ai",
     clientId: "ctrl-dev-my-app",
@@ -67,6 +69,15 @@ const dataClient = new DataClient({
 ```
 
 Do not set `clientSecret` in browser config; use `clientToken` + `onClientTokenRefresh` only.
+
+### Explicit activity policy (required with browser session callbacks)
+
+When `onTokenRefresh` or `onSessionRestore` is configured, `DataClient` requires both:
+
+- `enableActivitySessionRefresh`
+- `activitySessionRefreshIntervalMs`
+
+If either value is missing, SDK initialization fails fast with a configuration error.
 
 **`baseUrl` is a full URL** and may include a virtual-directory path (e.g. `https://domain.com/data` for a dataplane, `https://domain.com/myapp` for a custom app, or `https://domain.com` for a root mount). **Prefer** putting the mount in `baseUrl` itself. For compatibility when you only have an origin plus a path segment, set optional **`basePath`** (e.g. `baseUrl: "https://domain.com"` + `basePath: "/data"`); the SDK merges once at init via `mergeRootUrlWithBasePath` and does not duplicate the segment if `baseUrl` already contains it. See [configuration.md](configuration.md#full-urls-and-virtual-directories).
 
@@ -211,6 +222,8 @@ const cookieCallbacks = createCookieSessionCallbacks({
 
 const dc = new DataClient({
   baseUrl: getBaseUrl() || "/api",
+  enableActivitySessionRefresh: false,
+  activitySessionRefreshIntervalMs: 60000,
   preferCookieSessionRestore: true,
   onSessionRestore: cookieCallbacks.onSessionRestore,
   onTokenRefresh: cookieCallbacks.onTokenRefresh,

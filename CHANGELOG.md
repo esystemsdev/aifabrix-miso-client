@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **DataClient explicit activity policy contract** - Added `enableActivitySessionRefresh` and `activitySessionRefreshIntervalMs` to `DataClientConfig` and enforced fail-fast validation when browser session callbacks are configured without both explicit values.
+- **Activity listener wiring control** - Browser activity-driven listener registration is now gated by `enableActivitySessionRefresh`; request-driven `401` restore/refresh flow remains active when listener wiring is disabled.
+
+### Technical
+
+- **Auto-init config alignment** - `autoInitializeDataClient` now builds `DataClient` with explicit activity-policy values to satisfy the runtime contract.
+- **Regression coverage** - Added/updated unit and integration assertions for fail-fast policy enforcement, disabled-listener behavior, and preserved request-driven refresh recovery.
+
 ## [4.17.3] - 2026-06-11
 
 ### Changed
