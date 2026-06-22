@@ -31,11 +31,22 @@
 
 ### 2. Authentication
 
-The npm token is already configured globally. If needed, set it again:
+Local publishing uses **user-global** npm config from Builder secrets (not a repo `.npmrc` or `.npmrc.token` file):
 
 ```bash
-pnpm config set //registry.npmjs.org/:_authToken <your token>
+# One-time: store automation token in shared or user secrets
+aifabrix secret set BASH_NPM_TOKEN "<npm-automation-token>" --shared
+
+# Apply to ~/.npmrc
+aifabrix npm config
+
+# Verify
+npm whoami --registry=https://registry.npmjs.org/
 ```
+
+For a one-off shell session you may use `export NPM_TOKEN=...` instead.
+
+CI uses GitHub `secrets.NPM_TOKEN` with `setup-node` `registry-url` and `NODE_AUTH_TOKEN` (see `.github/workflows/publish.yml`).
 
 ### 3. Pre-publish Checks
 
