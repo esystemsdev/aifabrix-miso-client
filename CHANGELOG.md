@@ -7,16 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.19.0] - 2026-06-23
+
+### Added
+
+- **Session recovery orchestration utilities** - Added reusable orchestration modules `session-recovery-orchestration` and `data-client-auth-recovery` for trigger normalization, cooldown/dedupe guards, and request-path single-flight auth recovery.
+- **Parity-focused test coverage** - Added `session-recovery-orchestration` and `data-client-activity-refresh` unit suites to validate telemetry reasons and browser trigger behavior.
+
 ### Changed
 
-- **Session orchestration parity core (plan 62)** - DataClient browser session orchestration now uses shared helper-first guards for immediate-first trigger handling, non-manual cooldown (`<=1/60s`), post-recovery dedupe, and inflight suppression across activity-driven recovery paths.
+- **Session orchestration parity core (plan 62)** - DataClient browser session orchestration now uses shared helper-first guards for immediate-first activity handling, non-manual cooldown (`<=1/60s`), post-recovery dedupe, and inflight suppression across activity-driven recovery paths.
 - **Activity trigger coverage parity** - Browser activity recovery wiring now includes `visibilitychange` and `online` triggers in addition to `mousemove` / `click` / `keydown`, while preserving existing config keys (`enableActivitySessionRefresh`, `activitySessionRefreshIntervalMs`, `onSessionRestore`, `onTokenRefresh`).
-- **401 recovery single-flight** - Concurrent request-driven `401` recovery attempts now share one auth-recovery flight before retrying requests, preventing duplicated restore/refresh storms.
+- **401 recovery single-flight** - Concurrent request-driven `401` recovery attempts now share one auth-recovery flight per client config before retrying requests, preventing duplicated restore/refresh storms.
+- **Legacy listener cleanup** - Removed deprecated compatibility activity-listener wrapper and retained the parity entrypoint only.
+
+### Fixed
+
+- **Bounded auth error handling** - Preserved deterministic no-recovery behavior for `403/422` paths while keeping bounded `401` retry behavior aligned with session recovery rules.
 
 ### Technical
 
-- Added `session-recovery-orchestration` utility and focused unit tests for cooldown, dedupe, and inflight behavior.
-- Added request-layer regression coverage for concurrent `401` single-flight recovery and deterministic no-recovery handling for `422`.
+- **Release preparation and plan finalization** - Synchronized Plan 62 implementation evidence, migration guidance artifacts, and release metadata for consumer handoff.
 
 ## [4.18.0] - 2026-06-19
 
