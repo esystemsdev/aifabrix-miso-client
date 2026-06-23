@@ -28,7 +28,11 @@ export interface ActivityRefreshSetupOptions {
   onTelemetry?: (event: SessionRecoveryTelemetryEvent) => void;
 }
 
-const SESSION_REFRESH_ACTIVITY_EVENTS = ["mousemove", "click", "keydown"] as const;
+const SESSION_REFRESH_ACTIVITY_EVENTS = [
+  "mousemove",
+  "click",
+  "keydown",
+] as const;
 const DEFAULT_POST_RECOVERY_DEDUPE_MS = 1_500;
 
 export function hydrateBrowserRuntimeTokenState(
@@ -156,14 +160,4 @@ export function setupSessionRecoveryOrchestrationListener(
   };
   browserWindow.addEventListener("beforeunload", teardown, { once: true });
   return teardown;
-}
-
-/**
- * @deprecated Use setupSessionRecoveryOrchestrationListener instead.
- * This wrapper is retained as a frozen compatibility path during plan 62 migration.
- */
-export function setupActivityDrivenRefreshListener(
-  options: ActivityRefreshSetupOptions,
-): (() => void) | null {
-  return setupSessionRecoveryOrchestrationListener(options);
 }

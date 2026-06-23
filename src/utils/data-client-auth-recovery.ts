@@ -1,9 +1,6 @@
 import { AttemptRequestParams } from "./data-client-request.types";
 
-const authRecoveryInFlightByConfig = new WeakMap<
-  object,
-  Promise<boolean>
->();
+const authRecoveryInFlightByConfig = new WeakMap<object, Promise<boolean>>();
 
 async function runRestoreThenRefresh(
   params: AttemptRequestParams,

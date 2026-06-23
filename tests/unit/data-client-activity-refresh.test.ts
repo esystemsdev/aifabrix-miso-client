@@ -60,7 +60,8 @@ describe("data-client-activity-refresh", () => {
   });
 
   function setup(options: Partial<ActivityRefreshSetupOptions>) {
-    const refreshManager = options.refreshManager ?? new UserTokenRefreshManager();
+    const refreshManager =
+      options.refreshManager ?? new UserTokenRefreshManager();
     return setupSessionRecoveryOrchestrationListener({
       refreshManager,
       persistBrowserSession: jest.fn(),

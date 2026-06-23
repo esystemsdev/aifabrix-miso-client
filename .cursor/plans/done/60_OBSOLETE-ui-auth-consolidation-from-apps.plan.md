@@ -1,5 +1,5 @@
 ---
-name: 60-ui-auth-consolidation-from-apps
+name: 60-OBSOLETE-ui-auth-consolidation-from-apps
 overview: Extract shared browser auth patterns from miso-ui and dataplane app-ui into @aifabrix/miso-client, then thin both consumers to SDK helpers. Includes post-192.2 hard-cut realignment so browser-session helpers follow HttpOnly miso_access_token + server-only refresh-token semantics.
 todos:
   - id: scope-and-baseline
@@ -83,7 +83,17 @@ todos:
 isProject: false
 ---
 
-# 60 UI Auth Consolidation (miso-ui + dataplane → miso-client)
+# 60 OBSOLETE UI Auth Consolidation (miso-ui + dataplane → miso-client)
+
+## Obsolete and need rework
+
+This plan is marked as obsolete and requires rework for the following reasons:
+
+- It predates final Plan 62 orchestration decisions and therefore does not represent the latest source-of-truth rollout model.
+- Several assumptions in this plan were superseded by hard-cut and goal-alignment outcomes already completed in related plans.
+- Task statuses and migration phases in this document no longer reflect the current implementation state in `miso-client` and downstream consumers.
+- The plan structure mixes legacy migration scaffolding with now-finalized behavior, which creates ambiguity for execution and validation.
+- A new reworked plan should be used for active execution so rollout gates, callback contracts, and parity evidence remain consistent with current standards.
 
 ## Goal
 

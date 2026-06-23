@@ -51,11 +51,11 @@ describe("session-recovery-orchestration", () => {
 
   it("reports inflight and runs a single recovery for concurrent triggers", async () => {
     const telemetry: SessionRecoveryTelemetryEvent[] = [];
-    let resolveRecovery: (() => void) | null = null;
+    let completeRecovery!: () => void;
     const recoverySpy = jest.fn(
       async () =>
         await new Promise<boolean>((resolve) => {
-          resolveRecovery = () => resolve(true);
+          completeRecovery = () => resolve(true);
         }),
     );
 
@@ -73,7 +73,7 @@ describe("session-recovery-orchestration", () => {
     expect(recoverySpy).toHaveBeenCalledTimes(1);
     expect(telemetry.some((event) => event.reason === "inflight")).toBe(true);
 
-    resolveRecovery?.();
+    completeRecovery();
     expect(await first).toBe(true);
   });
 });
