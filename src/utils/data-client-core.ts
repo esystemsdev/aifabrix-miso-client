@@ -44,7 +44,7 @@ import { UserTokenRefreshManager } from "./user-token-refresh";
 import { joinApiRoot } from "./url-join";
 import {
   hydrateBrowserRuntimeTokenState,
-  setupActivityDrivenRefreshListener,
+  setupSessionRecoveryOrchestrationListener,
 } from "./data-client-activity-refresh";
 
 const DEFAULT_ACTIVITY_REFRESH_INTERVAL_MS = 60000;
@@ -135,8 +135,9 @@ export class DataClientCore {
       this.userTokenRefreshManager,
     );
     if (this.config.enableActivitySessionRefresh) {
-      this.activityRefreshTeardown = setupActivityDrivenRefreshListener({
+      this.activityRefreshTeardown = setupSessionRecoveryOrchestrationListener({
         onTokenRefresh: this.config.onTokenRefresh,
+        onSessionRestore: this.config.onSessionRestore,
         refreshManager: this.userTokenRefreshManager,
         persistBrowserSession: (result) => this.persistBrowserSession(result),
         intervalMs: this.activityRefreshIntervalMs,

@@ -27,6 +27,7 @@ import {
   AttemptRequestParams,
   ExecuteHttpRequestOptions,
 } from "./data-client-request.types";
+import { runSingleFlightAuthRecovery } from "./data-client-auth-recovery";
 
 /**
  * Extract headers from Headers object or Record
@@ -291,27 +292,13 @@ async function handleAuthResponse<T>(
 async function tryRecoverFrom401Auth<T>(
   params: AttemptRequestParams & { response: Response; responseStatus: number },
 ): Promise<T | null> {
-  const canRestore =
-    params.config.preferCookieSessionRestore !== false &&
-    params.config.onSessionRestore &&
-    params.restoreUserSession;
-  if (canRestore) {
-    const restoreResult = await params.restoreUserSession();
-    if (restoreResult?.token) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      return attemptRequest<T>({ ...params, attempt: params.attempt + 1 });
-    }
+  const recovered = await runSingleFlightAuthRecovery(params);
+  if (!recovered) {
+    return null;
   }
 
-  const canRefresh = params.config.onTokenRefresh && params.refreshUserToken;
-  if (canRefresh) {
-    const refreshResult = await params.refreshUserToken();
-    if (refreshResult?.token) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      return attemptRequest<T>({ ...params, attempt: params.attempt + 1 });
-    }
-  }
-  return null;
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  return attemptRequest<T>({ ...params, attempt: params.attempt + 1 });
 }
 
 async function handleAttemptError<T>(

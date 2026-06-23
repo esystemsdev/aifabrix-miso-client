@@ -116,4 +116,53 @@ describe("data-client-request auth recovery", () => {
     expect(opts.refreshUserToken).not.toHaveBeenCalled();
     expect(opts.handleAuthError).toHaveBeenCalledTimes(1);
   });
+
+  it("shares one auth recovery across concurrent 401 flows", async () => {
+    jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ message: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ message: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({ ok: true, requestId: 1 }, 200))
+      .mockResolvedValueOnce(jsonResponse({ ok: true, requestId: 2 }, 200));
+
+    const config = createBaseConfig({
+      onSessionRestore: async () => ({ token: "restored" }),
+    });
+
+    const sharedRestore = jest.fn().mockResolvedValue({
+      token: "restored",
+      expiresIn: 3600,
+    });
+    const first = createBaseOptions(config);
+    const second = createBaseOptions(config);
+    first.restoreUserSession = sharedRestore;
+    second.restoreUserSession = sharedRestore;
+
+    const [firstResult, secondResult] = await Promise.all([
+      executeHttpRequest<{ ok: boolean; requestId: number }>(first),
+      executeHttpRequest<{ ok: boolean; requestId: number }>(second),
+    ]);
+
+    expect(firstResult.ok).toBe(true);
+    expect(secondResult.ok).toBe(true);
+    expect(sharedRestore).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not attempt restore or refresh for 422 response", async () => {
+    jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ message: "invalid payload" }, 422));
+
+    const config = createBaseConfig({
+      onSessionRestore: async () => ({ token: "restored" }),
+      onTokenRefresh: async () => ({ token: "refreshed" }),
+    });
+    const opts = createBaseOptions(config);
+
+    await expect(executeHttpRequest(opts)).rejects.toMatchObject({
+      statusCode: 422,
+    });
+    expect(opts.restoreUserSession).not.toHaveBeenCalled();
+    expect(opts.refreshUserToken).not.toHaveBeenCalled();
+  });
 });

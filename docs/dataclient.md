@@ -197,6 +197,15 @@ For enterprise SSO flows, DataClient now supports a cookie-first recovery sequen
 3. Retry the original request once with refreshed/restored token.
 4. If both fail, clear cached browser auth state and continue with login redirect flow.
 5. Refresh checks are activity-driven (`mousemove`, `click`, `keydown`) with a 60-second cadence and no background polling loop.
+6. Activity orchestration also reacts to `visibilitychange` (tab becomes visible) and `online` events with the same cooldown and dedupe guards.
+
+Recovery telemetry reasons (for implementation/debug evidence):
+
+- `cooldown` - non-manual trigger suppressed by cadence guard.
+- `dedupe` - suppressed by post-recovery dedupe window.
+- `inflight` - suppressed because a recovery request is already in flight.
+- `success` - recovery completed and token/session state updated.
+- `failure` - recovery callback failed or returned no usable token.
 
 Recommended config (SDK helpers — 4.16+):
 

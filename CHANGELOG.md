@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Session orchestration parity core (plan 62)** - DataClient browser session orchestration now uses shared helper-first guards for immediate-first trigger handling, non-manual cooldown (`<=1/60s`), post-recovery dedupe, and inflight suppression across activity-driven recovery paths.
+- **Activity trigger coverage parity** - Browser activity recovery wiring now includes `visibilitychange` and `online` triggers in addition to `mousemove` / `click` / `keydown`, while preserving existing config keys (`enableActivitySessionRefresh`, `activitySessionRefreshIntervalMs`, `onSessionRestore`, `onTokenRefresh`).
+- **401 recovery single-flight** - Concurrent request-driven `401` recovery attempts now share one auth-recovery flight before retrying requests, preventing duplicated restore/refresh storms.
+
+### Technical
+
+- Added `session-recovery-orchestration` utility and focused unit tests for cooldown, dedupe, and inflight behavior.
+- Added request-layer regression coverage for concurrent `401` single-flight recovery and deterministic no-recovery handling for `422`.
+
 ## [4.18.0] - 2026-06-19
 
 ### Changed
