@@ -623,6 +623,46 @@ const response = createPaginatedListResponse(
 
 ---
 
+### Step 8.5: Locale Datetime Formatting
+
+**What happens:** Use a shared SDK utility to display date/time values consistently across UI apps while respecting browser locale and timezone.
+
+```typescript
+import {
+  formatDateTime,
+  formatDate,
+  formatTime,
+  createDateTimeFormatter,
+} from "@aifabrix/miso-client";
+
+const value = "2026-07-21T13:20:36.123Z";
+
+const dateTimeDisplay = formatDateTime(value); // runtime locale + runtime timezone
+const dateDisplay = formatDate(value, { dateFormat: "long" });
+const timeDisplay = formatTime(value, {
+  includeSeconds: true,
+  use24Hour: true,
+});
+
+const renderDateTime = createDateTimeFormatter({
+  locale: "en-GB",
+  timeZone: "UTC",
+  includeSeconds: true,
+  use24Hour: true,
+});
+const rowDateTime = renderDateTime(value);
+```
+
+**Fallback behavior:**
+
+- Empty values (`null`, `undefined`, empty string, `-`) return `-` by default
+- Invalid non-empty strings return original trimmed value
+- Invalid numeric/date values return fallback
+
+→ [Datetime formatting](docs/datetime-formatting.md)
+
+---
+
 ### Step 9: Express.js Utilities
 
 **What happens:** Use Express-specific utilities for building REST APIs with standardized responses, error handling, and validation.
@@ -935,6 +975,7 @@ interface AuthStrategy {
 - **[Quick start](docs/quick-start.md)** – Install, .env, init, validate + getUser
 - **[Backend client token](docs/backend-client-token.md)** – One route for frontend token
 - **[Authentication](docs/authentication.md)** · **[Authorization](docs/authorization.md)** · **[Audit and logging](docs/audit-and-logging.md)** · **[Errors](docs/errors.md)** · **[Redis](docs/redis.md)** · **[Pagination/filter/sort](docs/pagination-filter-sorting.md)** · **[Encryption](docs/encryption.md)**
+- **[Datetime formatting](docs/datetime-formatting.md)** - Locale-aware datetime display for UI apps
 - **[Configuration](docs/configuration.md)** · **[DataClient](docs/dataclient.md)** · **[Troubleshooting](docs/troubleshooting.md)**
 - **[Examples](docs/examples/README.md)** – Testing and minimal examples
 
