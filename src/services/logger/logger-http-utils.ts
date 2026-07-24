@@ -22,11 +22,9 @@ export async function sendAuditLogPayload(
 ): Promise<void> {
   const auditResource = enrichedContext.resource as string | undefined;
   const providedOldValues = enrichedContext.oldValues as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const providedNewValues = enrichedContext.newValues as
-    | Record<string, unknown>
-    | undefined;
+    Record<string, unknown> | undefined;
   const entityType =
     (enrichedContext.entityType as string) ||
     (auditResource?.startsWith("/api/") ? "API Endpoint" : "HTTP Request");

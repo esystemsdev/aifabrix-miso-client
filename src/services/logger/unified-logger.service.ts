@@ -77,7 +77,7 @@ export class UnifiedLoggerService implements UnifiedLogger {
    * Build ClientLoggingOptions from context
    * Extracts all relevant fields from LoggerContext
    */
-  private buildLoggingOptions(_context: LoggerContext): ClientLoggingOptions {
+  private buildLoggingOptions(): ClientLoggingOptions {
     return {
       maskSensitiveData: true, // Default: mask sensitive data
     };
@@ -158,7 +158,7 @@ export class UnifiedLoggerService implements UnifiedLogger {
   async info(message: string): Promise<void> {
     try {
       const context = this.getContext();
-      const options = this.buildLoggingOptions(context);
+      const options = this.buildLoggingOptions();
       await this.loggerService.info(
         message,
         this.buildTraceContext(context),
@@ -176,7 +176,7 @@ export class UnifiedLoggerService implements UnifiedLogger {
   async warn(message: string): Promise<void> {
     try {
       const context = this.getContext();
-      const options = this.buildLoggingOptions(context);
+      const options = this.buildLoggingOptions();
       await this.loggerService.warn(
         message,
         this.buildTraceContext(context),
@@ -193,7 +193,7 @@ export class UnifiedLoggerService implements UnifiedLogger {
   async debug(message: string): Promise<void> {
     try {
       const context = this.getContext();
-      const options = this.buildLoggingOptions(context);
+      const options = this.buildLoggingOptions();
       await this.loggerService.debug(
         message,
         this.buildTraceContext(context),
@@ -210,7 +210,7 @@ export class UnifiedLoggerService implements UnifiedLogger {
   async error(message: string, error?: unknown): Promise<void> {
     try {
       const context = this.getContext();
-      const options = this.buildLoggingOptions(context);
+      const options = this.buildLoggingOptions();
       const errorContext = this.extractErrorContext(error);
       const traceContext = this.buildTraceContext(context);
 
@@ -248,7 +248,7 @@ export class UnifiedLoggerService implements UnifiedLogger {
   ): Promise<void> {
     try {
       const context = this.getContext();
-      const options = this.buildLoggingOptions(context);
+      const options = this.buildLoggingOptions();
       const traceContext = this.buildTraceContext(context);
 
       // Build audit context with entityId, oldValues, newValues

@@ -14,6 +14,18 @@ import {
   parseColonFilter,
 } from "./filter-colon.utils";
 
+const PROTOTYPE_POLLUTION_KEYS = new Set([
+  "__proto__",
+  "constructor",
+  "prototype",
+]);
+
+function assertSafeFilterField(field: string): void {
+  if (PROTOTYPE_POLLUTION_KEYS.has(field)) {
+    throw new Error(`Unsafe filter field: '${field}'`);
+  }
+}
+
 /**
  * Validate filter value for specific operators.
  * @param op - Filter operator
@@ -51,6 +63,7 @@ function _parseJsonFilter(jsonFilter: Record<string, unknown>): FilterOption[] {
         `Invalid filter format. Field names must be non-empty strings. Got: ${typeof field}`,
       );
     }
+    assertSafeFilterField(field);
     if (
       typeof fieldValue !== "object" ||
       fieldValue === null ||
@@ -65,11 +78,7 @@ function _parseJsonFilter(jsonFilter: Record<string, unknown>): FilterOption[] {
       const op = normalizeOperator(opStr);
       _validateFilterValue(op, value);
       let normalizedValue:
-        | string
-        | number
-        | boolean
-        | Array<string | number>
-        | null;
+        string | number | boolean | Array<string | number> | null;
       if (op === "isNull" || op === "isNotNull") {
         normalizedValue = null;
       } else if (Array.isArray(value)) {
@@ -217,10 +226,17 @@ function normalizeJsonFilter(parsed: unknown): FilterOption[] {
 export function buildQueryString(options: FilterQuery): string {
   const params = new URLSearchParams();
   if (options.filters && options.filters.length > 0) {
-    const jsonFilter: Record<string, Record<string, unknown>> = {};
+    const jsonFilter = Object.create(null) as Record<
+      string,
+      Record<string, unknown>
+    >;
     for (const filter of options.filters) {
+      assertSafeFilterField(filter.field);
       if (!jsonFilter[filter.field]) {
-        jsonFilter[filter.field] = {};
+        jsonFilter[filter.field] = Object.create(null) as Record<
+          string,
+          unknown
+        >;
       }
       jsonFilter[filter.field][filter.op] =
         filter.value === null ? null : filter.value;
@@ -317,6 +333,7 @@ export function validateJsonFilter(filter: unknown): void {
         `Invalid filter format. Field names must be non-empty strings. Got: ${typeof field}`,
       );
     }
+    assertSafeFilterField(field);
     if (
       typeof fieldValue !== "object" ||
       fieldValue === null ||
@@ -342,11 +359,18 @@ export function validateJsonFilter(filter: unknown): void {
 export function filterQueryToJson(
   filterQuery: FilterQuery,
 ): Record<string, Record<string, unknown>> {
-  const jsonFilter: Record<string, Record<string, unknown>> = {};
+  const jsonFilter = Object.create(null) as Record<
+    string,
+    Record<string, unknown>
+  >;
   if (filterQuery.filters) {
     for (const filter of filterQuery.filters) {
+      assertSafeFilterField(filter.field);
       if (!jsonFilter[filter.field]) {
-        jsonFilter[filter.field] = {};
+        jsonFilter[filter.field] = Object.create(null) as Record<
+          string,
+          unknown
+        >;
       }
       jsonFilter[filter.field][filter.op] = filter.value;
     }

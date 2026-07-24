@@ -41,8 +41,7 @@ export function parseSortParams(query: Record<string, unknown>): SortOption[] {
         return {
           field: trimmedField,
           order: (order?.trim().toLowerCase() === "desc" ? "desc" : "asc") as
-            | "asc"
-            | "desc",
+            "asc" | "desc",
         };
       }
 

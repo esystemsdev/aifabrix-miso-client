@@ -14,7 +14,10 @@ import { MisoClientError } from "../../src/utils/errors";
  * Helper function to compute expected cache key (matches AuthService.getTokenCacheKey)
  */
 function getExpectedCacheKey(token: string): string {
-  const hash = crypto.createHash("sha256").update(token).digest("hex");
+  const hmacKey =
+    process.env.MISO_TOKEN_CACHE_HMAC_KEY?.trim() ||
+    "miso-client-token-cache-key";
+  const hash = crypto.createHmac("sha256", hmacKey).update(token).digest("hex");
   return `token_validation:${hash}`;
 }
 

@@ -31,11 +31,9 @@ export function extractJwtContext(token?: string): {
 
     return {
       userId: (decoded.sub || decoded.userId || decoded.user_id) as
-        | string
-        | undefined,
+        string | undefined,
       applicationId: (decoded.applicationId || decoded.app_id) as
-        | string
-        | undefined,
+        string | undefined,
       sessionId: (decoded.sessionId || decoded.sid) as string | undefined,
       roles: (decoded.roles ||
         (decoded.realm_access as { roles?: string[] } | undefined)?.roles ||
@@ -61,11 +59,9 @@ export function extractEnvironmentMetadata(): Partial<LogEntry> {
   if (typeof globalThis !== "undefined" && "window" in globalThis) {
     const win = globalThis as Record<string, unknown>;
     const navigator = (win.window as Record<string, unknown>)?.navigator as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     const location = (win.window as Record<string, unknown>)?.location as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
 
     metadata.userAgent = navigator?.userAgent as string | undefined;
     metadata.hostname = location?.hostname as string | undefined;

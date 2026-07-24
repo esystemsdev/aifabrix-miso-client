@@ -2,10 +2,7 @@
  * Unit tests for request-context utility
  */
 
-import {
-  extractRequestContext,
-  RequestContext,
-} from "../../src/utils/request-context";
+import { extractRequestContext } from "../../src/utils/request-context";
 import { Request } from "express";
 import { Socket } from "net";
 
@@ -318,7 +315,7 @@ describe("request-context", () => {
         mockRequest.headers = {
           authorization: "Bearer token-without-space",
         };
-        const ctx = extractRequestContext(mockRequest as Request);
+        extractRequestContext(mockRequest as Request);
 
         // Should still extract token correctly
         expect(jwt.decode).toHaveBeenCalledWith("token-without-space");

@@ -45,7 +45,7 @@ export function logErrorWithContext(
 
   // Build final message
   const message = parts.join(" | ");
-  const prefixed = `${prefix} [${correlationId}]`;
+  const prefixed = `${prefix} [${correlationId}]`.replace(/%/g, "%%");
 
   // eslint-disable-next-line no-console -- Architecture-approved error logging utility
   console.error(prefixed, message);

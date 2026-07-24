@@ -4,13 +4,11 @@
  */
 
 // CRITICAL: Remove any existing handlers first to ensure ours is the first
-const existingUnhandledRejectionHandlers =
-  process.listeners("unhandledRejection");
 process.removeAllListeners("unhandledRejection");
 
 // Set up our handler BEFORE any code runs that might create promises
 // This must be synchronous and happen immediately
-process.on("unhandledRejection", (reason: any, promise: Promise<any>) => {
+process.on("unhandledRejection", (_reason: any, promise: Promise<any>) => {
   // Silently swallow all unhandled rejections during tests
   // This prevents the Jest worker from crashing
   // The interceptors use setTimeout(() => { logHttpRequestAudit().catch(...) }, 0)

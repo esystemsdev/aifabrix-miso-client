@@ -54,21 +54,6 @@ const buffer = {
 
 export default buffer;
 
-// CommonJS exports (primary) - match Node.js buffer module structure
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-  module.exports = buffer;
-  module.exports.Buffer = BufferStub;
-  module.exports.default = buffer;
-  module.exports.buffer = buffer;
-}
-
-// ESM exports (for import statements)
-if (typeof exports !== 'undefined') {
-  exports.default = buffer;
-  exports.buffer = buffer;
-  exports.Buffer = BufferStub;
-}
-
 // Make Buffer available globally for browser compatibility
 // Set on both window and globalThis for maximum compatibility
 if (typeof window !== 'undefined') {

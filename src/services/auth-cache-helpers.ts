@@ -12,18 +12,20 @@ export function extractUserIdFromToken(token: string): string | null {
     const decoded = jwt.decode(token) as Record<string, unknown> | null;
     if (!decoded) return null;
     return (decoded.sub || decoded.userId || decoded.user_id || decoded.id) as
-      | string
-      | null;
+      string | null;
   } catch {
     return null;
   }
 }
 
 /**
- * Generate cache key using SHA-256 hash of token.
+ * Generate cache key using keyed SHA-256 hash of token.
  */
 export function getTokenCacheKey(token: string): string {
-  const hash = crypto.createHash("sha256").update(token).digest("hex");
+  const hmacKey =
+    process.env.MISO_TOKEN_CACHE_HMAC_KEY?.trim() ||
+    "miso-client-token-cache-key";
+  const hash = crypto.createHmac("sha256", hmacKey).update(token).digest("hex");
   return `token_validation:${hash}`;
 }
 

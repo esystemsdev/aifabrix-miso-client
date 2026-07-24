@@ -198,9 +198,7 @@ const dataClientWithRefresh = new DataClient({
   baseUrl: "https://api.example.com",
   enableActivitySessionRefresh: false,
   activitySessionRefreshIntervalMs: 60000,
-  misoConfig: {
-    /* ... */
-  },
+  misoConfig: {/* ... */},
   onTokenRefresh: async () => {
     // Call your backend endpoint that handles refresh token securely
     const response = await fetch("/api/refresh-token", {

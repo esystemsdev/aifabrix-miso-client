@@ -109,22 +109,6 @@ describe("API Endpoints Integration Tests", () => {
     return !config?.controllerUrl || !config?.clientId || !config?.clientSecret;
   };
 
-  // Helper to verify timeout/network error when controller is down
-  const verifyTimeoutOrNetworkError = (error: unknown): void => {
-    const errorMessage =
-      error instanceof Error
-        ? error.message.toLowerCase()
-        : String(error).toLowerCase();
-    const isTimeoutOrNetworkError =
-      errorMessage.includes("timeout") ||
-      errorMessage.includes("canceled") ||
-      errorMessage.includes("econnrefused") ||
-      errorMessage.includes("failed to get client token") ||
-      errorMessage.includes("network error") ||
-      errorMessage.includes("connect");
-    expect(isTimeoutOrNetworkError).toBe(true);
-  };
-
   describe("Auth Endpoints", () => {
     describe("Client Token Endpoints", () => {
       test("POST /api/v1/auth/token - Generate client token (legacy)", async () => {

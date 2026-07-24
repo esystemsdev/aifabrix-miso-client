@@ -110,13 +110,6 @@ describe('DataClientContext', () => {
       const MAX_RETRIES = 3;
       const RETRY_DELAY = 2000;
 
-      // Track delays
-      const originalSetTimeout = setTimeout;
-      const setTimeoutSpy = vi.fn((fn: () => void, delay: number) => {
-        delays.push(delay);
-        return originalSetTimeout(fn, delay);
-      });
-
       // Simulate retry attempts
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         const delay = RETRY_DELAY * Math.pow(2, attempt);

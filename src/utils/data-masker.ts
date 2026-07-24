@@ -74,11 +74,6 @@ export class DataMasker {
     this.loadGlobalConfig();
   }
 
-  private static getGlobalSensitiveFields(): Set<string> {
-    this.loadGlobalConfig();
-    return this.sensitiveFields;
-  }
-
   /** Check if a field name indicates sensitive data (global config). */
   static isSensitiveField(key: string): boolean {
     this.loadGlobalConfig();

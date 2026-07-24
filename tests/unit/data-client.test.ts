@@ -315,7 +315,7 @@ describe("DataClient", () => {
       };
 
       (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
-      const client = new DataClient(browserConfig);
+      new DataClient(browserConfig);
 
       // Verify MisoClient was called
       expect(MisoClient).toHaveBeenCalledTimes(1);
@@ -345,7 +345,7 @@ describe("DataClient", () => {
       };
 
       (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
-      const client = new DataClient(browserConfig);
+      new DataClient(browserConfig);
 
       // Verify MisoClient was called
       expect(MisoClient).toHaveBeenCalledTimes(1);
@@ -369,7 +369,7 @@ describe("DataClient", () => {
       };
 
       (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
-      const client = new DataClient(serverConfig);
+      new DataClient(serverConfig);
 
       // Verify MisoClient was called
       expect(MisoClient).toHaveBeenCalledTimes(1);
@@ -402,7 +402,7 @@ describe("DataClient", () => {
       };
 
       (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
-      const client = new DataClient(browserConfig);
+      new DataClient(browserConfig);
 
       // Get the auto-bridged callback
       const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>)
@@ -442,7 +442,7 @@ describe("DataClient", () => {
       };
 
       (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
-      const client = new DataClient(browserConfig);
+      new DataClient(browserConfig);
 
       // Get the auto-bridged callback
       const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>)
@@ -478,7 +478,7 @@ describe("DataClient", () => {
       };
 
       (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
-      const client = new DataClient(browserConfig);
+      new DataClient(browserConfig);
 
       // Get the auto-bridged callback
       const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>)
@@ -503,7 +503,7 @@ describe("DataClient", () => {
       };
 
       (MisoClient as jest.MockedClass<typeof MisoClient>).mockClear();
-      const client = new DataClient(browserConfig);
+      new DataClient(browserConfig);
 
       // Get the auto-bridged callback
       const misoConfigCall = (MisoClient as jest.MockedClass<typeof MisoClient>)
@@ -1147,7 +1147,7 @@ describe("DataClient", () => {
 
     it("should throw TimeoutError on timeout", async () => {
       // Mock fetch to never resolve, simulating a timeout
-      mockFetch.mockImplementation((url, options) => {
+      mockFetch.mockImplementation((_url, options) => {
         return new Promise((_, reject) => {
           if (options?.signal) {
             // Listen for abort event
@@ -1218,7 +1218,7 @@ describe("DataClient", () => {
     });
 
     it("should apply request interceptor", async () => {
-      const interceptor = jest.fn((url, options) => ({
+      const interceptor = jest.fn((_url, options) => ({
         ...options,
         headers: new Headers({
           ...(options.headers as Record<string, string>),
@@ -1236,7 +1236,7 @@ describe("DataClient", () => {
     });
 
     it("should apply response interceptor", async () => {
-      const interceptor = jest.fn((response, data) => ({
+      const interceptor = jest.fn((_response, data) => ({
         ...data,
         intercepted: true,
       }));
@@ -1592,7 +1592,6 @@ describe("DataClient", () => {
 
     describe("Data Masking: Sensitive Headers", () => {
       it("should mask Authorization header in audit logs", async () => {
-        let headerMasked = false;
         const maskSpy = jest.fn((data) => {
           if (
             typeof data === "object" &&
@@ -1607,7 +1606,6 @@ describe("DataClient", () => {
                 key.toLowerCase().includes("secret")
               ) {
                 masked[key] = "***MASKED***";
-                headerMasked = true;
               } else {
                 masked[key] = value;
               }
@@ -1626,7 +1624,7 @@ describe("DataClient", () => {
         expect(DataMasker.maskSensitiveData).toHaveBeenCalled();
         // Headers are extracted and passed to masking, so check if masking was called with headers
         const calls = (DataMasker.maskSensitiveData as jest.Mock).mock.calls;
-        const hasHeaderCall = calls.some((call) => {
+        calls.some((call) => {
           const arg = call[0];
           return (
             typeof arg === "object" &&
@@ -1711,9 +1709,7 @@ describe("DataClient", () => {
         await Promise.resolve();
 
         expect(DataMasker.maskSensitiveData).toHaveBeenCalled();
-        const requestBodyCall = (
-          DataMasker.maskSensitiveData as jest.Mock
-        ).mock.calls.find((call) => {
+        (DataMasker.maskSensitiveData as jest.Mock).mock.calls.find((call) => {
           const arg = call[0];
           return (
             typeof arg === "string" &&
@@ -3210,8 +3206,7 @@ describe("DataClient", () => {
       const mouseMoveListener = (
         mockWindow.addEventListener as jest.Mock
       ).mock.calls.find((call) => call[0] === "mousemove")?.[1] as
-        | ((event: Event) => void)
-        | undefined;
+        ((event: Event) => void) | undefined;
       expect(mouseMoveListener).toBeDefined();
 
       mouseMoveListener?.(new Event("mousemove"));
@@ -3250,8 +3245,7 @@ describe("DataClient", () => {
       const beforeUnloadListener = (
         mockWindow.addEventListener as jest.Mock
       ).mock.calls.find((call) => call[0] === "beforeunload")?.[1] as
-        | (() => void)
-        | undefined;
+        (() => void) | undefined;
       expect(beforeUnloadListener).toBeDefined();
 
       beforeUnloadListener?.();

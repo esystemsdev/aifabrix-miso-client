@@ -38,7 +38,6 @@ export class BrowserRoleService {
 
   private logRoleError(
     error: unknown,
-    token: string,
     operation: string,
     method: string,
     path: string,
@@ -143,7 +142,7 @@ export class BrowserRoleService {
 
       return roles;
     } catch (error) {
-      this.logRoleError(error, token, "getRoles", "GET", "/api/auth/roles");
+      this.logRoleError(error, "getRoles", "GET", "/api/auth/roles");
       return [];
     }
   }
@@ -226,7 +225,6 @@ export class BrowserRoleService {
     } catch (error) {
       this.logRoleError(
         error,
-        token,
         "refreshRoles",
         "POST",
         "/api/auth/roles/refresh",
@@ -250,13 +248,7 @@ export class BrowserRoleService {
 
       await this.cache.delete(`roles:${userId}`);
     } catch (error) {
-      this.logRoleError(
-        error,
-        token,
-        "clearRolesCache",
-        "DELETE",
-        "/cache/roles",
-      );
+      this.logRoleError(error, "clearRolesCache", "DELETE", "/cache/roles");
     }
   }
 }

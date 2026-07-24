@@ -8,11 +8,7 @@
  * API expects status to be one of these values.
  */
 export type ApplicationStatus =
-  | "healthy"
-  | "degraded"
-  | "deploying"
-  | "error"
-  | "maintenance";
+  "healthy" | "degraded" | "deploying" | "error" | "maintenance";
 
 /** Valid application status values (for validation or iteration). */
 export const APPLICATION_STATUS_VALUES: readonly ApplicationStatus[] = [

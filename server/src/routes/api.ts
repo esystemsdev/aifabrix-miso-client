@@ -348,17 +348,24 @@ export function getMetrics(misoClient: MisoClient | null) {
  */
 export function slowEndpoint(misoClient: MisoClient | null) {
   return asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const delay = parseInt(req.query.delay as string) || 5000;
+    // Keep endpoint max delay below server timeout to avoid socket close before response.
+    const MAX_DELAY_MS = 25_000;
+    const rawDelay = parseInt(req.query.delay as string, 10);
+    const safeDelay = Number.isFinite(rawDelay) ? rawDelay : 5000;
+    const delay = Math.min(Math.max(safeDelay, 0), MAX_DELAY_MS);
 
     if (misoClient) {
-      await misoClient.log.forRequest(req).info(`Slow endpoint called with delay: ${delay}ms`);
+      // Keep slow-endpoint timing deterministic even when logger backends are slow/unavailable.
+      void misoClient.log
+        .forRequest(req)
+        .info(`Slow endpoint called with delay: ${delay}ms`)
+        .catch(() => undefined);
     }
 
     await new Promise((resolve) => {
       const timeout = setTimeout(resolve, delay);
-      // Unref timeout so it doesn't keep the process alive in tests
-      // This allows Jest to exit gracefully after tests complete
-      if (timeout.unref) {
+      // Only unref in test mode; in runtime this can suppress the callback under low activity.
+      if (process.env.NODE_ENV === 'test' && timeout.unref) {
         timeout.unref();
       }
     });
@@ -407,7 +414,7 @@ export function logEndpoint(misoClient: MisoClient | null) {
  * Demonstrates various error scenarios
  */
 export function errorEndpoint(misoClient: MisoClient | null) {
-  return asyncHandler(async (req: Request, _res: Response): Promise<void> => {
+  return asyncHandler(async (req: Request): Promise<void> => {
     const { code } = req.params;
     const codeParam = Array.isArray(code) ? code[0] : code;
     const statusCode = parseInt(codeParam || '', 10) || 500;

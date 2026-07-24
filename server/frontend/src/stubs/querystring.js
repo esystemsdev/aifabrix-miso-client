@@ -34,12 +34,6 @@ const querystring = {
   },
 };
 
-// CommonJS export
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-  module.exports = querystring;
-  module.exports.default = querystring;
-}
-
 // ESM export
 export default querystring;
 export { querystring };
