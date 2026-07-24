@@ -1,0 +1,98 @@
+section,groupType,identifier,severity,recordType,recordId,path,line,summary,manifestMap
+security-quality,rule,js/unused-local-variable,note,location,10,jest.config.js,4,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,11,server/frontend/scripts/test-stubs.cjs,9,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,12,server/frontend/scripts/test-stubs.js,9,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,13,server/frontend/src/hooks/__tests__/useAuthorizationTests.test.ts,2,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,14,server/frontend/src/contexts/__tests__/DataClientContext.test.tsx,115,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,15,server/frontend/src/stubs/__tests__/stubs.test.js,9,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,16,server/frontend/src/stubs/__tests__/stubs.test.js,11,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,17,tests/express/response-middleware.test.ts,5,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,18,tests/integration/api-endpoints.integration.test.ts,113,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,19,tests/unit/auth-strategy.test.ts,6,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,20,tests/unit/config-loader.test.ts,9,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,21,tests/unit/controller-url-resolver.test.ts,15,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,22,tests/unit/filter-schema.utils.test.ts,402,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,23,tests/unit/data-client.test.ts,318,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,24,tests/unit/data-client.test.ts,348,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,25,tests/unit/data-client.test.ts,372,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,26,tests/unit/data-client.test.ts,405,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,27,tests/unit/data-client.test.ts,445,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,28,tests/unit/data-client.test.ts,481,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,29,tests/unit/data-client.test.ts,506,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,30,tests/unit/data-client.test.ts,1629,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,31,tests/unit/data-client.test.ts,1714,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,32,tests/unit/http-client.test.ts,10,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,33,tests/unit/logging-helpers.test.ts,5,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,34,tests/unit/origin-validator.test.ts,5,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,35,tests/unit/request-context.test.ts,5,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,36,tests/unit/request-context.test.ts,321,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,37,tests/unit/sensitive-fields.loader.test.ts,32,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,38,tests/unit/sensitive-fields.loader.test.ts,97,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,39,tests/unit/token-utils.test.ts,5,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,40,tests/unit/sensitive-fields.loader.test.ts,262,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,41,tests/unit/unified-logger.test.ts,23,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,42,tests/unit/unified-logger.test.ts,24,Unused variable/import/function/class,
+security-quality,rule,js/unused-local-variable,note,location,43,tests/unit/unified-logger.test.ts,26,Unused variable/import/function/class,
+dependabot,advisory,GHSA-2w6w-674q-4c4q,critical,advisory-map,,,,Handlebars.js has JavaScript Injection via AST Type Confusion,"server/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-5xrq-8626-4rwp,critical,advisory-map,,,,When Vitest UI server is listening arbitrary file can be read and executed,"server/pnpm-lock.yaml (1); server/package.json (1); server/frontend/pnpm-lock.yaml (1); server/frontend/package.json (1)"
+dependabot,advisory,GHSA-35jp-ww65-95wh,high,advisory-map,,,,axios MITM via prototype pollution gadget in config.proxy,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-3g43-6gmg-66jw,high,advisory-map,,,,axios credential theft and response hijacking via config merge gadget,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-3mfm-83xf-c92r,high,advisory-map,,,,Handlebars JavaScript injection via @partial-block tampering,"server/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-43fc-jf86-j433,high,advisory-map,,,,Axios DoS via __proto__ key in mergeConfig,"server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-6chq-wfr3-2hj9,high,advisory-map,,,,Axios header injection via prototype pollution,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-777c-7fjr-54vf,high,advisory-map,,,,Axios allocation of resources without limits or throttling,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-7r86-cg39-jmmj,high,advisory-map,,,,minimatch ReDoS in matchOne backtracking,"server/pnpm-lock.yaml (2); pnpm-lock.yaml (2)"
+dependabot,advisory,GHSA-f269-vfmq-vjvj,high,advisory-map,,,,Undici WebSocket parser overflow crash,"server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-fx2h-pf6j-xcff,high,advisory-map,,,,vite server.fs.deny bypass on Windows alternate paths,"server/pnpm-lock.yaml (1); server/package.json (1); server/frontend/pnpm-lock.yaml (1); server/frontend/package.json (1)"
+dependabot,advisory,GHSA-hfxv-24rg-xrqf,high,advisory-map,,,,Axios ReDoS via cookie name injection,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-hmw2-7cc7-3qxx,high,advisory-map,,,,form-data CRLF injection via multipart names and filenames,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-j3q9-mxjg-w52f,high,advisory-map,,,,path-to-regexp DoS via sequential optional groups,"server/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-j5f8-grm9-p9fc,high,advisory-map,,,,Axios Proxy-Authorization header leak on redirect,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-mw96-cpmx-2vgc,high,advisory-map,,,,Rollup arbitrary file write via path traversal,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-p92q-9vqr-4j8v,high,advisory-map,,,,Axios proxy credential leak across HTTP to HTTPS redirect,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-p9ff-h696-f583,high,advisory-map,,,,Vite arbitrary file read via dev server WebSocket,"server/pnpm-lock.yaml (1); server/package.json (1); server/frontend/pnpm-lock.yaml (1); server/frontend/package.json (1)"
+dependabot,advisory,GHSA-pf86-5x62-jrwf,high,advisory-map,,,,Axios prototype pollution gadgets with response tampering/exfiltration,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-pmwg-cvhr-8vh7,high,advisory-map,,,,Axios incomplete NO_PROXY fix bypass via loopback subnet,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-q8qp-cvcw-x6jj,high,advisory-map,,,,Axios prototype pollution read-side gadgets in HTTP adapter,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-r5fr-rjxr-66jc,high,advisory-map,,,,lodash code injection via _.template imports key names,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-rf6f-7fwh-wjgh,high,advisory-map,,,,flatted prototype pollution via parse(),"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-xhpv-hc6g-r9c6,high,advisory-map,,,,Handlebars JavaScript injection via dynamic partial object AST confusion,"server/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-xjpj-3mr7-gcpf,high,advisory-map,,,,Handlebars JavaScript injection in CLI precompiler,"server/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-35p6-xmwp-9g52,low,advisory-map,,,,undici HTTP response queue poisoning on keep-alive reuse,"server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-442j-39wm-28r2,low,advisory-map,,,,Handlebars property access validation bypass in lookup,"server/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-4x5r-pxfx-6jf8,low,advisory-map,,,,@babel/core arbitrary file read via sourceMappingURL,"server/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-g4jq-h2w9-997c,low,advisory-map,,,,Vite middleware serving same-name files in public directory,"server/pnpm-lock.yaml (1); server/package.json (1); server/frontend/pnpm-lock.yaml (1); server/frontend/package.json (1)"
+dependabot,advisory,GHSA-g8m3-5g58-fq7m,low,advisory-map,,,,undici SameSite downgrade via permissive substring match,"server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-jqfw-vq24-v9c3,low,advisory-map,,,,Vite server.fs settings not applied to HTML files,"server/pnpm-lock.yaml (1); server/package.json (1); server/frontend/pnpm-lock.yaml (1); server/frontend/package.json (1)"
+dependabot,advisory,GHSA-v422-hmwv-36x6,low,advisory-map,,,,body-parser DoS when invalid limit disables enforcement,"server/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-w7fw-mjwx-w883,low,advisory-map,,,,qs arrayLimit bypass in comma parsing allows DoS,"pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-xhjh-pmcv-23jw,low,advisory-map,,,,Axios null byte injection via reverse-encoding in URLSearchParams,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-27v5-c462-wpq7,medium,advisory-map,,,,path-to-regexp ReDoS via multiple wildcards,"server/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-2mjp-6q6p-2qxm,medium,advisory-map,,,,Undici HTTP request/response smuggling issue,"server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-2qvq-rjwj-gvw9,medium,advisory-map,,,,Handlebars prototype pollution leading to XSS through partial injection,"server/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-3p68-rc4w-qgx5,medium,advisory-map,,,,Axios NO_PROXY hostname normalization bypass leads to SSRF,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-3v7f-55p6-f55p,medium,advisory-map,,,,Picomatch method injection in POSIX classes,"server/pnpm-lock.yaml (2); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-3w6x-2g7m-8v23,medium,advisory-map,,,,Axios invisible JSON response tampering via parseReviver gadget,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-445q-vr5w-6q77,medium,advisory-map,,,,Axios CRLF injection in multipart via blob.type,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-4992-7rv2-5pvq,medium,advisory-map,,,,Undici CRLF injection via upgrade option,"server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-4w7w-66w2-5vf9,medium,advisory-map,,,,Vite path traversal in optimized deps .map handling,"server/pnpm-lock.yaml (1); server/package.json (1); server/frontend/pnpm-lock.yaml (1); server/frontend/package.json (1)"
+dependabot,advisory,GHSA-5c9x-8gcm-mpgx,medium,advisory-map,,,,Axios streamed uploads bypass maxBodyLength with maxRedirects zero,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-62hf-57xw-28j9,medium,advisory-map,,,,Axios unbounded recursion in toFormData causes DoS,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-67mh-4wv8-2f99,medium,advisory-map,,,,esbuild default CORS allows cross-site request/response read,"server/pnpm-lock.yaml (1); server/package.json (1); server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-7rx3-28cr-v5wh,medium,advisory-map,,,,Handlebars prototype method access control gap (__lookupSetter__),"server/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-898c-q2cr-xwhg,medium,advisory-map,,,,axios DoS and header injection via merge gadgets,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-93m4-6634-74q7,medium,advisory-map,,,,vite server.fs.deny bypass via backslash on Windows,"server/pnpm-lock.yaml (1); server/package.json (1); server/frontend/pnpm-lock.yaml (1); server/frontend/package.json (1)"
+dependabot,advisory,GHSA-f23m-r3pf-42rh,medium,advisory-map,,,,lodash prototype pollution via array path bypass in unset/omit,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-fvcv-3m26-pcqx,medium,advisory-map,,,,Axios unrestricted cloud metadata exfiltration via header injection chain,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-h67p-54hq-rp68,medium,advisory-map,,,,JS-YAML quadratic complexity DoS in merge alias handling,"server/pnpm-lock.yaml (2); pnpm-lock.yaml (2)"
+dependabot,advisory,GHSA-m7pr-hjqh-92cm,medium,advisory-map,,,,Axios no_proxy bypass via IP alias allows SSRF,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-mwf2-3pr3-8698,medium,advisory-map,,,,Axios HTTP/2 streamed uploads bypass maxBodyLength,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-p88m-4jfj-68fv,medium,advisory-map,,,,undici HTTP header injection via Set-Cookie percent-decoding,"server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-pr7r-676h-xcf6,medium,advisory-map,,,,undici cross-user disclosure via shared cache whitespace bypass,"server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-q8mj-m7cp-5q26,medium,advisory-map,,,,qs DoS in stringify with comma arrays and encodeValuesOnly,"server/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-qx2v-qp2m-jg93,medium,advisory-map,,,,PostCSS XSS via unescaped </style> in stringify output,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-r4q5-vmmm-2653,medium,advisory-map,,,,follow-redirects leaks custom auth headers to cross-domain redirect targets,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-v6wh-96g9-6wx3,medium,advisory-map,,,,launch-editor NTLMv2 hash disclosure via UNC path on Windows,"server/pnpm-lock.yaml (1); server/package.json (1); server/frontend/pnpm-lock.yaml (1); server/frontend/package.json (1)"
+dependabot,advisory,GHSA-vf2m-468p-8v99,medium,advisory-map,,,,Axios streamed responses bypass maxContentLength,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-w9j2-pvgh-6h63,medium,advisory-map,,,,Axios authentication bypass via validateStatus prototype pollution gadget,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
+dependabot,advisory,GHSA-xx6v-rp6x-q39c,medium,advisory-map,,,,Axios XSRF token cross-origin leakage via withXSRFToken coercion,"server/pnpm-lock.yaml (1); server/frontend/pnpm-lock.yaml (1); pnpm-lock.yaml (1)"
