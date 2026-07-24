@@ -633,6 +633,8 @@ import {
   formatDate,
   formatTime,
   createDateTimeFormatter,
+  formatLogDateTimeUtcFixed,
+  parseIsoTimestampMs,
 } from "@aifabrix/miso-client";
 
 const value = "2026-07-21T13:20:36.123Z";
@@ -651,6 +653,12 @@ const renderDateTime = createDateTimeFormatter({
   use24Hour: true,
 });
 const rowDateTime = renderDateTime(value);
+
+// Deterministic UTC log/audit format
+const logDateTime = formatLogDateTimeUtcFixed(value); // "21/07/2026, 13:20:36"
+
+// Epoch milliseconds parsing with safe fallback
+const timestampMs = parseIsoTimestampMs(value); // number, or 0 when empty/invalid
 ```
 
 **Fallback behavior:**
@@ -658,6 +666,7 @@ const rowDateTime = renderDateTime(value);
 - Empty values (`null`, `undefined`, empty string, `-`) return `-` by default
 - Invalid non-empty strings return original trimmed value
 - Invalid numeric/date values return fallback
+- `parseIsoTimestampMs` returns `0` for empty/invalid values
 
 → [Datetime formatting](docs/datetime-formatting.md)
 

@@ -7,6 +7,7 @@ import type {
   DateTimeFormatOptions,
   DateTimeInput,
   DateTimeLocale,
+  LogDateTimeUtcFixedOptions,
 } from "../types/datetime.types";
 
 const DEFAULT_FALLBACK = "-";
@@ -65,6 +66,53 @@ export function createDateTimeFormatter(
     if (parsed.rawStringFallback) return parsed.rawStringFallback;
     return formatter.format(parsed.date);
   };
+}
+
+/**
+ * Format datetime in fixed UTC pattern `DD/MM/YYYY, HH:mm:ss`.
+ * Intended for deterministic log/audit/export rendering.
+ */
+export function formatLogDateTimeUtcFixed(
+  value: DateTimeInput,
+  options?: LogDateTimeUtcFixedOptions,
+): string {
+  const fallback = options?.fallback ?? DEFAULT_FALLBACK;
+  const parsed = parseDateTimeInput(value, fallback);
+  if (parsed.isFallback) return fallback;
+  if (parsed.rawStringFallback) return parsed.rawStringFallback;
+
+  const date = parsed.date;
+  const day = pad2(date.getUTCDate());
+  const month = pad2(date.getUTCMonth() + 1);
+  const year = date.getUTCFullYear();
+  const hours = pad2(date.getUTCHours());
+  const minutes = pad2(date.getUTCMinutes());
+  const seconds = pad2(date.getUTCSeconds());
+  return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds}`;
+}
+
+/**
+ * Parse datetime input to epoch milliseconds.
+ * Returns `0` for empty or invalid values.
+ */
+export function parseIsoTimestampMs(value: DateTimeInput): number {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === "-") {
+      return 0;
+    }
+    const parsed = new Date(normalizeIsoTimestampForParse(trimmed));
+    const ms = parsed.getTime();
+    return Number.isNaN(ms) ? 0 : ms;
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  const ms = parsed.getTime();
+  return Number.isNaN(ms) ? 0 : ms;
 }
 
 type Preset = "dateTime" | "date" | "time";
@@ -175,6 +223,10 @@ function buildDateFields(style: DateFormatStyle): Intl.DateTimeFormatOptions {
     month: "2-digit",
     day: "2-digit",
   };
+}
+
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
 }
 
 function parseDateTimeInput(

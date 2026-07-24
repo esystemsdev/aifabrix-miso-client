@@ -54,3 +54,14 @@ export interface DateTimeFormatOptions {
    */
   dateFormat?: DateFormatStyle;
 }
+
+/**
+ * Deterministic UTC log datetime formatting options.
+ */
+export interface LogDateTimeUtcFixedOptions {
+  /**
+   * Placeholder returned for empty or invalid values.
+   * Default: `-`
+   */
+  fallback?: string;
+}
