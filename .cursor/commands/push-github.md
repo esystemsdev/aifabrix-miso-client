@@ -25,9 +25,9 @@ Push the developer's **current release branch** to GitHub, create and merge a PR
 
 | Gate | Question `id` | Proceed when option `id` is |
 | ---- | ------------- | --------------------------- |
+| Phase 1 - push current branch (only when needed) | `push-release-branch` | `push-yes` |
 | Preflight - version already on NPM | `repair-release-bump` | `bump-patch`, `bump-minor`, or `bump-explicit` |
 | Preflight - changelog mismatch | `repair-release-changelog` | `run-repair-release` |
-| Phase 1 - push current branch | `push-release-branch` | `push-yes` |
 | Phase 2 - create PR into main | `create-main-pr` | `pr-yes` |
 | Phase 4 - merge approved PR | `merge-pr` | `merge-yes` |
 | Phase 5 - create GitHub Release | `create-release` | `release-yes` |
@@ -208,9 +208,15 @@ See the [commits](https://github.com/esystemsdev/aifabrix-miso-client/commits/v{
 
 ## Phase 1 - Push current release branch
 
-1. Show a short preflight summary in chat (repo path, source branch, version, validation status).
-2. AskQuestion `push-release-branch`; proceed only on `push-yes`.
-3. Push source branch to origin:
+1. Check synchronization with remote:
+
+```bash
+git rev-list --left-right --count origin/{sourceBranch}...{sourceBranch}
+```
+
+2. If local branch is already fully synchronized (`ahead=0`, `behind=0`), skip push gate and continue directly to Phase 2.
+3. If local branch is ahead of origin (or remote branch is missing), show a short preflight summary in chat (repo path, source branch, version, validation status), then AskQuestion `push-release-branch`; proceed only on `push-yes`.
+4. Push source branch to origin when push is required:
 
 ```bash
 git push origin {sourceBranch}
