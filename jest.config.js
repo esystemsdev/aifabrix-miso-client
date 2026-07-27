@@ -1,7 +1,6 @@
 // CRITICAL: Set up unhandled rejection handler BEFORE anything else
 // This must be done at the module level, not in setupFilesAfterEnv
 if (typeof process !== "undefined") {
-  const existingHandlers = process.listeners("unhandledRejection").slice();
   process.removeAllListeners("unhandledRejection");
 
   process.on("unhandledRejection", (reason, promise) => {

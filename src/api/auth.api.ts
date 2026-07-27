@@ -52,7 +52,7 @@ export class AuthApi {
   private readonly userApi: AuthUserApi;
   private readonly cacheApi: AuthCacheApi;
 
-  constructor(private httpClient: HttpClient) {
+  constructor(httpClient: HttpClient) {
     this.loginApi = new AuthLoginApi(httpClient);
     this.tokenApi = new AuthTokenApi(httpClient);
     this.userApi = new AuthUserApi(httpClient);

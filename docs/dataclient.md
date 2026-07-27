@@ -117,9 +117,7 @@ If your app needs explicit cleanup aliases, set **`tokenKeys`** explicitly:
 ```typescript
 const dataClient = new DataClient({
   baseUrl: "https://api.example.com",
-  misoConfig: {
-    /* ... */
-  },
+  misoConfig: {/* ... */},
   tokenKeys: ["my_custom_token"], // optional stale-key cleanup aliases
 });
 ```

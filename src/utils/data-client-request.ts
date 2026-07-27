@@ -232,7 +232,6 @@ function shouldRetryError(
   statusCode: number | undefined,
   retryConfig: RetryConfig,
   attempt: number,
-  error: Error,
 ): boolean {
   const is500Error =
     statusCode !== undefined && statusCode >= 500 && statusCode < 600;
@@ -241,7 +240,7 @@ function shouldRetryError(
     retryConfig.retryEnabled &&
     !is500Error &&
     attempt < effectiveMaxRetries &&
-    isRetryableError(statusCode, error)
+    isRetryableError(statusCode)
   );
 }
 
@@ -312,12 +311,7 @@ async function handleAttemptError<T>(
 
   const errorObj = error as ApiError;
   const statusCode = resolveStatusCode(errorObj, responseStatus);
-  const isRetryable = shouldRetryError(
-    statusCode,
-    retryConfig,
-    attempt,
-    error as Error,
-  );
+  const isRetryable = shouldRetryError(statusCode, retryConfig, attempt);
 
   if (!isRetryable)
     await handleNonRetryableRequestError(params, error as Error, statusCode);

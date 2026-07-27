@@ -75,8 +75,7 @@ export function extractUserIdFromToken(token: string): string | null {
     const decoded = jwt.decode(token) as Record<string, unknown> | null;
     if (!decoded) return null;
     return (decoded.sub || decoded.userId || decoded.user_id || decoded.id) as
-      | string
-      | null;
+      string | null;
   } catch {
     return null;
   }
@@ -125,7 +124,7 @@ export function calculateSize(data: unknown): number {
 /**
  * Check if error is retryable
  */
-export function isRetryableError(statusCode?: number, _error?: Error): boolean {
+export function isRetryableError(statusCode?: number): boolean {
   if (!statusCode) return true; // Network errors are retryable
   if (statusCode >= 500) return true; // Server errors
   if (statusCode === 408) return true; // Timeout

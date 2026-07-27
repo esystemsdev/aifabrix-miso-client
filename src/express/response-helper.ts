@@ -130,8 +130,7 @@ export class ResponseHelper {
   ): never {
     throw new AppError(message, statusCode, isOperational, {
       validationErrors: validationErrors as
-        | import("./error-types").ValidationError[]
-        | undefined,
+        import("./error-types").ValidationError[] | undefined,
       errorType,
     });
   }

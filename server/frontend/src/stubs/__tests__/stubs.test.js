@@ -6,9 +6,7 @@
  * as expected by the bundled code. This catches issues before browser testing.
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
+import { describe, it, expect } from 'vitest';
 
 describe('Node.js Module Stubs', () => {
   describe('buffer', () => {

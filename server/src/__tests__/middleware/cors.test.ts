@@ -62,7 +62,7 @@ describe('corsMiddleware', () => {
     expect(mockNext).toHaveBeenCalled();
   });
 
-  it('should set CORS headers even for invalid origin (fail open)', async () => {
+  it('should not allow credentials for invalid origin', async () => {
     mockRequest.headers = { origin: 'http://invalid-origin.com' };
     (validateOrigin as jest.Mock).mockReturnValue({ valid: false });
     const allowedOrigins = ['http://localhost:3000'];
@@ -70,11 +70,11 @@ describe('corsMiddleware', () => {
 
     await middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(mockSetHeader).toHaveBeenCalledWith(
+    expect(mockSetHeader).not.toHaveBeenCalledWith(
       'Access-Control-Allow-Origin',
       'http://invalid-origin.com'
     );
-    expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Credentials', 'true');
+    expect(mockSetHeader).not.toHaveBeenCalledWith('Access-Control-Allow-Credentials', 'true');
     expect(mockNext).toHaveBeenCalled();
   });
 
@@ -90,14 +90,14 @@ describe('corsMiddleware', () => {
     expect(mockNext).not.toHaveBeenCalled();
   });
 
-  it('should set wildcard origin when no origin header is present', async () => {
+  it('should not set allow-origin when origin header is missing', async () => {
     mockRequest.headers = {};
     const allowedOrigins = ['http://localhost:3000'];
     const middleware = corsMiddleware(allowedOrigins);
 
     await middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(mockSetHeader).toHaveBeenCalledWith('Access-Control-Allow-Origin', '*');
+    expect(mockSetHeader).not.toHaveBeenCalledWith('Access-Control-Allow-Origin', '*');
     expect(mockNext).toHaveBeenCalled();
   });
 
@@ -127,8 +127,10 @@ describe('corsMiddleware', () => {
     expect(mockMisoClient.log.forRequest).toHaveBeenCalledWith(mockRequest);
     expect(mockLoggerChain.addContext).toHaveBeenCalledWith('error', 'Validation failed');
     expect(mockLoggerChain.addContext).toHaveBeenCalledWith('level', 'warning');
-    expect(mockLoggerChain.info).toHaveBeenCalledWith('Origin validation error (allowing anyway)');
-    expect(mockSetHeader).toHaveBeenCalledWith(
+    expect(mockLoggerChain.info).toHaveBeenCalledWith(
+      'Origin validation error (blocked for credentialed CORS)'
+    );
+    expect(mockSetHeader).not.toHaveBeenCalledWith(
       'Access-Control-Allow-Origin',
       'http://localhost:3000'
     );
@@ -160,11 +162,8 @@ describe('corsMiddleware', () => {
 
     await middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'Origin validation error (allowing anyway):',
-      error
-    );
-    expect(mockSetHeader).toHaveBeenCalledWith(
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Origin validation error (blocked):', error);
+    expect(mockSetHeader).not.toHaveBeenCalledWith(
       'Access-Control-Allow-Origin',
       'http://localhost:3000'
     );
@@ -187,11 +186,8 @@ describe('corsMiddleware', () => {
 
     await middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'Origin validation error (allowing anyway):',
-      error
-    );
-    expect(mockSetHeader).toHaveBeenCalledWith(
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Origin validation error (blocked):', error);
+    expect(mockSetHeader).not.toHaveBeenCalledWith(
       'Access-Control-Allow-Origin',
       'http://localhost:3000'
     );
@@ -214,11 +210,8 @@ describe('corsMiddleware', () => {
 
     await middleware(mockRequest as Request, mockResponse as Response, mockNext);
 
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'Origin validation error (allowing anyway):',
-      error
-    );
-    expect(mockSetHeader).toHaveBeenCalledWith(
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Origin validation error (blocked):', error);
+    expect(mockSetHeader).not.toHaveBeenCalledWith(
       'Access-Control-Allow-Origin',
       'http://localhost:3000'
     );

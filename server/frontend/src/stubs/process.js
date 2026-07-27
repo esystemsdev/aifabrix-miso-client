@@ -52,11 +52,5 @@ if (typeof globalThis !== 'undefined') {
   globalThis.process = processStub;
 }
 
-// CommonJS export
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-  module.exports = processStub;
-  module.exports.default = processStub;
-}
-
 // ESM export
 export default processStub;

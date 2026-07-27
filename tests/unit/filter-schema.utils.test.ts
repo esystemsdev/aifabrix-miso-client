@@ -399,9 +399,6 @@ describe("filter-schema.utils", () => {
     });
 
     it("should compile nin filter with ALL", () => {
-      const filters: FilterOption[] = [
-        { field: "name", op: "in", value: ["a", "b"] },
-      ];
       const filtersNin: FilterOption[] = [
         { field: "name", op: "nin", value: ["a", "b"] },
       ];

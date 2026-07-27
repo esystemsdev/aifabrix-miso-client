@@ -74,13 +74,6 @@ class RedisStub {
 // Default export
 const Redis = RedisStub;
 
-// CommonJS export
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-  module.exports = Redis;
-  module.exports.default = Redis;
-  module.exports.Redis = RedisStub;
-}
-
 // ESM export
 export default Redis;
 export { Redis, RedisStub };

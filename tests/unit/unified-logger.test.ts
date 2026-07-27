@@ -20,10 +20,7 @@ import {
   registerLoggerService,
   LoggerServiceRegistry,
 } from "../../src/services/logger/unified-logger.factory";
-import { HttpClient } from "../../src/utils/http-client";
-import { RedisService } from "../../src/services/redis.service";
 import { MisoClientConfig } from "../../src/types/config.types";
-import { ApiClient } from "../../src/api";
 
 // Mock HttpClient
 jest.mock("../../src/utils/http-client");

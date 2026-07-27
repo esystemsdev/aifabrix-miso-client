@@ -2,10 +2,7 @@
  * Unit tests for origin-validator
  */
 
-import {
-  validateOrigin,
-  OriginValidationResult,
-} from "../../src/utils/origin-validator";
+import { validateOrigin } from "../../src/utils/origin-validator";
 import { Request } from "express";
 
 describe("origin-validator", () => {

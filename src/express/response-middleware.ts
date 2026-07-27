@@ -24,7 +24,7 @@ import { ResponseHelper, PaginationMeta } from "./response-helper";
  * @param next - Express next function.
  */
 export function injectResponseHelpers(
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction,
 ): void {

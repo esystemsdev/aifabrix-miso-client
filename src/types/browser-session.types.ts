@@ -12,10 +12,7 @@ import type { AuthControllerPath } from "./auth-browser.types";
 export type BrowserSessionPath = AuthControllerPath;
 
 export type SessionRestoreFailureReason =
-  | "unauthorized"
-  | "network"
-  | "server"
-  | "invalid";
+  "unauthorized" | "network" | "server" | "invalid";
 
 export type SessionRestoreSuccess = {
   ok: true;
@@ -33,8 +30,7 @@ export type SessionRestoreFailure = {
 };
 
 export type SessionRestoreResult =
-  | SessionRestoreSuccess
-  | SessionRestoreFailure;
+  SessionRestoreSuccess | SessionRestoreFailure;
 
 export type BrowserSessionClientOptions = {
   /** Resolves controller public base URL (no trailing slash). */

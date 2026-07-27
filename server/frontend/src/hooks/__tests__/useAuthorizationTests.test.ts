@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DataClient } from '@aifabrix/miso-client';
 
 // Mock toast
 vi.mock('sonner', () => ({

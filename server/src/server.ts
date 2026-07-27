@@ -59,6 +59,7 @@ import { healthHandler } from './routes/health';
 
 const app = express();
 const envConfig = loadEnvConfig();
+const allowedOriginsSet = new Set(envConfig.misoAllowedOrigins);
 
 // Load config and create MisoClient (completely non-blocking - server starts immediately)
 let misoClient: MisoClient | null = null;
@@ -168,15 +169,12 @@ setImmediate(() => {
   }
 });
 
-// Middleware - minimal setup to avoid blocking
+// Middleware - strict credentialed CORS and lightweight API throttling.
 app.use((req, res, next) => {
-  // Simple CORS
   const origin = req.headers.origin;
-  if (origin) {
+  if (origin && allowedOriginsSet.has(origin) && origin !== 'null') {
     res.header('Access-Control-Allow-Origin', origin);
     res.header('Access-Control-Allow-Credentials', 'true');
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
   }
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-client-token');
@@ -186,6 +184,33 @@ app.use((req, res, next) => {
     return;
   }
 
+  next();
+});
+
+const rateLimitState = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_REQUESTS = 120;
+
+app.use((req, res, next) => {
+  if (!req.path.startsWith('/api/')) {
+    next();
+    return;
+  }
+
+  const now = Date.now();
+  const key = req.ip || req.socket.remoteAddress || 'unknown';
+  const entry = rateLimitState.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateLimitState.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    next();
+    return;
+  }
+
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
+    throw new AppError('Too many requests', 429);
+  }
+
+  entry.count += 1;
   next();
 });
 

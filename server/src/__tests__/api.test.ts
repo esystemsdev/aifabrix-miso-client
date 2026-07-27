@@ -369,6 +369,40 @@ describe('API Routes', () => {
         })
       );
     });
+
+    it('should clamp negative delay to zero', async () => {
+      mockRequest.query = { delay: '-100' };
+      const handler = slowEndpoint(mockMisoClient as MisoClient | null);
+      const handlerPromise = handler(mockRequest as Request, mockResponse as Response, mockNext);
+
+      await Promise.resolve();
+      jest.advanceTimersByTime(0);
+      await handlerPromise;
+
+      expect(responseJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Slow response',
+          delay: 0,
+        })
+      );
+    });
+
+    it('should clamp overly large delay to max safe value', async () => {
+      mockRequest.query = { delay: '999999' };
+      const handler = slowEndpoint(mockMisoClient as MisoClient | null);
+      const handlerPromise = handler(mockRequest as Request, mockResponse as Response, mockNext);
+
+      await Promise.resolve();
+      jest.advanceTimersByTime(25000);
+      await handlerPromise;
+
+      expect(responseJson).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Slow response',
+          delay: 25000,
+        })
+      );
+    });
   });
 
   describe('errorEndpoint', () => {

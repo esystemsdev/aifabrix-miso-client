@@ -48,8 +48,7 @@ export function hydrateBrowserRuntimeTokenState(
 
 function resolveBrowserWindow(): BrowserLikeWindow | null {
   const root = (globalThis as { window?: unknown }).window as
-    | BrowserLikeWindow
-    | undefined;
+    BrowserLikeWindow | undefined;
   if (!root) return null;
   if (typeof root.addEventListener === "function") return root;
   if (root.window && typeof root.window.addEventListener === "function") {

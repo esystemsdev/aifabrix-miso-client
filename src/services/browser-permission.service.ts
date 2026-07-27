@@ -38,7 +38,6 @@ export class BrowserPermissionService {
 
   private logPermissionError(
     error: unknown,
-    token: string,
     operation: string,
     method: string,
     path: string,
@@ -144,7 +143,6 @@ export class BrowserPermissionService {
     } catch (error) {
       this.logPermissionError(
         error,
-        token,
         "getPermissions",
         "GET",
         "/api/auth/permissions",
@@ -257,7 +255,6 @@ export class BrowserPermissionService {
     } catch (error) {
       this.logPermissionError(
         error,
-        token,
         "refreshPermissions",
         "POST",
         "/api/auth/permissions/refresh",
@@ -283,7 +280,6 @@ export class BrowserPermissionService {
     } catch (error) {
       this.logPermissionError(
         error,
-        token,
         "clearPermissionsCache",
         "DELETE",
         "/cache/permissions",
