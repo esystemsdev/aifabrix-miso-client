@@ -4,7 +4,6 @@
 
 import {
   extractLoggingContext,
-  IndexedLoggingContext,
   HasKey,
   HasExternalSystem,
 } from "../../src/utils/logging-helpers";

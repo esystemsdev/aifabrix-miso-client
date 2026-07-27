@@ -70,21 +70,6 @@ const events = {
   EventEmitter: EventEmitter,
 };
 
-// CommonJS export (primary) - this is what require() looks for
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-  module.exports = events;
-  module.exports.default = events;
-  module.exports.EventEmitter = EventEmitter;
-  module.exports.events = events;
-}
-
-// ESM exports (for import statements)
-if (typeof exports !== 'undefined') {
-  exports.default = events;
-  exports.events = events;
-  exports.EventEmitter = EventEmitter;
-}
-
-// Also export for ESM
+// ESM exports
 export default events;
 export { events, EventEmitter };

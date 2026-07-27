@@ -9,12 +9,7 @@ import type { FilterOperator } from "./filter.types";
  * Field data types for filter schema validation.
  */
 export type FilterFieldType =
-  | "string"
-  | "number"
-  | "boolean"
-  | "uuid"
-  | "timestamp"
-  | "enum";
+  "string" | "number" | "boolean" | "uuid" | "timestamp" | "enum";
 
 /**
  * Definition of a filterable field in a schema.

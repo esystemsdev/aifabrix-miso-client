@@ -3,7 +3,7 @@
  */
 
 import { AuthStrategyHandler } from "../../src/utils/auth-strategy";
-import { AuthStrategy, AuthMethod } from "../../src/types/config.types";
+import { AuthStrategy } from "../../src/types/config.types";
 
 describe("AuthStrategyHandler", () => {
   describe("buildAuthHeaders", () => {

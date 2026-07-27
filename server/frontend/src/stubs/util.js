@@ -111,27 +111,6 @@ const util = {
   deprecate: deprecate,
 };
 
-// CommonJS export (primary) - this is what require() looks for
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-  module.exports = util;
-  module.exports.default = util;
-  module.exports.util = util;
-  module.exports.inherits = inherits;
-  module.exports.inspect = inspect;
-  module.exports.promisify = promisify;
-  module.exports.deprecate = deprecate;
-}
-
-// ESM exports (for import statements)
-if (typeof exports !== 'undefined') {
-  exports.default = util;
-  exports.util = util;
-  exports.inherits = inherits;
-  exports.inspect = inspect;
-  exports.promisify = promisify;
-  exports.deprecate = deprecate;
-}
-
-// Also export for ESM
+// ESM exports
 export default util;
 export { util, inherits, inspect, promisify, deprecate };

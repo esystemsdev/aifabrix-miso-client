@@ -14,6 +14,7 @@ What to read when.
 | **Errors**                      | [errors.md](errors.md)                                       | Express pattern: asyncHandler, handleRouteError, AppError, MisoClientError |
 | **Redis**                       | [redis.md](redis.md)                                         | Optional cache for roles/permissions; fallback to controller               |
 | **Pagination, filter, sorting** | [pagination-filter-sorting.md](pagination-filter-sorting.md) | How to use pagination, filter, and sort (simple only)                      |
+| **Datetime formatting**         | [datetime-formatting.md](datetime-formatting.md)             | Locale-aware date/time rendering for UI apps                               |
 | **Encryption**                  | [encryption.md](encryption.md)                               | How to use encrypt/decrypt (simple only)                                   |
 
 ## Support

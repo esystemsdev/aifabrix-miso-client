@@ -6,7 +6,6 @@
 jest.mock("dotenv/config", () => ({}), { virtual: true });
 
 import { loadConfig } from "../../src/utils/config-loader";
-import { MisoClientConfig } from "../../src/types/config.types";
 
 describe("ConfigLoader", () => {
   const originalEnv = process.env;

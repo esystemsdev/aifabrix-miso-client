@@ -17,10 +17,7 @@ export interface RedisConfig {
  * Authentication method types
  */
 export type AuthMethod =
-  | "bearer"
-  | "client-token"
-  | "client-credentials"
-  | "api-key";
+  "bearer" | "client-token" | "client-credentials" | "api-key";
 
 /**
  * Supported general log levels across SDK public APIs.

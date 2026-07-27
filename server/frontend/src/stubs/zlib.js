@@ -45,12 +45,6 @@ const zlib = {
   },
 };
 
-// CommonJS export
-if (typeof module !== 'undefined' && typeof module.exports !== 'undefined') {
-  module.exports = zlib;
-  module.exports.default = zlib;
-}
-
 // ESM export
 export default zlib;
 export { zlib };

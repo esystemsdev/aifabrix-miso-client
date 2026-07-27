@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.20.0] - 2026-07-27
+
+### Added
+
+- **Datetime formatting SDK utilities** - Added shared datetime formatting utilities and public datetime typing for consistent locale-aware and timezone-aware formatting across SDK consumers.
+- **Datetime formatting developer documentation** - Added dedicated datetime formatting guidance and usage examples in SDK docs.
+
+### Changed
+
+- **SDK export surface for datetime helpers** - Updated SDK exports to expose datetime formatting primitives through the public package entry for direct consumer usage.
+- **Security and quality hardening sweep** - Applied broad security and quality remediation updates across auth/logging, request handling, stubs, and validation-related SDK/server support code.
+
+### Technical
+
+- **Datetime and remediation regression coverage** - Expanded and updated unit/integration test coverage to lock datetime behavior and remediation changes.
+- **Release workflow command alignment** - Added strict `/push-github` release orchestration command to enforce release-branch to `main` merge approval and publish workflow consistency.
+
 ## [4.19.0] - 2026-06-23
 
 ### Added

@@ -12,7 +12,6 @@ import { MisoClientConfig } from "../../src/types/config.types";
 import { KeycloakConfig } from "../../src/types/token-validation.types";
 
 describe("Controller URL Resolver", () => {
-  const originalGlobalThis = globalThis;
   const originalWindow = (globalThis as { window?: unknown }).window;
   const originalLocalStorage = (
     globalThis as {

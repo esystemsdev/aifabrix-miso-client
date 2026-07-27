@@ -154,8 +154,7 @@ export function extractUserIdFromToken(authHeader?: string): string | null {
     const decoded = jwt.decode(token) as Record<string, unknown> | null;
     if (!decoded) return null;
     return (decoded.sub || decoded.userId || decoded.user_id || decoded.id) as
-      | string
-      | null;
+      string | null;
   } catch {
     return null;
   }

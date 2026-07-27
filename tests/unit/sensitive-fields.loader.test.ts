@@ -28,9 +28,6 @@ jest.mock("path", () => {
   };
 });
 
-// Get actual path functions for use in tests
-const actualPath = jest.requireActual<typeof path>("path");
-
 // Mock the default config import to prevent real file loading
 jest.mock(
   "../../src/utils/sensitive-fields.config.json",
@@ -94,7 +91,6 @@ describe("sensitive-fields.loader", () => {
 
     it("should return defaults when window exists in globalThis", () => {
       // Mock browser environment by setting window in globalThis
-      const originalGlobalThis = globalThis;
       (globalThis as any).window = {};
 
       try {
@@ -259,10 +255,6 @@ describe("sensitive-fields.loader", () => {
     });
 
     it("should try filesystem path when module import fails", () => {
-      const configPath = path.join(
-        __dirname,
-        "../../src/utils/sensitive-fields.config.json",
-      );
       const configContent = JSON.stringify({
         mergeWithHardcodedDefaults: true,
         fields: {

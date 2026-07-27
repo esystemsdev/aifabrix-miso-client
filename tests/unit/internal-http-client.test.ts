@@ -60,9 +60,6 @@ describe("InternalHttpClient", () => {
         config: InternalAxiosRequestConfig,
       ) => Promise<InternalAxiosRequestConfig>)
     | null;
-  let responseErrorHandlerFn:
-    | ((error: AxiosError) => Promise<AxiosError>)
-    | null;
 
   beforeEach(() => {
     config = {
@@ -75,14 +72,13 @@ describe("InternalHttpClient", () => {
     mockAxiosInstance = {
       interceptors: {
         request: {
-          use: jest.fn((onFulfilled, onRejected) => {
+          use: jest.fn((onFulfilled) => {
             requestInterceptorFn = onFulfilled;
             return 0;
           }),
         },
         response: {
-          use: jest.fn((onFulfilled, onRejected) => {
-            responseErrorHandlerFn = onRejected;
+          use: jest.fn(() => {
             return 0;
           }),
         },
@@ -109,8 +105,6 @@ describe("InternalHttpClient", () => {
     });
 
     requestInterceptorFn = null;
-    responseErrorHandlerFn = null;
-
     jest.clearAllMocks();
     httpClient = new InternalHttpClient(config);
   });
@@ -202,14 +196,14 @@ describe("InternalHttpClient", () => {
       const testMockAxiosInstance = {
         interceptors: {
           request: {
-            use: jest.fn((onFulfilled, onRejected) => {
+            use: jest.fn((onFulfilled) => {
               // Capture the interceptor function
               requestInterceptor = onFulfilled;
               return 0;
             }),
           },
           response: {
-            use: jest.fn((onFulfilled, onRejected) => {
+            use: jest.fn(() => {
               return 0;
             }),
           },
@@ -256,7 +250,7 @@ describe("InternalHttpClient", () => {
       };
 
       (testMockAxiosInstance.get as jest.Mock).mockImplementation(
-        async (url, config) => {
+        async (_url, config) => {
           // Run the interceptor first if it exists
           if (requestInterceptor) {
             // Ensure config is an object with headers
@@ -379,7 +373,7 @@ describe("InternalHttpClient", () => {
 
       // Mock the request to succeed - token fetch happens internally
       (mockAxiosInstance.get as jest.Mock).mockImplementation(
-        async (url: string, config?: any) => {
+        async (_url: string, _config?: any) => {
           // Simulate interceptor fetching token first
           // In real scenario, getClientToken() would be called here
           return getResponse;
@@ -468,14 +462,14 @@ describe("InternalHttpClient", () => {
       const testMainAxiosInstance = {
         interceptors: {
           request: {
-            use: jest.fn((onFulfilled, onRejected) => {
+            use: jest.fn((onFulfilled) => {
               // Capture the interceptor function
               requestInterceptor = onFulfilled;
               return 0;
             }),
           },
           response: {
-            use: jest.fn((onFulfilled, onRejected) => {
+            use: jest.fn(() => {
               return 0;
             }),
           },
@@ -501,7 +495,7 @@ describe("InternalHttpClient", () => {
 
       // Mock the get method to run the interceptor first
       (testMainAxiosInstance.get as jest.Mock).mockImplementation(
-        async (url, config) => {
+        async (_url, config) => {
           // Run the interceptor first if it exists
           if (requestInterceptor) {
             try {
@@ -567,14 +561,14 @@ describe("InternalHttpClient", () => {
       const testMainAxiosInstance = {
         interceptors: {
           request: {
-            use: jest.fn((onFulfilled, onRejected) => {
+            use: jest.fn((onFulfilled) => {
               // Capture the interceptor function
               requestInterceptor = onFulfilled;
               return 0;
             }),
           },
           response: {
-            use: jest.fn((onFulfilled, onRejected) => {
+            use: jest.fn(() => {
               return 0;
             }),
           },
@@ -600,7 +594,7 @@ describe("InternalHttpClient", () => {
 
       // Mock the get method to run the interceptor first
       (testMainAxiosInstance.get as jest.Mock).mockImplementation(
-        async (url, config) => {
+        async (_url, config) => {
           // Run the interceptor first if it exists
           if (requestInterceptor) {
             try {

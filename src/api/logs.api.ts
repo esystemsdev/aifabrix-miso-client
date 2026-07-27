@@ -44,7 +44,7 @@ export class LogsApi {
   private readonly stats: LogsStatsApi;
   private readonly export: LogsExportApi;
 
-  constructor(private httpClient: HttpClient) {
+  constructor(httpClient: HttpClient) {
     this.create = new LogsCreateApi(httpClient);
     this.list = new LogsListApi(httpClient);
     this.stats = new LogsStatsApi(httpClient);

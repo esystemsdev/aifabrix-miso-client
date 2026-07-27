@@ -286,8 +286,7 @@ export class TokenValidationService {
       name: payload.name as string | undefined,
       realmAccess: payload.realm_access as { roles: string[] } | undefined,
       resourceAccess: payload.resource_access as
-        | Record<string, { roles: string[] }>
-        | undefined,
+        Record<string, { roles: string[] }> | undefined,
     };
   }
 

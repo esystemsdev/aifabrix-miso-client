@@ -7,7 +7,6 @@ import { InternalHttpClient } from "../../src/utils/internal-http-client";
 import { LoggerService } from "../../src/services/logger";
 import { MisoClientConfig } from "../../src/types/config.types";
 import { MisoClientError } from "../../src/utils/errors";
-import { AxiosError } from "axios";
 
 // Mock axios
 jest.mock("axios");
@@ -28,7 +27,7 @@ const mockAxios = {
   create: jest.fn(),
   interceptors: {
     request: {
-      use: jest.fn((onFulfilled, onRejected) => {
+      use: jest.fn((onFulfilled, _onRejected) => {
         requestInterceptorFn = onFulfilled;
         return 0;
       }),
@@ -333,8 +332,7 @@ describe("HttpClient", () => {
     if (mockInternalClient) {
       ["get", "post", "put", "delete", "request"].forEach((method) => {
         const mockFn = (mockInternalClient as any)[method] as
-          | jest.Mock
-          | undefined;
+          jest.Mock | undefined;
         if (mockFn) {
           delete (mockFn as any)._resolvedValue;
           delete (mockFn as any)._rejectedValue;
@@ -1376,15 +1374,11 @@ describe("HttpClient", () => {
   });
 
   describe("audit logging", () => {
-    let axiosInstance: any;
     let requestInterceptorFn: any;
     let responseSuccessFn: any;
     let responseErrorFn: any;
 
     beforeEach(() => {
-      // Get the actual axios instance from mockInternalClient
-      axiosInstance = mockAxios;
-
       // Get interceptors from setup
       const requestUseCall = mockAxios.interceptors.request.use.mock.calls[0];
       const responseUseCall = mockAxios.interceptors.response.use.mock.calls[0];
@@ -3050,10 +3044,14 @@ describe("HttpClient", () => {
       });
 
       it("should handle non-Bearer authorization header", async () => {
+        const basicAuthHeader = `Basic ${Buffer.from(
+          "test-user:test-password",
+          "utf8",
+        ).toString("base64")}`;
         const config: any = {
           url: "/api/users",
           headers: {
-            authorization: "Basic dXNlcjpwYXNz",
+            authorization: basicAuthHeader,
           },
           metadata: {
             startTime: Date.now() - 100,

@@ -2,7 +2,7 @@
  * Unit tests for Response Middleware (injectResponseHelpers)
  */
 
-import { Request, Response, NextFunction } from "express";
+import { Request, Response } from "express";
 import { injectResponseHelpers } from "../../src/express/response-middleware";
 import {
   ResponseHelper,

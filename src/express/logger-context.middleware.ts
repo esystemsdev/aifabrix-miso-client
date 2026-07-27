@@ -70,7 +70,7 @@ function buildLoggerContext(
  */
 export function loggerContextMiddleware(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction,
 ): void {
   try {

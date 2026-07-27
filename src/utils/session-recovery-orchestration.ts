@@ -1,15 +1,8 @@
 export type SessionRecoveryTrigger =
-  | "activity"
-  | "visibilitychange"
-  | "online"
-  | "manual";
+  "activity" | "visibilitychange" | "online" | "manual";
 
 export type SessionRecoveryTelemetryReason =
-  | "cooldown"
-  | "dedupe"
-  | "inflight"
-  | "success"
-  | "failure";
+  "cooldown" | "dedupe" | "inflight" | "success" | "failure";
 
 export interface SessionRecoveryTelemetryEvent {
   reason: SessionRecoveryTelemetryReason;

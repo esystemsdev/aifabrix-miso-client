@@ -7,10 +7,7 @@ import {
   handleApiError,
   ApiErrorException,
 } from "../../src/utils/errors";
-import type {
-  ErrorEnvelope,
-  ErrorResponse as ErrorResponseFromErrors,
-} from "../../src/types/errors.types";
+import type { ErrorResponse as ErrorResponseFromErrors } from "../../src/types/errors.types";
 import { AxiosError } from "axios";
 
 describe("errors", () => {

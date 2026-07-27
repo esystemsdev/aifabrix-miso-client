@@ -6,7 +6,6 @@
  * This tests the stubs directly without a test framework to catch issues early
  */
 
-const fs = require('fs');
 const path = require('path');
 
 const stubsDir = path.join(__dirname, '../src/stubs');
