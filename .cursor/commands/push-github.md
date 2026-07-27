@@ -154,6 +154,28 @@ Use when `pnpm view @aifabrix/miso-client@{version} version` succeeds.
 }
 ```
 
+### GitHub Release format (required)
+
+New releases must match the current repository style (same structure as `v4.19.0`):
+
+- **Title (`name`)**: `Release v{version}`
+- **Tag**: `v{version}`
+- **Target**: `main`
+- **Draft**: `false`
+- **Prerelease**: `false`
+- **Body template**:
+
+```text
+## @aifabrix/miso-client v{version}
+
+AI Fabrix Client SDK - Authentication, authorization, logging, and Express.js utilities
+
+### Installation
+npm install @aifabrix/miso-client@{version}
+
+See the [commits](https://github.com/esystemsdev/aifabrix-miso-client/commits/v{version}) for detailed changes.
+```
+
 ---
 
 ## Phase 0 - Preflight (before any push)
@@ -247,8 +269,24 @@ gh pr view <number> --json state,reviewDecision,mergeable,statusCheckRollup
 1. AskQuestion `create-release`; proceed only on `release-yes`.
 2. Ensure release tag `v{version}` does not already exist.
 3. Create GitHub Release tag `v{version}` from `main` merge commit.
-4. Release notes: use `CHANGELOG.md` section for `{version}`.
-5. This should trigger `.github/workflows/publish.yml` (`on: release.published`).
+4. Use the required release format above (`name`, `tag`, `target`, and body template).
+5. Recommended command pattern:
+
+```bash
+gh release create v{version} --target main --title "Release v{version}" --notes "$(cat <<'EOF'
+## @aifabrix/miso-client v{version}
+
+AI Fabrix Client SDK - Authentication, authorization, logging, and Express.js utilities
+
+### Installation
+npm install @aifabrix/miso-client@{version}
+
+See the [commits](https://github.com/esystemsdev/aifabrix-miso-client/commits/v{version}) for detailed changes.
+EOF
+)"
+```
+
+6. This should trigger `.github/workflows/publish.yml` (`on: release.published`).
 
 ---
 
