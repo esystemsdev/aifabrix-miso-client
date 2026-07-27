@@ -1,6 +1,6 @@
 # push-github
 
-Push the developer's **current release branch** to GitHub, create and merge a PR into `main` with **strict human approval**, then publish `@aifabrix/miso-client` by creating a GitHub Release from `main` and fixing workflow failures in a loop until NPM publish is successful.
+Push the developer's current release branch, run a manual CodeQL scan, merge branch into `main` **without PR**, then publish `@aifabrix/miso-client` via GitHub Release and monitor NPM publish.
 
 **Repo:** Run from **aifabrix-miso-client** root only.
 
@@ -8,16 +8,16 @@ Push the developer's **current release branch** to GitHub, create and merge a PR
 
 **Related commands:**
 
-- `/validate-tests` — local quality gate before any push
+- `/validate-tests` — local quality gate before push and before retries
 - `/repair-release` — version bump + changelog preparation
 
 ---
 
-## Strict policy (always on)
+## No-PR mode policy
 
-- PR approval in GitHub is **mandatory** before merge.
-- Chat confirmation alone is **not** enough to merge.
-- Agent must verify approval and green checks via `gh pr view` before merge.
+- This command merges release branch into `main` directly (no PR creation).
+- Branch/repository rules must allow direct merge/push to `main`.
+- If direct merge/push to `main` is blocked, stop and report the block reason.
 
 ---
 
@@ -25,12 +25,12 @@ Push the developer's **current release branch** to GitHub, create and merge a PR
 
 | Gate | Question `id` | Proceed when option `id` is |
 | ---- | ------------- | --------------------------- |
-| Phase 1 - push current branch (only when needed) | `push-release-branch` | `push-yes` |
 | Preflight - version already on NPM | `repair-release-bump` | `bump-patch`, `bump-minor`, or `bump-explicit` |
 | Preflight - changelog mismatch | `repair-release-changelog` | `run-repair-release` |
-| Phase 2 - create PR into main | `create-main-pr` | `pr-yes` |
-| Phase 3 - confirm PR approval action | `approve-pr` | `approve-done` |
-| Phase 4 - merge approved PR | `merge-pr` | `merge-yes` |
+| Phase 1 - push current branch (only when needed) | `push-release-branch` | `push-yes` |
+| Phase 2 - run manual CodeQL workflow | `run-codeql-scan` | `scan-yes` |
+| Phase 3 - fix CodeQL findings | `fix-codeql-findings` | `fix-yes` |
+| Phase 4 - merge branch into main | `merge-into-main` | `merge-yes` |
 | Phase 5 - create GitHub Release | `create-release` | `release-yes` |
 | Phase 7 - retry publish after fix | `retry-publish` | `retry-yes` |
 
@@ -53,9 +53,6 @@ Use when `pnpm view @aifabrix/miso-client@{version} version` succeeds.
   }]
 }
 ```
-
-- `bump-patch` / `bump-minor` / `bump-explicit` -> run `/repair-release`, then repeat preflight.
-- `bump-stop` -> stop workflow.
 
 ### Preflight - CHANGELOG mismatch (`repair-release-changelog`)
 
@@ -90,51 +87,49 @@ Use when `pnpm view @aifabrix/miso-client@{version} version` succeeds.
 }
 ```
 
-### Phase 2 - create PR into main (`create-main-pr`)
+### Phase 2 - run CodeQL scan (`run-codeql-scan`)
 
 ```json
 {
-  "title": "Create PR to main",
+  "title": "Run manual CodeQL scan",
   "questions": [{
-    "id": "create-main-pr",
-    "prompt": "Create PR `{sourceBranch}` -> `main` now?",
+    "id": "run-codeql-scan",
+    "prompt": "Run manual CodeQL workflow on `{sourceBranch}` before merge?",
     "options": [
-      { "id": "pr-yes", "label": "Yes, create PR (Recommended)" },
-      { "id": "pr-no", "label": "No - stop after push" }
+      { "id": "scan-yes", "label": "Yes, run CodeQL scan (Recommended)" },
+      { "id": "scan-no", "label": "No - stop here" }
     ]
   }]
 }
 ```
 
-### Phase 4 - merge PR after approval (`merge-pr`)
+### Phase 3 - fix CodeQL findings (`fix-codeql-findings`)
 
 ```json
 {
-  "title": "Merge approved PR",
+  "title": "CodeQL findings detected",
   "questions": [{
-    "id": "merge-pr",
-    "prompt": "PR #{prNumber} is approved in GitHub and checks are green.\n\nMerge into `main` now?",
+    "id": "fix-codeql-findings",
+    "prompt": "Manual CodeQL scan found security findings.\n\nDo you want me to fix them now using best practices (root-cause fixes, minimal scope, regression safety)?",
     "options": [
-      { "id": "merge-yes", "label": "Yes, merge PR (Recommended)" },
-      { "id": "merge-wait", "label": "Wait - approval/checks not ready yet" },
-      { "id": "merge-stop", "label": "Stop - I will merge manually" }
+      { "id": "fix-yes", "label": "Yes, fix findings with best practices (Recommended)" },
+      { "id": "fix-no", "label": "No - stop for manual handling" }
     ]
   }]
 }
 ```
 
-### Phase 3 - confirm PR approval action (`approve-pr`)
+### Phase 4 - merge branch into main (`merge-into-main`)
 
 ```json
 {
-  "title": "Approve PR in GitHub",
+  "title": "Merge release branch into main",
   "questions": [{
-    "id": "approve-pr",
-    "prompt": "PR checks are green.\n\nPlease approve PR #{prNumber} in GitHub, then confirm here.",
+    "id": "merge-into-main",
+    "prompt": "CodeQL scan is green.\n\nMerge `{sourceBranch}` into `main` now (no PR mode)?",
     "options": [
-      { "id": "approve-done", "label": "I approved the PR in GitHub (Recommended)" },
-      { "id": "approve-wait", "label": "Wait - I haven't approved yet" },
-      { "id": "approve-stop", "label": "Stop - I will continue manually" }
+      { "id": "merge-yes", "label": "Yes, merge into main (Recommended)" },
+      { "id": "merge-no", "label": "No - stop before merge" }
     ]
   }]
 }
@@ -174,7 +169,7 @@ Use when `pnpm view @aifabrix/miso-client@{version} version` succeeds.
 
 ### GitHub Release format (required)
 
-New releases must match the current repository style (same structure as `v4.19.0`):
+New releases must match current repository style:
 
 - **Title (`name`)**: `Release v{version}`
 - **Tag**: `v{version}`
@@ -196,45 +191,31 @@ See the [commits](https://github.com/esystemsdev/aifabrix-miso-client/commits/v{
 
 ---
 
-## Phase 0 - Preflight (before any push)
+## Phase 0 - Preflight
 
-1. **Git state**
-   - `git branch --show-current` -> source branch.
-   - Source branch must not be `main`.
-   - `git status --porcelain` must be empty (all changes committed).
-   - `git fetch origin`.
-   - If branch has upstream, ensure local is not behind.
-   - Stop if dirty, detached, or behind upstream.
-
-2. **Version and release intent**
-   - Read `package.json` version.
-   - Version must represent the intended release candidate.
-
-3. **CHANGELOG alignment**
-   - Top `CHANGELOG.md` entry must match `package.json` version (`## [X.Y.Z] - YYYY-MM-DD`).
-   - If mismatch -> AskQuestion `repair-release-changelog`; on `run-repair-release`, run `/repair-release` and repeat preflight.
-
-4. **NPM already published check**
-   - `pnpm view @aifabrix/miso-client@{version} version`.
-   - If published -> AskQuestion `repair-release-bump`; on bump option, run `/repair-release` and repeat preflight.
-
-5. **Local validation**
-   - Run `/validate-tests`.
-   - Do not continue until `/validate-tests` is green.
+1. Verify source branch:
+   - `git branch --show-current` -> source branch
+   - source branch must not be `main`
+2. Verify clean tree and upstream:
+   - `git status --porcelain` must be empty
+   - `git fetch origin`
+   - if upstream exists, local must not be behind
+3. Verify release metadata:
+   - `package.json` version exists and is intended release version
+   - top `CHANGELOG.md` entry matches package version
+4. Verify version is not on NPM:
+   - `pnpm view @aifabrix/miso-client@{version} version`
+   - if exists, resolve via `repair-release-bump`
+5. Run `/validate-tests` and require green before continue.
 
 ---
 
-## Phase 1 - Push current release branch
+## Phase 1 - Push source branch (when needed)
 
-1. Check synchronization with remote:
-
-```bash
-git rev-list --left-right --count origin/{sourceBranch}...{sourceBranch}
-```
-
-2. If local branch is already fully synchronized (`ahead=0`, `behind=0`), skip push gate and continue directly to Phase 2.
-3. If local branch is ahead of origin (or remote branch is missing), show a short preflight summary in chat (repo path, source branch, version, validation status), then AskQuestion `push-release-branch`; proceed only on `push-yes`.
-4. Push source branch to origin when push is required:
+1. Compare local vs remote:
+   - `git rev-list --left-right --count origin/{sourceBranch}...{sourceBranch}`
+2. If `ahead=0` and `behind=0`, skip push.
+3. If ahead or remote missing, AskQuestion `push-release-branch`; on `push-yes`, run:
 
 ```bash
 git push origin {sourceBranch}
@@ -242,70 +223,72 @@ git push origin {sourceBranch}
 
 ---
 
-## Phase 2 - Create PR to main
+## Phase 2 - Run manual CodeQL scan
 
-1. AskQuestion `create-main-pr`; proceed only on `pr-yes`.
-2. Create PR:
-   - **Base:** `main`
-   - **Head:** `{sourceBranch}`
-3. PR title format:
+1. AskQuestion `run-codeql-scan`; continue only on `scan-yes`.
+2. Trigger manual workflow on source branch:
 
-```text
-[X.Y.Z] - YYYY-MM-DD - Release to main
+```bash
+gh workflow run codeql-manual.yml --ref {sourceBranch}
 ```
 
-4. PR body should include the full `CHANGELOG.md` section for that version.
-5. Report PR URL and proceed to approval gate.
+3. Monitor until complete:
+
+```bash
+gh run list --workflow "codeql-manual.yml" --branch {sourceBranch} --limit 3
+gh run watch <run-id> --exit-status
+```
+
+4. If workflow is green, continue to Phase 4.
+5. If workflow fails due CodeQL findings, continue to Phase 3.
 
 ---
 
-## Phase 3 - Strict approval wait
+## Phase 3 - Fix CodeQL findings (best practices)
 
-1. Monitor PR checks until completion.
-2. Recommended monitoring commands:
-
-```bash
-gh pr checks <number> --watch
-gh pr view <number> --json state,reviewDecision,mergeable,statusCheckRollup
-```
-
-3. If checks are not complete, keep waiting.
-4. If any required check fails, stop strict-merge flow and enter fix loop.
-5. When required checks become green, ask AskQuestion `approve-pr`; proceed only on `approve-done`.
-6. After `approve-done`, verify with:
-
-```bash
-gh pr view <number> --json state,reviewDecision,mergeable,statusCheckRollup
-```
-
-7. Proceed only when all are true:
-   - `state == OPEN`
-   - `reviewDecision == APPROVED`
-   - `mergeable == MERGEABLE`
-   - required checks in `statusCheckRollup` are successful
-8. If approval is still missing or checks are no longer green, report status and return to waiting.
+1. AskQuestion `fix-codeql-findings`.
+2. On `fix-yes`:
+   - inspect failing annotations/logs
+   - apply root-cause fixes with minimal scope
+   - avoid blanket suppressions unless unavoidable
+   - keep behavior/regression safety through tests
+3. Re-run `/validate-tests`.
+4. Commit fixes on source branch.
+5. Push source branch.
+6. Re-run Phase 2 manual CodeQL scan.
+7. Repeat until CodeQL is green.
+8. On `fix-no`, stop and report findings.
 
 ---
 
-## Phase 4 - Merge approved PR
+## Phase 4 - Merge source branch into main (no PR)
 
-1. Proceed only after:
-   - AskQuestion `approve-pr` returned `approve-done`.
-   - GitHub reviewDecision is approved.
-   - Required checks are green.
-   - AskQuestion `merge-pr` returns `merge-yes`.
-2. Merge PR into `main`.
-3. Confirm merge SHA.
+1. AskQuestion `merge-into-main`; continue only on `merge-yes`.
+2. Ensure latest remote refs:
+
+```bash
+git fetch origin
+```
+
+3. Merge sequence:
+
+```bash
+git checkout main
+git pull origin main
+git merge --no-ff {sourceBranch}
+git push origin main
+git checkout {sourceBranch}
+```
+
+4. If push to `main` is blocked by branch/rules, stop and report block reason.
 
 ---
 
 ## Phase 5 - Create and publish GitHub Release
 
-1. AskQuestion `create-release`; proceed only on `release-yes`.
-2. Ensure release tag `v{version}` does not already exist.
-3. Create GitHub Release tag `v{version}` from `main` merge commit.
-4. Use the required release format above (`name`, `tag`, `target`, and body template).
-5. Recommended command pattern:
+1. AskQuestion `create-release`; continue only on `release-yes`.
+2. Ensure `v{version}` tag does not already exist.
+3. Create release in required format:
 
 ```bash
 gh release create v{version} --target main --title "Release v{version}" --notes "$(cat <<'EOF'
@@ -321,67 +304,57 @@ EOF
 )"
 ```
 
-6. This should trigger `.github/workflows/publish.yml` (`on: release.published`).
+4. This triggers `.github/workflows/publish.yml`.
 
 ---
 
 ## Phase 6 - Monitor publish workflow
 
-1. Find and watch the latest `Publish to npm` run.
-2. Recommended monitoring commands:
+1. Monitor latest publish run:
 
 ```bash
 gh run list --workflow "publish.yml" --limit 3
 gh run watch <run-id> --exit-status
 ```
 
-3. Timeout guideline: wait up to 10 minutes before declaring failure.
-4. On success, verify:
-   - workflow status is green
-   - `pnpm view @aifabrix/miso-client@{version} version` returns expected version
-5. Report workflow URL and verification result.
-
-If successful -> done.
-If failed -> Phase 7.
+2. On success verify:
+   - workflow green
+   - `pnpm view @aifabrix/miso-client@{version} version` resolves expected version
+3. On failure, continue to Phase 7.
 
 ---
 
-## Phase 7 - Fix loop (no automatic version bump)
+## Phase 7 - Publish fix loop (no version bump)
 
-1. Inspect failure logs:
+1. Inspect failing logs:
    - `gh run view <run-id> --log-failed`
-2. Fix on the same release branch (not on `main` directly).
-3. Re-run `/validate-tests` locally.
-4. Push fixes to source branch.
-5. Create a new PR into `main` (or update existing open PR if one is still open).
-6. Repeat Phases 3-4 (strict approval + merge).
-7. AskQuestion `retry-publish`; on `retry-yes`, rerun publish via `workflow_dispatch` from `main` with:
-   - `version={version}`
-   - `create_tag=false` (release tag already exists)
+2. Fix on source branch with best practices.
+3. Re-run `/validate-tests`.
+4. Commit and push source branch.
+5. Merge updated source branch into `main` again (Phase 4).
+6. AskQuestion `retry-publish`; on `retry-yes` run:
 
 ```bash
 gh workflow run "publish.yml" --ref main -f version={version} -f create_tag=false
 ```
 
-8. Re-monitor workflow and repeat until publish succeeds.
-
-**Forbidden in this phase:** bumping `package.json` version inside `/push-github` flow.
-If version change is required, stop and run `/repair-release`, then restart from Phase 0.
+7. Re-monitor publish workflow and repeat until success.
 
 ---
 
 ## Work is complete when
 
-- PR from source release branch to `main` is merged after strict GitHub approval.
-- GitHub publish workflow is successful.
-- NPM confirms `@aifabrix/miso-client@{version}` is available.
+- Manual CodeQL scan passed on source branch.
+- Source branch was merged into `main` (no PR mode).
+- GitHub publish workflow succeeded.
+- NPM confirms `@aifabrix/miso-client@{version}` availability.
 
 ---
 
 ## Critical requirements
 
-- Always enforce strict approval policy (GitHub review approval is mandatory).
-- Always use AskQuestion at the listed gates.
+- No PR creation/merge in this command.
+- Always run manual CodeQL scan before merge into `main`.
+- If CodeQL finds issues, always ask whether to auto-fix with best practices.
 - Never bump version in `/push-github`.
-- Always run `/validate-tests` before initial push and in each fix loop iteration.
-- Keep the release process traceable: release branch -> PR -> approved merge -> release -> publish verify.
+- Always run `/validate-tests` before initial push and after each fix iteration.
