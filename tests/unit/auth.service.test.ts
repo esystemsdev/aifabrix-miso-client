@@ -2,24 +2,13 @@
  * Unit tests for AuthService
  */
 
-import crypto from "crypto";
 import { AuthService } from "../../src/services/auth.service";
+import { getTokenCacheKey as getExpectedCacheKey } from "../../src/services/auth-cache-helpers";
 import { HttpClient } from "../../src/utils/http-client";
 import { ApiClient } from "../../src/api";
 import { CacheService } from "../../src/services/cache.service";
 import { MisoClientConfig, AuthMethod } from "../../src/types/config.types";
 import { MisoClientError } from "../../src/utils/errors";
-
-/**
- * Helper function to compute expected cache key (matches AuthService.getTokenCacheKey)
- */
-function getExpectedCacheKey(token: string): string {
-  const hmacKey =
-    process.env.MISO_TOKEN_CACHE_HMAC_KEY?.trim() ||
-    "miso-client-token-cache-key";
-  const hash = crypto.createHmac("sha256", hmacKey).update(token).digest("hex");
-  return `token_validation:${hash}`;
-}
 
 // Mock HttpClient
 jest.mock("../../src/utils/http-client");

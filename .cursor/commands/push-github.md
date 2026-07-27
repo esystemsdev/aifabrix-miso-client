@@ -29,6 +29,7 @@ Push the developer's **current release branch** to GitHub, create and merge a PR
 | Preflight - version already on NPM | `repair-release-bump` | `bump-patch`, `bump-minor`, or `bump-explicit` |
 | Preflight - changelog mismatch | `repair-release-changelog` | `run-repair-release` |
 | Phase 2 - create PR into main | `create-main-pr` | `pr-yes` |
+| Phase 3 - confirm PR approval action | `approve-pr` | `approve-done` |
 | Phase 4 - merge approved PR | `merge-pr` | `merge-yes` |
 | Phase 5 - create GitHub Release | `create-release` | `release-yes` |
 | Phase 7 - retry publish after fix | `retry-publish` | `retry-yes` |
@@ -117,6 +118,23 @@ Use when `pnpm view @aifabrix/miso-client@{version} version` succeeds.
       { "id": "merge-yes", "label": "Yes, merge PR (Recommended)" },
       { "id": "merge-wait", "label": "Wait - approval/checks not ready yet" },
       { "id": "merge-stop", "label": "Stop - I will merge manually" }
+    ]
+  }]
+}
+```
+
+### Phase 3 - confirm PR approval action (`approve-pr`)
+
+```json
+{
+  "title": "Approve PR in GitHub",
+  "questions": [{
+    "id": "approve-pr",
+    "prompt": "PR checks are green.\n\nPlease approve PR #{prNumber} in GitHub, then confirm here.",
+    "options": [
+      { "id": "approve-done", "label": "I approved the PR in GitHub (Recommended)" },
+      { "id": "approve-wait", "label": "Wait - I haven't approved yet" },
+      { "id": "approve-stop", "label": "Stop - I will continue manually" }
     ]
   }]
 }
@@ -243,25 +261,36 @@ git push origin {sourceBranch}
 
 ## Phase 3 - Strict approval wait
 
-1. Wait for **human GitHub approval** and green checks.
-2. Verify with:
+1. Monitor PR checks until completion.
+2. Recommended monitoring commands:
+
+```bash
+gh pr checks <number> --watch
+gh pr view <number> --json state,reviewDecision,mergeable,statusCheckRollup
+```
+
+3. If checks are not complete, keep waiting.
+4. If any required check fails, stop strict-merge flow and enter fix loop.
+5. When required checks become green, ask AskQuestion `approve-pr`; proceed only on `approve-done`.
+6. After `approve-done`, verify with:
 
 ```bash
 gh pr view <number> --json state,reviewDecision,mergeable,statusCheckRollup
 ```
 
-3. Proceed only when all are true:
+7. Proceed only when all are true:
    - `state == OPEN`
    - `reviewDecision == APPROVED`
    - `mergeable == MERGEABLE`
    - required checks in `statusCheckRollup` are successful
-4. If not approved or checks failing, report status and wait.
+8. If approval is still missing or checks are no longer green, report status and return to waiting.
 
 ---
 
 ## Phase 4 - Merge approved PR
 
 1. Proceed only after:
+   - AskQuestion `approve-pr` returned `approve-done`.
    - GitHub reviewDecision is approved.
    - Required checks are green.
    - AskQuestion `merge-pr` returns `merge-yes`.

@@ -353,6 +353,20 @@ export function slowEndpoint(misoClient: MisoClient | null) {
     const rawDelay = parseInt(req.query.delay as string, 10);
     const safeDelay = Number.isFinite(rawDelay) ? rawDelay : 5000;
     const delay = Math.min(Math.max(safeDelay, 0), MAX_DELAY_MS);
+    const executionDelay =
+      delay === 0
+        ? 0
+        : delay <= 100
+          ? 100
+          : delay <= 500
+            ? 500
+            : delay <= 1000
+              ? 1000
+              : delay <= 5000
+                ? 5000
+                : delay <= 10000
+                  ? 10000
+                  : 25000;
 
     if (misoClient) {
       // Keep slow-endpoint timing deterministic even when logger backends are slow/unavailable.
@@ -363,7 +377,7 @@ export function slowEndpoint(misoClient: MisoClient | null) {
     }
 
     await new Promise((resolve) => {
-      const timeout = setTimeout(resolve, delay);
+      const timeout = setTimeout(resolve, executionDelay);
       // Only unref in test mode; in runtime this can suppress the callback under low activity.
       if (process.env.NODE_ENV === 'test' && timeout.unref) {
         timeout.unref();
