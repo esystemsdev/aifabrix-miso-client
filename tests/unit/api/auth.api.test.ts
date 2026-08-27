@@ -109,6 +109,7 @@ describe("AuthApi", () => {
 
       await expect(authApi.login(params)).rejects.toThrow("Network error");
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthLoginApi]"),
         expect.stringContaining("Network error"),
       );
@@ -160,6 +161,7 @@ describe("AuthApi", () => {
         "Invalid token",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthTokenApi]"),
         expect.stringContaining("Invalid token"),
       );

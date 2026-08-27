@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.21.0] - 2026-08-27
+
+### Added
+
+- **Remembered filter store** - Added the browser-safe `@aifabrix/miso-client/filter-store` entry point with a generic vanilla Zustand store for persisting page-specific filter queries across visits.
+- **Filter persistence controls** - Added scoped storage keys, shared query actions, reset, schema version migration, custom storage, and manual hydration support for Dataplane and Miso UI consumers.
+
+### Security
+
+- **Filter storage isolation** - Persisted queries are isolated by application, user, and page scope; browser storage failures fall back safely without persisting tokens or client credentials.
+- **CodeQL remediation** - Hardened credentialed CORS origin matching, made console formatting safe for untrusted values, and replaced demo server throttling with maintained Express rate limiting.
+- **Manual security gate** - Updated the manual CodeQL workflow to coexist with GitHub Default Setup, fail on findings, and retain SARIF artifacts for review.
+
 ## [4.20.0] - 2026-07-27
 
 ### Added

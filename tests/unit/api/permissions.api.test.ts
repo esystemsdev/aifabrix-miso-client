@@ -117,6 +117,7 @@ describe("PermissionsApi", () => {
         permissionsApi.getPermissions(undefined, authStrategy),
       ).rejects.toThrow("Network error");
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[PermissionsApi]"),
         expect.stringContaining("Network error"),
       );

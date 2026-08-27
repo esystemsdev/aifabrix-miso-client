@@ -619,6 +619,64 @@ const response = createPaginatedListResponse(
 
 **Pro tip:** These utilities are business-logic-free and reusable across applications. Perfect for building query strings, parsing API responses, and testing with mocks. Designed following enterprise best practices for maintainability and compliance.
 
+#### Remember filters between page visits
+
+Create one vanilla Zustand store for each user and page. The store persists only
+the query and restores it when the page is opened again:
+
+```typescript
+import type { FilterQuery } from "@aifabrix/miso-client";
+import { createRememberedFilterStore } from "@aifabrix/miso-client/filter-store";
+
+interface ConnectedSystemsQuery extends FilterQuery {
+  search: string;
+  formFilters: {
+    status: string[];
+  };
+}
+
+export function createConnectedSystemsFilterStore(userId: string) {
+  return createRememberedFilterStore<ConnectedSystemsQuery>({
+    appId: "dataplane",
+    userId,
+    pageId: "connected-systems",
+    initialQuery: {
+      search: "",
+      formFilters: { status: [] },
+      filters: [],
+      sort: ["name"],
+      page: 1,
+      pageSize: 25,
+    },
+  });
+}
+```
+
+The returned store is framework-independent. A React page can subscribe with
+Zustand's `useStore` and must keep one store instance for each scope:
+
+```typescript
+import { useMemo } from "react";
+import { useStore } from "zustand";
+
+const filterStore = useMemo(
+  () => createConnectedSystemsFilterStore(userId),
+  [userId],
+);
+const query = useStore(filterStore, (state) => state.query);
+const patchQuery = useStore(filterStore, (state) => state.patchQuery);
+```
+
+Use `setQuery`, `patchQuery`, `setFilters`, `setSort`, `setPage`,
+`setPageSize`, or `reset` to update shared state. Pass `version` and `migrate`
+when changing a persisted query schema, or provide a custom Zustand
+`StateStorage` to use `sessionStorage` or another backend.
+
+Persisted queries must be JSON-serializable. Never include access tokens, client
+credentials, secrets, or sensitive personal data in the query or scope
+identifiers. API responses are not cached; the application should reload data
+from the restored query.
+
 → [Pagination, filter, sorting](docs/pagination-filter-sorting.md)
 
 ---

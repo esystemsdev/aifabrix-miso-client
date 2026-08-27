@@ -28,6 +28,7 @@ if (existsSync(rootEnvPath)) {
 }
 
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { readFileSync } from 'fs';
 import {
   MisoClient,
@@ -187,32 +188,18 @@ app.use((req, res, next) => {
   next();
 });
 
-const rateLimitState = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 120;
 
-app.use((req, res, next) => {
-  if (!req.path.startsWith('/api/')) {
-    next();
-    return;
-  }
-
-  const now = Date.now();
-  const key = req.ip || req.socket.remoteAddress || 'unknown';
-  const entry = rateLimitState.get(key);
-  if (!entry || now > entry.resetAt) {
-    rateLimitState.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    next();
-    return;
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
-    throw new AppError('Too many requests', 429);
-  }
-
-  entry.count += 1;
-  next();
-});
+app.use(
+  rateLimit({
+    windowMs: RATE_LIMIT_WINDOW_MS,
+    limit: RATE_LIMIT_MAX_REQUESTS,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    handler: (_req, _res, next) => next(new AppError('Too many requests', 429)),
+  })
+);
 
 // JSON parser (only for POST/PUT/PATCH)
 app.use(express.json());

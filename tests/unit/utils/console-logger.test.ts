@@ -26,6 +26,7 @@ describe("logErrorWithContext", () => {
     logErrorWithContext(errorInfo);
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "%s %s",
       "[MisoClient] [no-correlation-id]",
       "Error: Test error",
     );
@@ -44,6 +45,7 @@ describe("logErrorWithContext", () => {
     logErrorWithContext(errorInfo, "[DataClient]");
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "%s %s",
       "[DataClient] [no-correlation-id]",
       "ApiError: Request failed | Status: 400 | Endpoint: POST /api/users",
     );
@@ -62,8 +64,9 @@ describe("logErrorWithContext", () => {
 
     expect(consoleErrorSpy).toHaveBeenNthCalledWith(
       2,
+      "%s Response Body: %s",
       "[MisoClient] [corr-123]",
-      `Response Body: ${JSON.stringify(errorInfo.responseBody, null, 2)}`,
+      JSON.stringify(errorInfo.responseBody, null, 2),
     );
   });
 
@@ -79,8 +82,9 @@ describe("logErrorWithContext", () => {
     logErrorWithContext(errorInfo);
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
+      "%s Stack Trace: %s",
       "[MisoClient] [corr-123]",
-      "Stack Trace: stack-value",
+      "stack-value",
     );
   });
 });

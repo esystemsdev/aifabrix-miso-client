@@ -194,6 +194,7 @@ describe("LogsExportApi", () => {
         "Export logs failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsExportApi]"),
         expect.stringContaining("Export logs"),
       );

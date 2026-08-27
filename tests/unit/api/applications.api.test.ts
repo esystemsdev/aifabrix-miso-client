@@ -132,6 +132,7 @@ describe("ApplicationsApi", () => {
         applicationsApi.updateSelfStatus("miso", body),
       ).rejects.toThrow("Update failed");
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[ApplicationsApi]"),
         expect.any(String),
       );
@@ -231,6 +232,7 @@ describe("ApplicationsApi", () => {
         applicationsApi.getApplicationStatus("miso", "my-app"),
       ).rejects.toThrow("Get status failed");
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[ApplicationsApi]"),
         expect.any(String),
       );

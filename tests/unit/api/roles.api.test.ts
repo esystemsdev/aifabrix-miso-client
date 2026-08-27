@@ -117,6 +117,7 @@ describe("RolesApi", () => {
         "Network error",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[RolesApi]"),
         expect.stringContaining("Network error"),
       );

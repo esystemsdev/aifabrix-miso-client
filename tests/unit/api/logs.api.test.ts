@@ -131,6 +131,7 @@ describe("LogsApi", () => {
         "Network error",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsCreateApi]"),
         expect.stringContaining("Network error"),
       );

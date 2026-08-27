@@ -78,6 +78,21 @@ describe('corsMiddleware', () => {
     expect(mockNext).toHaveBeenCalled();
   });
 
+  it('should require an exact trusted origin even when validation reports valid', async () => {
+    mockRequest.headers = { origin: 'http://attacker.example' };
+    (validateOrigin as jest.Mock).mockReturnValue({ valid: true });
+    const middleware = corsMiddleware(['http://localhost:3000']);
+
+    await middleware(mockRequest as Request, mockResponse as Response, mockNext);
+
+    expect(mockSetHeader).not.toHaveBeenCalledWith(
+      'Access-Control-Allow-Origin',
+      'http://attacker.example'
+    );
+    expect(mockSetHeader).not.toHaveBeenCalledWith('Access-Control-Allow-Credentials', 'true');
+    expect(mockNext).toHaveBeenCalled();
+  });
+
   it('should handle OPTIONS request', async () => {
     mockRequest.method = 'OPTIONS';
     mockRequest.headers = { origin: 'http://localhost:3000' };
