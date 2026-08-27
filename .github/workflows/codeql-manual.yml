@@ -6,7 +6,6 @@ on:
 permissions:
   actions: read
   contents: read
-  security-events: write
 
 jobs:
   analyze:
@@ -21,17 +20,55 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@v4
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
+          output: sarif-results
+          upload: never
+
+      - name: Fail on CodeQL findings
+        shell: bash
+        run: |
+          shopt -s globstar nullglob
+          sarif_files=(sarif-results/**/*.sarif)
+          if (( ${#sarif_files[@]} == 0 )); then
+            echo "::error::CodeQL produced no SARIF files"
+            exit 1
+          fi
+
+          finding_count=0
+          for sarif_file in "${sarif_files[@]}"; do
+            current_count="$(jq '[.runs[]?.results[]?] | length' "$sarif_file")"
+            finding_count=$((finding_count + current_count))
+            jq -r '
+              .runs[]?.results[]?
+              | "[\(.ruleId // "unknown")] \(.message.text // "No message")"
+            ' "$sarif_file"
+          done
+
+          if (( finding_count > 0 )); then
+            echo "::error::CodeQL found ${finding_count} result(s)"
+            exit 1
+          fi
+          echo "CodeQL found no results"
+
+      - name: Upload CodeQL SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-${{ matrix.language }}-sarif
+          path: sarif-results
+          retention-days: 7
