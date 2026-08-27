@@ -240,6 +240,7 @@ describe("LogsListApi", () => {
         "List general logs failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsListApi]"),
         expect.stringContaining("List general logs"),
       );
@@ -369,6 +370,7 @@ describe("LogsListApi", () => {
         "Get general log failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsListApi]"),
         expect.stringContaining("Get general log"),
       );
@@ -542,6 +544,7 @@ describe("LogsListApi", () => {
         "List audit logs failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsListApi]"),
         expect.stringContaining("List audit logs"),
       );
@@ -671,6 +674,7 @@ describe("LogsListApi", () => {
         "Get audit log failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsListApi]"),
         expect.stringContaining("Get audit log"),
       );
@@ -788,6 +792,7 @@ describe("LogsListApi", () => {
         "List job logs failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsListApi]"),
         expect.stringContaining("List job logs"),
       );
@@ -880,6 +885,7 @@ describe("LogsListApi", () => {
         "Get job log failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsListApi]"),
         expect.stringContaining("Get job log"),
       );

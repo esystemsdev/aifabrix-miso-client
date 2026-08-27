@@ -196,6 +196,7 @@ describe("LogsStatsApi", () => {
         "Get log stats summary failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsStatsApi]"),
         expect.stringContaining("Get log stats summary"),
       );
@@ -329,6 +330,7 @@ describe("LogsStatsApi", () => {
         "Get error stats failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsStatsApi]"),
         expect.stringContaining("Get error stats"),
       );
@@ -478,6 +480,7 @@ describe("LogsStatsApi", () => {
         "Get user activity stats failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsStatsApi]"),
         expect.stringContaining("Get user activity stats"),
       );
@@ -615,6 +618,7 @@ describe("LogsStatsApi", () => {
         "Get application stats failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsStatsApi]"),
         expect.stringContaining("Get application stats"),
       );

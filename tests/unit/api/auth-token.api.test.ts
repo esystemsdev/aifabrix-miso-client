@@ -110,6 +110,7 @@ describe("AuthTokenApi", () => {
         "Get client token failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthTokenApi]"),
         expect.stringContaining("Get client token failed"),
       );
@@ -177,6 +178,7 @@ describe("AuthTokenApi", () => {
         "Generate client token failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthTokenApi]"),
         expect.stringContaining("Generate client token failed"),
       );
@@ -293,6 +295,7 @@ describe("AuthTokenApi", () => {
         "Token validation failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthTokenApi]"),
         expect.stringContaining("Token validation failed"),
       );
@@ -420,6 +423,7 @@ describe("AuthTokenApi", () => {
         "Refresh token failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthTokenApi]"),
         expect.stringContaining("Refresh token failed"),
       );
@@ -504,6 +508,7 @@ describe("AuthTokenApi", () => {
         "Token exchange failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthTokenApi]"),
         expect.stringContaining("Token exchange failed"),
       );

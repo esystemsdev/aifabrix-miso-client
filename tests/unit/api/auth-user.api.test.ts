@@ -120,6 +120,7 @@ describe("AuthUserApi", () => {
         "Get user failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthUserApi]"),
         expect.stringContaining("Get user"),
       );
@@ -152,6 +153,7 @@ describe("AuthUserApi", () => {
 
       await expect(authUserApi.logout()).rejects.toThrow("Logout failed");
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthUserApi]"),
         expect.stringContaining("Logout"),
       );
@@ -189,6 +191,7 @@ describe("AuthUserApi", () => {
         "Logout with token failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthUserApi]"),
         expect.stringContaining("Logout with token"),
       );
@@ -286,6 +289,7 @@ describe("AuthUserApi", () => {
         "Handle callback failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthUserApi]"),
         expect.stringContaining("Handle callback"),
       );

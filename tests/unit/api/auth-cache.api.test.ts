@@ -128,6 +128,7 @@ describe("AuthCacheApi", () => {
         "Network error",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthCacheApi]"),
         expect.stringContaining("Network error"),
       );
@@ -219,6 +220,7 @@ describe("AuthCacheApi", () => {
         "Performance fetch failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthCacheApi]"),
         expect.stringContaining("Performance fetch failed"),
       );
@@ -307,6 +309,7 @@ describe("AuthCacheApi", () => {
         "Efficiency calculation failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthCacheApi]"),
         expect.stringContaining("Efficiency calculation failed"),
       );
@@ -389,6 +392,7 @@ describe("AuthCacheApi", () => {
         "Clear cache failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthCacheApi]"),
         expect.stringContaining("Clear cache failed"),
       );
@@ -509,6 +513,7 @@ describe("AuthCacheApi", () => {
         "Invalidate cache failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthCacheApi]"),
         expect.stringContaining("Invalidate cache failed"),
       );

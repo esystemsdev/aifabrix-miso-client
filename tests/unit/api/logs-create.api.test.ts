@@ -206,6 +206,7 @@ describe("LogsCreateApi", () => {
         "Create log failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsCreateApi]"),
         expect.stringContaining("Create log"),
       );
@@ -380,6 +381,7 @@ describe("LogsCreateApi", () => {
         "Create batch logs failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[LogsCreateApi]"),
         expect.stringContaining("Create batch logs"),
       );

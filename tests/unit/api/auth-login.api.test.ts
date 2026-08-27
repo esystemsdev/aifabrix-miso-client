@@ -134,6 +134,7 @@ describe("AuthLoginApi", () => {
 
       await expect(authLoginApi.login(params)).rejects.toThrow("Login failed");
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthLoginApi]"),
         expect.stringContaining("Login failed"),
       );
@@ -245,6 +246,7 @@ describe("AuthLoginApi", () => {
         "Device code initiation failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthLoginApi]"),
         expect.stringContaining("Device code initiation failed"),
       );
@@ -315,6 +317,7 @@ describe("AuthLoginApi", () => {
         "Token polling failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthLoginApi]"),
         expect.stringContaining("Token polling failed"),
       );
@@ -360,6 +363,7 @@ describe("AuthLoginApi", () => {
         "Token refresh failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthLoginApi]"),
         expect.stringContaining("Token refresh failed"),
       );
@@ -476,6 +480,7 @@ describe("AuthLoginApi", () => {
         "Diagnostics fetch failed",
       );
       expect(console.error).toHaveBeenCalledWith(
+        "%s %s",
         expect.stringContaining("[AuthLoginApi]"),
         expect.stringContaining("Diagnostics fetch failed"),
       );

@@ -5,6 +5,7 @@
 
 import request from 'supertest';
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import { loadEnvConfig } from '../config/env';
 import {
   getUsers,
@@ -31,6 +32,7 @@ function createTestApp(): express.Application {
 
   // Middleware
   app.use(express.json());
+  app.use(rateLimit({ windowMs: 60_000, limit: 120 }));
   app.use(corsMiddleware(envConfig.misoAllowedOrigins, null));
 
   // Health check - pass null for misoClient (not needed for health check)

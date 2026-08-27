@@ -13,13 +13,17 @@ import { validateOrigin, MisoClient } from '@aifabrix/miso-client';
  * @returns Express middleware function
  */
 export function corsMiddleware(allowedOrigins: string[], misoClient?: MisoClient | null) {
+  const trustedOrigins = new Set(
+    allowedOrigins.filter((allowedOrigin) => allowedOrigin !== '*' && allowedOrigin !== 'null')
+  );
+
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const origin = req.headers.origin;
 
     if (origin) {
       try {
         const validation = validateOrigin(req, allowedOrigins);
-        if (validation.valid) {
+        if (validation.valid && trustedOrigins.has(origin)) {
           res.header('Access-Control-Allow-Origin', origin);
           res.header('Access-Control-Allow-Credentials', 'true');
         }
