@@ -6,6 +6,7 @@ export * from "./types/config.types";
 export type * from "./types/pagination.types";
 export * from "./types/filter.types";
 export * from "./types/filter-schema.types";
+export * from "./filter-store";
 export type * from "./types/datetime.types";
 export type * from "./types/sort.types";
 export type {
