@@ -239,8 +239,17 @@ gh run list --workflow "codeql-manual.yml" --branch {sourceBranch} --limit 3
 gh run watch <run-id> --exit-status
 ```
 
-4. If workflow is green, continue to Phase 4.
-5. If workflow fails due CodeQL findings, continue to Phase 3.
+4. Download SARIF artifacts from the run and evaluate findings count:
+
+```bash
+gh run download <run-id> -n codeql-sarif-actions -D .temp/codeql
+gh run download <run-id> -n codeql-sarif-javascript-typescript -D .temp/codeql
+```
+
+5. Parse all `*.sarif` files under `.temp/codeql` and count `runs[].results[]`.
+6. If SARIF findings count is `0`, continue to Phase 4.
+7. If SARIF findings count is `>0`, continue to Phase 3.
+8. If workflow itself fails (infrastructure/config error), stop and report the run URL/logs.
 
 ---
 
@@ -248,7 +257,7 @@ gh run watch <run-id> --exit-status
 
 1. AskQuestion `fix-codeql-findings`.
 2. On `fix-yes`:
-   - inspect failing annotations/logs
+   - inspect SARIF findings (`ruleId`, file, line, message)
    - apply root-cause fixes with minimal scope
    - avoid blanket suppressions unless unavoidable
    - keep behavior/regression safety through tests
@@ -355,6 +364,7 @@ gh workflow run "publish.yml" --ref main -f version={version} -f create_tag=fals
 
 - No PR creation/merge in this command.
 - Always run manual CodeQL scan before merge into `main`.
-- If CodeQL finds issues, always ask whether to auto-fix with best practices.
+- Determine CodeQL issues from SARIF artifacts produced by `codeql-manual.yml`.
+- If SARIF contains findings, always ask whether to auto-fix with best practices.
 - Never bump version in `/push-github`.
 - Always run `/validate-tests` before initial push and after each fix iteration.
