@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.22.1] - 2026-09-13
+
+### Fixed
+
+- **Application-status response contract** - Unwrap the Controller's `{ data: application }` response before runtime public URL and CORS resolution, while retaining compatibility with legacy unwrapped responses.
+
 ## [4.22.0] - 2026-09-13
 
 ### Added
