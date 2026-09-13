@@ -117,6 +117,26 @@ describe("runtime application URL resolution", () => {
     ).rejects.toThrow("Concrete private CORS bootstrap origin is unavailable");
   });
 
+  it("keeps a cross-application private origin from the concrete bootstrap only", async () => {
+    await expect(
+      resolvePublicOrigins({
+        reader,
+        envKey: "dev",
+        ownAppKey: "portal",
+        bootstrapOrigins: [
+          "https://dataplane.initial.example,https://dataplane.azurewebsites.net",
+        ],
+        origins: [
+          "url://dataplane-host-public",
+          "url://dataplane-host-private",
+        ],
+      }),
+    ).resolves.toEqual([
+      "https://dataplane.frontdoor.example",
+      "https://dataplane.azurewebsites.net",
+    ]);
+  });
+
   it("fails closed for internal logical references", async () => {
     await expect(
       resolvePublicOrigins({
@@ -125,6 +145,6 @@ describe("runtime application URL resolution", () => {
         ownAppKey: "portal",
         origins: ["url://keycloak-internal"],
       }),
-    ).rejects.toThrow("only public URL references");
+    ).rejects.toThrow("Concrete private CORS bootstrap origin is unavailable");
   });
 });

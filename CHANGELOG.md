@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.22.3] - 2026-09-13
+
+### Fixed
+
+- **Cross-application private CORS bootstrap** - Preserve position-matched concrete bootstrap origins for both own-app and cross-app private/internal logical markers without querying private URL state from Controller.
+
 ## [4.22.2] - 2026-09-13
 
 ### Fixed

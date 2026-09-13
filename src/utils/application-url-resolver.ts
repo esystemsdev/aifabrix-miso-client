@@ -28,14 +28,16 @@ const PUBLIC_SUFFIXES: Array<{ suffix: string; surface: UrlSurface }> = [
   { suffix: "-public", surface: "full" },
 ];
 
-const SELF_PRIVATE_BOOTSTRAP_REFERENCES = new Set([
-  "url://internal",
-  "url://private",
-  "url://host-internal",
-  "url://host-private",
-  "url://vdir-internal",
-  "url://vdir-private",
-]);
+function isPrivateBootstrapReference(reference: string): boolean {
+  if (!reference.startsWith("url://")) return false;
+  const token = reference.slice("url://".length).trim();
+  return (
+    token === "internal" ||
+    token === "private" ||
+    token.endsWith("-internal") ||
+    token.endsWith("-private")
+  );
+}
 
 function splitOrigins(origins?: string[]): string[] {
   return (origins ?? [])
@@ -118,7 +120,7 @@ export async function resolvePublicOrigins(params: {
     logicalOrigins.map(async (entry, index) => {
         const value = entry;
         if (!value.startsWith("url://")) return value;
-        if (SELF_PRIVATE_BOOTSTRAP_REFERENCES.has(value)) {
+        if (isPrivateBootstrapReference(value)) {
           const bootstrap = bootstrapOrigins[index];
           if (!bootstrap || bootstrap.startsWith("url://")) {
             throw new Error(
