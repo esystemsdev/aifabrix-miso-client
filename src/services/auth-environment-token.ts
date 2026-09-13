@@ -1,5 +1,6 @@
-import type { AxiosInstance, AxiosResponse } from "axios";
+import axios, { type AxiosInstance, type AxiosResponse } from "axios";
 import { resolveControllerUrl } from "../utils/controller-url-resolver";
+import { createHttpAgent } from "../utils/client-token-manager";
 import { ClientTokenResponse, MisoClientConfig } from "../types/config.types";
 
 export interface EnvTokenClient {
@@ -27,12 +28,9 @@ export async function createEnvTokenClient(
   axiosTimeout: number,
   clientId: string,
 ): Promise<EnvTokenClient> {
-  const axios = (await import("axios")).default;
-  const http = await import("http");
-  const https = await import("https");
   const controllerUrl = resolveControllerUrl(config);
   const isHttps = controllerUrl.startsWith("https://");
-  const agentOpts = { family: 4, timeout: axiosTimeout };
+  const httpAgent = await createHttpAgent(isHttps, axiosTimeout);
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), axiosTimeout);
 
@@ -40,8 +38,8 @@ export async function createEnvTokenClient(
     baseURL: controllerUrl,
     timeout: axiosTimeout,
     signal: controller.signal,
-    httpAgent: !isHttps ? new http.Agent(agentOpts) : undefined,
-    httpsAgent: isHttps ? new https.Agent(agentOpts) : undefined,
+    httpAgent: !isHttps ? httpAgent : undefined,
+    httpsAgent: isHttps ? httpAgent : undefined,
     headers: {
       "Content-Type": "application/json",
       "x-client-id": clientId,

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.22.4] - 2026-09-13
+
+### Fixed
+
+- **Client token fetch in Jest** - Load Node `http`/`https` agents with `require` and import axios statically so environment-token and InternalHttpClient token bootstrap no longer use ESM `import()` (which fails in the Jest VM without `--experimental-vm-modules`).
+
+### Changed
+
+- **TypeScript 6 / nodenext** - Updated compiler, ESLint, and lockfile module resolution for TypeScript 6.0.3.
+
 ## [4.22.3] - 2026-09-13
 
 ### Fixed
