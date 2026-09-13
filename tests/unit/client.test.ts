@@ -506,6 +506,40 @@ describe("MisoClient", () => {
       getSpy.mockRestore();
     });
 
+    it("resolveAllowedOrigins uses Controller logical CORS reality over bootstrap values", async () => {
+      const apiClient = (client as any).apiClient;
+      const getSpy = jest
+        .spyOn(apiClient.applications, "getApplicationStatus")
+        .mockImplementation(async (...args: unknown[]) => {
+          const appKey = args[1] as string;
+          if (appKey === "my-app") {
+            return {
+              key: appKey,
+              url: "https://my-app.direct.example",
+              logicalAllowedOrigins: [
+                "http://localhost:*",
+                "url://keycloak-host-public",
+              ],
+            };
+          }
+          return { key: appKey, url: "https://customer.example.com/auth" };
+        });
+
+      await expect(
+        client.resolveAllowedOrigins(["https://stale.azurewebsites.net"], {
+          envKey: "miso",
+          appKey: "my-app",
+        }),
+      ).resolves.toEqual([
+        "http://localhost:*",
+        "https://customer.example.com",
+      ]);
+
+      expect(getSpy).toHaveBeenCalledWith("miso", "my-app", undefined);
+      expect(getSpy).toHaveBeenCalledWith("miso", "keycloak", undefined);
+      getSpy.mockRestore();
+    });
+
     it("getMyApplicationStatus should throw when context missing", async () => {
       // config uses clientId "ctrl-dev-test-app" which does not parse to env/app
       await expect(client.getMyApplicationStatus()).rejects.toThrow(

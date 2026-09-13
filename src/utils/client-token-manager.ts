@@ -34,6 +34,17 @@ export function generateCorrelationId(clientId: string): string {
   return `${clientPrefix}-${timestamp}-${random}`;
 }
 
+function loadNodeHttpModules(): {
+  http: typeof import("http");
+  https: typeof import("https");
+} {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires -- Node-only agents; avoid ESM import() in Jest VM
+  const http = require("http") as typeof import("http");
+  // eslint-disable-next-line @typescript-eslint/no-var-requires -- Node-only agents; avoid ESM import() in Jest VM
+  const https = require("https") as typeof import("https");
+  return { http, https };
+}
+
 /**
  * Create HTTP agent for IPv4 with timeout
  * @param isHttps - Whether to create HTTPS agent
@@ -44,8 +55,7 @@ export async function createHttpAgent(
   isHttps: boolean,
   timeout: number,
 ): Promise<import("http").Agent> {
-  const http = await import("http");
-  const https = await import("https");
+  const { http, https } = loadNodeHttpModules();
   return isHttps
     ? new https.Agent({ family: 4, timeout })
     : new http.Agent({ family: 4, timeout });

@@ -32,6 +32,10 @@ import type {
   UpdateSelfStatusResponse,
   ApplicationStatusResponse,
 } from "./api/types/applications.types";
+import {
+  resolvePublicApplicationUrl,
+  resolvePublicOrigins,
+} from "./utils/application-url-resolver";
 
 export class MisoClient {
   private config: MisoClientConfig;
@@ -340,6 +344,70 @@ export class MisoClient {
       appKey,
       authStrategy,
     );
+  }
+
+  /** Resolve a public url:// reference from current Controller application state. */
+  async resolveApplicationUrl(
+    reference: string,
+    options?: { envKey?: string; appKey?: string; authStrategy?: AuthStrategy },
+  ): Promise<string> {
+    const context = this.logger
+      .getApplicationContextService()
+      .getApplicationContext();
+    const envKey = options?.envKey ?? context.environment;
+    const appKey = options?.appKey ?? context.application;
+    if (!envKey || !appKey) {
+      throw new Error(
+        "URL resolution requires environment and application context",
+      );
+    }
+    return resolvePublicApplicationUrl({
+      reader: this,
+      envKey,
+      ownAppKey: appKey,
+      reference,
+      authStrategy: options?.authStrategy,
+    });
+  }
+
+  /** Resolve logical CORS entries on every call so cache purge takes effect without restart. */
+  async resolveAllowedOrigins(
+    origins: string[] | undefined = this.config.allowedOrigins,
+    options?: { envKey?: string; appKey?: string; authStrategy?: AuthStrategy },
+  ): Promise<string[] | undefined> {
+    const context = this.logger
+      .getApplicationContextService()
+      .getApplicationContext();
+    const envKey = options?.envKey ?? context.environment;
+    const appKey = options?.appKey ?? context.application;
+    if (!envKey || !appKey) {
+      if (origins?.some((origin) => origin.includes("url://"))) {
+        throw new Error(
+          "CORS URL resolution requires environment and application context",
+        );
+      }
+      return origins;
+    }
+    // Deployment settings contain concrete bootstrap values. The own-status response
+    // supplies the safe logical declaration retained by Controller so runtime changes
+    // do not require rewriting this process environment.
+    const ownStatus = await this.getApplicationStatus(
+      envKey,
+      appKey,
+      options?.authStrategy,
+    );
+    const currentDeclaration = ownStatus.logicalAllowedOrigins ?? origins;
+    if (!currentDeclaration?.some((origin) => origin.includes("url://"))) {
+      return currentDeclaration;
+    }
+    return resolvePublicOrigins({
+      reader: this,
+      envKey,
+      ownAppKey: appKey,
+      origins: currentDeclaration,
+      bootstrapOrigins: origins,
+      authStrategy: options?.authStrategy,
+    });
   }
 
   async getMyApplicationStatus(

@@ -60,6 +60,7 @@ describe("environment-token", () => {
         allowedOrigins: ["http://localhost:3000"],
       }),
       getEnvironmentToken: jest.fn().mockResolvedValue("test-client-token"),
+      resolveAllowedOrigins: jest.fn(async (origins) => origins),
       log: {
         error: jest.fn().mockResolvedValue(undefined),
         audit: jest.fn().mockResolvedValue(undefined),
