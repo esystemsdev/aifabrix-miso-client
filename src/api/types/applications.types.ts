@@ -67,6 +67,8 @@ export interface ApplicationStatusResponse {
   status?: ApplicationStatus;
   /** Runtime status (same values as status when present) */
   runtimeStatus?: ApplicationStatus;
+  /** Owning application's safe logical CORS declaration for runtime resolution */
+  logicalAllowedOrigins?: string[];
   /** Environment ID or reference */
   environmentId?: string;
   /** Creation timestamp */

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.22.0] - 2026-09-13
+
+### Added
+
+- **Controller-owned runtime URLs** - Added current public `url://` resolution through the existing application-status API, including full URL, host, virtual-directory, and declared cross-application references.
+- **Dynamic CORS origins** - Added asynchronous logical-origin resolution before the existing synchronous origin matcher so Front Door and custom-domain changes take effect without restarting applications.
+
+### Security
+
+- **Fail-closed URL lookup** - Internal/private references, malformed canonical URLs, credential-bearing URLs, unavailable targets, and unauthorized cross-application reads are rejected.
+- **No client URL cache** - Public URL and CORS resolution always reads current Controller status rather than retaining an independently stale client cache.
+
 ## [4.21.0] - 2026-08-27
 
 ### Added
