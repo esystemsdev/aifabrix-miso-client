@@ -28,6 +28,22 @@ const PUBLIC_SUFFIXES: Array<{ suffix: string; surface: UrlSurface }> = [
   { suffix: "-public", surface: "full" },
 ];
 
+const SELF_PRIVATE_BOOTSTRAP_REFERENCES = new Set([
+  "url://internal",
+  "url://private",
+  "url://host-internal",
+  "url://host-private",
+  "url://vdir-internal",
+  "url://vdir-private",
+]);
+
+function splitOrigins(origins?: string[]): string[] {
+  return (origins ?? [])
+    .flatMap((value) => value.split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 export function parsePublicApplicationUrlReference(
   reference: string,
 ): ParsedUrlReference {
@@ -92,15 +108,25 @@ export async function resolvePublicOrigins(params: {
   envKey: string;
   ownAppKey: string;
   origins?: string[];
+  bootstrapOrigins?: string[];
   authStrategy?: AuthStrategy;
 }): Promise<string[] | undefined> {
   if (!params.origins) return undefined;
+  const bootstrapOrigins = splitOrigins(params.bootstrapOrigins);
+  const logicalOrigins = splitOrigins(params.origins);
   const resolved = await Promise.all(
-    params.origins
-      .flatMap((value) => value.split(","))
-      .map(async (entry) => {
-        const value = entry.trim();
+    logicalOrigins.map(async (entry, index) => {
+        const value = entry;
         if (!value.startsWith("url://")) return value;
+        if (SELF_PRIVATE_BOOTSTRAP_REFERENCES.has(value)) {
+          const bootstrap = bootstrapOrigins[index];
+          if (!bootstrap || bootstrap.startsWith("url://")) {
+            throw new Error(
+              "Concrete private CORS bootstrap origin is unavailable",
+            );
+          }
+          return new URL(bootstrap).origin;
+        }
         const publicUrl = await resolvePublicApplicationUrl({
           ...params,
           reference: value,

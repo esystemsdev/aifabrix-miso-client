@@ -405,6 +405,7 @@ export class MisoClient {
       envKey,
       ownAppKey: appKey,
       origins: currentDeclaration,
+      bootstrapOrigins: origins,
       authStrategy: options?.authStrategy,
     });
   }

@@ -83,6 +83,40 @@ describe("runtime application URL resolution", () => {
     ]);
   });
 
+  it("keeps concrete bootstrap origins while resolving current public origins", async () => {
+    await expect(
+      resolvePublicOrigins({
+        reader,
+        envKey: "dev",
+        ownAppKey: "portal",
+        bootstrapOrigins: [
+          "http://localhost:*,https://initial.example.com,https://portal.azurewebsites.net",
+        ],
+        origins: [
+          "http://localhost:*",
+          "url://host-public",
+          "url://host-private",
+        ],
+      }),
+    ).resolves.toEqual([
+      "http://localhost:*",
+      "https://portal.frontdoor.example",
+      "https://portal.azurewebsites.net",
+    ]);
+  });
+
+  it("fails closed when an own-private marker has no concrete bootstrap origin", async () => {
+    await expect(
+      resolvePublicOrigins({
+        reader,
+        envKey: "dev",
+        ownAppKey: "portal",
+        bootstrapOrigins: ["http://localhost:*,url://host-private"],
+        origins: ["http://localhost:*,url://host-private"],
+      }),
+    ).rejects.toThrow("Concrete private CORS bootstrap origin is unavailable");
+  });
+
   it("fails closed for internal logical references", async () => {
     await expect(
       resolvePublicOrigins({

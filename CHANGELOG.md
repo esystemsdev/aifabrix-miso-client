@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.22.2] - 2026-09-13
+
+### Fixed
+
+- **CORS bootstrap/private parity** - Resolve current public CORS markers from Controller while retaining position-matched concrete private/internal bootstrap origins from application configuration; targeted internal references and unresolved private bootstrap values remain fail-closed.
+
 ## [4.22.1] - 2026-09-13
 
 ### Fixed
