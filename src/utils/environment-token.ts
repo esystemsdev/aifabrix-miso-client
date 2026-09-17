@@ -94,7 +94,23 @@ export async function getEnvironmentToken(
   req: Request,
 ): Promise<string> {
   const config = misoClient.getConfig();
-  const validation = validateOrigin(req, config.allowedOrigins);
+  let allowedOrigins: string[] | undefined;
+  try {
+    allowedOrigins = await misoClient.resolveAllowedOrigins(
+      config.allowedOrigins,
+    );
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "URL resolution failed";
+    await rejectOriginValidation(
+      misoClient,
+      req,
+      `Origin validation failed: ${message}`,
+      getOrigin(req),
+      [],
+    );
+  }
+  const validation = validateOrigin(req, allowedOrigins);
 
   if (!validation.valid) {
     const errorMessage = `Origin validation failed: ${validation.error}`;
@@ -103,7 +119,7 @@ export async function getEnvironmentToken(
       req,
       errorMessage,
       getOrigin(req),
-      config.allowedOrigins,
+      allowedOrigins,
     );
   }
 

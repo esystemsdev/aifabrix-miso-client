@@ -13,6 +13,25 @@ import {
 import { extractErrorInfo } from "../utils/error-extractor";
 import { logErrorWithContext } from "../utils/console-logger";
 
+type ApplicationStatusApiResponse =
+  | ApplicationStatusResponse
+  | { data: ApplicationStatusResponse };
+
+function unwrapApplicationStatus(
+  response: ApplicationStatusApiResponse,
+): ApplicationStatusResponse {
+  if (
+    response !== null &&
+    typeof response === "object" &&
+    "data" in response &&
+    response.data !== null &&
+    typeof response.data === "object"
+  ) {
+    return response.data;
+  }
+  return response as ApplicationStatusResponse;
+}
+
 /**
  * Applications API class
  * Handles application status update and fetch endpoints
@@ -110,8 +129,9 @@ export class ApplicationsApi {
       appKey,
     });
     try {
+      let response: ApplicationStatusApiResponse;
       if (authStrategy?.bearerToken) {
-        return await this.httpClient.authenticatedRequest<ApplicationStatusResponse>(
+        response = await this.httpClient.authenticatedRequest<ApplicationStatusApiResponse>(
           "GET",
           path,
           authStrategy.bearerToken,
@@ -119,18 +139,19 @@ export class ApplicationsApi {
           undefined,
           authStrategy,
         );
-      }
-      if (authStrategy) {
-        return await this.httpClient.requestWithAuthStrategy<ApplicationStatusResponse>(
+      } else if (authStrategy) {
+        response = await this.httpClient.requestWithAuthStrategy<ApplicationStatusApiResponse>(
           "GET",
           path,
           authStrategy,
         );
+      } else {
+        response = await this.httpClient.request<ApplicationStatusApiResponse>(
+          "GET",
+          path,
+        );
       }
-      return await this.httpClient.request<ApplicationStatusResponse>(
-        "GET",
-        path,
-      );
+      return unwrapApplicationStatus(response);
     } catch (error) {
       const errorInfo = extractErrorInfo(error, {
         endpoint: path,

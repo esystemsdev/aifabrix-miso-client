@@ -60,6 +60,22 @@ describe("ApplicationsApi", () => {
       expect(result).toEqual(mockResponse);
     });
 
+    it("should unwrap the controller data envelope", async () => {
+      const mockResponse: ApplicationStatusResponse = {
+        key: "my-app",
+        url: "https://app.example.com",
+        logicalAllowedOrigins: ["url://host-public"],
+      };
+      mockHttpClient.request.mockResolvedValue({ data: mockResponse });
+
+      const result = await applicationsApi.getApplicationStatus(
+        "miso",
+        "my-app",
+      );
+
+      expect(result).toEqual(mockResponse);
+    });
+
     it("should replace :envKey in path", async () => {
       const body: UpdateSelfStatusRequest = { port: 8080 };
       mockHttpClient.request.mockResolvedValue({ success: true });

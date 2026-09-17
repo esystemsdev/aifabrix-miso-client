@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.22.4] - 2026-09-13
+
+### Fixed
+
+- **Client token fetch in Jest** - Load Node `http`/`https` agents with `require` and import axios statically so environment-token and InternalHttpClient token bootstrap no longer use ESM `import()` (which fails in the Jest VM without `--experimental-vm-modules`).
+
+### Changed
+
+- **TypeScript 6 / nodenext** - Updated compiler, ESLint, and lockfile module resolution for TypeScript 6.0.3.
+
+## [4.22.3] - 2026-09-13
+
+### Fixed
+
+- **Cross-application private CORS bootstrap** - Preserve position-matched concrete bootstrap origins for both own-app and cross-app private/internal logical markers without querying private URL state from Controller.
+
+## [4.22.2] - 2026-09-13
+
+### Fixed
+
+- **CORS bootstrap/private parity** - Resolve current public CORS markers from Controller while retaining position-matched concrete private/internal bootstrap origins from application configuration; targeted internal references and unresolved private bootstrap values remain fail-closed.
+
+## [4.22.1] - 2026-09-13
+
+### Fixed
+
+- **Application-status response contract** - Unwrap the Controller's `{ data: application }` response before runtime public URL and CORS resolution, while retaining compatibility with legacy unwrapped responses.
+
+## [4.22.0] - 2026-09-13
+
+### Added
+
+- **Controller-owned runtime URLs** - Added current public `url://` resolution through the existing application-status API, including full URL, host, virtual-directory, and declared cross-application references.
+- **Dynamic CORS origins** - Added asynchronous logical-origin resolution before the existing synchronous origin matcher so Front Door and custom-domain changes take effect without restarting applications.
+
+### Security
+
+- **Fail-closed URL lookup** - Internal/private references, malformed canonical URLs, credential-bearing URLs, unavailable targets, and unauthorized cross-application reads are rejected.
+- **No client URL cache** - Public URL and CORS resolution always reads current Controller status rather than retaining an independently stale client cache.
+
 ## [4.21.0] - 2026-08-27
 
 ### Added
