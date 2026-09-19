@@ -78,6 +78,9 @@ jobs:
       - name: Build package
         run: pnpm run build
 
+      - name: Verify bootstrap compatibility and package exports
+        run: pnpm run test:bootstrap:package
+
       - name: Verify build output
         run: |
           if [ ! -d "dist" ]; then

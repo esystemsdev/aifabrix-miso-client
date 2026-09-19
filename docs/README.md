@@ -30,3 +30,9 @@ What to read when.
 ## Examples
 
 See [examples/README.md](examples/README.md) for testing and minimal examples.
+
+## Local and managed-identity startup
+
+For one Node-only startup helper that preserves local credentials and older controller
+compatibility, see [Initialize application secrets](managed-identity-bootstrap.md).
+Azure authentication is explicitly opt-in.

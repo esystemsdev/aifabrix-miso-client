@@ -1191,3 +1191,9 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 ---
 
 **Made with ❤️ by eSystems Nordic Ltd.**
+
+### Optional server secrets initialization
+
+Use `initSecrets()` from `@aifabrix/miso-client/bootstrap` for a shared local/Azure
+startup API. Unset or `local` auth mode uses existing credentials without Azure calls
+or a new controller endpoint. See [the startup guide](docs/managed-identity-bootstrap.md).

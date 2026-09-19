@@ -11,6 +11,7 @@ import axios, {
   InternalAxiosRequestConfig,
 } from "axios";
 import { MisoClientConfig, AuthStrategy } from "../types/config.types";
+import { getRuntimeGuard } from "./runtime-guard";
 import { AuthStrategyHandler } from "./auth-strategy";
 import { resolveControllerUrl } from "./controller-url-resolver";
 import { normalizeRootUrl } from "./url-join";
@@ -89,6 +90,11 @@ export class InternalHttpClient {
     this.axios.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
         config.headers = config.headers || {};
+        const guard = getRuntimeGuard(this.config);
+        if (guard) {
+          const token = await guard.token();
+          if (token) config.headers["x-client-token"] = token;
+        }
         this.attachTraceHeaders(config);
         if (
           !config.headers["x-client-token"] &&
