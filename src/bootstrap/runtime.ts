@@ -2,6 +2,7 @@ import { MisoClient } from "../miso-client";
 import type { MisoClientConfig } from "../types/config.types";
 import { registerRuntimeGuard } from "../utils/runtime-guard";
 import { abortable } from "./transport";
+import { managedRequestPolicy } from "./request-policy";
 import {
   BootstrapContext,
   BootstrapError,
@@ -14,6 +15,7 @@ import {
 export class RuntimeState {
   private values: Record<string, string> = Object.create(null);
   private snapshot?: BootstrapSnapshot;
+  private rejectedToken?: string;
   private received = 0;
   private monotonic = 0;
   private reason?: RuntimeInvalidationReason;
@@ -68,16 +70,45 @@ export class RuntimeState {
     if (!this.fetch) return undefined;
     if (
       !this.snapshot ||
+      this.snapshot.clientToken === this.rejectedToken ||
       this.now() >= Date.parse(this.snapshot.clientTokenExpiresAt) - 30000
     )
       await this.refresh();
     this.assertValid();
     if (
       !this.snapshot ||
+      this.snapshot.clientToken === this.rejectedToken ||
       this.now() >= Date.parse(this.snapshot.clientTokenExpiresAt) - 30000
     )
       throw new BootstrapError("unavailable");
     return this.snapshot.clientToken;
+  }
+
+  /** Handle only typed bootstrap failures; never replay the failed operation. */
+  async response(status: number, data: unknown, token: unknown): Promise<void> {
+    if (!this.fetch || this.reason || !token) return;
+    if (!data || typeof data !== "object" || Array.isArray(data)) return;
+    const code = (data as { code?: unknown }).code;
+    if (
+      (status === 403 &&
+        (code === "bootstrap_identity_disabled" ||
+          code === "bootstrap_binding_mismatch")) ||
+      (status === 401 && code === "bootstrap_token_invalid")
+    ) {
+      this.invalidate("authorization-denied");
+    } else if (
+      status === 401 &&
+      code === "bootstrap_token_expired" &&
+      token === this.snapshot?.clientToken
+    ) {
+      this.rejectedToken = this.snapshot.clientToken;
+      // Retain the original API failure; later requests obey the refresh cooldown.
+      await this.token().catch(() => undefined);
+    }
+  }
+
+  requestPolicy(controllerUrl: string) {
+    return this.fetch ? managedRequestPolicy(controllerUrl) : undefined;
   }
 
   private async refresh(): Promise<void> {
@@ -267,7 +298,11 @@ export async function createRuntime(
   state: RuntimeState,
   config: MisoClientConfig,
 ): Promise<SecretsRuntime> {
-  registerRuntimeGuard(config, { token: () => state.token() });
+  registerRuntimeGuard(config, {
+    token: () => state.token(),
+    prepare: state.requestPolicy(config.controllerUrl || ""),
+    response: (status, data, token) => state.response(status, data, token),
+  });
   const client = new MisoClient(config);
   try {
     await client.initialize();

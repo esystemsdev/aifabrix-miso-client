@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.23.1] - 2026-09-19
+
+### Fixed
+
+- **Managed identity revocation** - Invalidate runtime tokens and secrets on typed controller identity-denial responses, while preserving local mode and ordinary user/RBAC denial behavior.
+- **Expired bootstrap tokens** - Prevent rejected-token reuse, coalesce bounded refresh, ignore late expiry for replaced tokens, and return failed operations without automatic replay.
+- **Managed request isolation** - Pin normal managed-runtime requests to the startup controller HTTPS origin, disable redirects, and reject foreign targets, URL credentials and Basic authentication overrides before dispatch.
+
+### Technical
+
+- **Regression coverage** - Added protected-response, request-origin, configuration size and clock-skew boundary tests; local/older-controller package smoke remains green.
+- **Azure rollout** - Controller-owned shared-fixture parity and live platform/consumer certification remain required before production Azure rollout. No live platform is currently installed for certification.
+
 ## [4.23.0] - 2026-09-19
 
 ### Added

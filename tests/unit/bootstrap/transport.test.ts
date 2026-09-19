@@ -179,6 +179,54 @@ describe("broker transport and validation", () => {
     jest.setSystemTime(epoch + 31000);
     expect(() => validateSnapshot(data())).toThrow();
   });
+  it("enforces configuration count, name and UTF-8 value boundaries", () => {
+    const payload = data();
+    const configuration = Object.fromEntries(
+      Array.from({ length: 256 }, (_, n) => [`KEY_${n}`, "value"]),
+    );
+    expect(validateSnapshot({ ...payload, configuration })).toBeDefined();
+    expect(() =>
+      validateSnapshot({
+        ...payload,
+        configuration: { ...configuration, EXTRA: "value" },
+      }),
+    ).toThrow("protocol-error");
+    expect(
+      validateSnapshot({
+        ...payload,
+        configuration: {
+          ["A".repeat(128)]: "é".repeat(32768),
+        },
+      }),
+    ).toBeDefined();
+    expect(() =>
+      validateSnapshot({
+        ...payload,
+        configuration: {
+          ["A".repeat(129)]: "value",
+        },
+      }),
+    ).toThrow("protocol-error");
+    expect(() =>
+      validateSnapshot({
+        ...payload,
+        configuration: {
+          KEY: "é".repeat(32768) + "a",
+        },
+      }),
+    ).toThrow("protocol-error");
+  });
+
+  it.each([-30001, -30000, 30000, 30001])(
+    "checks both clock-skew edges at %s milliseconds",
+    (offset) => {
+      jest.setSystemTime(epoch + offset);
+      if (Math.abs(offset) <= 30000)
+        expect(validateSnapshot(data())).toBeDefined();
+      else expect(() => validateSnapshot(data())).toThrow("protocol-error");
+    },
+  );
+
   it("rejects duplicate JSON keys including escaped equivalents", () => {
     expect(() => parseBrokerJson('{"a":1,"\\u0061":2}')).toThrow();
     expect(parseBrokerJson('{"x":{"a":1},"y":{"a":2}}')).toEqual({

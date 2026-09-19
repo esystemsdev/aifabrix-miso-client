@@ -70,6 +70,8 @@ The SDK obtains an Entra token for the audience's `/.default` scope and posts on
 `{ "protocolVersion": 1 }` to the configured HTTPS endpoint. Redirects are disabled.
 The response supplies fixed server context, a short-lived Miso application token and
 approved configuration. No Miso client secret or Key Vault access is used.
+Normal managed-runtime calls are restricted to the startup controller’s HTTPS origin;
+redirects and per-request Basic authentication overrides are disabled.
 
 ## Lifetime and cleanup
 
@@ -80,7 +82,19 @@ serialize returned secrets, clients or their configuration.
 Azure refresh is coalesced and runs before expiry. Token and configuration deadlines
 are independent, with a 30-second safety margin. Transient outages may use only
 still-valid state. Broker denial, malformed response or context change invalidates
-cached token use and secret access. Close disables subsequent outbound requests,
+cached token use and secret access. Normal API responses also invalidate the runtime
+when the controller returns `bootstrap_identity_disabled` or
+`bootstrap_binding_mismatch` with HTTP 403, or `bootstrap_token_invalid` with HTTP 401. Ordinary user/RBAC denials and `bootstrap_registry_unavailable` (503) do not
+invalidate still-valid state.
+
+A `bootstrap_token_expired` response (401) blocks reuse of that request's token and
+attempts a coalesced refresh subject to the 30-second cooldown. The failed operation
+is returned to the caller and is never automatically replayed. Subsequent calls use
+a replacement token or fail closed if refresh is unavailable. Secret reads retain
+their independent deadline. Late expiry responses for a replaced token do not reject
+the current token. These rules apply only to the Azure runtime.
+
+Close disables subsequent outbound requests,
 cancels refresh and disconnects SDK-owned connections. It cannot revoke already
 issued database credentials, cancel requests already sent, or erase caller copies.
 
