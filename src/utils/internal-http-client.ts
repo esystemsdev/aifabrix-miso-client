@@ -92,6 +92,7 @@ export class InternalHttpClient {
         config.headers = config.headers || {};
         const guard = getRuntimeGuard(this.config);
         if (guard) {
+          guard.prepare?.(config);
           const token = await guard.token();
           if (token) config.headers["x-client-token"] = token;
         }
@@ -118,7 +119,14 @@ export class InternalHttpClient {
     // Response interceptor: handle 401 errors with auth-specific messages
     this.axios.interceptors.response.use(
       (response: AxiosResponse) => response,
-      (error: AxiosError) => {
+      async (error: AxiosError) => {
+        if (error.response) {
+          await getRuntimeGuard(this.config)?.response?.(
+            error.response.status,
+            error.response.data,
+            error.config?.headers?.["x-client-token"],
+          );
+        }
         if (error.response?.status === 401) {
           this.handle401Error(error);
         }
