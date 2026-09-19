@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.23.0] - 2026-09-19
+
+### Added
+
+- **Server secrets initialization** - Added the Node-only `@aifabrix/miso-client/bootstrap` entrypoint with `initSecrets()`, a shared runtime client, secret accessors, lifecycle notifications and awaitable cleanup.
+- **Older-controller compatibility** - Unset/local mode reuses existing credentials and dotenv precedence without loading Azure Identity, probing managed identity or calling the bootstrap endpoint.
+- **Opt-in managed identity** - Added optional Azure Identity support, identity-only broker requests, strict v1 response validation, token-only SDK configuration and in-memory refresh. Managed-identity mode requires the new controller contract; protected-API denial integration, canonical parity fixtures and live Azure certification remain incomplete and are required before production rollout.
+
+### Security
+
+- **Bootstrap isolation** - Pin the validated controller URL, isolate bootstrap HTTP interceptors, reject redirects, bound identity/HTTP operations, sanitize errors and prevent local-credential fallback after managed-identity failure.
+- **Runtime lifecycle** - Guard outbound requests after invalidation or close, enforce independent token/secret deadlines, suppress late refresh results and make shutdown idempotent.
+
+### Technical
+
+- **Validation** - Added unit and fresh-process package checks for local compatibility, browser exclusion, managed-identity startup, expiry, cancellation and redaction. Publishing CI runs the package smoke check after building.
+- **Release process** - Stage version-line release branches for human PR review before main promotion and npm publication.
+
 ## [4.22.4] - 2026-09-13
 
 ### Fixed

@@ -181,3 +181,9 @@ mergeRootUrlWithBasePath("https://domain.com", "/miso");
 `joinApiRoot(root, path)` requires `path` to start with `/`. `normalizeRootUrl(root)` validates and trims trailing slashes; it accepts http/https only. `mergeRootUrlWithBasePath(root, basePath)` merges an optional virtual-directory `basePath` when `root` is origin-only, and avoids duplicating the segment when `root` already contains it. **`coerceControllerUrlToAbsolute(raw, isBrowser)`** is also exported: in the browser, a path-only `raw` such as `"/miso"` is resolved against `window.location.origin` (same-origin controller); on the server, `raw` must already be a full `http(s)` URL.
 
 **Server client-token JSON:** the `DataClientConfigResponse` from your backend still has **no** `basePath` field — `baseUrl` / controller URLs in that payload should be full URLs when possible. Browser-side **`DataClientConfig.basePath`** (see [dataclient.md](dataclient.md)) is an optional client-only compatibility field merged once at init.
+
+## Local and managed-identity startup
+
+For one Node-only startup helper that preserves local credentials and older controller
+compatibility, see [Initialize application secrets](managed-identity-bootstrap.md).
+Azure authentication is explicitly opt-in.

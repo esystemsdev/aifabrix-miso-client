@@ -1,5 +1,9 @@
 # repair-release
 
+**Release flow:** Prepare on `dev` (or the current development branch), then use [/push-release-branch](push-release-branch.md) to stage `release/miso-client-X.Y.0` and obtain a PR to `main`. After human merge, [/push-github](push-github.md) publishes. See [deployment process](../process/deployment.md). This command only prepares local files; it does not commit, push, tag, or publish.
+
+**Resume rule:** When invoked by `/push-release-branch`, reuse an already prepared unpublished version with a matching changelog instead of bumping twice. An explicit standalone request for a new release still performs change analysis below.
+
 When the `/repair-release` command is used, the agent must automatically prepare the component for release by running validation, analyzing changes, updating the changelog, and incrementing the version number. The agent must work autonomously without asking the user for input.
 
 **Execution Process:**
@@ -11,7 +15,7 @@ When the `/repair-release` command is used, the agent must automatically prepare
    - Do not proceed until all validation steps pass
 
 2. **Change Detection Step**:
-   - Get the last deployed version from git tags (e.g., `v2.2.0`)
+   - Get the last published version from reachable version tags, corroborated by GitHub Release/npm evidence (a tag alone is not proof of deployment)
    - Compare current HEAD with the last tag to detect what has changed
    - Analyze git commit messages and file changes to categorize changes:
      - **New Features**: New services, new utilities, new functionality (minor version bump: 2.x.0)
@@ -63,7 +67,7 @@ When the `/repair-release` command is used, the agent must automatically prepare
   - Patch (2.2.0 → 2.2.1): Bug fixes, small corrections, patches
   - Minor (2.2.0 → 2.3.0): New features, new services, new utilities, significant functionality
 - **Date Format**: Use YYYY-MM-DD format for changelog dates
-- **Git Tag Detection**: Use `git tag --sort=-version:refname` to find the latest version tag
+- **Git Tag Detection**: Use `git tag --merged HEAD --sort=-version:refname` and select the latest published version on the intended release line (or its published predecessor for a new line); exclude unrelated maintenance lines
 - **Change Extraction**: Extract meaningful change descriptions from git commits
 - **No User Input**: Work autonomously and only report completion when all steps are done
 
@@ -85,9 +89,10 @@ When the `/repair-release` command is used, the agent must automatically prepare
   - New Express middleware or utilities
   - New features or functionality
   - New configuration options
-  - Breaking changes (should be rare, but if they occur, use minor version)
   - Significant enhancements to existing features
   - New type definitions or interfaces
+
+- **Major Version**: Breaking public SDK changes require a major increment and migration notes; do not classify them as a minor release.
 
 **Work is only complete when:**
 

@@ -1,6 +1,6 @@
 {
   "name": "@aifabrix/miso-client",
-  "version": "4.22.4",
+  "version": "4.23.0",
   "description": "AI Fabrix Client SDK - Authentication, authorization, logging, and Express.js utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,6 +14,15 @@
       "types": "./dist/filter-store/index.d.ts",
       "import": "./dist/filter-store/index.js",
       "require": "./dist/filter-store/index.js"
+    },
+    "./bootstrap": {
+      "types": "./dist/bootstrap/index.d.ts",
+      "browser": null,
+      "node": {
+        "import": "./dist/bootstrap/index.js",
+        "require": "./dist/bootstrap/index.js"
+      },
+      "default": null
     }
   },
   "scripts": {
@@ -46,7 +55,8 @@
     "server:build:silent": "pnpm run silent -- server:build:silent .temp/validation/server-04-build \"pnpm --dir server run build\"",
     "server:start:dev:silent": "pnpm run silent -- --detach server:start:dev:silent .temp/validation/server-05-start-dev \"pnpm --dir server run start:dev\"",
     "all": "pnpm run lint:fix && pnpm run test && pnpm run test:integration:api && pnpm run test:integration && pnpm run build",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "test:bootstrap:package": "node tests/package/bootstrap-runtime.smoke.mjs"
   },
   "keywords": [
     "aifabrix",
@@ -61,10 +71,14 @@
   "author": "AI Fabrix Team",
   "license": "MIT",
   "peerDependencies": {
+    "@azure/identity": "4.11.1",
     "express": "^4.18.0 || ^5.0.0"
   },
   "peerDependenciesMeta": {
     "express": {
+      "optional": true
+    },
+    "@azure/identity": {
       "optional": true
     }
   },
@@ -78,6 +92,7 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@azure/identity": "4.11.1",
     "@types/express": "^5.0.6",
     "@types/express-serve-static-core": "^5.1.2",
     "@types/jest": "^30.0.0",
