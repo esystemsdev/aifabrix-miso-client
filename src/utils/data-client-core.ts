@@ -6,6 +6,7 @@ import {
   RequestMetrics,
   CacheEntry,
   AuditConfig,
+  BrowserSessionRecoveryResult,
   UserSessionTokenResult,
 } from "../types/data-client.types";
 import { DataMasker } from "./data-masker";
@@ -42,28 +43,11 @@ import { BrowserPermissionService } from "../services/browser-permission.service
 import { BrowserRoleService } from "../services/browser-role.service";
 import { UserTokenRefreshManager } from "./user-token-refresh";
 import { joinApiRoot } from "./url-join";
+import { hydrateBrowserRuntimeTokenState } from "./data-client-activity-refresh";
 import {
-  hydrateBrowserRuntimeTokenState,
-  setupSessionRecoveryOrchestrationListener,
-} from "./data-client-activity-refresh";
-
-const DEFAULT_ACTIVITY_REFRESH_INTERVAL_MS = 60000;
-
-function resolveActivityRefreshInterval(
-  intervalMs: number | undefined,
-): number {
-  if (!Number.isFinite(intervalMs) || (intervalMs ?? 0) <= 0) {
-    return DEFAULT_ACTIVITY_REFRESH_INTERVAL_MS;
-  }
-  return intervalMs as number;
-}
-
-function hasExplicitActivityPolicy(config: DataClientConfig): boolean {
-  return (
-    config.enableActivitySessionRefresh !== undefined &&
-    config.activitySessionRefreshIntervalMs !== undefined
-  );
-}
+  BrowserSessionLifecycle,
+  disabledBrowserSessionRecoveryResult,
+} from "./browser-session-lifecycle";
 
 export class DataClientCore {
   protected config: DataClientConfig;
@@ -85,23 +69,11 @@ export class DataClientCore {
   protected permissionService: BrowserPermissionService | null = null;
   protected roleService: BrowserRoleService | null = null;
   protected userTokenRefreshManager = new UserTokenRefreshManager();
-  protected readonly activityRefreshIntervalMs: number;
-  protected activityRefreshTeardown: (() => void) | null = null;
+  protected browserSessionLifecycle: BrowserSessionLifecycle | null = null;
+  protected browserSessionDisposePromise: Promise<void> | null = null;
 
   constructor(config: DataClientConfig) {
-    const hasBrowserSessionCallbacks =
-      typeof config.onTokenRefresh === "function" ||
-      typeof config.onSessionRestore === "function";
-    if (hasBrowserSessionCallbacks && !hasExplicitActivityPolicy(config)) {
-      throw new Error(
-        "DataClient configuration error: explicit activity policy is required when browser session callbacks are configured. Set enableActivitySessionRefresh and activitySessionRefreshIntervalMs.",
-      );
-    }
-
     this.config = createDefaultConfig(config);
-    this.activityRefreshIntervalMs = resolveActivityRefreshInterval(
-      this.config.activitySessionRefreshIntervalMs,
-    );
     warnIfClientSecretInBrowser(this.config);
 
     const misoConfigWithRefresh = createMisoConfigWithRefresh(this.config, () =>
@@ -122,6 +94,15 @@ export class DataClientCore {
     this.permissionService = services.permissionService;
     this.roleService = services.roleService;
     this.initializeBrowserRuntime();
+    if (this.config.browserSession) {
+      this.browserSessionLifecycle = new BrowserSessionLifecycle(
+        this.config.browserSession,
+        {
+          persistBearerSession: (session) =>
+            this.persistBrowserSession(session),
+        },
+      );
+    }
   }
 
   protected initializeBrowserRuntime(): void {
@@ -134,15 +115,6 @@ export class DataClientCore {
       this.config.tokenKeys,
       this.userTokenRefreshManager,
     );
-    if (this.config.enableActivitySessionRefresh) {
-      this.activityRefreshTeardown = setupSessionRecoveryOrchestrationListener({
-        onTokenRefresh: this.config.onTokenRefresh,
-        onSessionRestore: this.config.onSessionRestore,
-        refreshManager: this.userTokenRefreshManager,
-        persistBrowserSession: (result) => this.persistBrowserSession(result),
-        intervalMs: this.activityRefreshIntervalMs,
-      });
-    }
   }
 
   protected getToken(): string | null {
@@ -193,6 +165,7 @@ export class DataClientCore {
   }
 
   async logout(redirectUrl?: string): Promise<void> {
+    await this.disposeBrowserSession();
     await logout(
       this.config,
       () => this.getToken(),
@@ -304,8 +277,10 @@ export class DataClientCore {
       hasAnyToken: () => this.hasAnyToken(),
       getToken: () => this.getToken(),
       handleAuthError: () => this.handleAuthError(),
-      restoreUserSession: () => this.restoreUserSession(),
-      refreshUserToken: () => this.refreshUserToken(),
+      recoverBrowserSession: () =>
+        this.recoverBrowserSessionInternal("unauthorized"),
+      recordBrowserSessionReplayUnauthorized: () =>
+        this.recordBrowserSessionReplayUnauthorizedInternal(),
       interceptors: this.interceptors,
       metrics: this.metrics,
     });
@@ -406,43 +381,33 @@ export class DataClientCore {
     return this.resolveRequestPromise(requestPromise, cacheKey);
   }
 
-  protected async refreshUserToken(): Promise<{
-    token: string;
-    expiresIn: number;
-  } | null> {
-    if (!this.config.onTokenRefresh) return null;
-    try {
-      const result = await this.config.onTokenRefresh();
-      if (!result?.token) return null;
-      this.persistBrowserSession(result);
-      return {
-        token: result.token,
-        expiresIn: result.expiresIn || 0,
-      };
-    } catch (error) {
-      writeErr(`Token refresh failed: ${String(error)}`);
-      return null;
+  protected recoverBrowserSessionInternal(
+    trigger: "unauthorized" | "manual",
+  ): Promise<BrowserSessionRecoveryResult> {
+    if (this.browserSessionDisposePromise) {
+      return Promise.resolve({
+        trigger,
+        outcome: "suppressed",
+        attempted: false,
+        recovered: false,
+        reason: "disposed",
+      });
     }
+    return this.browserSessionLifecycle
+      ? this.browserSessionLifecycle.recover(trigger)
+      : Promise.resolve(disabledBrowserSessionRecoveryResult(trigger));
   }
 
-  protected async restoreUserSession(): Promise<{
-    token: string;
-    expiresIn: number;
-  } | null> {
-    const shouldUseRestore = this.config.preferCookieSessionRestore !== false;
-    if (!shouldUseRestore || !this.config.onSessionRestore) return null;
-    try {
-      const result = await this.config.onSessionRestore();
-      if (!result?.token) return null;
-      this.persistBrowserSession(result);
-      return {
-        token: result.token,
-        expiresIn: result.expiresIn || 0,
-      };
-    } catch (error) {
-      writeErr(`Session restore failed: ${String(error)}`);
-      return null;
+  protected recordBrowserSessionReplayUnauthorizedInternal(): void {
+    this.browserSessionLifecycle?.recordReplayUnauthorized();
+  }
+
+  protected disposeBrowserSession(): Promise<void> {
+    if (!this.browserSessionDisposePromise) {
+      this.browserSessionDisposePromise =
+        this.browserSessionLifecycle?.dispose() ?? Promise.resolve();
     }
+    return this.browserSessionDisposePromise;
   }
 
   protected persistBrowserSession(result: UserSessionTokenResult): void {
@@ -470,8 +435,8 @@ export class DataClientCore {
 
   protected async clearBrowserAuthState(): Promise<void> {
     if (!isBrowser()) return;
-    if (this.config.clearCachedBrowserAuthState) {
-      await this.config.clearCachedBrowserAuthState();
+    if (this.config.browserSession?.clearCachedAuthState) {
+      await this.config.browserSession.clearCachedAuthState();
       return;
     }
     clearCachedBrowserAuthState(this.config.tokenKeys);

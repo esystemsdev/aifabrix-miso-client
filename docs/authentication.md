@@ -90,27 +90,25 @@ Returns `null` on error.
 
 ## Browser session restore and cleanup
 
-For browser clients, prefer cookie-backed session restore before explicit refresh:
-
-- Configure `onSessionRestore` in DataClient for cookie-first recovery.
-- Keep `onTokenRefresh` as fallback for refresh endpoint integration.
-- Use `clearCachedBrowserAuthState` callback (or built-in default cleanup) when restore/refresh fails.
+For browser clients, configure the DataClient `browserSession` object. Its required
+`restore` callback runs first; optional `refresh` is a single fallback only for typed
+`unauthorized` or `invalid` restore failures. Use `clearCachedAuthState` for targeted
+runtime auth-cache cleanup before that fallback.
 
 This keeps refresh/session secrets outside browser-accessible storage and keeps browser access-token handling runtime-memory-only.
 
-### Browser UI helpers (4.16+)
+### Browser UI helpers
 
 Shared helpers for React apps (miso-ui, dataplane app-ui) — avoid duplicating `fetch` to controller auth routes:
 
 ```typescript
 import {
   AUTH_CONTROLLER_PATHS,
-  createBrowserSessionClient,
+  DataClient,
   createCookieSessionCallbacks,
   ensureBrowserAccessToken,
   resolveBrowserApiBaseUrl,
   alignLoopbackHostnameWithPage,
-  recoverBrowserSessionWithStaleCleanup,
   isUnauthorizedApiError,
   isInactiveTokenMessage,
   extractClientTokenFromUrl,
@@ -127,14 +125,19 @@ const getBaseUrl = () =>
     }),
   );
 
-const sessionClient = createBrowserSessionClient({ getBaseUrl });
-const { onSessionRestore, onTokenRefresh } = createCookieSessionCallbacks({
+const browserSession = createCookieSessionCallbacks({
   getBaseUrl,
   onAccessToken: async (result) => {
     /* keep result.accessToken in app runtime memory only */
   },
 });
 // result includes access-token expiry metadata only (no refreshToken field)
+
+const dataClient = new DataClient({
+  baseUrl: getBaseUrl(),
+  misoConfig: { controllerUrl: getBaseUrl(), clientId: "my-client" },
+  browserSession,
+});
 
 // After full page load when HttpOnly refresh cookie exists:
 await ensureBrowserAccessToken({
@@ -145,21 +148,19 @@ await ensureBrowserAccessToken({
   },
 });
 
-// Silent recovery (refresh → restore → clear stale → retry):
-const recovered = await recoverBrowserSessionWithStaleCleanup({
-  client: sessionClient,
-  clearStaleState: () => {
-    /* clear app runtime token state + SDK caches */
-  },
-});
+// Explicit recovery always enters the same coordinator:
+const recovered = await dataClient.recoverBrowserSession("manual");
+
+// Drain recovery before the application calls server logout or replaces the client:
+await dataClient.dispose();
 ```
 
 | Helper                                              | Use when                                                                         |
 | --------------------------------------------------- | -------------------------------------------------------------------------------- |
 | `resolveBrowserApiBaseUrl`                          | UI and API on different dev ports — use page origin so Vite/nginx proxies `/api` |
 | `alignLoopbackHostnameWithPage`                     | `localhost` vs `127.0.0.1` must match the tab the user signed in with            |
-| `createCookieSessionCallbacks`                      | Wire DataClient `onSessionRestore` / `onTokenRefresh`                            |
-| `recoverBrowserSessionWithStaleCleanup`             | Request-level or manual silent re-auth                                           |
+| `createCookieSessionCallbacks`                      | Build the single-attempt DataClient `browserSession` callbacks                   |
+| `dataClient.recoverBrowserSession("manual")`        | Explicit recovery through the shared coordinator                                 |
 | `isUnauthorizedApiError` / `isInactiveTokenMessage` | Classify 401 and inactive-token errors                                           |
 
 Paths: `AUTH_CONTROLLER_PATHS` (`session`, `refresh`, `login`, `callback`, `logout`, `clientToken`). See [dataclient.md](dataclient.md#enterprise-auth-flow).

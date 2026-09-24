@@ -121,6 +121,14 @@ export type { ErrorResponse as ExpressErrorResponse } from "./express/error-resp
 export type {
   DataClientConfig,
   UserSessionTokenResult,
+  BrowserSessionRecoveryTrigger,
+  BrowserSessionRecoveryOutcome,
+  BrowserSessionRecoveryReason,
+  BrowserSessionRecoveryResult,
+  BrowserSessionCallbackFailureReason,
+  BrowserSessionRecoveredAuth,
+  BrowserSessionCallbackResult,
+  BrowserSessionLifecycleConfig,
   ApiRequestOptions,
   InterceptorConfig,
   RequestMetrics,
@@ -169,13 +177,6 @@ export { resolveBrowserApiBaseUrl } from "./utils/browser-api-base-url";
 export type { ResolveBrowserApiBaseUrlOptions } from "./utils/browser-api-base-url";
 export { alignLoopbackHostnameWithPage } from "./utils/loopback-host-alignment";
 export type { AlignLoopbackHostnameOptions } from "./utils/loopback-host-alignment";
-export {
-  recoverBrowserSessionWithStaleCleanup,
-  recoverBrowserSessionToUserToken,
-  recoverBrowserSessionOrThrow,
-  resolveSessionExpiresInSeconds,
-} from "./utils/browser-session-recovery";
-export type { RecoverBrowserSessionOptions } from "./utils/browser-session-recovery";
 export {
   extractClientTokenFromUrl,
   removeClientTokenFromUrl,

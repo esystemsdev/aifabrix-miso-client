@@ -165,7 +165,7 @@ describe("browser-session utilities", () => {
     expect((init as RequestInit).body).toBeUndefined();
   });
 
-  it("createCookieSessionCallbacks returns null when session fails", async () => {
+  it("createCookieSessionCallbacks returns a typed failure", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 401,
@@ -177,7 +177,24 @@ describe("browser-session utilities", () => {
       retryDelaysMs: [],
     });
 
-    await expect(callbacks.onSessionRestore()).resolves.toBeNull();
+    await expect(callbacks.restore()).resolves.toEqual({
+      ok: false,
+      reason: "unauthorized",
+      status: 401,
+    });
+  });
+
+  it("lifecycle callbacks perform one transport attempt without global dedupe", async () => {
+    global.fetch = jest.fn().mockRejectedValue(new Error("offline"));
+    const first = createCookieSessionCallbacks({
+      getBaseUrl: () => "http://localhost:3600",
+    });
+    const second = createCookieSessionCallbacks({
+      getBaseUrl: () => "http://localhost:3600",
+    });
+
+    await Promise.all([first.restore(), second.restore()]);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
   it("sessionRestoreToUserToken maps access token fields", () => {
