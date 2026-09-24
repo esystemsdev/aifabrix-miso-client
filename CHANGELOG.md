@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.24.1] - 2026-09-24
+
+### Fixed
+
+- **Browser-session single-flight ordering** - Join an active in-process recovery
+  before applying rate-limit or failure-backoff suppression, so concurrent
+  unauthorized/manual waiters receive the owner's result instead of returning an
+  avoidable suppressed `401`.
+
+### Technical
+
+- **Backoff concurrency regression coverage** - Added successful and failed periodic
+  owner cases proving that waiters coalesce without extra recovery callbacks while
+  disposal and independent backoff behavior remain unchanged.
+
 ## [4.24.0] - 2026-09-24
 
 ### Changed
