@@ -219,13 +219,6 @@ export class BrowserSessionLifecycle {
     if (this.disposed) {
       return Promise.resolve(suppressedResult(trigger, "disposed"));
     }
-    const nowMs = this.now();
-    if (nowMs < this.rateLimitedUntilMs) {
-      return Promise.resolve(suppressedResult(trigger, "rate-limited"));
-    }
-    if (trigger !== "periodic" && nowMs < this.failureBackoffUntilMs) {
-      return Promise.resolve(suppressedResult(trigger, "failure-backoff"));
-    }
     if (this.inFlight) {
       this.inFlight.triggers.add(trigger);
       return this.inFlight.promise.then((owner) => ({
@@ -235,6 +228,13 @@ export class BrowserSessionLifecycle {
         recovered: owner.recovered,
         ...(owner.reason ? { reason: owner.reason } : {}),
       }));
+    }
+    const nowMs = this.now();
+    if (nowMs < this.rateLimitedUntilMs) {
+      return Promise.resolve(suppressedResult(trigger, "rate-limited"));
+    }
+    if (trigger !== "periodic" && nowMs < this.failureBackoffUntilMs) {
+      return Promise.resolve(suppressedResult(trigger, "failure-backoff"));
     }
 
     const triggers = new Set<BrowserSessionRecoveryTrigger>([trigger]);

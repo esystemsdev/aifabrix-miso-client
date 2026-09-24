@@ -117,6 +117,84 @@ describe("BrowserSessionLifecycle", () => {
     expect(restore).toHaveBeenCalledTimes(1);
   });
 
+  it("coalesces unauthorized recovery with a periodic owner during failure backoff", async () => {
+    const periodicResult = deferred<BrowserSessionCallbackResult>();
+    let callCount = 0;
+    const restore = jest.fn((): Promise<BrowserSessionCallbackResult> => {
+      callCount += 1;
+      return callCount === 1
+        ? Promise.resolve({ ok: false, reason: "network" })
+        : periodicResult.promise;
+    });
+    const lifecycle = new BrowserSessionLifecycle(
+      { restore },
+      noScheduleDependencies({ now: () => 1_000 }),
+    );
+
+    await expect(lifecycle.recover("unauthorized")).resolves.toMatchObject({
+      outcome: "failed",
+      reason: "network",
+    });
+
+    const owner = lifecycle.recover("periodic");
+    const waiter = lifecycle.recover("unauthorized");
+    periodicResult.resolve(bearer("periodic-token"));
+
+    await expect(owner).resolves.toEqual({
+      trigger: "periodic",
+      outcome: "recovered",
+      attempted: true,
+      recovered: true,
+    });
+    await expect(waiter).resolves.toEqual({
+      trigger: "unauthorized",
+      outcome: "coalesced",
+      attempted: false,
+      recovered: true,
+    });
+    expect(restore).toHaveBeenCalledTimes(2);
+
+    await lifecycle.dispose();
+  });
+
+  it("coalesces with a failed periodic owner during failure backoff", async () => {
+    const periodicResult = deferred<BrowserSessionCallbackResult>();
+    let callCount = 0;
+    const restore = jest.fn((): Promise<BrowserSessionCallbackResult> => {
+      callCount += 1;
+      return callCount === 1
+        ? Promise.resolve({ ok: false, reason: "network" })
+        : periodicResult.promise;
+    });
+    const lifecycle = new BrowserSessionLifecycle(
+      { restore },
+      noScheduleDependencies({ now: () => 1_000 }),
+    );
+
+    await lifecycle.recover("unauthorized");
+    const owner = lifecycle.recover("periodic");
+    const waiter = lifecycle.recover("manual");
+    periodicResult.resolve({ ok: false, reason: "server", status: 503 });
+
+    await expect(owner).resolves.toEqual({
+      trigger: "periodic",
+      outcome: "failed",
+      attempted: true,
+      recovered: false,
+      reason: "server",
+    });
+    await expect(waiter).resolves.toEqual({
+      trigger: "manual",
+      outcome: "coalesced",
+      attempted: false,
+      recovered: false,
+      reason: "server",
+    });
+    expect(restore).toHaveBeenCalledTimes(2);
+
+    await lifecycle.dispose();
+  });
+
   it("falls back only for unauthorized or invalid restore failures", async () => {
     const refresh = jest.fn().mockResolvedValue(bearer("refreshed"));
     const clearCachedAuthState = jest.fn();
