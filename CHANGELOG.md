@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.24.0] - 2026-09-24
+
 ### Changed
 
 - **Breaking browser-session lifecycle** - Replaced the six legacy DataClient
@@ -32,6 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   injects no SDK-managed user bearer; bearer recovery persists only the real callback
   result. No browser coordination state or credential telemetry is created.
 
+### Technical
+
+- **Deterministic lifecycle coverage** - Added fake-clock scheduler, single-flight,
+  replay/backoff, disposal-drain, storage-unavailable, and negative type-contract
+  regressions for the replacement API.
+- **Server validation compatibility** - Kept the server test project on its supported
+  TypeScript deprecation baseline and isolated client-token endpoint tests from
+  runtime application-status origin resolution.
+
 ### Migration
 
 - **Miso 244.0** - Replace the six legacy DataClient fields with
@@ -44,8 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ownership, and await `dispose()` before the existing controller logout or client
   replacement.
 - **Rollback** - Pin `@aifabrix/miso-client@4.23.1` exactly and restore the matching
-  consumer integration commit and lockfile. The next major has no compatibility mode;
-  its exact version is selected later by the `repair-release` workflow.
+  consumer integration commit and lockfile. Version `4.24.0` has no compatibility
+  mode for the removed recovery configuration.
 
 ## [4.23.1] - 2026-09-19
 
