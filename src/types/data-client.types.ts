@@ -100,6 +100,59 @@ export interface UserSessionTokenResult {
   expiresAt?: string;
 }
 
+export type BrowserSessionRecoveryTrigger =
+  "periodic" | "visibilitychange" | "online" | "unauthorized" | "manual";
+
+export type BrowserSessionRecoveryOutcome =
+  "recovered" | "coalesced" | "suppressed" | "failed";
+
+export type BrowserSessionRecoveryReason =
+  | "disabled"
+  | "disposed"
+  | "failure-backoff"
+  | "unauthorized"
+  | "network"
+  | "rate-limited"
+  | "server"
+  | "invalid"
+  | "unexpected";
+
+export interface BrowserSessionRecoveryResult {
+  trigger: BrowserSessionRecoveryTrigger;
+  outcome: BrowserSessionRecoveryOutcome;
+  attempted: boolean;
+  recovered: boolean;
+  reason?: BrowserSessionRecoveryReason;
+}
+
+export type BrowserSessionCallbackFailureReason =
+  | "unauthorized"
+  | "network"
+  | "rate-limited"
+  | "server"
+  | "invalid"
+  | "unexpected";
+
+export type BrowserSessionRecoveredAuth =
+  | { kind: "bearer"; session: UserSessionTokenResult }
+  | { kind: "cookie"; expiresIn?: number; expiresAt?: string };
+
+export type BrowserSessionCallbackResult =
+  | { ok: true; auth: BrowserSessionRecoveredAuth }
+  | {
+      ok: false;
+      reason: BrowserSessionCallbackFailureReason;
+      status?: number;
+      retryAfterMs?: number;
+    };
+
+export interface BrowserSessionLifecycleConfig {
+  restore: () => Promise<BrowserSessionCallbackResult>;
+  refresh?: () => Promise<BrowserSessionCallbackResult>;
+  clearCachedAuthState?: () => Promise<void> | void;
+  periodicRefreshIntervalMs?: number;
+}
+
 /**
  * DataClient configuration
  */
@@ -165,41 +218,10 @@ export interface DataClientConfig {
   defaultHeaders?: Record<string, string>;
 
   /**
-   * Callback to refresh user token when expired (for browser usage)
-   * Called automatically when a request receives 401 Unauthorized
-   * Should call backend endpoint that handles refresh token securely
-   * Returns new access token and optional expiration metadata
+   * Browser-session recovery callbacks and scheduling policy.
+   * When omitted, no recovery timer or browser lifecycle listener is installed.
    */
-  onTokenRefresh?: () => Promise<UserSessionTokenResult | null>;
-
-  /**
-   * Callback to restore browser user session (cookie-first flow).
-   * Called before onTokenRefresh when 401 is received and preferCookieSessionRestore is enabled.
-   */
-  onSessionRestore?: () => Promise<UserSessionTokenResult | null>;
-
-  /**
-   * Optional callback to clear browser auth state after failed restore/refresh.
-   */
-  clearCachedBrowserAuthState?: () => Promise<void> | void;
-
-  /**
-   * Prefer session-restore callback before explicit token refresh callback on 401.
-   * Default: true.
-   */
-  preferCookieSessionRestore?: boolean;
-
-  /**
-   * Enable browser activity-driven session refresh listener wiring.
-   * This value is required when browser session callbacks are configured.
-   */
-  enableActivitySessionRefresh?: boolean;
-
-  /**
-   * Interval (milliseconds) for activity-driven refresh checks.
-   * This value is required when browser session callbacks are configured.
-   */
-  activitySessionRefreshIntervalMs?: number;
+  browserSession?: BrowserSessionLifecycleConfig;
 }
 
 /**

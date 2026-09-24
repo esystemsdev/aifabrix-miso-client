@@ -1,7 +1,11 @@
 /**
  * Cookie-first browser session restore/refresh against miso-controller.
  */
-import type { UserSessionTokenResult } from "../types/data-client.types";
+import type {
+  BrowserSessionCallbackResult,
+  BrowserSessionLifecycleConfig,
+  UserSessionTokenResult,
+} from "../types/data-client.types";
 import {
   AUTH_BROWSER_SESSION_PATHS,
   type BrowserSessionClient,
@@ -14,9 +18,6 @@ type JsonRecord = Record<string, unknown>;
 
 const DEFAULT_RETRY_DELAYS_MS = [250, 500, 1000];
 const DEFAULT_TIMEOUT_MS = 10_000;
-
-let restoreSessionInFlight: Promise<SessionRestoreResult> | null = null;
-let refreshSessionInFlight: Promise<SessionRestoreResult> | null = null;
 
 function normalizeExpiresAt(raw: unknown): number | null {
   if (typeof raw === "number" && Number.isFinite(raw)) {
@@ -121,7 +122,11 @@ function normalizeSessionFailure(
     return { ok: false, reason: "network", message };
   }
 
-  if (status === 429 || status >= 500) {
+  if (status === 429) {
+    return { ok: false, status, reason: "rate-limited", message };
+  }
+
+  if (status >= 500) {
     return { ok: false, status, reason: "server", message };
   }
 
@@ -263,22 +268,6 @@ async function performBrowserSessionRequest(
   };
 }
 
-function dedupeSessionRequest(
-  currentPromise: Promise<SessionRestoreResult> | null,
-  setPromise: (value: Promise<SessionRestoreResult> | null) => void,
-  requestFactory: () => Promise<SessionRestoreResult>,
-): Promise<SessionRestoreResult> {
-  if (currentPromise) {
-    return currentPromise;
-  }
-
-  const nextPromise = requestFactory().finally(() => {
-    setPromise(null);
-  });
-  setPromise(nextPromise);
-  return nextPromise;
-}
-
 /**
  * Create a browser session client (GET session / POST refresh with credentials).
  */
@@ -289,22 +278,8 @@ export function createBrowserSessionClient(
   const refreshPath = options.refreshPath ?? AUTH_BROWSER_SESSION_PATHS.REFRESH;
 
   return {
-    restore: () =>
-      dedupeSessionRequest(
-        restoreSessionInFlight,
-        (value) => {
-          restoreSessionInFlight = value;
-        },
-        () => performBrowserSessionRequest(options, sessionPath, "GET"),
-      ),
-    refresh: () =>
-      dedupeSessionRequest(
-        refreshSessionInFlight,
-        (value) => {
-          refreshSessionInFlight = value;
-        },
-        () => performBrowserSessionRequest(options, refreshPath, "POST"),
-      ),
+    restore: () => performBrowserSessionRequest(options, sessionPath, "GET"),
+    refresh: () => performBrowserSessionRequest(options, refreshPath, "POST"),
   };
 }
 
@@ -321,6 +296,10 @@ export function sessionRestoreToUserToken(
 export type CookieSessionCallbacksOptions = BrowserSessionClientOptions & {
   /** Optional hook after a successful restore/refresh (e.g. app in-memory token store). */
   onAccessToken?: (result: SessionRestoreSuccess) => void | Promise<void>;
+  /** Optional targeted cache cleanup before the refresh fallback. */
+  clearCachedAuthState?: () => void | Promise<void>;
+  /** Periodic recovery cadence. Defaults to four minutes. */
+  periodicRefreshIntervalMs?: number;
 };
 
 /**
@@ -328,29 +307,35 @@ export type CookieSessionCallbacksOptions = BrowserSessionClientOptions & {
  */
 export function createCookieSessionCallbacks(
   options: CookieSessionCallbacksOptions,
-): {
-  onSessionRestore: () => Promise<UserSessionTokenResult | null>;
-  onTokenRefresh: () => Promise<UserSessionTokenResult | null>;
-} {
-  const client = createBrowserSessionClient(options);
+): BrowserSessionLifecycleConfig {
+  const client = createBrowserSessionClient({ ...options, retryDelaysMs: [] });
 
   const mapResult = async (
     operation: "restore" | "refresh",
-  ): Promise<UserSessionTokenResult | null> => {
+  ): Promise<BrowserSessionCallbackResult> => {
     const result =
       operation === "restore" ? await client.restore() : await client.refresh();
     if (!result.ok) {
-      return null;
+      return {
+        ok: false,
+        reason: result.reason,
+        status: result.status,
+      };
     }
     if (options.onAccessToken) {
       await options.onAccessToken(result);
     }
-    return sessionRestoreToUserToken(result);
+    return {
+      ok: true,
+      auth: { kind: "bearer", session: sessionRestoreToUserToken(result) },
+    };
   };
 
   return {
-    onSessionRestore: () => mapResult("restore"),
-    onTokenRefresh: () => mapResult("refresh"),
+    restore: () => mapResult("restore"),
+    refresh: () => mapResult("refresh"),
+    clearCachedAuthState: options.clearCachedAuthState,
+    periodicRefreshIntervalMs: options.periodicRefreshIntervalMs,
   };
 }
 

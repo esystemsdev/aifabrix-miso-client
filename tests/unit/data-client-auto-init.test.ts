@@ -114,8 +114,6 @@ describe("data-client-auto-init", () => {
       );
       expect(MockDataClient).toHaveBeenCalledWith({
         baseUrl: mockConfig.baseUrl,
-        enableActivitySessionRefresh: false,
-        activitySessionRefreshIntervalMs: 60000,
         misoConfig: {
           clientId: mockConfig.clientId,
           controllerUrl: mockConfig.controllerUrl,
@@ -147,8 +145,6 @@ describe("data-client-auto-init", () => {
 
       expect(MockDataClient).toHaveBeenCalledWith({
         baseUrl: "https://example.com",
-        enableActivitySessionRefresh: false,
-        activitySessionRefreshIntervalMs: 60000,
         misoConfig: {
           clientId: mockConfig.clientId,
           controllerUrl: mockConfig.controllerUrl,
@@ -183,8 +179,6 @@ describe("data-client-auto-init", () => {
       expect(mockFetch).not.toHaveBeenCalled();
       expect(MockDataClient).toHaveBeenCalledWith({
         baseUrl: mockConfig.baseUrl,
-        enableActivitySessionRefresh: false,
-        activitySessionRefreshIntervalMs: 60000,
         misoConfig: {
           clientId: mockConfig.clientId,
           controllerUrl: mockConfig.controllerUrl,

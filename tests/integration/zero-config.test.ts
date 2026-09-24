@@ -170,8 +170,6 @@ describe("Zero-Config Integration", () => {
       );
       expect(DataClient).toHaveBeenCalledWith({
         baseUrl: "https://example.com",
-        enableActivitySessionRefresh: false,
-        activitySessionRefreshIntervalMs: 60000,
         misoConfig: {
           clientId: "ctrl-dev-test-app",
           controllerUrl: "https://controller.aifabrix.ai",
@@ -212,8 +210,6 @@ describe("Zero-Config Integration", () => {
       expect(mockFetch).not.toHaveBeenCalled();
       expect(DataClient).toHaveBeenCalledWith({
         baseUrl: "https://example.com",
-        enableActivitySessionRefresh: false,
-        activitySessionRefreshIntervalMs: 60000,
         misoConfig: {
           clientId: "ctrl-dev-test-app",
           controllerUrl: "https://controller.aifabrix.ai",
@@ -279,8 +275,6 @@ describe("Zero-Config Integration", () => {
       );
       expect(DataClient).toHaveBeenCalledWith({
         baseUrl: "https://custom-api.com",
-        enableActivitySessionRefresh: false,
-        activitySessionRefreshIntervalMs: 60000,
         misoConfig: {
           clientId: "ctrl-dev-test-app",
           controllerUrl: "https://controller.aifabrix.ai",

@@ -50,8 +50,6 @@ import { DataClient } from "@aifabrix/miso-client";
 
 const dataClient = new DataClient({
   baseUrl: "https://api.example.com",
-  enableActivitySessionRefresh: false,
-  activitySessionRefreshIntervalMs: 60000,
   misoConfig: {
     controllerUrl: "https://controller.aifabrix.ai",
     clientId: "ctrl-dev-my-app",
@@ -70,14 +68,11 @@ const dataClient = new DataClient({
 
 Do not set `clientSecret` in browser config; use `clientToken` + `onClientTokenRefresh` only.
 
-### Explicit activity policy (required with browser session callbacks)
+### Browser-session lifecycle
 
-When `onTokenRefresh` or `onSessionRestore` is configured, `DataClient` requires both:
-
-- `enableActivitySessionRefresh`
-- `activitySessionRefreshIntervalMs`
-
-If either value is missing, SDK initialization fails fast with a configuration error.
+Use the optional `browserSession` object for periodic, explicit, and `401` recovery.
+The default period is four minutes. DataClient does not observe mouse, keyboard, or
+click activity; application idle/logout policy remains application-owned.
 
 **`baseUrl` is a full URL** and may include a virtual-directory path (e.g. `https://domain.com/data` for a dataplane, `https://domain.com/myapp` for a custom app, or `https://domain.com` for a root mount). **Prefer** putting the mount in `baseUrl` itself. For compatibility when you only have an origin plus a path segment, set optional **`basePath`** (e.g. `baseUrl: "https://domain.com"` + `basePath: "/data"`); the SDK merges once at init via `mergeRootUrlWithBasePath` and does not duplicate the segment if `baseUrl` already contains it. See [configuration.md](configuration.md#full-urls-and-virtual-directories).
 
@@ -188,24 +183,19 @@ See [backend-client-token.md](backend-client-token.md) and [quick-start.md](quic
 
 ## Enterprise auth flow
 
-For enterprise SSO flows, DataClient now supports a cookie-first recovery sequence:
+DataClient owns one recovery coordinator per active browser client:
 
-1. On `401`, call optional `onSessionRestore` callback first (recommended).
-2. If restore does not return a token, call `onTokenRefresh`.
-3. Retry the original request once with refreshed/restored token.
-4. If both fail, clear cached browser auth state and continue with login redirect flow.
-5. Refresh checks are activity-driven (`mousemove`, `click`, `keydown`) with a 60-second cadence and no background polling loop.
-6. Activity orchestration also reacts to `visibilitychange` (tab becomes visible) and `online` events with the same cooldown and dedupe guards.
+1. Every four minutes it performs one unconditional `restore()` attempt.
+2. `visibilitychange` and `online` only wake an overdue schedule; they do not create
+   an independent request stream.
+3. On `401`, restore runs even after a recent scheduled success. A typed
+   `unauthorized` or `invalid` restore failure may use one `refresh()` fallback.
+4. A successful `GET`/`HEAD` is replayed once. Mutations and `403` are never replayed.
+5. Simultaneous triggers share one in-process operation. Failures and `429` responses
+   apply bounded suppression.
+6. `await dataClient.dispose()` stops new recovery and drains the active callback.
 
-Recovery telemetry reasons (for implementation/debug evidence):
-
-- `cooldown` - non-manual trigger suppressed by cadence guard.
-- `dedupe` - suppressed by post-recovery dedupe window.
-- `inflight` - suppressed because a recovery request is already in flight.
-- `success` - recovery completed and token/session state updated.
-- `failure` - recovery callback failed or returned no usable token.
-
-Recommended config (SDK helpers — 4.16+):
+Recommended configuration:
 
 ```typescript
 import {
@@ -219,33 +209,38 @@ const getBaseUrl = () =>
     pageOrigin: window.location.origin,
   });
 
-const cookieCallbacks = createCookieSessionCallbacks({
+const browserSession = createCookieSessionCallbacks({
   getBaseUrl,
   onAccessToken: async (result) => {
     /* keep result.accessToken in runtime memory only */
   },
 });
-// callback result intentionally excludes refreshToken for browser flows
+// Lifecycle callbacks make exactly one HTTP attempt and expose no refresh token.
 
 const dc = new DataClient({
   baseUrl: getBaseUrl() || "/api",
-  enableActivitySessionRefresh: false,
-  activitySessionRefreshIntervalMs: 60000,
-  preferCookieSessionRestore: true,
-  onSessionRestore: cookieCallbacks.onSessionRestore,
-  onTokenRefresh: cookieCallbacks.onTokenRefresh,
+  browserSession,
   misoConfig: {
     controllerUrl: "https://controller.example.com",
     clientId: "my-client",
   },
 });
+
+// Before server logout, reset, or replacing this authenticated client:
+await dc.dispose();
 ```
 
-For silent recovery outside DataClient (e.g. custom retry), use `recoverBrowserSessionWithStaleCleanup` or `recoverBrowserSessionOrThrow` from the same package. See [authentication.md](authentication.md#browser-ui-helpers-416).
+If an application workflow needs an explicit user-session touch, call
+`await dc.recoverBrowserSession("manual")`; do not invoke transport callbacks
+directly or add another network timer. Raw-fetch consumers that recover and replay a
+`GET`/`HEAD` must call `recordBrowserSessionReplayUnauthorized()` if that replay is
+again `401`.
 
 Notes:
 
 - Keep refresh/session secrets in HttpOnly cookies; browser user access-token state must stay runtime-memory-only.
+- The supported correctness boundary is one active authenticated browser tab and one
+  live DataClient. Multi-tab coordination is not provided.
 - Browser auth requests use runtime-memory token reads and deterministic stale-auth cleanup.
 - In split-port dev, resolve API `baseUrl` with `resolveBrowserApiBaseUrl` so cookies and proxy paths stay on the UI origin.
 - Public API outputs remain camelCase.
