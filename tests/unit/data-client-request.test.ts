@@ -1,5 +1,8 @@
 import { executeHttpRequest } from "../../src/utils/data-client-request";
-import { DataClientConfig } from "../../src/types/data-client.types";
+import {
+  BrowserSessionRecoveryResult,
+  DataClientConfig,
+} from "../../src/types/data-client.types";
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -8,25 +11,31 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
-function createBaseConfig(
-  overrides?: Partial<DataClientConfig>,
-): DataClientConfig {
+function recovered(): BrowserSessionRecoveryResult {
+  return {
+    trigger: "unauthorized",
+    outcome: "recovered",
+    attempted: true,
+    recovered: true,
+  };
+}
+
+function createBaseConfig(): DataClientConfig {
   return {
     baseUrl: "https://api.example.com",
     misoConfig: {
       controllerUrl: "https://controller.example.com",
       clientId: "client",
     },
-    ...overrides,
   };
 }
 
-function createBaseOptions(config: DataClientConfig) {
+function createBaseOptions(overrides: Record<string, unknown> = {}) {
   return {
     method: "GET",
     fullUrl: "https://api.example.com/resource",
     endpoint: "/resource",
-    config,
+    config: createBaseConfig(),
     cache: new Map(),
     cacheKey: "k1",
     cacheEnabled: false,
@@ -35,8 +44,8 @@ function createBaseOptions(config: DataClientConfig) {
     hasAnyToken: () => true,
     getToken: () => "token",
     handleAuthError: jest.fn(),
-    restoreUserSession: jest.fn(),
-    refreshUserToken: jest.fn(),
+    recoverBrowserSession: jest.fn().mockResolvedValue(recovered()),
+    recordBrowserSessionReplayUnauthorized: jest.fn(),
     interceptors: {},
     metrics: {
       totalRequests: 0,
@@ -44,6 +53,7 @@ function createBaseOptions(config: DataClientConfig) {
       responseTimes: [] as number[],
     },
     options: { skipAudit: true },
+    ...overrides,
   };
 }
 
@@ -52,117 +62,153 @@ describe("data-client-request auth recovery", () => {
     jest.restoreAllMocks();
   });
 
-  it("uses restore callback before refresh on 401", async () => {
+  it.each(["GET", "HEAD"])(
+    "recovers and replays %s exactly once",
+    async (method) => {
+      const fetchMock = jest
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({ message: "unauthorized" }, 401))
+        .mockResolvedValueOnce(jsonResponse({ ok: true }, 200));
+      const opts = createBaseOptions({ method });
+
+      await expect(executeHttpRequest<{ ok: boolean }>(opts)).resolves.toEqual({
+        ok: true,
+      });
+      expect(opts.recoverBrowserSession).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(opts.handleAuthError).not.toHaveBeenCalled();
+    },
+  );
+
+  it("uses the bearer persisted by recovery on replay", async () => {
+    let token = "expired";
     const fetchMock = jest
       .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(jsonResponse({ message: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({}, 401))
       .mockResolvedValueOnce(jsonResponse({ ok: true }, 200));
-    const config = createBaseConfig({
-      onSessionRestore: async () => ({ token: "restored" }),
-      onTokenRefresh: async () => ({ token: "refreshed" }),
-    });
-    const opts = createBaseOptions(config);
-    (opts.restoreUserSession as jest.Mock).mockResolvedValue({
-      token: "restored",
-      expiresIn: 3600,
+    const opts = createBaseOptions({
+      getToken: () => token,
+      recoverBrowserSession: jest.fn(async () => {
+        token = "recovered";
+        return recovered();
+      }),
     });
 
-    const result = await executeHttpRequest<{ ok: boolean }>(opts);
-    expect(result.ok).toBe(true);
-    expect(opts.restoreUserSession).toHaveBeenCalledTimes(1);
-    expect(opts.refreshUserToken).not.toHaveBeenCalled();
-    expect(opts.handleAuthError).not.toHaveBeenCalled();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await executeHttpRequest(opts);
+    const replayInit = fetchMock.mock.calls[1][1] as RequestInit;
+    expect(new Headers(replayInit.headers).get("authorization")).toBe(
+      "Bearer recovered",
+    );
   });
 
-  it("falls back to refresh when restore does not return token", async () => {
+  it("preserves credentialed cookie transport without injecting a bearer", async () => {
     const fetchMock = jest
       .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(jsonResponse({ message: "unauthorized" }, 401))
+      .mockResolvedValueOnce(jsonResponse({}, 401))
       .mockResolvedValueOnce(jsonResponse({ ok: true }, 200));
-    const config = createBaseConfig({
-      onSessionRestore: async () => null,
-      onTokenRefresh: async () => ({ token: "refreshed" }),
-    });
-    const opts = createBaseOptions(config);
-    (opts.restoreUserSession as jest.Mock).mockResolvedValue(null);
-    (opts.refreshUserToken as jest.Mock).mockResolvedValue({
-      token: "refreshed",
-      expiresIn: 3600,
+    const opts = createBaseOptions({
+      getToken: () => null,
+      options: {
+        skipAudit: true,
+        credentials: "include" as RequestCredentials,
+      },
     });
 
-    const result = await executeHttpRequest<{ ok: boolean }>(opts);
-    expect(result.ok).toBe(true);
-    expect(opts.restoreUserSession).toHaveBeenCalledTimes(1);
-    expect(opts.refreshUserToken).toHaveBeenCalledTimes(1);
-    expect(opts.handleAuthError).not.toHaveBeenCalled();
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await executeHttpRequest(opts);
+    const replayInit = fetchMock.mock.calls[1][1] as RequestInit;
+    expect(replayInit.credentials).toBe("include");
+    expect(new Headers(replayInit.headers).has("authorization")).toBe(false);
   });
 
-  it("does not call restore or refresh for 403 responses", async () => {
+  it("preserves the original 401 when recovery fails", async () => {
+    const firstResponse = jsonResponse({ message: "unauthorized" }, 401);
+    jest.spyOn(globalThis, "fetch").mockResolvedValueOnce(firstResponse);
+    const opts = createBaseOptions({
+      recoverBrowserSession: jest.fn().mockResolvedValue({
+        trigger: "unauthorized",
+        outcome: "failed",
+        attempted: true,
+        recovered: false,
+        reason: "network",
+      }),
+    });
+
+    await expect(executeHttpRequest(opts)).rejects.toMatchObject({
+      statusCode: 401,
+      response: firstResponse,
+    });
+    expect(opts.handleAuthError).toHaveBeenCalledTimes(1);
+  });
+
+  it("never recovers on 403", async () => {
     jest
       .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(jsonResponse({ message: "forbidden" }, 403));
-    const config = createBaseConfig({
-      onSessionRestore: async () => ({ token: "restored" }),
-      onTokenRefresh: async () => ({ token: "refreshed" }),
-    });
-    const opts = createBaseOptions(config);
+      .mockResolvedValueOnce(jsonResponse({}, 403));
+    const opts = createBaseOptions();
 
     await expect(executeHttpRequest(opts)).rejects.toMatchObject({
       statusCode: 403,
     });
-    expect(opts.restoreUserSession).not.toHaveBeenCalled();
-    expect(opts.refreshUserToken).not.toHaveBeenCalled();
-    expect(opts.handleAuthError).toHaveBeenCalledTimes(1);
+    expect(opts.recoverBrowserSession).not.toHaveBeenCalled();
   });
 
-  it("shares one auth recovery across concurrent 401 flows", async () => {
+  it("never recovers on an auth endpoint 401", async () => {
     jest
       .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(jsonResponse({ message: "unauthorized" }, 401))
-      .mockResolvedValueOnce(jsonResponse({ message: "unauthorized" }, 401))
-      .mockResolvedValueOnce(jsonResponse({ ok: true, requestId: 1 }, 200))
-      .mockResolvedValueOnce(jsonResponse({ ok: true, requestId: 2 }, 200));
-
-    const config = createBaseConfig({
-      onSessionRestore: async () => ({ token: "restored" }),
-    });
-
-    const sharedRestore = jest.fn().mockResolvedValue({
-      token: "restored",
-      expiresIn: 3600,
-    });
-    const first = createBaseOptions(config);
-    const second = createBaseOptions(config);
-    first.restoreUserSession = sharedRestore;
-    second.restoreUserSession = sharedRestore;
-
-    const [firstResult, secondResult] = await Promise.all([
-      executeHttpRequest<{ ok: boolean; requestId: number }>(first),
-      executeHttpRequest<{ ok: boolean; requestId: number }>(second),
-    ]);
-
-    expect(firstResult.ok).toBe(true);
-    expect(secondResult.ok).toBe(true);
-    expect(sharedRestore).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not attempt restore or refresh for 422 response", async () => {
-    jest
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(jsonResponse({ message: "invalid payload" }, 422));
-
-    const config = createBaseConfig({
-      onSessionRestore: async () => ({ token: "restored" }),
-      onTokenRefresh: async () => ({ token: "refreshed" }),
-    });
-    const opts = createBaseOptions(config);
+      .mockResolvedValueOnce(jsonResponse({}, 401));
+    const opts = createBaseOptions({ endpoint: "/api/v1/auth/session" });
 
     await expect(executeHttpRequest(opts)).rejects.toMatchObject({
-      statusCode: 422,
+      statusCode: 401,
     });
-    expect(opts.restoreUserSession).not.toHaveBeenCalled();
-    expect(opts.refreshUserToken).not.toHaveBeenCalled();
+    expect(opts.recoverBrowserSession).not.toHaveBeenCalled();
+  });
+
+  it.each(["POST", "PUT", "PATCH", "DELETE"])(
+    "recovers future state but does not replay %s",
+    async (method) => {
+      const fetchMock = jest
+        .spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(jsonResponse({}, 401));
+      const opts = createBaseOptions({ method });
+
+      await expect(executeHttpRequest(opts)).rejects.toMatchObject({
+        statusCode: 401,
+      });
+      expect(opts.recoverBrowserSession).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(opts.handleAuthError).not.toHaveBeenCalled();
+    },
+  );
+
+  it("makes a replayed 401 final and reports it to the coordinator", async () => {
+    const fetchMock = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({}, 401))
+      .mockResolvedValueOnce(jsonResponse({}, 401));
+    const opts = createBaseOptions();
+
+    await expect(executeHttpRequest(opts)).rejects.toMatchObject({
+      statusCode: 401,
+    });
+    expect(opts.recoverBrowserSession).toHaveBeenCalledTimes(1);
+    expect(opts.recordBrowserSessionReplayUnauthorized).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(opts.handleAuthError).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns a replay network failure without generic retry", async () => {
+    const fetchMock = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({}, 401))
+      .mockRejectedValueOnce(new Error("offline"));
+    const opts = createBaseOptions();
+
+    await expect(executeHttpRequest(opts)).rejects.toMatchObject({
+      name: "NetworkError",
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

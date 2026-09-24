@@ -20,14 +20,12 @@ import {
   handleAuthErrorCleanup,
   waitForRetry,
 } from "./data-client-response";
-import { writeWarn } from "./console-logger";
 import {
   RetryConfig,
   RequestRetryState,
   AttemptRequestParams,
   ExecuteHttpRequestOptions,
 } from "./data-client-request.types";
-import { runSingleFlightAuthRecovery } from "./data-client-auth-recovery";
 
 /**
  * Extract headers from Headers object or Record
@@ -171,11 +169,11 @@ export async function makeFetchRequest(
 
   try {
     const response = await fetch(url, {
+      ...fetchOptions,
       method,
       headers,
       body: fetchOptions.body,
       signal,
-      ...fetchOptions,
     });
     clearTimeout(timeoutId);
     return response;
@@ -252,24 +250,32 @@ async function handleAuthResponse<T>(
     return null;
   }
 
-  if (responseStatus === 401 && attempt === 0 && !state.tokenRefreshAttempted) {
+  if (attempt > 0 && state.tokenRefreshAttempted) {
+    state.authErrorDetected = true;
+    if (responseStatus === 401) {
+      params.recordBrowserSessionReplayUnauthorized();
+    }
+    throw createAuthError(responseStatus, params.response);
+  }
+
+  if (
+    responseStatus === 401 &&
+    !state.tokenRefreshAttempted &&
+    !isAuthRecoveryEndpoint(params.endpoint)
+  ) {
     state.tokenRefreshAttempted = true;
-    try {
-      const recovered = await tryRecoverFrom401Auth(params);
-      if (recovered !== null && recovered !== undefined) return recovered as T;
-    } catch (refreshError) {
-      writeWarn(
-        `Token refresh failed, redirecting to login: ${String(refreshError)}`,
-      );
+    const recovery = await params.recoverBrowserSession();
+    if (recovery.recovered) {
+      if (isReplayableMethod(params.method)) {
+        return attemptRequest<T>({ ...params, attempt: params.attempt + 1 });
+      }
       state.authErrorDetected = true;
+      throw createAuthError(responseStatus, params.response);
     }
   }
 
   state.authErrorDetected = true;
-  const authError =
-    responseStatus === 401
-      ? new AuthenticationError("Authentication required", params.response)
-      : new ApiError("Forbidden", 403, params.response);
+  const authError = createAuthError(responseStatus, params.response);
 
   handleAuthErrorCleanup({
     error: authError,
@@ -288,16 +294,22 @@ async function handleAuthResponse<T>(
   throw authError;
 }
 
-async function tryRecoverFrom401Auth<T>(
-  params: AttemptRequestParams & { response: Response; responseStatus: number },
-): Promise<T | null> {
-  const recovered = await runSingleFlightAuthRecovery(params);
-  if (!recovered) {
-    return null;
-  }
+function createAuthError(status: number, response: Response): ApiError {
+  return status === 401
+    ? new AuthenticationError("Authentication required", response)
+    : new ApiError("Forbidden", 403, response);
+}
 
-  await new Promise((resolve) => setTimeout(resolve, 10));
-  return attemptRequest<T>({ ...params, attempt: params.attempt + 1 });
+function isReplayableMethod(method: string): boolean {
+  const normalized = method.toUpperCase();
+  return normalized === "GET" || normalized === "HEAD";
+}
+
+function isAuthRecoveryEndpoint(endpoint: string): boolean {
+  return (
+    /(?:^|\/)api\/v1\/auth(?:\/|$)/.test(endpoint) ||
+    /(?:^|\/)api\/auth(?:\/|$)/.test(endpoint)
+  );
 }
 
 async function handleAttemptError<T>(
@@ -307,6 +319,7 @@ async function handleAttemptError<T>(
   },
 ): Promise<T> {
   const { error, responseStatus, state, attempt, retryConfig } = params;
+  if (state.tokenRefreshAttempted && attempt > 0) throw error;
   if (shouldPropagateAuthError(error, responseStatus, state)) throw error;
 
   const errorObj = error as ApiError;

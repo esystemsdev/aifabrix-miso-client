@@ -7,6 +7,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking browser-session lifecycle** - Replaced the six legacy DataClient
+  recovery fields with one typed `browserSession` configuration and one per-client
+  coordinator for four-minute periodic, overdue visibility/online, manual, and `401`
+  recovery.
+- **Bounded request replay** - Only `GET`/`HEAD` replay once after real recovery;
+  mutations and `403` never replay, replayed `401` is final, and failure/429
+  suppression is per DataClient.
+- **Async terminal disposal** - `dispose(): Promise<void>` synchronously stops new
+  recovery, removes lifecycle listeners/timers, drains the current callback, and
+  prevents late fallback, token persistence, or replay.
+
+### Removed
+
+- **Legacy recovery owners** - Removed activity-triggered auth HTTP, the separate
+  orchestration/WeakMap single-flight modules, direct recovery helpers, deprecated
+  config aliases, and browser-storage/cross-tab coordination expectations.
+
+### Security
+
+- **Cookie and token boundary** - Cookie recovery persists no token or sentinel and
+  injects no SDK-managed user bearer; bearer recovery persists only the real callback
+  result. No browser coordination state or credential telemetry is created.
+
+### Migration
+
+- **Miso 244.0** - Replace the six legacy DataClient fields with
+  `browserSession: { restore, refresh, clearCachedAuthState,
+  periodicRefreshIntervalMs: 240000 }`; remove the AppShell/Tenant Activation direct
+  restore timers and route raw protected-request recovery through
+  `recoverBrowserSession("unauthorized")`.
+- **Dataplane 590.0** - Use the same `browserSession` object, remove activity/hold
+  user-session network recovery, retain passive idle/hold and distinct client-token
+  ownership, and await `dispose()` before the existing controller logout or client
+  replacement.
+- **Rollback** - Pin `@aifabrix/miso-client@4.23.1` exactly and restore the matching
+  consumer integration commit and lockfile. The next major has no compatibility mode;
+  its exact version is selected later by the `repair-release` workflow.
+
 ## [4.23.1] - 2026-09-19
 
 ### Fixed

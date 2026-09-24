@@ -55,9 +55,12 @@ Common causes:
 - **Cross-origin auth calls:** UI on port `3610`, controller on `3600` — browser blocks or drops cookies. Use the **UI origin** for API calls (Vite/nginx proxy to controller) via `resolveBrowserApiBaseUrl` (see [authentication.md](authentication.md#browser-ui-helpers-416)).
 - **localhost vs 127.0.0.1:** Cookie host must match the tab hostname. Use `alignLoopbackHostnameWithPage` on controller URLs.
 - **Missing `credentials: 'include'`** on session/refresh/login/callback — HttpOnly refresh cookie is not sent.
-- **Stale local token** after failed restore — call `clearCachedBrowserAuthState` (or app equivalent) then retry; use `recoverBrowserSessionWithStaleCleanup` for the standard retry order.
+- **Stale runtime token** before refresh fallback — configure the targeted
+  `browserSession.clearCachedAuthState` callback; do not clear unrelated application
+  storage.
 
-Wire DataClient with `createCookieSessionCallbacks` and `preferCookieSessionRestore: true` ([dataclient.md](dataclient.md#enterprise-auth-flow)).
+Wire DataClient with the `browserSession` object returned by
+`createCookieSessionCallbacks` ([dataclient.md](dataclient.md#enterprise-auth-flow)).
 
 ## Redis
 
