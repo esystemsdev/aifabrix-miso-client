@@ -7,12 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-09-26
+
 ### Changed
 
 - **Application bootstrap** - Use Miso client ID and secret to obtain an initial client token, then fetch and renew snapshots with client tokens in `client-credentials` mode. Local configuration remains compatible.
 - **Provider removal** - Removed the external identity adapter, dependency, provider options and settings. Deployments must update their mode and initial credentials together with the SDK.
 - **Contract validation** - Export `validateSnapshot` and `BootstrapSnapshot` from the Node-only bootstrap entrypoint. Preserve terminal denial, explicit restart recovery and secret-free diagnostics.
 - **Clean packages** - Clear build output before compilation so deleted modules cannot remain in published artifacts.
+
+### Migration
+
+- Call `initSecrets()` without provider options. For remote startup set
+  `MISO_AUTH_MODE=client-credentials`, `MISO_CLIENTID`, `MISO_CLIENTSECRET` and
+  the HTTPS `MISO_CONTROLLER_URL`. Remove the previous identity provider dependency
+  and settings. Local/unset mode remains supported. See [application bootstrap](docs/application-bootstrap.md).
+- Development validation passed on dev01; production rollout still requires
+  controller contract/revocation and consumer connection-rebuild certification.
 
 ## [4.24.1] - 2026-09-24
 
