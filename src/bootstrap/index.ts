@@ -1,35 +1,30 @@
-import { BootstrapError, InitSecretsOptions, SecretsRuntime } from "./types";
+import { BootstrapError, SecretsRuntime } from "./types";
 import { createRuntime, RuntimeState } from "./runtime";
-import { azureSettings, fetchSnapshot } from "./transport";
+import { credentialSettings, credentialSnapshot } from "./credentials";
 
 export type {
   BootstrapContext,
-  BootstrapTokenProvider,
-  InitSecretsOptions,
+  BootstrapSnapshot,
   SecretsRuntime,
   RuntimeInvalidationReason,
 } from "./types";
 export { BootstrapError } from "./types";
+export { validateSnapshot } from "./validation";
 
 /**
- * Initialize one Node-only secrets runtime. Unset/local mode uses existing config
- * and never imports Azure Identity or contacts the broker. Azure mode is explicit.
- * @param options Optional caller-owned identity provider for controlled hosts/tests.
+ * Initialize a Node-only secrets runtime using deployment settings.
+ * Unset/local mode loads local config; client-credentials mode fetches remote secrets.
  * @returns Initialized client, secret accessors, subscriptions and close operation.
+ * @throws BootstrapError for invalid settings, denied access or unavailable snapshots.
  */
-export async function initSecrets(
-  options: InitSecretsOptions = {},
-): Promise<SecretsRuntime> {
+export async function initSecrets(): Promise<SecretsRuntime> {
   const mode = process.env.MISO_AUTH_MODE;
   if (mode === undefined || mode === "local") return localRuntime();
-  if (mode !== "azure-managed-identity")
+  if (mode !== "client-credentials")
     throw new BootstrapError("unknown-auth-mode");
-  const settings = azureSettings();
-  const provider =
-    options.tokenProvider ??
-    (await (await import("./identity.js")).createIdentityProvider());
-  const state = new RuntimeState((signal) =>
-    fetchSnapshot(provider, settings, signal),
+  const settings = credentialSettings();
+  const state = new RuntimeState((signal, token) =>
+    credentialSnapshot(settings, signal, token),
   );
   try {
     await state.start();

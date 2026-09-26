@@ -103,8 +103,8 @@ See [dataclient.md](dataclient.md) for full options.
 - [Audit and logging](audit-and-logging.md) – audit events and logs
 - [Errors](errors.md) – asyncHandler, handleRouteError, AppError
 
-## Local and managed-identity startup
+## Local and remote startup
 
 For one Node-only startup helper that preserves local credentials and older controller
-compatibility, see [Initialize application secrets](managed-identity-bootstrap.md).
-Azure authentication is explicitly opt-in.
+compatibility, see [Initialize application secrets](application-bootstrap.md).
+Remote configuration is opt-in with `MISO_AUTH_MODE=client-credentials`.

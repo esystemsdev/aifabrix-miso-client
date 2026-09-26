@@ -183,7 +183,7 @@ export class MisoClient {
   }
 
   /**
-   * Exchange external user token (e.g. Entra) for Keycloak token.
+   * Exchange external user token for Keycloak token.
    * Uses client token only; no client id/secret sent to controller.
    * @param token - External token to exchange
    * @param authStrategy - Optional authentication strategy override

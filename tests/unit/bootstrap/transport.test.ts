@@ -1,6 +1,6 @@
 import axios from "axios";
-import { BootstrapError } from "../../../src/bootstrap/types";
-import { azureSettings, fetchSnapshot } from "../../../src/bootstrap/transport";
+import { credentialSettings } from "../../../src/bootstrap/credentials";
+import { fetchSnapshot } from "../../../src/bootstrap/transport";
 import { validateSnapshot } from "../../../src/bootstrap/validation";
 import { parseBrokerJson } from "../../../src/bootstrap/json";
 
@@ -18,10 +18,10 @@ const data = () => ({
   clientTokenExpiresAt: new Date(epoch + 300000).toISOString(),
   expiresAt: new Date(epoch + 900000).toISOString(),
 });
-const provider = { getToken: jest.fn() };
+const token = "miso-initial-token";
 const settings = {
   url: "https://miso.test/miso/api/v1/auth/bootstrap",
-  scope: "api://miso/.default",
+  tokenUrl: "https://miso.test/miso/api/v1/auth/token",
 };
 
 describe("broker transport and validation", () => {
@@ -30,28 +30,20 @@ describe("broker transport and validation", () => {
     jest.setSystemTime(epoch);
     post.mockReset();
     (axios.create as jest.Mock).mockReturnValue({ post });
-    provider.getToken.mockResolvedValue({
-      token: "entra-sentinel",
-      expiresAt: new Date(epoch + 600000),
-    });
   });
   afterEach(() => jest.useRealTimers());
-  it("sends identity-only request to fixed endpoint with bounded transport", async () => {
+  it("sends client-token-only request to fixed endpoint with bounded transport", async () => {
     post.mockResolvedValue({
       status: 200,
       headers: {},
       data: JSON.stringify({ success: true, data: data() }),
     });
     const result = await fetchSnapshot(
-      provider,
+      token,
       settings,
       new AbortController().signal,
     );
     expect(result.clientToken).toBe("miso-sentinel");
-    expect(provider.getToken).toHaveBeenCalledWith(
-      settings.scope,
-      expect.any(AbortSignal),
-    );
     expect(post).toHaveBeenCalledWith(
       settings.url,
       { protocolVersion: 1 },
@@ -60,17 +52,33 @@ describe("broker transport and validation", () => {
         maxContentLength: 1048576,
         timeout: 5000,
         headers: expect.objectContaining({
-          Authorization: "Bearer entra-sentinel",
+          "x-client-token": token,
         }),
       }),
     );
   });
+  it("rejects unknown envelope members consistently with the Python SDK", async () => {
+    post.mockResolvedValue({
+      status: 200,
+      headers: {},
+      data: JSON.stringify({
+        success: true,
+        data: data(),
+        extra: "private-sentinel",
+      }),
+    });
+    await expect(
+      fetchSnapshot(token, settings, new AbortController().signal),
+    ).rejects.toThrow("protocol-error");
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
   it.each([401, 403, 404, 302, 422])(
     "does not retry status %s or expose body",
     async (status) => {
       post.mockResolvedValue({ status, headers: {}, data: "secret-sentinel" });
       const error = await fetchSnapshot(
-        provider,
+        token,
         settings,
         new AbortController().signal,
       ).catch((e) => e);
@@ -88,7 +96,7 @@ describe("broker transport and validation", () => {
       data: "secret",
     });
     await expect(
-      fetchSnapshot(provider, settings, new AbortController().signal),
+      fetchSnapshot(token, settings, new AbortController().signal),
     ).rejects.toThrow("unavailable");
     expect(post).toHaveBeenCalledTimes(3);
   });
@@ -99,42 +107,17 @@ describe("broker transport and validation", () => {
       data: "secret",
     });
     await expect(
-      fetchSnapshot(provider, settings, new AbortController().signal),
+      fetchSnapshot(token, settings, new AbortController().signal),
     ).rejects.toThrow("unavailable");
     expect(post).toHaveBeenCalledTimes(1);
   });
-  it("sanitizes identity failures without HTTP or fallback", async () => {
-    provider.getToken.mockRejectedValue(new Error("entra-secret"));
-    const error = await fetchSnapshot(
-      provider,
-      settings,
-      new AbortController().signal,
-    ).catch((e) => e);
-    expect(String(error)).not.toContain("entra-secret");
-    expect(error.cause).toBeUndefined();
-    expect(post).not.toHaveBeenCalled();
-  });
-  it("sanitizes provider-supplied SDK-shaped errors", async () => {
-    provider.getToken.mockRejectedValue(
-      new BootstrapError("credential-sentinel"),
-    );
-    const error = await fetchSnapshot(
-      provider,
-      settings,
-      new AbortController().signal,
-    ).catch((e) => e);
-    expect(String(error)).not.toContain("credential-sentinel");
-    expect(error.code).toBe("unavailable");
-    expect(post).not.toHaveBeenCalled();
-  });
-  it("does not invoke providers after cancellation", async () => {
+  it("does not make requests after cancellation", async () => {
     const controller = new AbortController();
     controller.abort();
-    provider.getToken.mockClear();
     await expect(
-      fetchSnapshot(provider, settings, controller.signal),
+      fetchSnapshot(token, settings, controller.signal),
     ).rejects.toThrow("unavailable");
-    expect(provider.getToken).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
   });
   it("rejects responses over the byte cap before parsing", async () => {
     post.mockResolvedValue({
@@ -143,17 +126,17 @@ describe("broker transport and validation", () => {
       data: " ".repeat(1048577),
     });
     await expect(
-      fetchSnapshot(provider, settings, new AbortController().signal),
+      fetchSnapshot(token, settings, new AbortController().signal),
     ).rejects.toThrow("protocol-error");
     expect(post).toHaveBeenCalledTimes(1);
   });
-  it("cancels a provider that ignores AbortSignal", async () => {
-    provider.getToken.mockImplementation(() => new Promise(() => {}));
+  it("cancels a transport that ignores AbortSignal", async () => {
+    post.mockImplementation(() => new Promise(() => {}));
     const controller = new AbortController();
-    const work = fetchSnapshot(provider, settings, controller.signal);
+    const work = fetchSnapshot(token, settings, controller.signal);
     controller.abort();
     await expect(work).rejects.toThrow("unavailable");
-    expect(post).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledTimes(1);
   });
   it.each([
     (d: ReturnType<typeof data>) => ({ ...d, clientSecret: "forbidden" }),
@@ -237,13 +220,12 @@ describe("broker transport and validation", () => {
   it("rejects URL userinfo and preserves virtual directory", () => {
     const previous = { ...process.env };
     process.env.MISO_CONTROLLER_URL = "https://miso.test/miso";
-    process.env.MISO_BOOTSTRAP_AUDIENCE = "api://miso";
-    expect(azureSettings()).toEqual({
+    expect(credentialSettings()).toEqual({
       ...settings,
       controllerUrl: "https://miso.test/miso",
     });
     process.env.MISO_CONTROLLER_URL = "https://secret@miso.test";
-    expect(() => azureSettings()).toThrow("invalid-settings");
+    expect(() => credentialSettings()).toThrow("invalid-settings");
     process.env = previous;
   });
 });

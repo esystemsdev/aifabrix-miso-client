@@ -287,11 +287,11 @@ if (token) {
 
 **Client token only:** All controller API calls use only the `x-client-token` header for client authentication. Obtain the client token via config (`clientToken`/`clientTokenExpiresAt`) or a callback (`onClientTokenRefresh`), e.g. from your app backend or a dedicated token service. In browser flows, keep client-token material runtime-memory-only (no `localStorage` persistence). Do not send client id/secret to the controller for normal APIs.
 
-**User token exchange:** To exchange an external token (e.g. Microsoft Entra) for a Keycloak token, use `exchangeUserToken`. The controller validates the external token and returns the Keycloak token and a `tokenExchanged` flag. Protected endpoints may also return the effective token in response headers (`X-Auth-Token`, `X-Token-Exchanged`).
+**User token exchange:** To exchange an external token for a Keycloak token, use `exchangeUserToken`. The controller validates the external token and returns the Keycloak token and a `tokenExchanged` flag. Protected endpoints may also return the effective token in response headers (`X-Auth-Token`, `X-Token-Exchanged`).
 
 ```typescript
-// Exchange external token (e.g. Entra) for Keycloak token
-const result = await client.exchangeUserToken(entraOrExternalToken);
+// Exchange external token for Keycloak token
+const result = await client.exchangeUserToken(externalToken);
 // result.data.accessToken - use as Bearer token for controller calls
 // result.data.tokenExchanged - true if controller exchanged the token
 ```
@@ -1084,7 +1084,7 @@ The SDK consists of five core services:
    aifabrix app register myapp --environment dev
    ```
 
-4. **Start development** and then deploy to Docker or Azure.
+4. **Start development** and then deploy to your container platform.
 
 → [Full Quick Start Guide](https://github.com/esystemsdev/aifabrix-builder) (see repository docs)
 
@@ -1194,6 +1194,6 @@ This project is licensed under the MIT License - see the [LICENSE](./LICENSE) fi
 
 ### Optional server secrets initialization
 
-Use `initSecrets()` from `@aifabrix/miso-client/bootstrap` for a shared local/Azure
-startup API. Unset or `local` auth mode uses existing credentials without Azure calls
-or a new controller endpoint. See [the startup guide](docs/managed-identity-bootstrap.md).
+Use `initSecrets()` from `@aifabrix/miso-client/bootstrap` for local or remote
+configuration. Remote mode exchanges Miso client ID and secret for a client token,
+then fetches application snapshots. See [the startup guide](docs/application-bootstrap.md).

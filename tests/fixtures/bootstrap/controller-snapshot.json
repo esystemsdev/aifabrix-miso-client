@@ -1,0 +1,21 @@
+{
+  "source": "aifabrix-miso/packages/miso-controller/src/services/parameters/bootstrap-snapshot.ts",
+  "sourceSha256": "6b33726c01a3e6c889cf4001a23a24cd76cf91da3f463d6a38c4d804cc875017",
+  "snapshot": {
+    "protocolVersion": 1,
+    "issuedAt": "2030-01-01T00:00:00.000Z",
+    "context": {
+      "installationId": "installation",
+      "applicationId": "application",
+      "environmentId": "environment"
+    },
+    "clientId": "client",
+    "clientToken": "synthetic-token",
+    "clientTokenExpiresAt": "2030-01-01T00:05:00.000Z",
+    "configuration": {
+      "DATABASE_URL": "synthetic-value"
+    },
+    "refreshAfter": "2030-01-01T00:02:00.000Z",
+    "expiresAt": "2030-01-01T00:15:00.000Z"
+  }
+}

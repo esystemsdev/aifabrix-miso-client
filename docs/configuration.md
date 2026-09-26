@@ -182,8 +182,8 @@ mergeRootUrlWithBasePath("https://domain.com", "/miso");
 
 **Server client-token JSON:** the `DataClientConfigResponse` from your backend still has **no** `basePath` field — `baseUrl` / controller URLs in that payload should be full URLs when possible. Browser-side **`DataClientConfig.basePath`** (see [dataclient.md](dataclient.md)) is an optional client-only compatibility field merged once at init.
 
-## Local and managed-identity startup
+## Local and remote startup
 
 For one Node-only startup helper that preserves local credentials and older controller
-compatibility, see [Initialize application secrets](managed-identity-bootstrap.md).
-Azure authentication is explicitly opt-in.
+compatibility, see [Initialize application secrets](application-bootstrap.md).
+Remote configuration is opt-in with `MISO_AUTH_MODE=client-credentials`.
