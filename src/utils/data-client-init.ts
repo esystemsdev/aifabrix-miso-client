@@ -149,7 +149,6 @@ export function createDefaultConfig(
   return {
     tokenKeys: ["miso_token"],
     loginUrl: "/login",
-    preferCookieSessionRestore: true,
     timeout: 30000,
     cache: {
       enabled: true,

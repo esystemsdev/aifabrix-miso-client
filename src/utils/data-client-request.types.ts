@@ -1,21 +1,12 @@
 import {
   ApiRequestOptions,
+  BrowserSessionRecoveryResult,
   DataClientConfig,
   InterceptorConfig,
   CacheEntry,
 } from "../types/data-client.types";
 import { MisoClient } from "../miso-client";
 import { HasAnyTokenFn, GetTokenFn } from "./data-client-audit";
-
-export type RefreshUserTokenFn = () => Promise<{
-  token: string;
-  expiresIn: number;
-} | null>;
-
-export type RestoreUserSessionFn = () => Promise<{
-  token: string;
-  expiresIn: number;
-} | null>;
 
 export interface RetryConfig {
   maxRetries: number;
@@ -49,8 +40,8 @@ export interface AttemptRequestParams {
   hasAnyToken: HasAnyTokenFn;
   getToken: GetTokenFn;
   handleAuthError: () => void;
-  restoreUserSession: RestoreUserSessionFn;
-  refreshUserToken: RefreshUserTokenFn;
+  recoverBrowserSession: () => Promise<BrowserSessionRecoveryResult>;
+  recordBrowserSessionReplayUnauthorized: () => void;
   interceptors: InterceptorConfig;
   metrics: RequestMetricsState;
   options?: ApiRequestOptions;
@@ -71,8 +62,8 @@ export interface ExecuteHttpRequestOptions {
   hasAnyToken: HasAnyTokenFn;
   getToken: GetTokenFn;
   handleAuthError: () => void;
-  restoreUserSession: RestoreUserSessionFn;
-  refreshUserToken: RefreshUserTokenFn;
+  recoverBrowserSession: () => Promise<BrowserSessionRecoveryResult>;
+  recordBrowserSessionReplayUnauthorized: () => void;
   interceptors: InterceptorConfig;
   metrics: RequestMetricsState;
   options?: ApiRequestOptions;

@@ -6,6 +6,7 @@
 import {
   DataClientConfig,
   ApiRequestOptions,
+  BrowserSessionRecoveryResult,
 } from "../types/data-client.types";
 import { ClientTokenInfo } from "./token-utils";
 import * as permissionHelpers from "./data-client-permissions";
@@ -15,12 +16,40 @@ import { DataClientCore } from "./data-client-core";
 import { UserInfo } from "../types/config.types";
 
 export class DataClient extends DataClientCore {
+  /**
+   * Run explicit or unauthorized browser-session recovery through this client's
+   * single-flight lifecycle coordinator.
+   */
+  recoverBrowserSession(
+    trigger: "unauthorized" | "manual",
+  ): Promise<BrowserSessionRecoveryResult> {
+    return this.recoverBrowserSessionInternal(trigger);
+  }
+
+  /** Arm the existing failed-unauthorized backoff after a raw replay returns 401. */
+  recordBrowserSessionReplayUnauthorized(): void {
+    this.recordBrowserSessionReplayUnauthorizedInternal();
+  }
+
+  /** Stop new browser-session recovery and drain the active callback, if any. */
+  dispose(): Promise<void> {
+    return this.disposeBrowserSession();
+  }
+
   async get<T>(endpoint: string, options?: ApiRequestOptions): Promise<T> {
     const finalOptions = await this.applyRequestInterceptor(endpoint, {
       ...options,
       method: "GET",
     });
     return this.request<T>("GET", endpoint, finalOptions);
+  }
+
+  async head<T>(endpoint: string, options?: ApiRequestOptions): Promise<T> {
+    const finalOptions = await this.applyRequestInterceptor(endpoint, {
+      ...options,
+      method: "HEAD",
+    });
+    return this.request<T>("HEAD", endpoint, finalOptions);
   }
 
   async post<T>(

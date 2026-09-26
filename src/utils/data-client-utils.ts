@@ -12,8 +12,6 @@ import jwt from "jsonwebtoken";
 export function isBrowser(): boolean {
   return (
     typeof (globalThis as { window?: unknown }).window !== "undefined" &&
-    typeof (globalThis as { localStorage?: unknown }).localStorage !==
-      "undefined" &&
     typeof (globalThis as { fetch?: unknown }).fetch !== "undefined"
   );
 }

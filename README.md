@@ -193,41 +193,40 @@ const newUser = await dataClient.post("/api/users", { name: "John" });
 // Token is extracted from URL hash fragment (#token=...) and stored securely
 // Hash fragment is immediately removed from URL (< 100ms) for security
 
-// Token refresh callback (automatic refresh on 401 errors)
+// Browser-session lifecycle (periodic + 401 recovery)
 const dataClientWithRefresh = new DataClient({
   baseUrl: "https://api.example.com",
-  enableActivitySessionRefresh: false,
-  activitySessionRefreshIntervalMs: 60000,
   misoConfig: {/* ... */},
-  onTokenRefresh: async () => {
-    // Call your backend endpoint that handles refresh token securely
-    const response = await fetch("/api/refresh-token", {
-      credentials: "include", // Include cookies for auth
-    });
-    return await response.json(); // { token: string, expiresIn: number }
-  },
-
-  // Optional cookie-first restore callback (preferred for enterprise SSO)
-  onSessionRestore: async () => {
-    const response = await fetch("/api/session/restore", {
-      credentials: "include",
-    });
-    if (!response.ok) return null;
-    return await response.json(); // { token: string, expiresAt?: string }
+  browserSession: {
+    restore: async () => {
+      const response = await fetch("/api/v1/auth/session", {
+        credentials: "include",
+      });
+      return response.ok
+        ? { ok: true, auth: { kind: "cookie" } }
+        : {
+            ok: false,
+            reason: response.status === 401 ? "unauthorized" : "server",
+            status: response.status,
+          };
+    },
+    periodicRefreshIntervalMs: 240000,
   },
 });
 ```
 
-When `onTokenRefresh` or `onSessionRestore` is configured, both
-`enableActivitySessionRefresh` and `activitySessionRefreshIntervalMs` are required.
-Initialization fails fast if either value is missing.
+Await `dataClientWithRefresh.dispose()` before server logout, reset, or replacement.
+Use `recoverBrowserSession("manual")` for an explicit touch; do not call lifecycle
+transport callbacks directly.
 
 Final browser token contract:
 
 - browser user access-token state is runtime-memory-only (no JS-readable persistent token storage dependency)
 - `tokenKeys` are cleanup aliases only (for stale-key removal), not runtime browser token sources
 - browser refresh/session flow supports cookie-first `/api/v1/auth/session` and `/api/v1/auth/refresh` (no required frontend `refreshToken` JSON payload)
-- refresh checks are activity-driven (`mousemove`, `click`, `keydown`) with 60-second cadence and no polling loop
+- recovery uses one in-memory four-minute schedule per active DataClient; user
+  activity remains application-owned and creates no SDK auth HTTP
+- the supported lifecycle guarantee is one active authenticated browser tab
 
 → [DataClient](docs/dataclient.md) · [Backend client token](docs/backend-client-token.md)
 
