@@ -178,8 +178,8 @@ Paths: `AUTH_CONTROLLER_PATHS` (`session`, `refresh`, `login`, `callback`, `logo
 
 See [quick-start.md](quick-start.md) for init and [authorization.md](authorization.md) for roles and permissions.
 
-## Local and managed-identity startup
+## Local and remote startup
 
 For one Node-only startup helper that preserves local credentials and older controller
-compatibility, see [Initialize application secrets](managed-identity-bootstrap.md).
-Azure authentication is explicitly opt-in.
+compatibility, see [Initialize application secrets](application-bootstrap.md).
+Remote configuration is opt-in with `MISO_AUTH_MODE=client-credentials`.

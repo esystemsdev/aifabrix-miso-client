@@ -90,7 +90,7 @@ describe("runtime application URL resolution", () => {
         envKey: "dev",
         ownAppKey: "portal",
         bootstrapOrigins: [
-          "http://localhost:*,https://initial.example.com,https://portal.azurewebsites.net",
+          "http://localhost:*,https://initial.example.com,https://portal.example.net",
         ],
         origins: [
           "http://localhost:*",
@@ -101,7 +101,7 @@ describe("runtime application URL resolution", () => {
     ).resolves.toEqual([
       "http://localhost:*",
       "https://portal.frontdoor.example",
-      "https://portal.azurewebsites.net",
+      "https://portal.example.net",
     ]);
   });
 
@@ -124,7 +124,7 @@ describe("runtime application URL resolution", () => {
         envKey: "dev",
         ownAppKey: "portal",
         bootstrapOrigins: [
-          "https://dataplane.initial.example,https://dataplane.azurewebsites.net",
+          "https://dataplane.initial.example,https://dataplane.example.net",
         ],
         origins: [
           "url://dataplane-host-public",
@@ -133,7 +133,7 @@ describe("runtime application URL resolution", () => {
       }),
     ).resolves.toEqual([
       "https://dataplane.frontdoor.example",
-      "https://dataplane.azurewebsites.net",
+      "https://dataplane.example.net",
     ]);
   });
 

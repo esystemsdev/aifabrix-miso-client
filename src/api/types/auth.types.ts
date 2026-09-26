@@ -148,7 +148,7 @@ export interface RefreshTokenResponse {
 }
 
 /**
- * User token exchange request (external token e.g. Entra for Keycloak)
+ * User token exchange request (external token for Keycloak)
  * POST /api/v1/auth/token/exchange
  */
 export interface ExchangeTokenRequest {

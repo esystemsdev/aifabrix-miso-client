@@ -33,6 +33,7 @@ export class RuntimeState {
   constructor(
     private readonly fetch?: (
       signal: AbortSignal,
+      token?: string | null,
     ) => Promise<BootstrapSnapshot>,
   ) {}
 
@@ -123,9 +124,23 @@ export class RuntimeState {
     return this.pending;
   }
 
+  /** Never recursively refresh to obtain the credential for refresh itself. */
+  private refreshAuthorization(): string | null | undefined {
+    if (!this.snapshot) return undefined;
+    if (
+      this.snapshot.clientToken === this.rejectedToken ||
+      this.now() >= Date.parse(this.snapshot.clientTokenExpiresAt) - 30000
+    )
+      return null;
+    return this.snapshot.clientToken;
+  }
+
   private async performRefresh(): Promise<void> {
     try {
-      const snapshot = await this.fetch!(this.controller.signal);
+      const snapshot = await this.fetch!(
+        this.controller.signal,
+        this.refreshAuthorization(),
+      );
       this.assertValid();
       this.accept(snapshot);
     } catch (error) {

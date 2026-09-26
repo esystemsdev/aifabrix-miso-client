@@ -443,9 +443,9 @@ export class AuthService {
   }
 
   /**
-   * Exchange external user token (e.g. Entra) for Keycloak token.
+   * Exchange external user token for Keycloak token.
    * Uses client token only; no client id/secret sent to controller.
-   * @param token - External token (e.g. Entra) to exchange
+   * @param token - External token to exchange
    * @param authStrategy - Optional authentication strategy override
    * Never throws from service layer. Returns fallback payload on failure.
    * @returns Exchange response with accessToken and tokenExchanged flag.

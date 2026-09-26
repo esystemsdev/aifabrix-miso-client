@@ -14,9 +14,7 @@ const FIELDS = [
 const CONTEXT = ["installationId", "applicationId", "environmentId"];
 const RESERVED = new Set([
   "MISO_AUTH_MODE",
-  "MISO_BOOTSTRAP_AUDIENCE",
   "MISO_CONTROLLER_URL",
-  "AZURE_CLIENT_ID",
   "MISO_CLIENTID",
   "MISO_CLIENT_ID",
   "MISO_CLIENTSECRET",
@@ -66,7 +64,12 @@ function configuration(value: unknown): void {
     if (typeof item !== "string" || Buffer.byteLength(item) > 65536) invalid();
   }
 }
-/** Validate the fixed v1 broker data before it can replace runtime state. */
+/**
+ * Validate v1 snapshot data against its schema and current clock.
+ * @param value Untrusted snapshot data (not the response envelope).
+ * @returns Validated snapshot; callers must not log or serialize its secrets.
+ * @throws BootstrapError when the schema, timestamps or configuration are invalid.
+ */
 export function validateSnapshot(value: unknown): BootstrapSnapshot {
   const data = record(value);
   exact(data, FIELDS);

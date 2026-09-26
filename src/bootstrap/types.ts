@@ -10,22 +10,6 @@ export interface BootstrapContext {
 export type RuntimeInvalidationReason =
   "authorization-denied" | "snapshot-expired" | "protocol-error" | "closed";
 
-/** Injectable identity source; the caller retains ownership. */
-export interface BootstrapTokenProvider {
-  getToken(
-    scope: string,
-    abortSignal: AbortSignal,
-  ): Promise<{
-    token: string;
-    expiresAt: Date;
-  }>;
-}
-
-/** Production callers normally use deployment settings and no options. */
-export interface InitSecretsOptions {
-  tokenProvider?: BootstrapTokenProvider;
-}
-
 /** One initialized application runtime. Values must never be logged or serialized. */
 export interface SecretsRuntime {
   readonly client: MisoClient;
@@ -53,7 +37,7 @@ export interface BootstrapSnapshot {
   expiresAt: string;
 }
 
-/** Fixed messages prevent transport/identity errors from exposing credentials. */
+/** Fixed messages prevent transport errors from exposing credentials. */
 export class BootstrapError extends Error {
   constructor(public readonly code: string) {
     super(`Miso initialization failed (${code})`);

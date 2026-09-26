@@ -433,7 +433,7 @@ describe("AuthTokenApi", () => {
   describe("exchangeUserToken", () => {
     it("should call HttpClient.request with body and no client id/secret when no authStrategy", async () => {
       const request: ExchangeTokenRequest = {
-        token: "external-entra-token",
+        token: "external-token",
       };
       const mockResponse: ExchangeTokenResponse = {
         success: true,

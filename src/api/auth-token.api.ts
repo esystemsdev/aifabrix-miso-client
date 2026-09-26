@@ -231,7 +231,7 @@ export class AuthTokenApi {
   }
 
   /**
-   * Exchange external user token (e.g. Entra) for Keycloak token.
+   * Exchange external user token for Keycloak token.
    * Uses client token only (x-client-token); no client id/secret sent to controller.
    * @param request - Exchange request with external token
    * @param authStrategy - Optional authentication strategy override

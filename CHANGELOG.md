@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-09-26
+
+### Changed
+
+- **Application bootstrap** - Use Miso client ID and secret to obtain an initial client token, then fetch and renew snapshots with client tokens in `client-credentials` mode. Local configuration remains compatible.
+- **Provider removal** - Removed the external identity adapter, dependency, provider options and settings. Deployments must update their mode and initial credentials together with the SDK.
+- **Contract validation** - Export `validateSnapshot` and `BootstrapSnapshot` from the Node-only bootstrap entrypoint. Preserve terminal denial, explicit restart recovery and secret-free diagnostics.
+- **Clean packages** - Clear build output before compilation so deleted modules cannot remain in published artifacts.
+
+### Migration
+
+- Call `initSecrets()` without provider options. For remote startup set
+  `MISO_AUTH_MODE=client-credentials`, `MISO_CLIENTID`, `MISO_CLIENTSECRET` and
+  the HTTPS `MISO_CONTROLLER_URL`. Remove the previous identity provider dependency
+  and settings. Local/unset mode remains supported. See [application bootstrap](docs/application-bootstrap.md).
+- Development validation passed on dev01; production rollout still requires
+  controller contract/revocation and consumer connection-rebuild certification.
+
 ## [4.24.1] - 2026-09-24
 
 ### Fixed
@@ -77,31 +95,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Managed identity revocation** - Invalidate runtime tokens and secrets on typed controller identity-denial responses, while preserving local mode and ordinary user/RBAC denial behavior.
+- **Runtime revocation** - Invalidate runtime tokens and secrets on typed controller identity-denial responses, while preserving local mode and ordinary user/RBAC denial behavior.
 - **Expired bootstrap tokens** - Prevent rejected-token reuse, coalesce bounded refresh, ignore late expiry for replaced tokens, and return failed operations without automatic replay.
 - **Managed request isolation** - Pin normal managed-runtime requests to the startup controller HTTPS origin, disable redirects, and reject foreign targets, URL credentials and Basic authentication overrides before dispatch.
 
 ### Technical
 
 - **Regression coverage** - Added protected-response, request-origin, configuration size and clock-skew boundary tests; local/older-controller package smoke remains green.
-- **Azure rollout** - Controller-owned shared-fixture parity and live platform/consumer certification remain required before production Azure rollout. No live platform is currently installed for certification.
+- **Remote rollout** - Controller-owned shared-fixture parity and live platform/consumer certification remain required before production rollout. No live platform is currently installed for certification.
 
 ## [4.23.0] - 2026-09-19
 
 ### Added
 
 - **Server secrets initialization** - Added the Node-only `@aifabrix/miso-client/bootstrap` entrypoint with `initSecrets()`, a shared runtime client, secret accessors, lifecycle notifications and awaitable cleanup.
-- **Older-controller compatibility** - Unset/local mode reuses existing credentials and dotenv precedence without loading Azure Identity, probing managed identity or calling the bootstrap endpoint.
-- **Opt-in managed identity** - Added optional Azure Identity support, identity-only broker requests, strict v1 response validation, token-only SDK configuration and in-memory refresh. Managed-identity mode requires the new controller contract; protected-API denial integration, canonical parity fixtures and live Azure certification remain incomplete and are required before production rollout.
+- **Older-controller compatibility** - Unset/local mode reuses existing credentials and dotenv precedence without calling the bootstrap endpoint.
+- **Legacy external provider** - Added an optional external identity adapter (removed in the unreleased migration), identity-only broker requests, strict v1 response validation, token-only SDK configuration and in-memory refresh. The legacy provider mode requires the new controller contract; protected-API denial integration, canonical parity fixtures and live certification remain incomplete and are required before production rollout.
 
 ### Security
 
-- **Bootstrap isolation** - Pin the validated controller URL, isolate bootstrap HTTP interceptors, reject redirects, bound identity/HTTP operations, sanitize errors and prevent local-credential fallback after managed-identity failure.
+- **Bootstrap isolation** - Pin the validated controller URL, isolate bootstrap HTTP interceptors, reject redirects, bound identity/HTTP operations, sanitize errors and prevent local-credential fallback after legacy-provider failure.
 - **Runtime lifecycle** - Guard outbound requests after invalidation or close, enforce independent token/secret deadlines, suppress late refresh results and make shutdown idempotent.
 
 ### Technical
 
-- **Validation** - Added unit and fresh-process package checks for local compatibility, browser exclusion, managed-identity startup, expiry, cancellation and redaction. Publishing CI runs the package smoke check after building.
+- **Validation** - Added unit and fresh-process package checks for local compatibility, browser exclusion, remote startup, expiry, cancellation and redaction. Publishing CI runs the package smoke check after building.
 - **Release process** - Stage version-line release branches for human PR review before main promotion and npm publication.
 
 ## [4.22.4] - 2026-09-13
@@ -484,7 +502,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **User token exchange** - New `exchangeUserToken(externalToken)` API to exchange an external user token (e.g. Entra) for a Keycloak token. Uses client token only (`x-client-token`); no client id/secret sent to the controller. Exposed on `AuthTokenApi`, `AuthApi`, and `MisoClient`.
+- **User token exchange** - New `exchangeUserToken(externalToken)` API to exchange an external user token for a Keycloak token. Uses client token only (`x-client-token`); no client id/secret sent to the controller. Exposed on `AuthTokenApi`, `AuthApi`, and `MisoClient`.
 - **Exchange types** - `ExchangeTokenRequest` and `ExchangeTokenResponse` interfaces in auth types; endpoint constant for `POST /api/v1/auth/token/exchange`.
 
 ### Technical
@@ -784,7 +802,7 @@ const decrypted = await client.encryption.decrypt(result.value, 'param-name');
 ### Why This Change?
 
 - **Centralized key management** - Encryption keys are managed by the controller, validated server-side
-- **Azure Key Vault support** - Production environments can use Azure Key Vault for secure secret storage
+- **Deployment secret storage** - Production environments can supply credentials through their deployment secret store
 - **Application isolation** - Each application can only access its own encrypted parameters
 - **Audit logging** - All encryption/decryption operations are logged by the controller
 - **Security** - Encryption key prevents misuse of rotated or leaked application credentials

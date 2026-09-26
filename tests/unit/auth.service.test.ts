@@ -2518,11 +2518,11 @@ describe("AuthService", () => {
       };
       mockApiClient.auth.exchangeUserToken.mockResolvedValue(exchangeResponse);
 
-      const result = await authService.exchangeUserToken("entra-token-123");
+      const result = await authService.exchangeUserToken("external-token-123");
 
       expect(result).toEqual(exchangeResponse);
       expect(mockApiClient.auth.exchangeUserToken).toHaveBeenCalledWith(
-        { token: "entra-token-123" },
+        { token: "external-token-123" },
         undefined,
       );
     });
@@ -2536,7 +2536,7 @@ describe("AuthService", () => {
         .spyOn(console, "error")
         .mockImplementation(() => {});
 
-      const result = await authService.exchangeUserToken("entra-token-123");
+      const result = await authService.exchangeUserToken("external-token-123");
 
       expect(result).toEqual({
         success: false,
@@ -2547,7 +2547,7 @@ describe("AuthService", () => {
         timestamp: expect.any(String),
       });
       expect(mockApiClient.auth.exchangeUserToken).toHaveBeenCalledWith(
-        { token: "entra-token-123" },
+        { token: "external-token-123" },
         undefined,
       );
       expect(consoleErrorSpy).toHaveBeenCalledWith(

@@ -526,7 +526,7 @@ describe("MisoClient", () => {
         });
 
       await expect(
-        client.resolveAllowedOrigins(["https://stale.azurewebsites.net"], {
+        client.resolveAllowedOrigins(["https://stale.example.net"], {
           envKey: "miso",
           appKey: "my-app",
         }),

@@ -111,7 +111,7 @@ All controller endpoints use `/api` prefix:
 - `/api/auth/validate` - Validate user token
 - `/api/auth/user` - Get user info
 - `/api/auth/token` - Get client token (legacy; may use x-client-id/x-client-secret only when issuer is not the controller or supports it)
-- `/api/auth/token/exchange` - Exchange external user token (e.g. Entra) for Keycloak token; client auth via x-client-token only
+- `/api/auth/token/exchange` - Exchange external user token for Keycloak token; client auth via x-client-token only
 - `/api/auth/roles` - Get user roles
 - `/api/auth/roles/refresh` - Refresh user roles
 - `/api/auth/permissions` - Get user permissions
@@ -694,7 +694,7 @@ export class AuthApi {
 
 ## Security Guidelines
 
-- **Client-token only on controller**: Never send `x-client-id` or `x-client-secret` to miso-controller for normal API calls. Only `x-client-token` is accepted by the controller. Obtain the client token via config (`clientToken`/`clientTokenExpiresAt`), callback (`onClientTokenRefresh`), or a non-controller token issuer.
+- **Client-token only on controller**: Never send `x-client-id` or `x-client-secret` to miso-controller for normal API calls. Only `x-client-token` is accepted by the controller. Obtain the client token via config (`clientToken`/`clientTokenExpiresAt`), callback (`onClientTokenRefresh`), or the initial `/api/v1/auth/token` credential grant. The grant is the only bootstrap request that sends client ID/secret; snapshot and normal API requests use `x-client-token`.
 - Never log `clientId` or `clientSecret`
 - Never expose client credentials to client-side code
 - Mask sensitive data in logs (use DataMasker)
