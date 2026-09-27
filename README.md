@@ -284,7 +284,7 @@ if (token) {
 
 **Where to get tokens?** Users authenticate via Keycloak, then your app receives JWTs in the `Authorization` header.
 
-**Client token only:** All controller API calls use only the `x-client-token` header for client authentication. Obtain the client token via config (`clientToken`/`clientTokenExpiresAt`) or a callback (`onClientTokenRefresh`), e.g. from your app backend or a dedicated token service. In browser flows, keep client-token material runtime-memory-only (no `localStorage` persistence). Do not send client id/secret to the controller for normal APIs.
+**Client token only:** All controller API calls use only the `x-client-token` header for client authentication. The token is sent **only to the controller origin**: requests to any other host (LLM providers, CRMs, webhooks) go out on a credential-free transport with exactly the headers you pass, minus any SDK credential header. Obtain the client token via config (`clientToken`/`clientTokenExpiresAt`) or a callback (`onClientTokenRefresh`), e.g. from your app backend or a dedicated token service. In browser flows, keep client-token material runtime-memory-only (no `localStorage` persistence). Do not send client id/secret to the controller for normal APIs.
 
 **User token exchange:** To exchange an external token for a Keycloak token, use `exchangeUserToken`. The controller validates the external token and returns the Keycloak token and a `tokenExchanged` flag. Protected endpoints may also return the effective token in response headers (`X-Auth-Token`, `X-Token-Exchanged`).
 

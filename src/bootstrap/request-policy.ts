@@ -1,7 +1,11 @@
 import type { AxiosRequestConfig } from "axios";
 import { BootstrapError } from "./types";
 
-/** Pin managed credentials to the startup controller, including caller overrides. */
+/**
+ * Pin managed credentials to the startup controller, including caller overrides.
+ * Only controller targets reach this policy: `RequestTarget` sends every other
+ * origin on the credential-free transport before the pin is consulted.
+ */
 export function managedRequestPolicy(controllerUrl: string) {
   const origin = new URL(controllerUrl).origin;
   return (request: AxiosRequestConfig): void => {
