@@ -66,6 +66,30 @@ describe("Miso credential bootstrap", () => {
     );
   });
 
+  it.each([
+    "http://localhost:3000/miso",
+    "http://127.0.0.1:3000/miso",
+    "http://[::1]:3000/miso",
+    "http://10.0.0.8:3000/miso",
+    "http://172.21.0.5:3000/miso",
+    "http://192.168.1.5:3000/miso",
+    "http://miso-controller:3000/miso",
+    "http://miso-controller.platform.internal:3000/miso",
+    "http://miso-controller.platform.svc:3000/miso",
+  ])("allows a local or private HTTP controller URL: %s", (url) => {
+    process.env.MISO_CONTROLLER_URL = url;
+    expect(credentialSettings().url).toBe(`${url}/api/v1/auth/bootstrap`);
+  });
+
+  it.each([
+    "http://miso.example.com/miso",
+    "http://8.8.8.8/miso",
+    "ftp://miso-controller/miso",
+  ])("rejects a public HTTP or unsupported controller URL: %s", (url) => {
+    process.env.MISO_CONTROLLER_URL = url;
+    expect(() => credentialSettings()).toThrow("invalid-settings");
+  });
+
   it("mints once, hands off accepted tokens, rotates secrets, and never re-reads credentials", async () => {
     const settings = credentialSettings();
     post
