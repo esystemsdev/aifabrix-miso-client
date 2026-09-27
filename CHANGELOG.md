@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.2] - 2026-09-27
+
+### Changed
+
+- **Origin-routed transports** - `InternalHttpClient` classifies every request by target origin. Relative paths and URLs on `controllerUrl` / `controllerPrivateUrl` / `controllerPublicUrl` carry `x-client-token` and, under a managed runtime, the origin pin and bootstrap response handling. Every other absolute URL (LLM providers, CRMs, webhooks) is sent on a credential-free transport inside the same client: no token lookup, no `x-client-token`, SDK credential headers copied in by the caller are removed, and a provider 401 neither clears the client token nor invalidates the runtime. Protocol-relative URLs and `baseURL` overrides to another origin are external. Replaces both the pre-5.0 behaviour (token sent to every host) and the 5.0 behaviour (`untrusted-request-target` for every non-controller host). Mirrors miso-client python.
+
+### Added
+
+- `RequestTarget` / `originOf` (`src/utils/request-target.ts`) and `InternalHttpClient.getExternalAxiosInstance()`.
+
 ## [5.0.1] - 2026-09-27
 
 ### Fixed

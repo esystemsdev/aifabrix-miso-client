@@ -2,6 +2,10 @@
 
 Expose a client token to the frontend via one backend route. The frontend never sees `clientId` or `clientSecret`; it only receives a short-lived token and a refresh mechanism.
 
+## Client token policy
+
+The client token is sent **only to the controller origin**. `InternalHttpClient` classifies every request by target: a relative path or an absolute URL on `controllerUrl`, `controllerPrivateUrl` or `controllerPublicUrl` is a controller request and carries `x-client-token`; any other absolute URL is sent on a credential-free transport with exactly the headers the caller passed, minus any SDK credential header. A provider's 401 is returned as the provider's error and never touches the client token or the managed runtime.
+
 ## Why
 
 - **Security:** `clientSecret` stays on the server. Browsers only get a token.

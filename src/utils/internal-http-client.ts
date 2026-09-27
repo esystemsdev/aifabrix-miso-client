@@ -1,6 +1,10 @@
 /**
  * Internal HTTP client utility for controller communication
  * This is the base HTTP client without audit/debug logging
+ *
+ * Requests are routed by target origin (see `RequestTarget`): controller
+ * targets carry the client token (and the managed origin pin); external
+ * targets travel on a plain transport that carries no SDK credential.
  */
 
 import axios, {
@@ -24,9 +28,12 @@ import {
   refreshClientTokenFromCallback,
 } from "./client-token-manager";
 import { LoggerContextStorage } from "../services/logger/logger-context-storage";
+import { RequestTarget, createExternalTransport } from "./request-target";
 
 export class InternalHttpClient {
   private axios: AxiosInstance;
+  private external: AxiosInstance;
+  private readonly target: RequestTarget;
   public readonly config: MisoClientConfig;
   private tokenState: TokenState = { token: null, expiresAt: null };
   private tokenRefreshPromise: Promise<string> | null = null;
@@ -34,9 +41,21 @@ export class InternalHttpClient {
 
   constructor(config: MisoClientConfig) {
     this.config = config;
+    this.target = new RequestTarget(config);
     this.initializeTokenFromConfig(config);
     this.axios = this.createAxiosInstance(config);
+    this.external = createExternalTransport(config.timeout ?? 30000);
     this.setupInterceptors();
+  }
+
+  /** Controller targets use the token-bearing instance; everything else the plain one. */
+  private transportFor(
+    url: string,
+    config?: AxiosRequestConfig,
+  ): AxiosInstance {
+    return this.target.isController(url, config?.baseURL)
+      ? this.axios
+      : this.external;
   }
 
   /** Initialize client token from config if provided */
@@ -321,6 +340,11 @@ export class InternalHttpClient {
     return this.axios;
   }
 
+  /** Credential-free transport used for non-controller targets. */
+  getExternalAxiosInstance(): AxiosInstance {
+    return this.external;
+  }
+
   /**
    * Send GET request using client credentials
    * @param url - Request URL
@@ -328,10 +352,8 @@ export class InternalHttpClient {
    * @returns Response data of type T
    */
   async get<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-    return this.executeWithTimeout<T>(
-      (cfg) => this.axios.get<T>(url, cfg),
-      config,
-    );
+    const client = this.transportFor(url, config);
+    return this.executeWithTimeout<T>((cfg) => client.get<T>(url, cfg), config);
   }
 
   /**
@@ -349,8 +371,9 @@ export class InternalHttpClient {
     config?: AxiosRequestConfig,
   ): Promise<T> {
     const { data: _omit, ...restConfig } = config ?? {};
+    const client = this.transportFor(url, config);
     return this.executeWithTimeout<T>(
-      (cfg) => this.axios.post<T>(url, data, cfg),
+      (cfg) => client.post<T>(url, data, cfg),
       restConfig as AxiosRequestConfig,
     );
   }
@@ -370,8 +393,9 @@ export class InternalHttpClient {
     config?: AxiosRequestConfig,
   ): Promise<T> {
     const { data: _omit, ...restConfig } = config ?? {};
+    const client = this.transportFor(url, config);
     return this.executeWithTimeout<T>(
-      (cfg) => this.axios.put<T>(url, data, cfg),
+      (cfg) => client.put<T>(url, data, cfg),
       restConfig as AxiosRequestConfig,
     );
   }
@@ -383,8 +407,9 @@ export class InternalHttpClient {
    * @returns Response data of type T
    */
   async delete<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
+    const client = this.transportFor(url, config);
     return this.executeWithTimeout<T>(
-      (cfg) => this.axios.delete<T>(url, cfg),
+      (cfg) => client.delete<T>(url, cfg),
       config,
     );
   }
