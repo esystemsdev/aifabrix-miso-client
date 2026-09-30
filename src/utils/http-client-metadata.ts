@@ -6,6 +6,10 @@
 import { AxiosResponse, AxiosError, InternalAxiosRequestConfig } from "axios";
 import { MisoClientConfig } from "../types/config.types";
 import jwt from "jsonwebtoken";
+import {
+  createDiagnosticSanitizer,
+  diagnosticData,
+} from "./diagnostic-sanitizer";
 import { resolveControllerUrl } from "./controller-url-resolver";
 
 export interface RequestMetadata {
@@ -58,11 +62,17 @@ export function extractRequestMetadata(
   const requestData = extractRequestData(axiosConfig, error);
   const responseData = extractResponseData(response, error);
 
-  return {
+  const sanitize = createDiagnosticSanitizer(config, axiosConfig);
+  const safe = sanitize({
     ...basicInfo,
     ...requestData,
     ...responseData,
-  };
+    config: undefined,
+    authHeader: undefined,
+    requestBody: diagnosticData(requestData.requestBody),
+    responseBody: diagnosticData(responseData.responseBody),
+  }) as ExtractedMetadata;
+  return { ...safe, config: axiosConfig, authHeader: basicInfo.authHeader };
 }
 
 /**

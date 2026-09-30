@@ -3,6 +3,7 @@
  * Extracts error details from all error types for enhanced logging
  */
 
+import { sanitizeErrorDiagnostic } from "./diagnostic-sanitizer";
 import { MisoClientError } from "./errors";
 import {
   ApiError,
@@ -64,24 +65,16 @@ function extractMisoClientError(
     error.statusCode,
     error.stack,
   );
-  if (error.errorResponse && "correlationId" in error.errorResponse) {
-    info.correlationId =
-      info.correlationId ||
-      (error.errorResponse as { correlationId?: string }).correlationId;
+  info.correlationId =
+    info.correlationId ||
+    error.errorResponse?.correlationId ||
+    (typeof error.errorBody?.correlationId === "string"
+      ? error.errorBody.correlationId
+      : undefined);
+  if (error.errorResponse || error.errorBody) {
+    info.responseBody = { ...error.errorBody, ...error.errorResponse };
   }
-  if (error.errorResponse) {
-    info.responseBody = {
-      errors: error.errorResponse.errors,
-      type: error.errorResponse.type,
-      title: error.errorResponse.title,
-      statusCode: error.errorResponse.statusCode,
-      instance: error.errorResponse.instance,
-      correlationId: (error.errorResponse as { correlationId?: string })
-        .correlationId,
-    };
-  } else if (error.errorBody) {
-    info.responseBody = error.errorBody;
-  }
+  Object.assign(info, sanitizeErrorDiagnostic(error, info));
 }
 
 function extractApiError(error: ApiError, info: StructuredErrorInfo): void {

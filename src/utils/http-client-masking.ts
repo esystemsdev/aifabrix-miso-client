@@ -288,10 +288,16 @@ function createSkippedMaskingResult(
   responseTruncated: boolean;
 } {
   return {
-    headers: requestHeaders,
+    headers: DataMasker.maskSensitiveData(requestHeaders) as Record<
+      string,
+      unknown
+    >,
     requestBody: { _message: "Request body too large, masking skipped" },
     responseBody: { _message: "Response body too large, masking skipped" },
-    responseHeaders,
+    responseHeaders: DataMasker.maskSensitiveData(responseHeaders) as Record<
+      string,
+      unknown
+    >,
     requestTruncated,
     responseTruncated,
   };

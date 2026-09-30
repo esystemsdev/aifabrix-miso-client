@@ -11,15 +11,15 @@ export class AuthStrategyHandler {
    * Returns headers for the first method in the strategy that has required data
    * @param strategy - Authentication strategy configuration
    * @param clientToken - Current client token (for client-token method)
-   * @param clientId - Client ID (for client-credentials method)
-   * @param clientSecret - Client secret (for client-credentials method)
+   * @param _clientId - Legacy argument retained for source compatibility; never emitted
+   * @param _clientSecret - Legacy argument retained for source compatibility; never emitted
    * @returns Headers object with appropriate authentication headers
    */
   static buildAuthHeaders(
     strategy: AuthStrategy,
     clientToken: string | null,
-    clientId?: string,
-    clientSecret?: string,
+    _clientId?: string,
+    _clientSecret?: string,
   ): Record<string, string> {
     const headers: Record<string, string> = {};
 
@@ -41,9 +41,8 @@ export class AuthStrategyHandler {
           break;
 
         case "client-credentials":
-          if (clientId && clientSecret) {
-            headers["x-client-id"] = clientId;
-            headers["x-client-secret"] = clientSecret;
+          if (clientToken) {
+            headers["x-client-token"] = clientToken;
             return headers;
           }
           break;

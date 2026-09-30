@@ -12,6 +12,7 @@ import {
 import { MisoClientConfig, AuthStrategy } from "../types/config.types";
 import { InternalHttpClient } from "./internal-http-client";
 import { LoggerService } from "../services/logger";
+import { diagnosticMessage } from "./diagnostic-sanitizer";
 import { DataMasker } from "./data-masker";
 import {
   extractRequestMetadata,
@@ -111,10 +112,8 @@ export class HttpClient {
       const maskedResponseBody = this.maskKnownSensitiveFields(
         DataMasker.maskSensitiveData(metadata.responseBody),
       );
-
       const requestSize = this.calculatePayloadSize(metadata.requestBody);
       const responseSize = this.calculatePayloadSize(metadata.responseBody);
-
       void this.logger
         .audit(`http.request.${metadata.method}`, metadata.url, {
           method: metadata.method,
@@ -122,12 +121,12 @@ export class HttpClient {
           statusCode: metadata.statusCode,
           duration: metadata.duration,
           userId: metadata.userId || undefined,
-          error: error?.message || undefined,
+          error: diagnosticMessage(error, this.config),
+          application: "***MASKED***",
           requestSize,
           responseSize,
         })
         .catch(() => {});
-
       if (this.config.logLevel === "debug") {
         void this.logger
           .debug(`HTTP ${metadata.method} ${metadata.url}`, {
@@ -144,7 +143,8 @@ export class HttpClient {
             responseBody: this.prepareDebugResponseBody(maskedResponseBody),
             requestSize,
             responseSize,
-            error: error?.message || undefined,
+            error: diagnosticMessage(error, this.config),
+            application: "***MASKED***",
           })
           .catch(() => {});
       }
@@ -264,7 +264,8 @@ export class HttpClient {
             statusCode: metadata.statusCode,
             duration: metadata.duration,
             userId: metadata.userId || undefined,
-            error: error?.message || undefined,
+            error: diagnosticMessage(error, this.config),
+            application: "***MASKED***",
           },
         );
         if (this.config.logLevel === "debug") {
@@ -274,7 +275,8 @@ export class HttpClient {
             statusCode: metadata.statusCode,
             duration: metadata.duration,
             userId: metadata.userId || undefined,
-            error: error?.message || undefined,
+            error: diagnosticMessage(error, this.config),
+            application: "***MASKED***",
           });
         }
       } catch {

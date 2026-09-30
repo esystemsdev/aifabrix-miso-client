@@ -122,7 +122,7 @@ describe("InternalHttpClient", () => {
 
       expect(requestInterceptorFn).not.toBeNull();
       const inputConfig = {
-        headers: { "x-client-id": "client-id-header" },
+        headers: { "x-client-token": "client-token-header" },
       } as unknown as InternalAxiosRequestConfig;
 
       const updatedConfig = await requestInterceptorFn!(inputConfig);
@@ -139,7 +139,7 @@ describe("InternalHttpClient", () => {
       expect(requestInterceptorFn).not.toBeNull();
       const inputConfig = {
         headers: {
-          "x-client-id": "client-id-header",
+          "x-client-token": "client-token-header",
           "x-correlation-id": "corr-existing",
           "x-request-id": "req-existing",
         },
@@ -2129,8 +2129,7 @@ describe("InternalHttpClient", () => {
         requestData,
         expect.objectContaining({
           headers: expect.objectContaining({
-            "x-client-id": "test-client-id",
-            "x-client-secret": "test-secret",
+            "x-client-token": "test-client-token",
           }),
         }),
       );

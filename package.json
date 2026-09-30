@@ -1,6 +1,6 @@
 {
   "name": "@aifabrix/miso-client",
-  "version": "5.0.2",
+  "version": "5.0.3",
   "description": "AI Fabrix Client SDK - Authentication, authorization, logging, and Express.js utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -56,7 +56,9 @@
     "server:start:dev:silent": "pnpm run silent -- --detach server:start:dev:silent .temp/validation/server-05-start-dev \"pnpm --dir server run start:dev\"",
     "all": "pnpm run lint:fix && pnpm run test && pnpm run test:integration:api && pnpm run test:integration && pnpm run build",
     "prepublishOnly": "pnpm run build",
-    "test:bootstrap:package": "node tests/package/bootstrap-runtime.smoke.mjs"
+    "test:bootstrap:package": "node tests/package/bootstrap-runtime.smoke.mjs",
+    "test:e2e": "node --test tests/e2e/*.test.mjs",
+    "test:encryption:live": "node tests/manual/encryption-live.mjs"
   },
   "keywords": [
     "aifabrix",

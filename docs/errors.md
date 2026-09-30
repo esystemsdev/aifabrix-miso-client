@@ -103,3 +103,25 @@ Prefer rethrowing as `AppError` so `handleRouteError` can format and log.
 | SDK/external error | Check `MisoClientError`, use `error.errorResponse`, rethrow as `AppError` |
 
 See [audit-and-logging.md](audit-and-logging.md) for error logging context.
+
+## Safe controller diagnostics
+
+HTTP failures remain `MisoClientError`. `statusCode` always reflects the HTTP
+transport status, including when the controller body disagrees. Structured
+`errorResponse` and extracted `responseBody` preserve safe `code`, `detail`,
+`authMethod`, `clientIdentity`, `instance` and `correlationId` when supplied.
+Identity is never inferred from local credentials. Correlation uses the body first,
+then the `x-correlation-id` response header; explicit extraction options retain
+precedence after sanitization.
+
+`errorBody` is now sanitized rather than raw. Known request credentials, tokens,
+encryption keys, plaintext and encrypted references are redacted even when echoed
+inside ordinary text. Sensitive fields are masked, parsing/traversal is bounded,
+and exceptions do not retain raw Axios configs or causes. Oversized or unreadable
+content is replaced with `***MASKED***`. These protections also cover automatic
+HTTP audit/debug and encryption console diagnostics. Automatic HTTP diagnostics
+mask the application-label fallback to prevent logging the configured client ID;
+application ID and other safe tracing fields remain available.
+
+Redaction covers sensitive field names and values known to the current request;
+it cannot identify every arbitrary secret in controller-generated free text.

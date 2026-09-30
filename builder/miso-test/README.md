@@ -213,3 +213,24 @@ The Miso Test application demonstrates:
 - **Error Handling** - Network errors, timeouts, API errors
 
 See `server/README.md` for detailed documentation about the application.
+
+## SDK encryption E2E tests
+
+Use this application for the live SDK encryption checks:
+
+```bash
+aifabrix resolve miso-test --fresh --json
+pnpm run build:silent
+pnpm run test:encryption:live --credentials-file builder/miso-test/.env \
+  --controller-url https://dev01.aifabrix.dev/miso
+```
+
+The URL above is the current dev01 Builder controller. Use the same installation
+that owns the resolved credentials and encryption key. The harness checks local
+and managed authentication, encrypt/decrypt round trips, wrong-key rejection,
+safe diagnostics and recovery. Safe evidence is written to
+`.temp/plan-validation/68.0/`.
+
+For reproducible local HTTP fixture tests, run `pnpm run test:e2e` after building.
+See [manual test instructions](../../tests/manual/README.md#live-encryption) for
+configuration, storage cleanup and evidence requirements.

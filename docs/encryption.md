@@ -46,7 +46,16 @@ Use the same `parameterName` as for encryption.
 
 ## Errors
 
-On invalid parameter name, missing key, or controller failure, the SDK throws `EncryptionError`. Check `error.code` (e.g. `INVALID_PARAMETER_NAME`, `DECRYPTION_FAILED`) and handle accordingly.
+Local validation failures throw `EncryptionError` (`INVALID_PARAMETER_NAME` or
+`ENCRYPTION_KEY_REQUIRED`). Controller/HTTP failures remain `MisoClientError`;
+inspect `statusCode`, `errorResponse?.code` or `errorBody?.code`. The SDK preserves
+the controller error and safe diagnostics rather than wrapping it in a generic
+encryption failure. See [errors.md](errors.md).
+
+Encryption uses the ordinary client-token request path and does not implicitly
+retry with another identity. Set `cache: { encryptionCacheTTL: 0 }` when verifying
+actual encrypt/decrypt requests. The [manual test instructions](../tests/manual/README.md#live-encryption)
+cover dedicated-app local and managed bootstrap tests, invalid keys and recovery.
 
 ## Summary
 
