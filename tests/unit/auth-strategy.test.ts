@@ -49,14 +49,13 @@ describe("AuthStrategyHandler", () => {
 
       const headers = AuthStrategyHandler.buildAuthHeaders(
         strategy,
-        null,
+        "resolved-client-token",
         "client-id",
         "client-secret",
       );
 
       expect(headers).toEqual({
-        "x-client-id": "client-id",
-        "x-client-secret": "client-secret",
+        "x-client-token": "resolved-client-token",
       });
     });
 

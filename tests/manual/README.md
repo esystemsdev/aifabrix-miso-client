@@ -53,3 +53,65 @@ The Python checkout must have its `.venv/bin/python` available. The script uses 
 live credentials and writes only case names and acceptance results to
 `.temp/plan-validation/66.0/schema-parity.json`. Both SDKs must match each case's
 expected result; matching each other alone is insufficient.
+
+## Automated HTTP E2E tests
+
+```bash
+pnpm run build:silent
+pnpm run test:e2e
+```
+
+These tests start an isolated loopback HTTP controller with synthetic credentials
+and exercise the built SDK, actual Axios HTTP transport, grant/bootstrap, fallback,
+encryption, error conversion, console diagnostics and outgoing audit requests.
+No controller account or Redis is needed. The fixture stores encryption values in
+memory; it proves SDK transport and lifecycle behavior, not production cryptography.
+The publish workflow runs this suite after building, before package checks.
+
+## Live encryption
+
+Use a dedicated disposable application whose credential file contains
+`MISO_CLIENTID`, `MISO_CLIENTSECRET`, `MISO_CONTROLLER_URL` and `ENCRYPTION_KEY`.
+The managed test uses the snapshot `ENCRYPTION_KEY` when present and otherwise the
+same application's resolved Builder key.
+
+```bash
+pnpm run build:silent
+pnpm run test:encryption:live --credentials-file /path/to/test-app/.env \
+  --controller-url https://your-installation.example/miso
+```
+
+The command uses the SDK's HTTPS/internal-HTTP trust policy; it never disables TLS
+verification. The local client uses the public encryption service with caching
+disabled. The managed client obtains a real snapshot and sends encrypt/decrypt
+requests through `runtime.client.requestWithAuthStrategy()` with the resolved key;
+this direct path does not cache encryption results or copy secrets into environment
+variables. The runtime's default encryption service does not automatically load
+snapshot encryption configuration.
+
+Both modes encrypt/decrypt a unique throwaway value, deliberately reject a wrong
+key, and prove recovery with the valid key. Reports contain only check names,
+booleans, request categories, statuses, run IDs and timestamps. Console diagnostics
+are captured in memory and checked against known secrets. Raw errors, credentials,
+plaintext and encrypted references are never written to reports. Failure, missing
+configuration or unavailable bootstrap yields a nonzero exit code.
+
+Safe reports are under `.temp/plan-validation/68.0/` (`--evidence-dir` overrides).
+Local `enc://` references require no remote cleanup. For Key Vault storage, the
+app owner must delete test parameters named `<runId>-local`, `<runId>-local-recovery`,
+`<runId>-managed` and `<runId>-managed-recovery` after evidence review. The SDK has
+no delete-parameter API, so this harness does not promise automatic remote cleanup.
+It closes clients/runtime on success and failure. Running this harness against the
+local fixture validates the harness but does not constitute deployed-controller evidence.
+
+For this checkout's existing Builder test application:
+
+```bash
+aifabrix resolve miso-test --fresh --json
+pnpm run test:encryption:live --credentials-file builder/miso-test/.env \
+  --controller-url https://dev01.aifabrix.dev/miso
+```
+
+The explicit URL is the dev01 controller configured in Builder. The generated
+container hostname and legacy localhost port in the app files may not be reachable
+from the host. Do not reuse this environment's key against another controller.

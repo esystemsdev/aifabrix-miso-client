@@ -326,6 +326,15 @@ export interface RefreshTokenResponse {
  * RFC 7807-style structured error response.
  */
 export interface ErrorResponse {
+  /** Controller error code, preserved after sanitization. */
+  code?: string;
+  /** Safe response-body correlation, falling back to response headers. */
+  correlationId?: string;
+  /** Safe controller explanation. */
+  detail?: string;
+  /** Controller-disclosed identity only; never inferred from local credentials. */
+  clientIdentity?: Record<string, unknown> | string;
+
   errors: string[];
   type: string;
   title: string;

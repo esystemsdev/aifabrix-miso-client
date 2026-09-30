@@ -12,6 +12,10 @@ import {
 import { resolveControllerUrl } from "./controller-url-resolver";
 import { normalizeRootUrl } from "./url-join";
 import { isAxiosError } from "./http-error-handler";
+import {
+  createDiagnosticSanitizer,
+  bindDiagnosticSanitizer,
+} from "./diagnostic-sanitizer";
 import { MisoClientError } from "./errors";
 
 /**
@@ -97,12 +101,19 @@ export function formatTokenFetchError(
   error: unknown,
   correlationId: string,
   clientId: string,
+  config?: MisoClientConfig,
 ): MisoClientError {
-  const errorMessage = error instanceof Error ? error.message : "Unknown error";
+  const sanitize = createDiagnosticSanitizer(
+    config ?? { clientId },
+    isAxiosError(error) ? error.config : undefined,
+  );
+  const errorMessage = sanitize(
+    error instanceof Error ? error.message : "Unknown error",
+  ) as string;
   const statusCode = isAxiosError(error) ? error.response?.status : undefined;
   const details =
     isAxiosError(error) && error.response
-      ? `status: ${error.response.status}, data: ${JSON.stringify(error.response.data)}`
+      ? `status: ${error.response.status}, data: ${JSON.stringify(sanitize(error.response.data))}`
       : isAxiosError(error) && error.request
         ? `code: ${error.code || "N/A"}`
         : "";
@@ -121,13 +132,15 @@ export function formatTokenFetchError(
     authMethod: "client-credentials",
   };
 
-  return new MisoClientError(
-    `Failed to authenticate with client credentials (clientId: ${clientId}) [correlationId: ${correlationId}]`,
+  const result = new MisoClientError(
+    `Failed to authenticate with client credentials [correlationId: ${sanitize(correlationId)}]`,
     errorResponse,
     undefined,
     statusCode || 401,
     "client-credentials",
   );
+  bindDiagnosticSanitizer(result, sanitize);
+  return result;
 }
 
 /**
@@ -202,16 +215,9 @@ export async function fetchClientToken(
     const token = extractTokenFromResponse(response, tokenState);
     if (token) return token;
 
-    throw new Error(
-      `Failed to get client token: Invalid response format. Full response: ${JSON.stringify(
-        {
-          status: response.status,
-          data: response.data,
-        },
-      )} [correlationId: ${correlationId}, clientId: ${clientId}]`,
-    );
+    throw new Error("Failed to get client token: Invalid response format");
   } catch (error) {
-    throw formatTokenFetchError(error, correlationId, clientId);
+    throw formatTokenFetchError(error, correlationId, clientId, config);
   }
 }
 
@@ -247,7 +253,12 @@ export async function refreshClientTokenFromCallback(
     // Clear token on refresh failure
     tokenState.token = null;
     tokenState.expiresAt = null;
-    throw error;
+    const sanitize = createDiagnosticSanitizer(config);
+    throw new Error(
+      sanitize(
+        error instanceof Error ? error.message : "Client token refresh failed",
+      ) as string,
+    );
   }
 }
 

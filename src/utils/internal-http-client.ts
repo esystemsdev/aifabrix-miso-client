@@ -16,7 +16,12 @@ import axios, {
 } from "axios";
 import { MisoClientConfig, AuthStrategy } from "../types/config.types";
 import { getRuntimeGuard } from "./runtime-guard";
-import { AuthStrategyHandler } from "./auth-strategy";
+import { createDiagnosticSanitizer } from "./diagnostic-sanitizer";
+import {
+  executeAuthStrategy,
+  buildAuthStrategyConfig,
+  markOrdinaryAuthFailure,
+} from "./auth-strategy-request";
 import { resolveControllerUrl } from "./controller-url-resolver";
 import { normalizeRootUrl } from "./url-join";
 import { validateHttpResponse } from "./http-response-validator";
@@ -114,6 +119,10 @@ export class InternalHttpClient {
           guard.prepare?.(config);
           const token = await guard.token();
           if (token) config.headers["x-client-token"] = token;
+        }
+        for (const name of Object.keys(config.headers)) {
+          if (["x-client-id", "x-client-secret"].includes(name.toLowerCase()))
+            delete config.headers[name];
         }
         this.attachTraceHeaders(config);
         if (
@@ -239,11 +248,7 @@ export class InternalHttpClient {
     signal1: AbortSignal,
     signal2: AbortSignal,
   ): AbortSignal {
-    const controller = new AbortController();
-    const abort = () => controller.abort();
-    signal1.addEventListener("abort", abort);
-    signal2.addEventListener("abort", abort);
-    return controller.signal;
+    return AbortSignal.any([signal1, signal2]);
   }
 
   /** Execute axios request with timeout wrapper */
@@ -276,14 +281,24 @@ export class InternalHttpClient {
         timeoutPromise,
       ]);
       validateHttpResponse(
-        response.data,
+        createDiagnosticSanitizer(this.config, response.config)(response.data),
         response.config?.url || "",
         this.config,
       );
       return response.data;
     } catch (error) {
       if (isAxiosError(error)) {
-        throw createMisoClientError(error, error.config?.url);
+        const safeError = createMisoClientError(
+          error,
+          error.config?.url,
+          this.config,
+        );
+        markOrdinaryAuthFailure(
+          safeError,
+          error.response?.status,
+          error.response?.data,
+        );
+        throw safeError;
       }
       throw error;
     } finally {
@@ -291,24 +306,6 @@ export class InternalHttpClient {
         clearTimeout(timeoutId);
       }
     }
-  }
-
-  /** Build request config with auth strategy headers */
-  private async buildAuthStrategyConfig(
-    authStrategy: AuthStrategy,
-    baseConfig?: AxiosRequestConfig,
-  ): Promise<AxiosRequestConfig> {
-    const clientToken = await this.getClientToken();
-    const authHeaders = AuthStrategyHandler.buildAuthHeaders(
-      authStrategy,
-      clientToken,
-      this.config.clientId,
-      this.config.clientSecret,
-    );
-    return {
-      ...baseConfig,
-      headers: { ...baseConfig?.headers, ...authHeaders },
-    };
   }
 
   /** Execute request based on HTTP method */
@@ -451,14 +448,18 @@ export class InternalHttpClient {
     config?: AxiosRequestConfig,
     authStrategy?: AuthStrategy,
   ): Promise<T> {
-    const requestConfig = authStrategy
-      ? await this.buildAuthStrategyConfig(authStrategy, config)
-      : {
-          ...config,
-          headers: { ...config?.headers, Authorization: `Bearer ${token}` },
-        };
-
-    return this.executeMethod<T>(method, url, data, requestConfig);
+    if (authStrategy)
+      return this.requestWithAuthStrategy<T>(
+        method,
+        url,
+        authStrategy,
+        data,
+        config,
+      );
+    return this.executeMethod<T>(method, url, data, {
+      ...config,
+      headers: { ...config?.headers, Authorization: `Bearer ${token}` },
+    });
   }
 
   /**
@@ -478,10 +479,18 @@ export class InternalHttpClient {
     data?: unknown,
     config?: AxiosRequestConfig,
   ): Promise<T> {
-    const requestConfig = await this.buildAuthStrategyConfig(
-      authStrategy,
-      config,
-    );
-    return this.executeMethod<T>(method, url, data, requestConfig);
+    if (!this.target.isController(url, config?.baseURL)) {
+      return this.executeMethod<T>(method, url, data, config || {});
+    }
+    return executeAuthStrategy(authStrategy, data, config, async (strategy) => {
+      const guard = getRuntimeGuard(this.config);
+      const token = guard ? await guard.token() : await this.getClientToken();
+      const requestConfig = buildAuthStrategyConfig(
+        strategy,
+        token ?? null,
+        config,
+      );
+      return this.executeMethod<T>(method, url, data, requestConfig);
+    });
   }
 }

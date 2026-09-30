@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.3] - 2026-09-30
+
+### Fixed
+
+- Explicit auth strategies now try the next available method after ordinary HTTP 401s, with fresh application tokens and no stale authorization headers. Typed bootstrap failures, non-auth errors, cancellation and consumed bodies are never replayed.
+- `client-credentials` strategy uses the existing token owner; normal endpoints never receive client ID/secret.
+- Controller errors and automatic HTTP/encryption diagnostics redact known credentials and encryption values, preserve safe diagnostic fields and correlation, and use transport-authoritative status.
+
+### Added
+
+- Real-HTTP SDK E2E tests with isolated grant/bootstrap/controller fixtures, plus a dedicated-app live encryption harness for local/managed round trips, invalid-key diagnostics and recovery.
+
 ## [5.0.2] - 2026-09-27
 
 ### Changed

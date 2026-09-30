@@ -15,6 +15,13 @@ export type AuthErrorMethod =
  * Follows RFC 7807-style structured error format.
  */
 export interface ErrorResponse {
+  /** Controller error code, preserved after sanitization. */
+  code?: string;
+  /** Safe controller explanation. */
+  detail?: string;
+  /** Controller-disclosed identity only; never inferred from local credentials. */
+  clientIdentity?: Record<string, unknown> | string;
+
   /** Human-readable list of error messages. */
   errors: string[];
 

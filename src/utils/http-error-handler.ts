@@ -1,167 +1,160 @@
-/**
- * HTTP error handling utilities for InternalHttpClient
- * Handles error parsing and MisoClientError creation
- */
-
+/** HTTP error conversion: sanitize once before constructing public errors. */
 import { AxiosError } from "axios";
 import {
   ErrorResponse,
   isErrorResponse,
   AuthMethod,
+  MisoClientConfig,
 } from "../types/config.types";
 import { MisoClientError } from "./errors";
+import {
+  bindDiagnosticSanitizer,
+  createDiagnosticSanitizer,
+  diagnosticData,
+  DiagnosticSanitizer,
+} from "./diagnostic-sanitizer";
 
-interface Rfc7807LikeError {
-  type: string;
-  title: string;
-  status: number;
-  detail?: string;
-  instance?: string;
-  authMethod?: AuthMethod | null;
+const AUTH_METHODS = [
+  "bearer",
+  "client-token",
+  "client-credentials",
+  "api-key",
+];
+function authMethod(value: unknown): AuthMethod | undefined {
+  return typeof value === "string" && AUTH_METHODS.includes(value)
+    ? (value as AuthMethod)
+    : undefined;
 }
-
-function isRfc7807LikeError(data: unknown): data is Rfc7807LikeError {
-  if (!data || typeof data !== "object") return false;
-  const obj = data as Record<string, unknown>;
-  return (
-    typeof obj.type === "string" &&
-    typeof obj.title === "string" &&
-    typeof obj.status === "number"
-  );
+function text(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
 }
-
-function toConfigErrorResponse(
-  data: ErrorResponse,
-  requestUrl?: string,
-): ErrorResponse {
-  const dataRecord = data as unknown as Record<string, unknown>;
+function record(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+function diagnostics(data: Record<string, unknown>, correlation?: string) {
   return {
-    errors: data.errors,
-    type: data.type,
-    title: data.title,
-    statusCode: data.statusCode,
-    instance: data.instance || requestUrl,
-    authMethod: dataRecord.authMethod as AuthMethod | undefined,
+    code: text(data.code),
+    detail: text(data.detail),
+    authMethod: authMethod(data.authMethod),
+    clientIdentity: text(data.clientIdentity) ?? record(data.clientIdentity),
+    correlationId: text(data.correlationId) ?? correlation,
   };
 }
-
-function toRfc7807ErrorResponse(
-  data: Rfc7807LikeError,
-  requestUrl?: string,
-): ErrorResponse {
-  return {
-    errors: data.detail ? [data.detail] : [data.title],
-    type: data.type,
-    title: data.title,
-    statusCode: data.status,
-    instance: data.instance || requestUrl,
-    authMethod: data.authMethod ?? undefined,
-  };
-}
-
-function parseErrorLikeData(
-  data: unknown,
-  requestUrl?: string,
+function structured(
+  data: Record<string, unknown>,
+  status?: number,
+  url?: string,
 ): ErrorResponse | null {
-  if (isErrorResponse(data)) return toConfigErrorResponse(data, requestUrl);
-  if (isRfc7807LikeError(data)) return toRfc7807ErrorResponse(data, requestUrl);
-  return null;
+  if (
+    !isErrorResponse(data) &&
+    !(
+      typeof data.type === "string" &&
+      typeof data.title === "string" &&
+      typeof data.status === "number"
+    )
+  )
+    return null;
+  return {
+    errors: Array.isArray(data.errors)
+      ? data.errors.filter((e): e is string => typeof e === "string")
+      : [text(data.detail) ?? String(data.title)],
+    type: String(data.type),
+    title: String(data.title),
+    statusCode: status ?? Number(data.statusCode ?? data.status),
+    instance: text(data.instance) ?? url,
+    ...diagnostics(data),
+  };
 }
 
-/**
- * Detect auth method from request headers (fallback when controller doesn't return authMethod).
- * This provides client-side detection when the controller doesn't include authMethod in the error response.
- * @param headers - Request headers object
- * @returns The detected auth method or null if no auth headers found
- */
+/** Detect attempted authentication only when the controller omits it. */
 export function detectAuthMethodFromHeaders(
   headers?: Record<string, unknown>,
 ): AuthMethod | null {
   if (!headers) return null;
-  if (headers["Authorization"]) return "bearer";
-  if (headers["x-client-token"]) return "client-token";
-  if (headers["x-client-id"]) return "client-credentials";
+  const bag = Object.fromEntries(
+    Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v]),
+  );
+  if (bag.authorization) return "bearer";
+  if (bag["x-client-token"]) return "client-token";
+  if (bag["x-client-id"]) return "client-credentials";
   return null;
 }
 
-/**
- * Parse error response from AxiosError
- * Attempts to parse structured ErrorResponse, falls back to null if parsing fails
- */
+function safeResponse(
+  error: AxiosError,
+  sanitize: DiagnosticSanitizer,
+  requestUrl?: string,
+) {
+  const data = sanitize(diagnosticData(error.response?.data));
+  const body =
+    record(data) ?? (typeof data === "string" ? { detail: data } : undefined);
+  if (body && error.response) {
+    if ("status" in body) body.status = error.response.status;
+    if ("statusCode" in body) body.statusCode = error.response.status;
+    const header = Object.entries(error.response.headers ?? {}).find(
+      ([name]) => name.toLowerCase() === "x-correlation-id",
+    )?.[1];
+    body.correlationId = text(body.correlationId) ?? text(sanitize(header));
+  }
+  return {
+    body,
+    response: body
+      ? structured(body, error.response?.status, text(sanitize(requestUrl)))
+      : null,
+  };
+}
+
+/** Parse bounded RFC/legacy structured errors without exposing raw response data. */
 export function parseErrorResponse(
   error: AxiosError,
   requestUrl?: string,
 ): ErrorResponse | null {
-  try {
-    if (!error.response?.data) return null;
-
-    const data = error.response.data;
-    if (typeof data === "object" && data !== null) {
-      return parseErrorLikeData(data, requestUrl);
-    }
-    if (typeof data !== "string") return null;
-
-    try {
-      const parsed = JSON.parse(data);
-      return parseErrorLikeData(parsed, requestUrl);
-    } catch {
-      return null;
-    }
-  } catch {
-    return null;
-  }
+  return safeResponse(
+    error,
+    createDiagnosticSanitizer(undefined, error.config),
+    requestUrl,
+  ).response;
 }
 
-/**
- * Create MisoClientError from AxiosError
- * Parses structured error response if available, falls back to errorBody
- * For 401 errors, detects auth method from response or request headers
- */
+/** Preserve status and safe diagnostics; never retain Axios request/config/cause. */
 export function createMisoClientError(
   error: AxiosError,
   requestUrl?: string,
+  config?: Partial<MisoClientConfig>,
 ): MisoClientError {
-  const statusCode = error.response?.status;
-  const errorResponse = parseErrorResponse(error, requestUrl);
-
-  // For 401 errors, detect auth method if not in response
-  let authMethod: AuthMethod | null = null;
-  if (statusCode === 401) {
-    authMethod =
-      errorResponse?.authMethod ??
-      detectAuthMethodFromHeaders(
-        error.config?.headers as Record<string, unknown>,
-      );
-  }
-
-  let errorBody: Record<string, unknown> | undefined;
-  if (error.response?.data && typeof error.response.data === "object") {
-    errorBody = error.response.data as Record<string, unknown>;
-  }
-
-  let message = error.message || "Request failed";
-  if (error.response) {
-    message =
-      error.response.statusText ||
-      `Request failed with status code ${statusCode}`;
-  }
-
-  return new MisoClientError(
+  const sanitize = createDiagnosticSanitizer(config, error.config);
+  const { body, response } = safeResponse(error, sanitize, requestUrl);
+  const status = error.response?.status;
+  const method =
+    authMethod(body?.authMethod) ??
+    (status === 401
+      ? detectAuthMethodFromHeaders(
+          error.config?.headers as Record<string, unknown>,
+        )
+      : null);
+  const message =
+    text(sanitize(error.response?.statusText || error.message)) ??
+    "Request failed";
+  const result = new MisoClientError(
     message,
-    errorResponse || undefined,
-    errorBody,
-    statusCode,
-    authMethod,
+    response ?? undefined,
+    body,
+    status,
+    method,
   );
+  bindDiagnosticSanitizer(result, sanitize);
+  return result;
 }
 
-/**
- * Check if error is an AxiosError
- */
+/** Check Axios errors from this or another copy of Axios. */
 export function isAxiosError(error: unknown): error is AxiosError {
   if (error instanceof AxiosError) return true;
-  if (typeof error === "object" && error !== null && "isAxiosError" in error) {
-    return (error as AxiosError).isAxiosError === true;
-  }
-  return false;
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "isAxiosError" in error &&
+    (error as AxiosError).isAxiosError === true
+  );
 }

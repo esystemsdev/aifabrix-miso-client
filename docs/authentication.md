@@ -183,3 +183,22 @@ See [quick-start.md](quick-start.md) for init and [authorization.md](authorizati
 For one Node-only startup helper that preserves local credentials and older controller
 compatibility, see [Initialize application secrets](application-bootstrap.md).
 Remote configuration is opt-in with `MISO_AUTH_MODE=client-credentials`.
+
+## Explicit authentication strategies
+
+`requestWithAuthStrategy()` and HTTP `authenticatedRequest(..., authStrategy)`
+try available methods in the configured order. Only an ordinary HTTP 401 advances
+an explicit strategy to its next method. A Bearer attempt still sends the current
+application token as `x-client-token`; a client-token attempt removes the user
+Authorization header. Token refresh remains owned by the existing client/runtime.
+
+The compatibility name `client-credentials` now resolves a client token. Client ID
+and secret are sent only to the configured initial token grant, never to ordinary
+controller endpoints. This does not switch application tokens to Bearer headers.
+
+403, 422, 429, server errors, network failures, cancellation and typed bootstrap
+failures do not trigger fallback. Managed expiry may refresh for a later call but
+never replays the failed operation. Streams and other non-replayable payloads are
+not retried. Calls without an explicit strategy retain their existing behavior.
+External-origin requests do not acquire SDK credentials or use this fallback loop;
+provide external provider credentials explicitly in request config headers.
