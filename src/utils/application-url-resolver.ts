@@ -118,23 +118,23 @@ export async function resolvePublicOrigins(params: {
   const logicalOrigins = splitOrigins(params.origins);
   const resolved = await Promise.all(
     logicalOrigins.map(async (entry, index) => {
-        const value = entry;
-        if (!value.startsWith("url://")) return value;
-        if (isPrivateBootstrapReference(value)) {
-          const bootstrap = bootstrapOrigins[index];
-          if (!bootstrap || bootstrap.startsWith("url://")) {
-            throw new Error(
-              "Concrete private CORS bootstrap origin is unavailable",
-            );
-          }
-          return new URL(bootstrap).origin;
+      const value = entry;
+      if (!value.startsWith("url://")) return value;
+      if (isPrivateBootstrapReference(value)) {
+        const bootstrap = bootstrapOrigins[index];
+        if (!bootstrap || bootstrap.startsWith("url://")) {
+          throw new Error(
+            "Concrete private CORS bootstrap origin is unavailable",
+          );
         }
-        const publicUrl = await resolvePublicApplicationUrl({
-          ...params,
-          reference: value,
-        });
-        return new URL(publicUrl).origin;
-      }),
+        return new URL(bootstrap).origin;
+      }
+      const publicUrl = await resolvePublicApplicationUrl({
+        ...params,
+        reference: value,
+      });
+      return new URL(publicUrl).origin;
+    }),
   );
   return [...new Set(resolved.filter(Boolean))];
 }

@@ -14,8 +14,7 @@ import { extractErrorInfo } from "../utils/error-extractor";
 import { logErrorWithContext } from "../utils/console-logger";
 
 type ApplicationStatusApiResponse =
-  | ApplicationStatusResponse
-  | { data: ApplicationStatusResponse };
+  ApplicationStatusResponse | { data: ApplicationStatusResponse };
 
 function unwrapApplicationStatus(
   response: ApplicationStatusApiResponse,
@@ -131,20 +130,22 @@ export class ApplicationsApi {
     try {
       let response: ApplicationStatusApiResponse;
       if (authStrategy?.bearerToken) {
-        response = await this.httpClient.authenticatedRequest<ApplicationStatusApiResponse>(
-          "GET",
-          path,
-          authStrategy.bearerToken,
-          undefined,
-          undefined,
-          authStrategy,
-        );
+        response =
+          await this.httpClient.authenticatedRequest<ApplicationStatusApiResponse>(
+            "GET",
+            path,
+            authStrategy.bearerToken,
+            undefined,
+            undefined,
+            authStrategy,
+          );
       } else if (authStrategy) {
-        response = await this.httpClient.requestWithAuthStrategy<ApplicationStatusApiResponse>(
-          "GET",
-          path,
-          authStrategy,
-        );
+        response =
+          await this.httpClient.requestWithAuthStrategy<ApplicationStatusApiResponse>(
+            "GET",
+            path,
+            authStrategy,
+          );
       } else {
         response = await this.httpClient.request<ApplicationStatusApiResponse>(
           "GET",
