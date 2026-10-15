@@ -12,7 +12,7 @@ Run from the repository root. Follow [deployment process](../process/deployment.
 4. Read `package.json` and the matching top `CHANGELOG.md` entry at the approved release SHA. Derive `version` and `releaseTag=v{version}` there, not from the development checkout.
 5. Verify successful CodeQL evidence with zero findings for that exact SHA, following `/push-release-branch`.
 6. Check npm for the exact version. Only an explicit version-not-found response establishes availability; network/authentication errors are blockers. If already published, verify existing release/tag/run evidence and report it instead of republishing.
-7. Validate the release SHA in an isolated worktree with `/validate-tests` and `pnpm run build:silent`. If validation changes tracked files, return fixes through development and a new release PR before publishing.
+7. Validate the release SHA in an isolated worktree with `/validate-tests`, `pnpm run build:silent`, `pnpm run test:e2e`, `pnpm run test:bootstrap:package` and `pnpm pack` (all publish-workflow checks). If validation changes tracked files, return fixes through development and a new release PR before publishing.
 
 ## 2. Tag and publish GitHub Release
 

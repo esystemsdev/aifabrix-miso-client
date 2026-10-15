@@ -40,7 +40,16 @@ Run [/repair-release](repair-release.md) only when preparation is needed. Reuse 
 
 ## 2. Validate and commit
 
-Run [/validate-tests](validate-tests.md), then `pnpm run build:silent`. Inspect `.temp/validation/` on failure, repair relevant issues, and repeat affected checks. Show test typecheck, lint, test, and build results.
+Run [/validate-tests](validate-tests.md), then the full publish pipeline that `.github/workflows/publish.yml` runs, in this order:
+
+```bash
+pnpm run build:silent
+pnpm run test:e2e
+pnpm run test:bootstrap:package
+pnpm pack --pack-destination .temp/validation   # tarball must contain dist/index.js
+```
+
+`/validate-tests` alone does not cover `test:e2e` or `test:bootstrap:package`; a release is not ready until every publish-workflow check passes locally. Inspect `.temp/validation/` on failure, repair relevant issues, and repeat affected checks. Show test typecheck, lint, test, build, e2e, package and pack results.
 
 Review the final diff, stage explicit relevant paths, and commit the validated release work under the applicable authorization. Never use blanket staging to collect unrelated files. Record `releaseSha`.
 
