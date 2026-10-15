@@ -102,7 +102,8 @@ describe("LoggerService Getter Methods", () => {
       expect(logEntry).toBeDefined();
       expect(logEntry.message).toBe("User action");
       expect(logEntry.level).toBe("info");
-      expect(logEntry.application).toBe("ctrl-dev-test-app");
+      // Plan 69.0: a non-standard clientId is never used as the application label.
+      expect(logEntry.application).toBe("");
       expect(logEntry.correlationId).toBe("req-correlation-123");
       expect(logEntry.userId).toBe("user-123");
       expect(logEntry.sessionId).toBe("session-456");
@@ -229,6 +230,22 @@ describe("LoggerService Getter Methods", () => {
   });
 
   describe("getWithContext", () => {
+    it("[EDGE] uses the app part of a standard clientId, never the raw clientId", () => {
+      config.clientId = "miso-controller-dev-builder-api";
+      const service = new LoggerService(mockHttpClient, mockRedisService);
+
+      const logEntry = service.getWithContext({}, "Started", "info");
+
+      expect(logEntry.application).toBe("builder-api");
+      expect(JSON.stringify(logEntry)).not.toContain(config.clientId);
+    });
+
+    it("[EDGE] never labels logs with a non-standard clientId", () => {
+      const logEntry = loggerService.getWithContext({}, "Started", "info");
+
+      expect(JSON.stringify(logEntry)).not.toContain("ctrl-dev-test-app");
+    });
+
     it("should return LogEntry with provided context", () => {
       const logEntry = loggerService.getWithContext(
         { operation: "sync", count: 10 },
@@ -239,7 +256,8 @@ describe("LoggerService Getter Methods", () => {
       expect(logEntry).toBeDefined();
       expect(logEntry.message).toBe("Sync started");
       expect(logEntry.level).toBe("info");
-      expect(logEntry.application).toBe("ctrl-dev-test-app");
+      // Plan 69.0: a non-standard clientId is never used as the application label.
+      expect(logEntry.application).toBe("");
       expect(logEntry.correlationId).toBeDefined();
       expect(logEntry.context).toEqual({ operation: "sync", count: 10 });
       expect(logEntry.timestamp).toBeDefined();
@@ -276,7 +294,8 @@ describe("LoggerService Getter Methods", () => {
       const logEntry = loggerService.getWithContext({}, "Test");
 
       expect(logEntry.environment).toBe("unknown");
-      expect(logEntry.application).toBe("ctrl-dev-test-app");
+      // Plan 69.0: a non-standard clientId is never used as the application label.
+      expect(logEntry.application).toBe("");
     });
   });
 

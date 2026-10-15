@@ -33,7 +33,6 @@ export interface BuildLogEntryParams {
   appContext: ReturnType<ApplicationContextService["getApplicationContext"]>;
   loggerContext: ReturnType<LoggerContextStorage["getContext"]> | null;
   correlationId: string;
-  clientId: string;
 }
 
 export function resolveCorrelationId(
@@ -65,8 +64,7 @@ function resolvePrimaryTraceFields(params: BuildLogEntryParams): {
     pickFirstNonEmpty(
       params.maskedContext?.application,
       params.appContext.application,
-      params.clientId,
-    ) || params.clientId;
+    ) || "";
   const requestId = pickFirstNonEmpty(
     params.maskedContext?.requestId,
     params.loggerContext?.requestId,

@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Automatic HTTP audit and debug logs no longer send `application: "***MASKED***"`; the field is omitted so the logger resolves the application from the client token (or the non-secret `clientId`), and Audit & Logs shows real application names again.
+- Automatic HTTP audit and debug logs no longer send `application: "***MASKED***"`; the field is omitted so the logger resolves the application from the client token or the app part of a standard `miso-controller-{env}-{app}` clientId, and Audit & Logs shows real application names again.
+- Logs never use the raw `clientId` as the `application` label; when neither the client token nor the clientId format yields an application, the label is left out of the request and the controller attributes the log to the authenticated application. The `clientId` option of `getWithContext`/`getLogWithRequest` is deprecated and ignored.
 
 ## [5.0.4] - 2026-10-15
 

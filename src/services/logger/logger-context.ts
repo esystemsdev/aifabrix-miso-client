@@ -79,6 +79,7 @@ export interface GetLogWithRequestOptions {
   applicationContextService: ApplicationContextService;
   generateCorrelationId: () => string;
   maskSensitiveData: boolean;
+  /** @deprecated Ignored; the raw clientId is never used as the application label. */
   clientId?: string;
 }
 
@@ -98,7 +99,6 @@ function resolveRequestTraceFields(input: {
   appContext: ReturnType<ApplicationContextService["getApplicationContext"]>;
   requestContext: ReturnType<typeof extractRequestContext>;
   jwtContext: ReturnType<typeof extractJwtContext>;
-  clientId?: string;
 }): {
   applicationId: string;
   application: string;
@@ -117,7 +117,6 @@ function resolveRequestTraceFields(input: {
       pickFirstNonEmpty(
         input.context?.application,
         input.appContext.application,
-        input.clientId,
       ) || "",
     environment:
       pickFirstNonEmpty(
@@ -146,7 +145,7 @@ function resolveRequestTraceFields(input: {
  * @param message - Log message
  * @param level - Optional log level (defaults to 'info')
  * @param context - Optional additional context
- * @param options - Options with applicationContextService, generateCorrelationId, maskSensitiveData, clientId
+ * @param options - Options with applicationContextService, generateCorrelationId, maskSensitiveData
  * @returns Complete LogEntry object with all request context extracted
  */
 export function getLogWithRequest(
@@ -160,7 +159,6 @@ export function getLogWithRequest(
     applicationContextService,
     generateCorrelationId,
     maskSensitiveData,
-    clientId,
   } = options;
   const requestContext = extractRequestContext(req);
   const jwtContext = extractJwtContext(
@@ -178,7 +176,6 @@ export function getLogWithRequest(
     appContext,
     requestContext,
     jwtContext,
-    clientId,
   });
 
   return {
@@ -205,6 +202,7 @@ export interface GetWithContextOptions {
   applicationContextService: ApplicationContextService;
   generateCorrelationId: () => string;
   maskSensitiveData: boolean;
+  /** @deprecated Ignored; the raw clientId is never used as the application label. */
   clientId?: string;
 }
 
@@ -215,7 +213,7 @@ export interface GetWithContextOptions {
  * @param context - Context object to include in logs
  * @param message - Log message
  * @param level - Optional log level (defaults to 'info')
- * @param options - Options with applicationContextService, generateCorrelationId, maskSensitiveData, clientId
+ * @param options - Options with applicationContextService, generateCorrelationId, maskSensitiveData
  * @returns Complete LogEntry object
  *
  * @example
@@ -234,7 +232,6 @@ export function getWithContext(
     applicationContextService,
     generateCorrelationId,
     maskSensitiveData,
-    clientId,
   } = options;
   const metadata = extractEnvironmentMetadata();
   const correlationId = generateCorrelationId();
@@ -246,8 +243,7 @@ export function getWithContext(
     : context;
 
   const application =
-    pickFirstNonEmpty(context.application, appContext.application, clientId) ||
-    "";
+    pickFirstNonEmpty(context.application, appContext.application) || "";
   const environment =
     pickFirstNonEmpty(context.environment, appContext.environment, "unknown") ||
     "unknown";

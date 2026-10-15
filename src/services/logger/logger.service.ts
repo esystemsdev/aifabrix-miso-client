@@ -237,7 +237,6 @@ export class LoggerService extends EventEmitter {
       appContext,
       loggerContext,
       correlationId,
-      clientId: this.httpClient.config.clientId,
     });
 
     if (this.httpClient.config.emitEvents) {

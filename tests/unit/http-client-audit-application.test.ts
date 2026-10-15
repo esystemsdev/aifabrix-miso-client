@@ -8,6 +8,8 @@ import * as httpClientAudit from "../../src/utils/http-client-audit";
 import { logHttpRequestAudit } from "../../src/utils/http-client-audit";
 import * as httpClientMetadata from "../../src/utils/http-client-metadata";
 import { HttpClient } from "../../src/utils/http-client";
+import { buildEnrichedLogContext } from "../../src/services/logger/log-entry-builder";
+import { LogEntry } from "../../src/types/config.types";
 import { ExtractedMetadata } from "../../src/utils/http-client-metadata";
 import { MisoClientConfig } from "../../src/types/config.types";
 import { LoggerService } from "../../src/services/logger";
@@ -114,6 +116,21 @@ describe("HTTP audit application label (plan 69.0)", () => {
     expect(logger.audit.mock.calls[0][2]).not.toHaveProperty("application");
     expect(logger.debug.mock.calls[0][1]).not.toHaveProperty("application");
     jest.restoreAllMocks();
+  });
+
+  it("[EDGE] empty application label is omitted from the controller payload", () => {
+    const entry = {
+      timestamp: "2026-10-15T00:00:00.000Z",
+      level: "audit",
+      environment: "unknown",
+      application: "",
+      applicationId: "",
+      message: "Audit: http.request.POST",
+      context: { method: "POST" },
+      correlationId: "c-1",
+    } as LogEntry;
+
+    expect(buildEnrichedLogContext(entry)).not.toHaveProperty("application");
   });
 
   it("[EDGE] no source file assigns a masking placeholder to application", () => {

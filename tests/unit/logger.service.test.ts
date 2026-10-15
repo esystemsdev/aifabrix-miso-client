@@ -102,7 +102,8 @@ describe("LoggerService", () => {
       );
       expect(mockRedisService.rpush).toHaveBeenCalledWith(
         "logs:ctrl-dev-test-app",
-        expect.stringContaining('"application":"ctrl-dev-test-app"'),
+        // Plan 69.0: a non-standard clientId is never used as the application label.
+        expect.stringContaining('"application":""'),
       );
       expect(mockHttpClient.request).not.toHaveBeenCalled();
     });
@@ -1010,7 +1011,7 @@ describe("LoggerService", () => {
         message: "Test error",
         context: { userId: "123" },
         environment: "unknown",
-        application: "ctrl-dev-test-app",
+        application: "",
       });
       expect(emittedLog.timestamp).toBeDefined();
       expect(emittedLog.correlationId).toBeDefined();
@@ -1088,7 +1089,7 @@ describe("LoggerService", () => {
       expect(emittedLog).toHaveProperty("timestamp");
       expect(emittedLog).toHaveProperty("level", "info");
       expect(emittedLog).toHaveProperty("environment", "unknown");
-      expect(emittedLog).toHaveProperty("application", "ctrl-dev-test-app");
+      expect(emittedLog).toHaveProperty("application", "");
       expect(emittedLog).toHaveProperty("applicationId", "app-123");
       expect(emittedLog).toHaveProperty("message", "Test");
       expect(emittedLog).toHaveProperty("context");
