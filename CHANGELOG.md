@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.6] - 2026-10-15
+
+### Technical
+
+- Formatting-only cleanups in `applications.api.ts`, `auth-cache-helpers.ts` and `application-url-resolver.ts` (no behavior change), plus the server `index.html` and client-token endpoint test.
+- `.gitignore` ignores machine-local agent settings (`.claude/settings.local.json`, `.codex/config.toml`).
+
 ## [5.0.5] - 2026-10-15
 
 ### Fixed
