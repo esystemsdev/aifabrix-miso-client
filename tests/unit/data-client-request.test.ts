@@ -141,15 +141,58 @@ describe("data-client-request auth recovery", () => {
   });
 
   it("never recovers on 403", async () => {
-    jest
+    const forbiddenResponse = jsonResponse({}, 403);
+    const fetchMock = jest
       .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(jsonResponse({}, 403));
-    const opts = createBaseOptions();
+      .mockResolvedValueOnce(forbiddenResponse);
+    const onResponse = jest.fn();
+    const onError = jest.fn((error: Error) => error);
+    const opts = createBaseOptions({
+      interceptors: { onResponse, onError },
+    });
 
     await expect(executeHttpRequest(opts)).rejects.toMatchObject({
       statusCode: 403,
+      response: forbiddenResponse,
     });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(opts.recoverBrowserSession).not.toHaveBeenCalled();
+    expect(opts.recordBrowserSessionReplayUnauthorized).not.toHaveBeenCalled();
+    expect(opts.handleAuthError).not.toHaveBeenCalled();
+    expect(onResponse).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toMatchObject({
+      statusCode: 403,
+      response: forbiddenResponse,
+    });
+  });
+
+  it("makes a replayed 403 final without authentication cleanup", async () => {
+    const replayResponse = jsonResponse({}, 403);
+    const fetchMock = jest
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({}, 401))
+      .mockResolvedValueOnce(replayResponse);
+    const onResponse = jest.fn();
+    const onError = jest.fn((error: Error) => error);
+    const opts = createBaseOptions({
+      interceptors: { onResponse, onError },
+    });
+
+    await expect(executeHttpRequest(opts)).rejects.toMatchObject({
+      statusCode: 403,
+      response: replayResponse,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(opts.recoverBrowserSession).toHaveBeenCalledTimes(1);
+    expect(opts.recordBrowserSessionReplayUnauthorized).not.toHaveBeenCalled();
+    expect(opts.handleAuthError).not.toHaveBeenCalled();
+    expect(onResponse).not.toHaveBeenCalled();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onError.mock.calls[0][0]).toMatchObject({
+      statusCode: 403,
+      response: replayResponse,
+    });
   });
 
   it("never recovers on an auth endpoint 401", async () => {

@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Automatic HTTP audit and debug logs no longer send `application: "***MASKED***"`; the field is omitted so the controller attributes each log to the authenticated application, and Audit & Logs shows real application names again.
 
+## [5.0.4] - 2026-10-15
+
+### Fixed
+
+- DataClient preserves HTTP 403 authorization failures without clearing the valid browser session or redirecting to login.
+
 ## [5.0.3] - 2026-09-30
 
 ### Fixed
