@@ -7,9 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.0.5] - 2026-10-15
+
 ### Fixed
 
-- Automatic HTTP audit and debug logs no longer send `application: "***MASKED***"`; the field is omitted so the controller attributes each log to the authenticated application, and Audit & Logs shows real application names again.
+- Automatic HTTP audit and debug logs no longer send `application: "***MASKED***"`; the field is omitted so the logger resolves the application from the client token (or the non-secret `clientId`), and Audit & Logs shows real application names again.
 
 ## [5.0.4] - 2026-10-15
 
