@@ -112,9 +112,7 @@ describe('Client Token Endpoint Integration Tests', () => {
     // Create MisoClient with test config
     misoClient = new MisoClient(testConfig);
     await misoClient.initialize();
-    jest
-      .spyOn(misoClient, 'resolveAllowedOrigins')
-      .mockImplementation(async (origins) => origins);
+    jest.spyOn(misoClient, 'resolveAllowedOrigins').mockImplementation(async (origins) => origins);
 
     // Register client-token endpoint
     app.post(

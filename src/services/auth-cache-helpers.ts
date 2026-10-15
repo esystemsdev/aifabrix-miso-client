@@ -29,7 +29,9 @@ function sanitizeCacheKeySegment(value: string): string {
  * Build a stable non-sensitive token fingerprint for cache keys.
  */
 function buildTokenFingerprint(token: string): string {
-  const fallbackSignature = sanitizeCacheKeySegment(token.slice(-24) || "no-token");
+  const fallbackSignature = sanitizeCacheKeySegment(
+    token.slice(-24) || "no-token",
+  );
   const tokenSegments = token.split(".");
   const signatureHint =
     tokenSegments.length === 3
