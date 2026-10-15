@@ -204,17 +204,16 @@ function resolveRetryConfig(
   };
 }
 
-function isAuthStatus(status?: number): boolean {
-  return status === 401 || status === 403;
+function isAuthenticationStatus(status?: number): boolean {
+  return status === 401;
 }
 
-function isAuthErrorInstance(error: unknown): boolean {
+function isAuthenticationError(error: unknown): boolean {
   const errorObj = error as ApiError;
   return (
     error instanceof AuthenticationError ||
     errorObj.name === "AuthenticationError" ||
-    errorObj.statusCode === 401 ||
-    errorObj.statusCode === 403
+    errorObj.statusCode === 401
   );
 }
 
@@ -246,20 +245,17 @@ async function handleAuthResponse<T>(
   params: AttemptRequestParams & { response: Response; responseStatus: number },
 ): Promise<T | null> {
   const { responseStatus, attempt, state } = params;
-  if (!isAuthStatus(responseStatus)) {
+  if (!isAuthenticationStatus(responseStatus)) {
     return null;
   }
 
   if (attempt > 0 && state.tokenRefreshAttempted) {
     state.authErrorDetected = true;
-    if (responseStatus === 401) {
-      params.recordBrowserSessionReplayUnauthorized();
-    }
-    throw createAuthError(responseStatus, params.response);
+    params.recordBrowserSessionReplayUnauthorized();
+    throw createAuthenticationError(params.response);
   }
 
   if (
-    responseStatus === 401 &&
     !state.tokenRefreshAttempted &&
     !isAuthRecoveryEndpoint(params.endpoint)
   ) {
@@ -270,12 +266,12 @@ async function handleAuthResponse<T>(
         return attemptRequest<T>({ ...params, attempt: params.attempt + 1 });
       }
       state.authErrorDetected = true;
-      throw createAuthError(responseStatus, params.response);
+      throw createAuthenticationError(params.response);
     }
   }
 
   state.authErrorDetected = true;
-  const authError = createAuthError(responseStatus, params.response);
+  const authError = createAuthenticationError(params.response);
 
   handleAuthErrorCleanup({
     error: authError,
@@ -294,10 +290,8 @@ async function handleAuthResponse<T>(
   throw authError;
 }
 
-function createAuthError(status: number, response: Response): ApiError {
-  return status === 401
-    ? new AuthenticationError("Authentication required", response)
-    : new ApiError("Forbidden", 403, response);
+function createAuthenticationError(response: Response): AuthenticationError {
+  return new AuthenticationError("Authentication required", response);
 }
 
 function isReplayableMethod(method: string): boolean {
@@ -320,7 +314,9 @@ async function handleAttemptError<T>(
 ): Promise<T> {
   const { error, responseStatus, state, attempt, retryConfig } = params;
   if (state.tokenRefreshAttempted && attempt > 0) throw error;
-  if (shouldPropagateAuthError(error, responseStatus, state)) throw error;
+  if (shouldPropagateAuthenticationError(error, responseStatus, state)) {
+    throw error;
+  }
 
   const errorObj = error as ApiError;
   const statusCode = resolveStatusCode(errorObj, responseStatus);
@@ -342,19 +338,19 @@ async function handleAttemptError<T>(
   return attemptRequest<T>({ ...params, attempt: attempt + 1 });
 }
 
-function shouldPropagateAuthError(
+function shouldPropagateAuthenticationError(
   error: unknown,
   responseStatus: number | undefined,
   state: RequestRetryState,
 ): boolean {
-  if (state.tokenRefreshAttempted && isAuthStatus(responseStatus)) {
+  if (state.tokenRefreshAttempted && isAuthenticationStatus(responseStatus)) {
     state.authErrorDetected = true;
     return true;
   }
   if (
     error instanceof AuthenticationError ||
-    isAuthStatus(responseStatus) ||
-    isAuthErrorInstance(error)
+    isAuthenticationStatus(responseStatus) ||
+    isAuthenticationError(error)
   ) {
     state.authErrorDetected = true;
     return true;
@@ -367,7 +363,7 @@ async function handleNonRetryableRequestError(
   error: Error,
   statusCode: number | undefined,
 ): Promise<void> {
-  if (isAuthStatus(statusCode)) {
+  if (isAuthenticationStatus(statusCode)) {
     params.state.authErrorDetected = true;
     throw error;
   }
@@ -383,6 +379,38 @@ async function handleNonRetryableRequestError(
     misoClient: params.misoClient,
     hasAnyToken: params.hasAnyToken,
     getToken: params.getToken,
+    metrics: params.metrics,
+    options: params.options,
+  });
+}
+
+async function handleRequestResponse<T>(
+  params: AttemptRequestParams & { response: Response; responseStatus: number },
+): Promise<T> {
+  const authResult = await handleAuthResponse<T>(params);
+  if (authResult) {
+    return authResult;
+  }
+
+  if (params.responseStatus === 403) {
+    throw new ApiError("Forbidden", 403, params.response);
+  }
+
+  const data = await parseResponse<T>(params.response);
+  return processSuccessfulResponse<T>({
+    response: params.response,
+    data,
+    method: params.method,
+    endpoint: params.endpoint,
+    startTime: params.startTime,
+    config: params.config,
+    cache: params.cache,
+    cacheKey: params.cacheKey,
+    cacheEnabled: params.cacheEnabled,
+    misoClient: params.misoClient,
+    hasAnyToken: params.hasAnyToken,
+    getToken: params.getToken,
+    interceptors: params.interceptors,
     metrics: params.metrics,
     options: params.options,
   });
@@ -408,32 +436,10 @@ async function attemptRequest<T>(params: AttemptRequestParams): Promise<T> {
     );
     responseStatus = response.status;
 
-    const authResult = await handleAuthResponse<T>({
+    return await handleRequestResponse<T>({
       ...params,
       response,
       responseStatus,
-    });
-    if (authResult) {
-      return authResult;
-    }
-
-    const data = await parseResponse<T>(response);
-    return await processSuccessfulResponse<T>({
-      response,
-      data,
-      method: params.method,
-      endpoint: params.endpoint,
-      startTime: params.startTime,
-      config: params.config,
-      cache: params.cache,
-      cacheKey: params.cacheKey,
-      cacheEnabled: params.cacheEnabled,
-      misoClient: params.misoClient,
-      hasAnyToken: params.hasAnyToken,
-      getToken: params.getToken,
-      interceptors: params.interceptors,
-      metrics: params.metrics,
-      options: params.options,
     });
   } catch (error) {
     return handleAttemptError<T>({
@@ -449,7 +455,7 @@ async function handleFinalError(
   interceptors: InterceptorConfig,
   metrics: { totalFailures: number },
 ): Promise<never> {
-  const isAuthError = isAuthErrorInstance(error);
+  const isAuthError = isAuthenticationError(error);
   metrics.totalFailures++;
 
   if (interceptors.onError && !isAuthError) {
