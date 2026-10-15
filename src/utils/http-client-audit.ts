@@ -84,7 +84,6 @@ async function handleMinimalAudit(
       duration: metadata.duration,
       userId: metadata.userId || undefined,
       error: error?.message || undefined,
-      application: "***MASKED***",
     });
   });
 }
@@ -273,7 +272,6 @@ function buildAuditContext(
     duration: metadata.duration,
     userId: metadata.userId || undefined,
     error: error?.message || undefined,
-    application: "***MASKED***",
   };
 
   if (auditLevel === "detailed" || auditLevel === "full") {
@@ -406,6 +404,5 @@ function buildDebugContext(
         ? sizes.responseSize
         : undefined,
     error: error?.message || undefined,
-    application: "***MASKED***",
   };
 }

@@ -122,7 +122,6 @@ export class HttpClient {
           duration: metadata.duration,
           userId: metadata.userId || undefined,
           error: diagnosticMessage(error, this.config),
-          application: "***MASKED***",
           requestSize,
           responseSize,
         })
@@ -144,7 +143,6 @@ export class HttpClient {
             requestSize,
             responseSize,
             error: diagnosticMessage(error, this.config),
-            application: "***MASKED***",
           })
           .catch(() => {});
       }
@@ -265,7 +263,6 @@ export class HttpClient {
             duration: metadata.duration,
             userId: metadata.userId || undefined,
             error: diagnosticMessage(error, this.config),
-            application: "***MASKED***",
           },
         );
         if (this.config.logLevel === "debug") {
@@ -276,7 +273,6 @@ export class HttpClient {
             duration: metadata.duration,
             userId: metadata.userId || undefined,
             error: diagnosticMessage(error, this.config),
-            application: "***MASKED***",
           });
         }
       } catch {
