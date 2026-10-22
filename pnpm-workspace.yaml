@@ -1,0 +1,12 @@
+packages: []
+
+allowBuilds:
+  unrs-resolver: false
+
+overrides:
+  minimatch: 9.0.7
+
+minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - js-yaml@4.3.2
+  - smol-toml@1.9.1

@@ -1,0 +1,151 @@
+name: Platform compatibility
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  sdk-supported-runtimes:
+    name: SDK (Node.js ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - node-version: 22.0.0
+            full_suite: false
+          - node-version: 24
+            full_suite: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck tests
+        run: pnpm run tests:typecheck
+
+      - name: Build package
+        run: pnpm run build
+
+      - name: Run linting
+        if: matrix.full_suite
+        run: pnpm run lint
+
+      - name: Run unit tests
+        if: matrix.full_suite
+        run: pnpm run test
+
+      - name: Run HTTP end-to-end tests
+        if: matrix.full_suite
+        run: pnpm run test:e2e
+
+      - name: Verify checkout bootstrap compatibility
+        if: matrix.full_suite
+        run: pnpm run test:bootstrap:package
+
+      - name: Verify independently packed consumers
+        run: pnpm run test:package:packed
+
+  demo-node-24:
+    name: Server and browser demo (Node.js 24)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            server/pnpm-lock.yaml
+            server/frontend/pnpm-lock.yaml
+
+      - name: Install SDK dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build SDK
+        run: pnpm run build
+
+      - name: Install server dependencies
+        run: pnpm --dir server install --frozen-lockfile
+
+      - name: Install frontend dependencies
+        run: pnpm --dir server/frontend install --frozen-lockfile
+
+      - name: Lint server
+        run: pnpm --dir server run lint
+
+      - name: Test server
+        run: pnpm --dir server run test
+
+      - name: Build server and browser demo
+        run: pnpm --dir server run build
+
+      - name: Test browser stubs
+        run: pnpm --dir server run test:stubs
+
+      - name: Test frontend
+        run: pnpm --dir server/frontend run test:run
+
+      - name: Verify production browser bundle
+        run: pnpm --dir server run test:before-browser
+
+  sdk-next-runtime:
+    name: SDK readiness (Node.js 26, non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 26
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck tests
+        run: pnpm run tests:typecheck
+
+      - name: Build package
+        run: pnpm run build
+
+      - name: Run unit tests
+        run: pnpm run test
+
+      - name: Verify independently packed consumers
+        run: pnpm run test:package:packed

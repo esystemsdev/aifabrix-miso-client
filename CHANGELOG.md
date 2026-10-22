@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Node runtime support** - The published SDK support floor moves from the
+  previously documented Node.js 18+ contract to Node.js 22+, while repository
+  development and the private demo applications use Node.js 24.
+
+### Migration
+
+- Consumers on Node.js 18 or 20 must upgrade to a supported Node.js 22 or newer
+  runtime before adopting the next published package containing this change.
+
 ## [5.0.6] - 2026-10-15
 
 ### Technical

@@ -28,7 +28,7 @@ This application demonstrates all features of the DataClient, including:
 
 ### Prerequisites
 
-- Node.js 18+ and pnpm
+- Node.js 24+ and the repository-pinned pnpm version
 - Miso Controller running (for authentication)
 - Environment variables configured (see Configuration section)
 
