@@ -30,7 +30,7 @@ async function runTests() {
   console.log('🧪 Testing Node.js stubs...\n');
 
   // Test ioredis-commands - CRITICAL: This catches the reduce() error
-  test('@ioredis/commands exports array as default', async () => {
+  await test('@ioredis/commands exports array as default', async () => {
     // Use dynamic import since package.json has "type": "module"
     const stubPath = path.join(stubsDir, 'ioredis-commands.js');
     const fileUrl = 'file://' + stubPath;
@@ -59,7 +59,7 @@ async function runTests() {
     }
   });
 
-  test('@ioredis/commands exports list property', () => {
+  await test('@ioredis/commands exports list property', () => {
     const stubPath = path.join(stubsDir, 'ioredis-commands.js');
     delete require.cache[require.resolve(stubPath)];
 
@@ -70,7 +70,7 @@ async function runTests() {
     }
   });
 
-  test('@ioredis/commands exports helper functions', () => {
+  await test('@ioredis/commands exports helper functions', () => {
     const stubPath = path.join(stubsDir, 'ioredis-commands.js');
     delete require.cache[require.resolve(stubPath)];
 
@@ -88,7 +88,7 @@ async function runTests() {
   });
 
   // Test util.inherits
-  test('util.inherits is a function', () => {
+  await test('util.inherits is a function', () => {
     const stubPath = path.join(stubsDir, 'util.js');
     delete require.cache[require.resolve(stubPath)];
 
@@ -109,7 +109,7 @@ async function runTests() {
   });
 
   // Test EventEmitter can be extended
-  test('EventEmitter can be extended', () => {
+  await test('EventEmitter can be extended', () => {
     const stubPath = path.join(stubsDir, 'events.js');
     delete require.cache[require.resolve(stubPath)];
 
@@ -128,14 +128,14 @@ async function runTests() {
   });
 
   // Test Buffer - skip TypeScript files in Node.js test (they work in browser via Vite)
-  test('Buffer.from() works', async () => {
+  await test('Buffer.from() works', async () => {
     // Skip TypeScript files - they're handled by Vite in browser
     // In browser, Vite compiles them, so this test would need ts-node or similar
     console.log('⏭️  Skipping Buffer.ts test (TypeScript - tested in browser build)');
   });
 
   // Test ioredis
-  test('ioredis exports Redis constructor', async () => {
+  await test('ioredis exports Redis constructor', async () => {
     const stubPath = path.join(stubsDir, 'ioredis.js');
     const fileUrl = 'file://' + stubPath;
     const redisModule = await import(fileUrl);
@@ -152,7 +152,7 @@ async function runTests() {
   });
 
   // Test redis-parser
-  test('redis-parser exports Parser constructor', () => {
+  await test('redis-parser exports Parser constructor', () => {
     const stubPath = path.join(stubsDir, 'redis-parser.js');
     delete require.cache[require.resolve(stubPath)];
 
