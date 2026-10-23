@@ -117,5 +117,9 @@ if (!Array.isArray(module.exports)) {
 }
 `;
 
-fs.writeFileSync(stubDest, pureCommonJSStub, 'utf8');
-console.log('✅ Created pure CommonJS stub at node_modules/@ioredis/commands/index.js');
+if (fs.existsSync(path.dirname(stubDest))) {
+  fs.writeFileSync(stubDest, pureCommonJSStub, 'utf8');
+  console.log('✅ Created pure CommonJS stub at node_modules/@ioredis/commands/index.js');
+} else {
+  console.log('ℹ️  Root @ioredis/commands is not hoisted; Vite uses the configured source stub');
+}

@@ -1,0 +1,11 @@
+packages: []
+
+allowBuilds:
+  '@swc/core': true
+  esbuild: true
+  unrs-resolver: false
+
+overrides:
+  minimatch: 9.0.7
+
+minimumReleaseAge: 4320

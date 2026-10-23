@@ -118,6 +118,9 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 
 Get your application secured in 30 seconds.
 
+Requires Node.js 22 or newer. This repository develops and validates the SDK on
+Node.js 24.
+
 ### Step 1: Install
 
 ```bash

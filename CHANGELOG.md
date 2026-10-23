@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.1.0] - 2026-10-23
+
+### Changed
+
+- **Node runtime support** - The published SDK support floor moves from the
+  previously documented Node.js 18+ contract to Node.js 22+, while repository
+  development and the private demo applications use Node.js 24.
+
+### Technical
+
+- Pin pnpm 12.11.2, adopt the canonical platform baseline and controlled install
+  policies, and add required Node.js 22/24 plus non-blocking Node.js 26 CI coverage.
+- Add independent packed-package consumers for CommonJS/ESM exports, Node-only
+  bootstrap isolation, and Express 4/5 declarations, while retaining server,
+  frontend, browser-bundle, HTTP and bootstrap validation.
+- Update the publication workflow to Node.js 24, exact pnpm, packed-consumer proof
+  and npm provenance, and add grouped dependency update configuration.
+
+### Migration
+
+- Consumers on Node.js 18 or 20 must upgrade to a supported Node.js 22 or newer
+  runtime before adopting the next published package containing this change.
+
 ## [5.0.6] - 2026-10-15
 
 ### Technical
