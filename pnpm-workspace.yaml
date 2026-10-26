@@ -8,5 +8,6 @@ overrides:
 
 minimumReleaseAge: 4320
 minimumReleaseAgeExclude:
+  - '@aifabrix/*'
   - js-yaml@4.3.2
   - smol-toml@1.9.1
