@@ -9,3 +9,5 @@ overrides:
   minimatch: 9.0.7
 
 minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  - '@aifabrix/*'
