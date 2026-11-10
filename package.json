@@ -76,7 +76,7 @@
   "author": "AI Fabrix Team",
   "license": "MIT",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   },
   "packageManager": "pnpm@12.11.2",
   "peerDependencies": {

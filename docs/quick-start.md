@@ -4,7 +4,7 @@ Install, configure with .env, initialize the client, and validate tokens and get
 
 ## Prerequisites
 
-- Node.js 22+
+- Node.js 24+
 - Keycloak and Miso Controller running (or use [AI Fabrix Builder](https://github.com/esystemsdev/aifabrix-builder))
 
 ## 1. Install
