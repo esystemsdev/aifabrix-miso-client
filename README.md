@@ -1062,6 +1062,15 @@ The SDK consists of five core services:
 
 → [Docs index](docs/README.md)
 
+### CI runtime validation
+
+Pull requests and pushes to `main` retain the policy-required Node.js 22 package
+floor, full Node.js 24 SDK checks, and the Node.js 24 server/browser demo. Optional
+Node.js 26 readiness runs only when the **Platform compatibility** workflow is
+manually dispatched. Superseded validation is cancelled only for a newer run of
+the same pull request; `main` pushes and manual readiness runs remain independent.
+Publishing continues through the separate release workflow.
+
 ---
 
 ## 🌐 Setup Your Application
