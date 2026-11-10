@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0] - 2026-11-10
+
+### Changed
+
+- **Node runtime support** - The published SDK now requires Node.js 24 or newer.
+  Node.js 22 is no longer supported.
+
+### Technical
+
+- Run required SDK, packed-consumer, bootstrap, HTTP and server/browser demo
+  validation on Node.js 24, remove the Node.js 22 compatibility lane and delete
+  the optional Node.js 26 readiness job.
+- Cancel superseded pull-request validation while keeping `main` and manual runs
+  independent, and align the repository with the canonical platform policy.
+- Allow freshly published internal `@aifabrix/*` packages through the existing
+  dependency release-age policy while preserving its controls for external
+  packages.
+
+### Migration
+
+- Upgrade the application runtime to Node.js 24 before adopting version 5.2.0.
+  Node.js 22 consumers must remain on an earlier SDK version until their runtime
+  is upgraded.
+- This minor release is an explicitly approved version-policy exception and is
+  not runtime-backward-compatible for Node.js 22 users.
+
 ## [5.1.0] - 2026-10-23
 
 ### Changed
