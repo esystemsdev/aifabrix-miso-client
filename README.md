@@ -118,7 +118,7 @@ The **AI Fabrix Miso Client SDK** provides authentication, authorization, and lo
 
 Get your application secured in 30 seconds.
 
-Requires Node.js 22 or newer. This repository develops and validates the SDK on
+Requires Node.js 24 or newer. This repository develops and validates the SDK on
 Node.js 24.
 
 ### Step 1: Install
@@ -1061,6 +1061,13 @@ The SDK consists of five core services:
 - **RedisService** - Caching and queue management (optional)
 
 → [Docs index](docs/README.md)
+
+### CI runtime validation
+
+Pull requests and pushes to `main` run the required Node.js 24 SDK checks and the
+Node.js 24 server/browser demo. Superseded validation is cancelled only for a
+newer run of the same pull request; `main` pushes and manual workflow runs remain
+independent. Publishing continues through the separate release workflow.
 
 ---
 

@@ -1,6 +1,6 @@
 {
   "name": "@aifabrix/miso-client",
-  "version": "5.1.0",
+  "version": "5.2.0",
   "description": "AI Fabrix Client SDK - Authentication, authorization, logging, and Express.js utilities",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -76,7 +76,7 @@
   "author": "AI Fabrix Team",
   "license": "MIT",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0"
   },
   "packageManager": "pnpm@12.11.2",
   "peerDependencies": {
