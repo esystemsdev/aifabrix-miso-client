@@ -110,7 +110,7 @@
     "express": "^5.2.1",
     "jest": "^30.4.2",
     "js-yaml": "^4.3.2",
-    "minimatch": "9.0.7",
+    "minimatch": "11.0.1",
     "prettier": "^3.9.6",
     "smol-toml": "1.9.1",
     "ts-jest": "^29.4.12",
