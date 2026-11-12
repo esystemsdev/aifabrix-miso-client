@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Automatic HTTP diagnostics omit request and response bodies for security API
+  routes, including debug and failure records, while retaining safe status,
+  timing and correlation metadata. Security-route log errors use a fixed message
+  so response-only plaintext cannot be echoed.
+- Default log masking now covers `plaintext`, `value` and `encryptionKey` in
+  packaged and fallback configurations.
+
 ## [5.2.0] - 2026-11-10
 
 ### Changed

@@ -36,6 +36,9 @@ export const HARDCODED_SENSITIVE_FIELDS: ReadonlySet<string> = new Set([
   "refreshtoken",
   "privatekey",
   "secretkey",
+  "encryptionkey",
+  "plaintext",
+  "value",
 ]);
 
 function isBrowserEnvironment(): boolean {

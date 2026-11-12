@@ -25,6 +25,7 @@ const report = {
   checks: [],
   requests: [],
   remoteCleanupRequired: false,
+  events: {},
 };
 const secrets = new Set();
 let leaked = false;
@@ -45,6 +46,41 @@ const inspect = (value) => {
     text = "";
   }
   diagnosticText.push(text);
+};
+const attachEventCapture = (client, mode) => {
+  const counts = { total: 0, audit: 0, debug: 0 };
+  report.events[mode] = counts;
+  const listener = (entry) => {
+    counts.total++;
+    if (entry?.level === "audit") counts.audit++;
+    if (entry?.level === "debug") counts.debug++;
+    inspect(entry);
+  };
+  client.log.on("log", listener);
+  const effective = client.getConfig();
+  check(`${mode}-debug-enabled`, effective.logLevel === "debug");
+  check(`${mode}-event-capture-enabled`, effective.emitEvents === true);
+  return async (minimumEvents) => {
+    let previous = -1;
+    let stableTurns = 0;
+    const deadline = Date.now() + 1000;
+    while (
+      Date.now() < deadline &&
+      (counts.total < minimumEvents || stableTurns < 2)
+    ) {
+      await delay(10);
+      if (counts.total >= minimumEvents && counts.total === previous) {
+        stableTurns++;
+      } else {
+        stableTurns = 0;
+      }
+      previous = counts.total;
+    }
+    client.log.off("log", listener);
+    check(`${mode}-event-count-drained`, counts.total >= minimumEvents);
+    check(`${mode}-safe-audit-event-exists`, counts.audit > 0);
+    check(`${mode}-safe-debug-event-exists`, counts.debug > 0);
+  };
 };
 for (const method of ["log", "info", "warn", "error", "debug"])
   console[method] = (...args) => {
@@ -71,7 +107,9 @@ axios.defaults.adapter = async (config) => {
         ? "grant"
         : config.url.endsWith("/auth/bootstrap")
           ? "bootstrap"
-          : "other";
+          : config.url.includes("/logs")
+            ? "log"
+            : "other";
   const request = { endpoint, status: null };
   const body = parse(config.data);
   if (endpoint !== "grant")
@@ -173,9 +211,12 @@ async function local(settings) {
     clientSecret: settings.secret,
     encryptionKey: settings.key,
     cache: { encryptionCacheTTL: 0 },
+    logLevel: "debug",
+    emitEvents: true,
     validateResponses: false,
   });
   await client.initialize();
+  const finishEvents = attachEventCapture(client, "local");
   try {
     await roundTrip(
       "local",
@@ -187,12 +228,14 @@ async function local(settings) {
         ...client.getConfig(),
         encryptionKey: badKey,
       });
+      const finishInvalidEvents = attachEventCapture(invalid, "local-invalid");
       try {
         await invalid.encryption.encrypt(
           "invalid-key-probe",
           `${report.runId}-local`,
         );
       } finally {
+        await finishInvalidEvents(2);
         await invalid.disconnect();
       }
     });
@@ -202,17 +245,25 @@ async function local(settings) {
       (v, n) => client.encryption.decrypt(v, n),
     );
   } finally {
-    await delay(50);
+    await finishEvents(8);
     await client.disconnect();
   }
 }
 async function managed(settings) {
   const runtime = await initSecrets();
+  const client = new MisoClient({
+    ...runtime.client.getConfig(),
+    logLevel: "debug",
+    emitEvents: true,
+    validateResponses: false,
+  });
+  await client.initialize();
+  const finishEvents = attachEventCapture(client, "managed");
   try {
     const key = runtime.secrets.get("ENCRYPTION_KEY") || settings.key;
     remember(key);
     const call = (operation, body) =>
-      runtime.client.requestWithAuthStrategy(
+      client.requestWithAuthStrategy(
         "POST",
         `/api/security/parameters/${operation}`,
         { methods: ["client-token"] },
@@ -233,7 +284,8 @@ async function managed(settings) {
     );
     await roundTrip("managed-recovery", encrypt, decrypt);
   } finally {
-    await delay(50);
+    await finishEvents(10);
+    await client.disconnect();
     await runtime.close();
   }
 }
@@ -256,6 +308,8 @@ async function main() {
     MISO_CONTROLLER_URL: settings.url,
     MISO_CLIENTID: settings.id,
     MISO_CLIENTSECRET: settings.secret,
+    MISO_LOG_LEVEL: "debug",
+    MISO_EMIT_EVENTS: "true",
   });
   credentialSettings(); // Same trusted HTTPS/internal-HTTP policy as managed SDK initialization.
   for (const [name, run] of [
@@ -279,6 +333,7 @@ try {
 for (const text of diagnosticText)
   for (const secret of secrets) if (text.includes(secret)) leaked = true;
 check("diagnostics-redacted", !leaked);
+check("shared-log-delivery-disabled", count("log") === 0);
 const passed =
   report.checks.every((c) => c.passed) &&
   count("encrypt") >= 6 &&

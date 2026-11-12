@@ -67,6 +67,18 @@ Level threshold behavior:
 - `logLevel=warn`: warn/error/audit
 - `logLevel=error`: error/audit
 
+Automatic HTTP diagnostics never include request or response bodies for
+`/api/security/` routes, even at debug level or when custom field masking is
+permissive. Failure records use a fixed safe message and retain non-secret method,
+URL, status, duration, size and correlation metadata. This logging policy does not
+change the request payload, returned plaintext or error delivered to the caller.
+
+Default recursive masking also treats `plaintext`, `value`, `encryptionKey`,
+`secret` and compound names such as `clientSecret` as sensitive. Because `value`
+is intentionally generic, use a custom sensitive-fields configuration only when
+you understand the reduced diagnostic protection; the security-route body rule
+cannot be disabled by custom masking.
+
 With request context (Express):
 
 ```typescript

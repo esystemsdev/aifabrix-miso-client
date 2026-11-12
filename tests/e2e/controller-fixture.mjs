@@ -86,6 +86,10 @@ export async function controllerFixture() {
           values.set(value, body.plaintext);
           return send(200, { value, storage: "local" });
         }
+        if (req.url.endsWith("/delete")) {
+          values.delete(body.value);
+          return send(200, { success: true });
+        }
         return send(200, { plaintext: values.get(body.value) });
       }
       return send(200, { success: true });

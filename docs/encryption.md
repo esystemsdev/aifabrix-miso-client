@@ -57,6 +57,10 @@ retry with another identity. Set `cache: { encryptionCacheTTL: 0 }` when verifyi
 actual encrypt/decrypt requests. The [manual test instructions](../tests/manual/README.md#live-encryption)
 cover dedicated-app local and managed bootstrap tests, invalid keys and recovery.
 
+Automatic HTTP audit/debug records omit encryption-route request and response
+bodies unconditionally. Safe status and correlation metadata remain available;
+the plaintext returned by `decrypt` and caller-visible errors are unchanged.
+
 ## Summary
 
 | Need            | Use                                                   |
