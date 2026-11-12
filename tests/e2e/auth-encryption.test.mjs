@@ -8,7 +8,7 @@ const { MisoClient } = require("../../dist/miso-client.js");
 const { initSecrets } = require("../../dist/bootstrap/index.js");
 const { extractErrorInfo } = require("../../dist/utils/error-extractor.js");
 
-async function setup(t, managed = false) {
+async function setup(t, managed = false, overrides = {}) {
   const fixture = await controllerFixture();
   const saved = { ...process.env };
   let runtime;
@@ -28,6 +28,10 @@ async function setup(t, managed = false) {
       MISO_CONTROLLER_URL: fixture.url,
       MISO_CLIENTID: credentials.id,
       MISO_CLIENTSECRET: credentials.secret,
+      ...(overrides.logLevel ? { MISO_LOG_LEVEL: overrides.logLevel } : {}),
+      ...(overrides.emitEvents !== undefined
+        ? { MISO_EMIT_EVENTS: String(overrides.emitEvents) }
+        : {}),
     });
     runtime = await initSecrets();
     client = runtime.client;
@@ -39,6 +43,7 @@ async function setup(t, managed = false) {
       encryptionKey: credentials.key,
       cache: { encryptionCacheTTL: 0 },
       validateResponses: false,
+      ...overrides,
     });
     await client.initialize();
   }
@@ -178,6 +183,72 @@ test("public encryption round trip, invalid-key diagnostics and recovery over HT
     fixture.requests.filter((r) => r.path.endsWith("/decrypt")).length,
     1,
   );
+});
+
+test("security encrypt/decrypt/delete emit safe debug records over real HTTP", async (t) => {
+  const { fixture, client } = await setup(t, false, {
+    logLevel: "debug",
+    emitEvents: true,
+  });
+  const events = [];
+  client.log.on("log", (entry) => events.push(entry));
+  const plaintext = "e2e-debug-plaintext-marker";
+  const deleteMarker = "e2e-delete-innocuous-marker";
+  const parameterName = "e2e-debug-parameter";
+
+  const encrypted = await client.encryption.encrypt(plaintext, parameterName);
+  assert.equal(
+    await client.encryption.decrypt(encrypted.value, parameterName),
+    plaintext,
+  );
+  const deleted = await client.requestWithAuthStrategy(
+    "POST",
+    "/api/security/parameters/delete",
+    { methods: ["client-token"] },
+    {
+      parameterName,
+      value: encrypted.value,
+      encryptionKey: credentials.key,
+      harmless: deleteMarker,
+    },
+  );
+  assert.equal(deleted.success, true);
+
+  await delay(30);
+  const debugEvents = events.filter((entry) => entry.level === "debug");
+  assert.ok(
+    debugEvents.length >= 3,
+    "expected encrypt/decrypt/delete debug events",
+  );
+  const output = JSON.stringify(events);
+  for (const marker of [
+    plaintext,
+    encrypted.value,
+    credentials.key,
+    credentials.secret,
+    deleteMarker,
+  ])
+    assert.ok(!output.includes(marker), `Debug event leaked marker: ${marker}`);
+  assert.ok(
+    debugEvents.every(
+      (entry) =>
+        entry.context?.method === "POST" &&
+        typeof entry.context?.statusCode === "number",
+    ),
+  );
+
+  const securityCalls = fixture.requests.filter((r) =>
+    r.path.startsWith("/api/security/parameters/"),
+  );
+  assert.deepEqual(
+    securityCalls.map((r) => r.path),
+    [
+      "/api/security/parameters/encrypt",
+      "/api/security/parameters/decrypt",
+      "/api/security/parameters/delete",
+    ],
+  );
+  assert.equal(securityCalls[0].body.plaintext, plaintext);
 });
 
 for (const code of [
@@ -334,12 +405,11 @@ for (const operation of ["encrypt", "decrypt"]) {
         return true;
       });
       await delay(30);
-      const output = JSON.stringify([
-        logs,
-        fixture.requests
-          .filter((r) => r.path.includes("/logs"))
-          .map((r) => r.body),
-      ]);
+      const deliveredLogs = fixture.requests
+        .filter((r) => r.path.includes("/logs"))
+        .map((r) => r.body);
+      assert.ok(deliveredLogs.length > 0, "expected serialized log delivery");
+      const output = JSON.stringify([logs, deliveredLogs]);
       for (const secret of [
         credentials.secret,
         credentials.id,

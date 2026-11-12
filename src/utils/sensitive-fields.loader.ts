@@ -36,6 +36,19 @@ export const HARDCODED_SENSITIVE_FIELDS: ReadonlySet<string> = new Set([
   "refreshtoken",
   "privatekey",
   "secretkey",
+  "encryptionkey",
+  "plaintext",
+  "value",
+]);
+
+/**
+ * Subset of HARDCODED_SENSITIVE_FIELDS that requires full normalized-name matching.
+ * Entries must also remain in the main list; this subset only prevents substring
+ * matches such as roleValue, valueCount, dimensionValueId, and
+ * dimensionValuesProcessed.
+ */
+export const EXACT_MATCH_ONLY_FIELDS_SUBSET: ReadonlySet<string> = new Set([
+  "value",
 ]);
 
 function isBrowserEnvironment(): boolean {

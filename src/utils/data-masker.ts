@@ -8,6 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import {
   buildMergedSensitiveTokens,
+  EXACT_MATCH_ONLY_FIELDS_SUBSET,
   loadSensitiveFieldsConfigDict,
   neverMaskFieldsFromCfg,
   normalizeFieldName,
@@ -42,6 +43,7 @@ export class DataMasker {
       return true;
     }
     for (const sf of sensitiveFields) {
+      if (EXACT_MATCH_ONLY_FIELDS_SUBSET.has(sf)) continue;
       if (sf.length >= substrMin && nk.includes(sf)) {
         return true;
       }

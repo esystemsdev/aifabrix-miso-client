@@ -98,6 +98,9 @@ describe("sensitive-fields.loader", () => {
         expect(fields).toBeInstanceOf(Set);
         expect(fields.has("password")).toBe(true);
         expect(fields.has("email")).toBe(false);
+        expect(fields.has("encryptionkey")).toBe(true);
+        expect(fields.has("plaintext")).toBe(true);
+        expect(fields.has("value")).toBe(true);
       } finally {
         delete (globalThis as any).window;
       }

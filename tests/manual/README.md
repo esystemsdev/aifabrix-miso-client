@@ -89,12 +89,15 @@ this direct path does not cache encryption results or copy secrets into environm
 variables. The runtime's default encryption service does not automatically load
 snapshot encryption configuration.
 
-Both modes encrypt/decrypt a unique throwaway value, deliberately reject a wrong
-key, and prove recovery with the valid key. Reports contain only check names,
-booleans, request categories, statuses, run IDs and timestamps. Console diagnostics
-are captured in memory and checked against known secrets. Raw errors, credentials,
-plaintext and encrypted references are never written to reports. Failure, missing
-configuration or unavailable bootstrap yields a nonzero exit code.
+Both modes explicitly enable debug/event logging, encrypt/decrypt a unique
+throwaway value, deliberately reject a wrong key, and prove recovery with the
+valid key. Final SDK log events and console diagnostics are captured in memory,
+checked against known secrets, and prevented from reaching Redis or shared HTTP
+log collectors. The harness also asserts that safe audit and debug events exist.
+Reports contain only check names, booleans, event/request counts, statuses, run IDs
+and timestamps. Raw records, errors, credentials, plaintext and encrypted
+references are never written to reports. Failure, missing configuration or
+unavailable bootstrap yields a nonzero exit code.
 
 Safe reports are under `.temp/plan-validation/68.0/` (`--evidence-dir` overrides).
 Local `enc://` references require no remote cleanup. For Key Vault storage, the
