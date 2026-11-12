@@ -13,8 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   routes, including debug and failure records, while retaining safe status,
   timing and correlation metadata. Security-route log errors use a fixed message
   so response-only plaintext cannot be echoed.
-- Default log masking now covers `plaintext`, `value` and `encryptionKey` in
-  packaged and fallback configurations.
+- Default log masking covers `plaintext`, exact normalized `value` and
+  `encryptionKey` in packaged and fallback configurations. Benign composite
+  names such as `totalValue` remain visible unless explicitly configured or
+  matched by another sensitive token.
 
 ## [5.2.0] - 2026-11-10
 

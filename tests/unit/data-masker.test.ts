@@ -44,6 +44,23 @@ describe("DataMasker", () => {
       expect(DataMasker.isSensitiveField("key")).toBe(false);
       expect(DataMasker.isSensitiveField("success")).toBe(false);
     });
+
+    it.each([
+      ["value", true],
+      ["Value", true],
+      ["VALUE", true],
+      ["v_a_l_u_e", true],
+      ["totalValue", false],
+      ["defaultValue", false],
+      ["values", false],
+      ["valueCount", false],
+      ["evaluation", false],
+      ["text", false],
+      ["description", false],
+      ["secretValue", true],
+    ])("classifies exact value field %s as sensitive=%s", (field, expected) => {
+      expect(DataMasker.isSensitiveField(field)).toBe(expected);
+    });
   });
 
   describe("maskSensitiveData", () => {
@@ -138,7 +155,13 @@ describe("DataMasker", () => {
       const data = {
         plaintext: "plain-marker",
         encryptionKey: "key-marker",
-        nested: [{ value: "value-marker", secret: "secret-marker" }],
+        nested: [
+          {
+            value: "value-marker",
+            totalValue: "total-value-marker",
+            secretValue: "secret-value-marker",
+          },
+        ],
         clientSecret: "client-secret-marker",
       };
       const original = JSON.parse(JSON.stringify(data));
@@ -146,7 +169,13 @@ describe("DataMasker", () => {
       expect(DataMasker.maskSensitiveData(data)).toEqual({
         plaintext: "***MASKED***",
         encryptionKey: "***MASKED***",
-        nested: [{ value: "***MASKED***", secret: "***MASKED***" }],
+        nested: [
+          {
+            value: "***MASKED***",
+            totalValue: "total-value-marker",
+            secretValue: "***MASKED***",
+          },
+        ],
         clientSecret: "***MASKED***",
       });
       expect(data).toEqual(original);
@@ -201,6 +230,73 @@ describe("DataMasker", () => {
         { configPath: "/nonexistent/miso-sensitive.json" },
       ) as Record<string, unknown>;
       expect(masked.password).toBe("***MASKED***");
+    });
+
+    it("applies exact value semantics and precedence to per-call config", () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "miso-value-mask-"));
+      const cfgPath = path.join(dir, "mask.json");
+      try {
+        fs.writeFileSync(
+          cfgPath,
+          JSON.stringify({
+            mergeWithHardcodedDefaults: false,
+            substringMinLength: 4,
+            neverMaskFields: [],
+            fields: { custom: ["value"] },
+            fieldPatterns: [],
+          }),
+          "utf8",
+        );
+        expect(
+          DataMasker.maskSensitiveData(
+            { value: "exact", defaultValue: "visible", password: "visible" },
+            { configPath: cfgPath },
+          ),
+        ).toEqual({
+          value: "***MASKED***",
+          defaultValue: "visible",
+          password: "visible",
+        });
+
+        fs.writeFileSync(
+          cfgPath,
+          JSON.stringify({
+            mergeWithHardcodedDefaults: false,
+            substringMinLength: 4,
+            neverMaskFields: [],
+            fields: { custom: [] },
+            fieldPatterns: ["value"],
+          }),
+          "utf8",
+        );
+        expect(
+          DataMasker.maskSensitiveData(
+            { value: "exact", defaultValue: "visible" },
+            { configPath: cfgPath },
+          ),
+        ).toEqual({ value: "***MASKED***", defaultValue: "visible" });
+
+        fs.writeFileSync(
+          cfgPath,
+          JSON.stringify({
+            mergeWithHardcodedDefaults: false,
+            substringMinLength: 4,
+            neverMaskFields: ["value"],
+            fields: { custom: ["value", "totalValue"] },
+            fieldPatterns: [],
+          }),
+          "utf8",
+        );
+        expect(
+          DataMasker.maskSensitiveData(
+            { value: "visible", totalValue: "masked" },
+            { configPath: cfgPath },
+          ),
+        ).toEqual({ value: "visible", totalValue: "***MASKED***" });
+      } finally {
+        fs.unlinkSync(cfgPath);
+        fs.rmdirSync(dir);
+      }
     });
   });
 

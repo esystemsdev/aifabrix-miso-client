@@ -159,14 +159,39 @@ describe("security HTTP logging", () => {
 
   it("retains ordinary nonsecurity bodies after masking", async () => {
     const { logger, events } = eventLogger();
-    const marker = "ordinary-visible-diagnostic";
+    const exactMarker = "ordinary-exact-value-must-mask";
+    const secretMarker = "ordinary-secret-value-must-mask";
+    const compositeMarkers = [
+      "ordinary-total-value-visible",
+      "ordinary-default-value-visible",
+      "ordinary-values-visible",
+      "ordinary-value-count-visible",
+    ];
     await logHttpRequestAudit(
-      metadata("/api/users", { harmless: marker }, { success: true }),
+      metadata(
+        "/api/users",
+        {
+          value: exactMarker,
+          secretValue: secretMarker,
+          totalValue: compositeMarkers[0],
+          defaultValue: compositeMarkers[1],
+          values: compositeMarkers[2],
+          valueCount: compositeMarkers[3],
+        },
+        { success: true },
+      ),
       null,
       config,
       logger,
     );
-    expect(JSON.stringify(events)).toContain(marker);
+    const debugEvents = events.filter(
+      (entry) => (entry as { level?: string }).level === "debug",
+    );
+    expect(debugEvents.length).toBeGreaterThan(0);
+    const output = JSON.stringify(debugEvents);
+    expect(output).not.toContain(exactMarker);
+    expect(output).not.toContain(secretMarker);
+    for (const marker of compositeMarkers) expect(output).toContain(marker);
   });
 
   it("omits security bodies when logger masking is explicitly disabled", async () => {

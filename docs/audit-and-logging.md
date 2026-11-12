@@ -73,11 +73,13 @@ permissive. Failure records use a fixed safe message and retain non-secret metho
 URL, status, duration, size and correlation metadata. This logging policy does not
 change the request payload, returned plaintext or error delivered to the caller.
 
-Default recursive masking also treats `plaintext`, `value`, `encryptionKey`,
-`secret` and compound names such as `clientSecret` as sensitive. Because `value`
-is intentionally generic, use a custom sensitive-fields configuration only when
-you understand the reduced diagnostic protection; the security-route body rule
-cannot be disabled by custom masking.
+Default recursive masking also treats `plaintext`, `encryptionKey`, `secret` and
+compound names such as `clientSecret` as sensitive. The normalized field name
+`value` is exact-only: case and `_`/`-` variations that normalize exactly to
+`value` are masked, while benign composites such as `totalValue`, `defaultValue`
+and `valueCount` remain visible unless another sensitive token matches. Configure
+a composite field explicitly when it actually carries a secret. The
+security-route body rule cannot be disabled by custom masking.
 
 With request context (Express):
 
