@@ -32,7 +32,9 @@
       "cookie",
       "session",
       "encryptionkey",
-      "encryptionKey"
+      "encryptionKey",
+      "plaintext",
+      "value"
     ]
   },
   "fieldPatterns": []

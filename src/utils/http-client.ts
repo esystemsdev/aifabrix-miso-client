@@ -15,6 +15,11 @@ import { LoggerService } from "../services/logger";
 import { diagnosticMessage } from "./diagnostic-sanitizer";
 import { DataMasker } from "./data-masker";
 import {
+  maskKnownDiagnosticFields,
+  securitySafeBodies,
+  securitySafeErrorMessage,
+} from "./http-log-security";
+import {
   extractRequestMetadata,
   RequestMetadata,
   AxiosRequestConfigWithMetadata,
@@ -100,20 +105,14 @@ export class HttpClient {
     const metadata = extractRequestMetadata(response, error, this.config);
     if (!metadata) return;
     try {
-      const maskedRequestHeaders = DataMasker.maskSensitiveData(
-        metadata.requestHeaders,
-      ) as Record<string, unknown>;
-      const maskedResponseHeaders = DataMasker.maskSensitiveData(
-        metadata.responseHeaders,
-      ) as Record<string, unknown>;
-      const maskedRequestBody = this.maskKnownSensitiveFields(
-        DataMasker.maskSensitiveData(metadata.requestBody),
-      );
-      const maskedResponseBody = this.maskKnownSensitiveFields(
-        DataMasker.maskSensitiveData(metadata.responseBody),
-      );
+      const masked = this.maskTestAuditPayload(metadata);
       const requestSize = this.calculatePayloadSize(metadata.requestBody);
       const responseSize = this.calculatePayloadSize(metadata.responseBody);
+      const errorMessage = securitySafeErrorMessage(
+        metadata.url,
+        metadata.baseURL,
+        diagnosticMessage(error, this.config),
+      );
       void this.logger
         .audit(`http.request.${metadata.method}`, metadata.url, {
           method: metadata.method,
@@ -121,7 +120,7 @@ export class HttpClient {
           statusCode: metadata.statusCode,
           duration: metadata.duration,
           userId: metadata.userId || undefined,
-          error: diagnosticMessage(error, this.config),
+          error: errorMessage,
           requestSize,
           responseSize,
         })
@@ -136,19 +135,54 @@ export class HttpClient {
             duration: metadata.duration,
             userId: metadata.userId || undefined,
             timeout: metadata.config.timeout || 30000,
-            requestHeaders: maskedRequestHeaders,
-            responseHeaders: maskedResponseHeaders,
-            requestBody: maskedRequestBody,
-            responseBody: this.prepareDebugResponseBody(maskedResponseBody),
+            requestHeaders: masked.requestHeaders,
+            responseHeaders: masked.responseHeaders,
+            requestBody: masked.requestBody,
+            responseBody: this.prepareDebugResponseBody(masked.responseBody),
             requestSize,
             responseSize,
-            error: diagnosticMessage(error, this.config),
+            error: errorMessage,
           })
           .catch(() => {});
       }
     } catch {
       // Keep parity with production behavior: swallow audit errors.
     }
+  }
+
+  private maskTestAuditPayload(metadata: {
+    url: string;
+    baseURL: string;
+    requestHeaders: Record<string, unknown>;
+    responseHeaders: Record<string, unknown>;
+    requestBody: unknown;
+    responseBody: unknown;
+  }): {
+    requestHeaders: Record<string, unknown>;
+    responseHeaders: Record<string, unknown>;
+    requestBody: unknown;
+    responseBody: unknown;
+  } {
+    const bodies = securitySafeBodies(
+      metadata.url,
+      metadata.baseURL,
+      metadata.requestBody,
+      metadata.responseBody,
+    );
+    return {
+      requestHeaders: DataMasker.maskSensitiveData(
+        metadata.requestHeaders,
+      ) as Record<string, unknown>,
+      responseHeaders: DataMasker.maskSensitiveData(
+        metadata.responseHeaders,
+      ) as Record<string, unknown>,
+      requestBody: maskKnownDiagnosticFields(
+        DataMasker.maskSensitiveData(bodies.requestBody),
+      ),
+      responseBody: maskKnownDiagnosticFields(
+        DataMasker.maskSensitiveData(bodies.responseBody),
+      ),
+    };
   }
 
   private calculatePayloadSize(body: unknown): number | undefined {
@@ -175,36 +209,6 @@ export class HttpClient {
     } catch {
       return { _message: "Response body truncated" };
     }
-  }
-
-  private maskKnownSensitiveFields(value: unknown): unknown {
-    if (Array.isArray(value)) {
-      return value.map((item) => this.maskKnownSensitiveFields(item));
-    }
-    if (!value || typeof value !== "object") {
-      return value;
-    }
-
-    const sensitiveKeys = new Set([
-      "password",
-      "pass",
-      "secret",
-      "token",
-      "accessToken",
-      "refreshToken",
-      "email",
-    ]);
-    const result: Record<string, unknown> = {};
-    for (const [key, fieldValue] of Object.entries(
-      value as Record<string, unknown>,
-    )) {
-      if (sensitiveKeys.has(key)) {
-        result[key] = "***MASKED***";
-      } else {
-        result[key] = this.maskKnownSensitiveFields(fieldValue);
-      }
-    }
-    return result;
   }
 
   /**
@@ -262,7 +266,11 @@ export class HttpClient {
             statusCode: metadata.statusCode,
             duration: metadata.duration,
             userId: metadata.userId || undefined,
-            error: diagnosticMessage(error, this.config),
+            error: securitySafeErrorMessage(
+              metadata.url,
+              metadata.baseURL,
+              diagnosticMessage(error, this.config),
+            ),
           },
         );
         if (this.config.logLevel === "debug") {
@@ -272,7 +280,11 @@ export class HttpClient {
             statusCode: metadata.statusCode,
             duration: metadata.duration,
             userId: metadata.userId || undefined,
-            error: diagnosticMessage(error, this.config),
+            error: securitySafeErrorMessage(
+              metadata.url,
+              metadata.baseURL,
+              diagnosticMessage(error, this.config),
+            ),
           });
         }
       } catch {

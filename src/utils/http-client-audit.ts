@@ -10,6 +10,10 @@ import { LoggerContextStorage } from "../services/logger/logger-context-storage"
 import { ExtractedMetadata } from "./http-client-metadata";
 import { diagnosticMessage } from "./diagnostic-sanitizer";
 import { applyMaskingStrategy } from "./http-client-masking";
+import {
+  securitySafeBodies,
+  securitySafeErrorMessage,
+} from "./http-log-security";
 
 /**
  * Log HTTP request audit event
@@ -22,14 +26,17 @@ export async function logHttpRequestAudit(
   config: MisoClientConfig,
   logger: LoggerService,
 ): Promise<void> {
+  if (!metadata) return;
   error = error
-    ? ({ message: diagnosticMessage(error, config) } as AxiosError)
+    ? ({
+        message: securitySafeErrorMessage(
+          metadata.url,
+          metadata.baseURL,
+          diagnosticMessage(error, config),
+        ),
+      } as AxiosError)
     : null;
   try {
-    if (!metadata) {
-      return;
-    }
-
     const auditConfig = config.audit || {};
     const auditLevel = auditConfig.level || "detailed";
 
@@ -139,6 +146,8 @@ async function handleStandardOrDetailedAudit(
 
 async function maskAuditPayload(
   metadata: {
+    url: string;
+    baseURL: string;
     requestHeaders: Record<string, unknown>;
     requestBody: unknown;
     responseBody: unknown;
@@ -147,11 +156,17 @@ async function maskAuditPayload(
   auditLevel: string,
   auditConfig: { maxResponseSize?: number; maxMaskingSize?: number },
 ): ReturnType<typeof applyMaskingStrategy> {
+  const bodies = securitySafeBodies(
+    metadata.url,
+    metadata.baseURL,
+    metadata.requestBody,
+    metadata.responseBody,
+  );
   return applyMaskingStrategy(
     {
       requestHeaders: metadata.requestHeaders,
-      requestBody: metadata.requestBody,
-      responseBody: metadata.responseBody,
+      requestBody: bodies.requestBody,
+      responseBody: bodies.responseBody,
       responseHeaders: metadata.responseHeaders,
     },
     auditLevel as "standard" | "detailed" | "full",
