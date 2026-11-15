@@ -45,12 +45,14 @@ describe("RFC 7807 type on the wire", () => {
         throw new Error("User not found");
       },
     };
-    app.get(
-      "/:case",
-      asyncHandler(async (req) => {
-        routes[String(req.params["case"])]();
-      }, "wireCase"),
-    );
+    for (const [path, throwError] of Object.entries(routes)) {
+      app.get(
+        `/${path}`,
+        asyncHandler(async () => {
+          throwError();
+        }, "wireCase"),
+      );
+    }
     server = await new Promise<Server>((resolve) => {
       const s = app.listen(0, "127.0.0.1", () => resolve(s));
     });
