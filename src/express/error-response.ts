@@ -4,7 +4,7 @@
  */
 
 import { Request, Response } from "express";
-import { ValidationError } from "./error-types";
+import { AppError, ValidationError } from "./error-types";
 
 /**
  * RBAC-specific extensions for RFC 7807 error responses
@@ -96,7 +96,8 @@ export function getErrorTitle(statusCode: number): string {
  * @param request - Optional Express request for instance/correlation ID.
  * @param correlationId - Optional correlation ID override.
  * @param validationErrors - Optional validation errors array.
- * @returns RFC 7807 compliant error response.
+ * @returns RFC 7807 compliant error response. An AppError's `errorType` is kept as `type`;
+ * otherwise `type` follows the status code.
  */
 export function createErrorResponse(
   error: unknown,
@@ -126,7 +127,9 @@ export function createErrorResponse(
     (request?.headers["request-id"] as string);
 
   const errorResponse: ErrorResponse = {
-    type: getErrorTypeUri(statusCode),
+    type:
+      (error instanceof AppError && error.errorType) ||
+      getErrorTypeUri(statusCode),
     title: getErrorTitle(statusCode),
     status: statusCode,
     detail: errorMessage,

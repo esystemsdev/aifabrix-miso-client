@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.2] - 2026-11-14
+
+### Fixed
+
+- `handleRouteError` and `asyncHandler` keep an `AppError`'s `errorType` as the
+  RFC 7807 `type` in the response body. Before, `createErrorResponse` built
+  `type` from the status code alone, so only `AppError.toErrorResponse()`
+  honoured `errorType`. `AppError`s without `errorType`, `AppError`s given a
+  validation-errors array, and plain `Error`s answer exactly as before; title
+  and status are unchanged.
+
+### Technical
+
+- Add a wire test that drives a real HTTP server through `asyncHandler` and
+  `handleRouteError` and checks the body callers receive.
+
 ## [5.2.1] - 2026-11-12
 
 ### Fixed
